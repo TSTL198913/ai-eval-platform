@@ -7,6 +7,10 @@ FROM python:3.10-slim
 # 设置工作目录
 WORKDIR /app
 
+# 配置 pip 使用国内镜像源加速下载
+RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple \
+    && pip config set global.trusted-host pypi.tuna.tsinghua.edu.cn
+
 # 安装系统依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \

@@ -13,6 +13,9 @@ on:
 env:
   PYTHON_VERSION: '3.10'
   NODE_VERSION: '18'
+  # 国内镜像源加速下载
+  PIP_INDEX_URL: 'https://pypi.tuna.tsinghua.edu.cn/simple'
+  PIP_TRUSTED_HOST: 'pypi.tuna.tsinghua.edu.cn'
 
 jobs:
   # =====================================================================
@@ -34,6 +37,8 @@ jobs:
 
       - name: Install dependencies
         run: |
+          pip config set global.index-url $PIP_INDEX_URL
+          pip config set global.trusted-host $PIP_TRUSTED_HOST
           pip install -r requirements.txt
           pip install black flake8 isort pytest-cov ruff
 
@@ -74,6 +79,8 @@ jobs:
 
       - name: Install dependencies
         run: |
+          pip config set global.index-url $PIP_INDEX_URL
+          pip config set global.trusted-host $PIP_TRUSTED_HOST
           pip install -r requirements.txt
 
       - name: Run tests
@@ -187,6 +194,8 @@ jobs:
 
       - name: Install dependencies
         run: |
+          pip config set global.index-url $PIP_INDEX_URL
+          pip config set global.trusted-host $PIP_TRUSTED_HOST
           pip install -r requirements.txt
 
       - name: Run integration tests

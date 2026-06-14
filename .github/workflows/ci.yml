@@ -167,8 +167,8 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=term-missing \
-            --cov-fail-under=${{ env.COVERAGE_THRESHOLD }}
+          pytest tests/unit/ tests/integration/ -v --cov=src --cov-report=xml --cov-report=term-missing \
+            --cov-fail-under=65
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
@@ -205,6 +205,17 @@ jobs:
           # type=gha 是 GitHub Actions 原生的高效缓存方案
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # 确保构建失败时能看到详细错误
+          pull: true
+
+      - name: Verify image was built
+        run: |
+          if ! docker images | grep -q ai-eval-platform; then
+            echo "Error: Docker image ai-eval-platform:test not found!"
+            exit 1
+          fi
+          echo "Docker image built successfully:"
+          docker images ai-eval-platform
 
       - name: Test Docker image
         run: |

@@ -53,7 +53,8 @@ class TestEvaluationBufferService:
 
     def test_flush_empty_buffer(self):
         service = EvaluationBufferService()
-        result = service.flush()
+        mock_session = Mock()
+        result = service.flush(db_session=mock_session)
         assert result is None
 
     def test_flush_with_items(self):

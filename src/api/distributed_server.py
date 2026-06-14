@@ -63,34 +63,34 @@ def get_rate_limiter() -> MultiDimensionRateLimiter:
 async def tracing_middleware(request: Request, call_next):
     """追踪中间件"""
     tracer = get_tracer()
-    
+
     # 提取或创建 trace context
     headers = dict(request.headers)
     span_context = SpanContextCarrier.extract(headers)
-    
+
     if span_context:
         pass
     else:
         pass
-    
+
     # 创建 span
     with TraceContext(tracer, f"{request.method} {request.url.path}") as ctx:
         ctx.span.set_attribute("http.method", request.method)
         ctx.span.set_attribute("http.url", str(request.url))
         ctx.span.set_attribute("http.host", request.headers.get("host", ""))
-        
+
         # 记录用户 IP
         client_ip = request.client.host if request.client else "unknown"
         ctx.span.set_attribute("client.ip", client_ip)
-        
+
         try:
             response = await call_next(request)
-            
+
             ctx.span.set_attribute("http.status_code", response.status_code)
-            
+
             # 添加 trace ID 到响应头
             response.headers["X-Trace-ID"] = ctx.span.trace_id
-            
+
             return response
         except Exception as e:
             ctx.span.set_status("ERROR", str(e))
@@ -104,19 +104,19 @@ async def tracing_middleware(request: Request, call_next):
 async def rate_limit_middleware(request: Request, call_next):
     """限流中间件"""
     rate_limiter = get_rate_limiter()
-    
+
     # 提取限流维度
     user_id = request.headers.get("X-User-ID")
     api_key = request.headers.get("X-API-Key")
     client_ip = request.client.host if request.client else "unknown"
-    
+
     # 检查限流
     is_allowed, result = rate_limiter.is_allowed(
         user_id=user_id,
         api_key=api_key,
         ip=client_ip,
     )
-    
+
     if not is_allowed:
         logger.warning(f"Rate limit exceeded for {user_id or api_key or client_ip}")
         return JSONResponse(
@@ -131,12 +131,12 @@ async def rate_limit_middleware(request: Request, call_next):
                 "X-RateLimit-Remaining": str(result.remaining_tokens),
             },
         )
-    
+
     response = await call_next(request)
-    
+
     # 添加限流信息到响应头
     response.headers["X-RateLimit-Remaining"] = str(result.remaining_tokens)
-    
+
     return response
 
 
@@ -149,20 +149,20 @@ async def lifespan(app: FastAPI):
     """应用生命周期"""
     # 启动
     logger.info("Starting AI Eval Platform API...")
-    
+
     # 初始化追踪
     setup_opentelemetry(
         service_name="eval-platform-api",
         otlp_endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
     )
-    
+
     # 初始化指标
     get_registry()
-    
+
     logger.info("AI Eval Platform API started")
-    
+
     yield
-    
+
     # 关闭
     logger.info("Shutting down AI Eval Platform API...")
 
@@ -199,7 +199,7 @@ app.middleware("http")(rate_limit_middleware)
 async def health_check():
     """健康检查 - 返回服务基本信息"""
     from src.config import settings
-    
+
     return {
         "status": "healthy",
         "timestamp": time.time(),
@@ -212,7 +212,7 @@ async def health_check():
 async def readiness_check():
     """
     Readiness 检查 - 检查所有依赖服务
-    
+
     检查:
     - Redis 连接
     - 数据库连接
@@ -220,13 +220,13 @@ async def readiness_check():
     """
     from src.config import settings
     from sqlalchemy import text
-    
+
     checks = {
         "redis": False,
         "database": False,
         "rabbitmq": False,
     }
-    
+
     # 检查 Redis
     try:
         redis_client = get_redis()
@@ -234,7 +234,7 @@ async def readiness_check():
         checks["redis"] = True
     except Exception as e:
         logger.warning(f"Redis health check failed: {e}")
-    
+
     # 检查数据库
     try:
         from src.infra.db.session import engine
@@ -243,7 +243,7 @@ async def readiness_check():
         checks["database"] = True
     except Exception as e:
         logger.warning(f"Database health check failed: {e}")
-    
+
     # 检查 RabbitMQ (如果 celery broker 已配置)
     if settings.celery_broker_url:
         try:
@@ -257,10 +257,10 @@ async def readiness_check():
     else:
         # 如果没配置 Celery broker，标记为 N/A
         checks["rabbitmq"] = None
-    
+
     # 判断是否就绪：Redis 和 Database 必须可用
     is_ready = checks["redis"] and checks["database"]
-    
+
     return {
         "status": "ready" if is_ready else "not_ready",
         "checks": checks,
@@ -278,12 +278,12 @@ async def liveness_check():
 async def detailed_health():
     """
     详细健康检查 - 包含所有组件状态和配置信息
-    
+
     用于运维监控和调试
     """
     from src.config import settings
     from sqlalchemy import text
-    
+
     health_info = {
         "service": {
             "name": settings.app_name,
@@ -294,10 +294,10 @@ async def detailed_health():
         "dependencies": {},
         "timestamp": time.time(),
     }
-    
+
     # 检查各组件
     components = health_info["components"]
-    
+
     # Redis
     try:
         redis_client = get_redis()
@@ -310,7 +310,7 @@ async def detailed_health():
         }
     except Exception as e:
         components["redis"] = {"status": "unhealthy", "error": str(e)}
-    
+
     # 数据库
     try:
         from src.infra.db.session import engine
@@ -323,7 +323,7 @@ async def detailed_health():
         }
     except Exception as e:
         components["database"] = {"status": "unhealthy", "error": str(e)}
-    
+
     # RabbitMQ
     try:
         if settings.celery_broker_url:
@@ -336,7 +336,7 @@ async def detailed_health():
             components["rabbitmq"] = {"status": "not_configured"}
     except Exception as e:
         components["rabbitmq"] = {"status": "unhealthy", "error": str(e)}
-    
+
     # 熔断器状态 (如果有的话)
     try:
         from src.distributed.circuit_breaker import CircuitBreakerRegistry
@@ -348,7 +348,7 @@ async def detailed_health():
         }
     except Exception:
         components["circuit_breakers"] = {"status": "not_available"}
-    
+
     return health_info
 
 
@@ -373,16 +373,16 @@ async def metrics_json():
 async def evaluate_sync(request: Request):
     """
     同步评测接口
-    
+
     直接执行评测，返回结果
     """
     body = await request.json()
-    
+
     tracer = get_tracer()
     with TraceContext(tracer, "api.evaluate_sync") as ctx:
         ctx.span.set_attribute("case_id", body.get("case_id", ""))
         ctx.span.set_attribute("domain", body.get("domain", ""))
-        
+
         try:
             # 这里应该调用评测引擎
             # 简化实现
@@ -404,24 +404,24 @@ async def evaluate_sync(request: Request):
 async def evaluate_async(request: Request, response: Response):
     """
     异步评测接口
-    
+
     提交任务到队列，立即返回 task_id
     """
     body = await request.json()
-    
+
     tracer = get_tracer()
     with TraceContext(tracer, "api.evaluate_async") as ctx:
         case_id = body.get("case_id", f"case_{int(time.time())}")
         ctx.span.set_attribute("case_id", case_id)
         ctx.span.set_attribute("domain", body.get("domain", ""))
-        
+
         try:
             # 提交 Celery 任务
             task = eval_case_task.delay(body)
-            
+
             response.headers["X-Trace-ID"] = ctx.span.trace_id
             response.headers["X-Task-ID"] = task.id
-            
+
             return {
                 "status": "queued",
                 "task_id": task.id,
@@ -436,9 +436,9 @@ async def evaluate_async(request: Request, response: Response):
 async def get_task_status(task_id: str):
     """查询任务状态"""
     from src.worker.celery_app import celery_app
-    
+
     result = celery_app.AsyncResult(task_id)
-    
+
     return {
         "task_id": task_id,
         "state": result.state,
@@ -450,15 +450,15 @@ async def get_task_status(task_id: str):
 async def get_task_result(task_id: str):
     """获取任务结果"""
     from src.worker.celery_app import celery_app
-    
+
     result = celery_app.AsyncResult(task_id)
-    
+
     if not result.ready():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Task not ready",
         )
-    
+
     return result.result
 
 
@@ -468,7 +468,7 @@ async def get_task_result(task_id: str):
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     uvicorn.run(
         "src.api.server:app",
         host="0.0.0.0",

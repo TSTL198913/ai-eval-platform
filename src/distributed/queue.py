@@ -126,7 +126,7 @@ class BaseQueue(ABC):
 class RedisListQueue(BaseQueue):
     """
     基于 Redis List 的消息队列
-    
+
     适用于简单的任务队列场景，部署简单。
     优先级通过分队列实现。
     """
@@ -151,19 +151,19 @@ class RedisListQueue(BaseQueue):
         try:
             priority_key = self._get_priority_key(message.priority)
             data = json.dumps(message.to_dict())
-            
+
             # 使用 LPUSH + BLPOP 实现 FIFO
             await asyncio.to_thread(
                 self.redis.lpush, priority_key, data
             )
-            
+
             # 如果配置了 DLQ，也记录一下
             if message.retry_count >= message.max_retries:
                 dlq_key = f"{self.DLQ_PREFIX}{self.config.queue_name}"
                 await asyncio.to_thread(
                     self.redis.lpush, dlq_key, data
                 )
-            
+
             logger.debug(f"Published message {message.message_id} to {priority_key}")
             return True
         except Exception as e:
@@ -177,25 +177,25 @@ class RedisListQueue(BaseQueue):
             [p.value for p in MessagePriority],
             reverse=True
         )
-        
+
         for priority in priorities:
             priority_key = self._get_priority_key(MessagePriority(priority))
-            
+
             # 尝试非阻塞获取
             result = await asyncio.to_thread(
                 self.redis.rpop, priority_key
             )
-            
+
             if result:
                 try:
                     data = json.loads(result)
                     message = QueueMessage.from_dict(data)
-                    
+
                     logger.debug(f"Consuming message {message.message_id}")
-                    
+
                     # 执行回调
                     await callback(message)
-                    
+
                     # 自动 ACK（实际上 Redis List 不需要显式 ACK）
                     await self.ack(message)
                     return
@@ -250,7 +250,7 @@ class RedisListQueue(BaseQueue):
 class RabbitMQQueue(BaseQueue):
     """
     RabbitMQ 消息队列实现
-    
+
     需要安装 pika 库。
     支持优先级队列、死信队列、消息确认等高级特性。
     """
@@ -308,13 +308,13 @@ class RabbitMQQueue(BaseQueue):
         """发布消息"""
         import pika
         channel = self._ensure_connection()
-        
+
         properties = pika.BasicProperties(
             delivery_mode=2,  # 持久化
             content_type="application/json",
             headers=message.headers,
         )
-        
+
         try:
             channel.basic_publish(
                 exchange="",
@@ -331,7 +331,7 @@ class RabbitMQQueue(BaseQueue):
         """消费消息"""
         channel = self._ensure_connection()
         channel.basic_qos(prefetch_count=self.config.prefetch_count)
-        
+
         def on_message(ch, method, properties, body):
             try:
                 data = json.loads(body)
@@ -341,13 +341,13 @@ class RabbitMQQueue(BaseQueue):
             except Exception as e:
                 logger.error(f"Failed to consume message: {e}")
                 ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
-        
+
         channel.basic_consume(
             queue=self.config.queue_name,
             on_message_callback=on_message,
             auto_ack=self.config.auto_ack,
         )
-        
+
         channel.start_consuming()
 
     async def ack(self, message: QueueMessage) -> None:

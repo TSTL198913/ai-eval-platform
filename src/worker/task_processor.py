@@ -75,7 +75,7 @@ class TaskResult:
 class DistributedTaskProcessor:
     """
     分布式任务处理器
-    
+
     特性:
     - 分布式锁防止重复执行
     - 熔断器保护
@@ -95,7 +95,7 @@ class DistributedTaskProcessor:
         self.worker_id = worker_id or str(uuid.uuid4())[:8]
         self._metrics = get_registry()
         self._tracer = get_tracer()
-        
+
         # 熔断器
         self._circuit_breaker = CircuitBreaker(
             f"worker_{self.worker_id}",
@@ -113,18 +113,18 @@ class DistributedTaskProcessor:
     ) -> TaskResult:
         """
         处理单个任务
-        
+
         Args:
             task: 队列消息
             evaluator_func: 评测函数 (domain, payload, llm_client) -> result
-            
+
         Returns:
             TaskResult: 任务结果
         """
         # 解析任务
         case_id = task.payload.get("case_id", "unknown")
         task_id = task.message_id
-        
+
         ctx = TaskContext(
             task_id=task_id,
             case_id=case_id,
@@ -213,7 +213,7 @@ class DistributedTaskProcessor:
                 ctx.finished_at = time.time()
                 logger.warning(f"Circuit breaker open for task {ctx.task_id}: {e}")
                 self._record_rejected(ctx.domain)
-                
+
                 # 判断是否应该重试
                 if ctx.retry_count < ctx.max_retries:
                     return TaskResult(
@@ -235,18 +235,18 @@ class DistributedTaskProcessor:
             except Exception as e:
                 ctx.finished_at = time.time()
                 latency_ms = (ctx.finished_at - start_time) * 1000
-                
+
                 logger.error(f"Task {ctx.task_id} failed: {e}", exc_info=True)
-                
+
                 # 更新熔断器
                 self._circuit_breaker._record_failure()
-                
+
                 # 更新指标
                 self._record_error(ctx.domain, type(e).__name__)
 
                 # 判断是否应该重试
                 should_retry = ctx.retry_count < ctx.max_retries
-                
+
                 return TaskResult(
                     task_id=ctx.task_id,
                     case_id=ctx.case_id,
@@ -262,7 +262,7 @@ class DistributedTaskProcessor:
             counter = self._metrics.get_metric("eval_tasks_total")
             if counter:
                 counter.inc(domain=domain, status="success")
-            
+
             histogram = self._metrics.get_metric("eval_task_duration_seconds")
             if histogram:
                 histogram.observe(latency_ms / 1000, domain=domain)
@@ -291,7 +291,7 @@ class DistributedTaskProcessor:
 class RetryPolicy:
     """
     重试策略
-    
+
     支持:
     - 固定间隔
     - 指数退避
@@ -320,10 +320,10 @@ class RetryPolicy:
             self.base_delay * (self.exponential_base ** attempt),
             self.max_delay,
         )
-        
+
         if self.jitter:
             delay = delay * (0.5 + random.random() * 0.5)
-        
+
         return delay
 
     async def execute_with_retry(
@@ -334,7 +334,7 @@ class RetryPolicy:
     ) -> Any:
         """带重试执行函数"""
         last_exception = None
-        
+
         for attempt in range(self.max_retries + 1):
             try:
                 return await func(*args, **kwargs)
@@ -346,5 +346,5 @@ class RetryPolicy:
                         f"Attempt {attempt + 1} failed, retrying in {delay:.2f}s: {e}"
                     )
                     await asyncio.sleep(delay)
-        
+
         raise last_exception

@@ -40,7 +40,7 @@ class TestLLMErrorHandling:
                 payload={"user_input": "hello", "expected_output": "hi"},
                 metadata={}
             )
-            
+
             # 应该能处理超时异常，不崩溃
             try:
                 result = engine.run(request)
@@ -66,7 +66,7 @@ class TestLLMErrorHandling:
                 payload={"user_input": "hello", "expected_output": "hi"},
                 metadata={}
             )
-            
+
             try:
                 engine.run(request)
             except ConnectionError:
@@ -91,7 +91,7 @@ class TestLLMErrorHandling:
                     payload={"user_input": "test", "expected_output": "test"},
                     metadata={}
                 )
-                
+
                 # 不应崩溃，应该有错误处理
                 try:
                     evaluator.evaluate(request)
@@ -116,7 +116,7 @@ class TestBoundaryConditions:
             payload={"user_input": "", "expected_output": ""},
             metadata={}
         )
-        
+
         result = engine.run(request)
         assert result is not None
         assert result.status in [EvaluationStatus.PASSED, EvaluationStatus.FAILED]
@@ -137,7 +137,7 @@ class TestBoundaryConditions:
             payload={"user_input": long_text, "expected_output": "response"},
             metadata={}
         )
-        
+
         # 不应因输入过长而崩溃
         result = engine.run(request)
         assert result is not None
@@ -184,7 +184,7 @@ class TestBoundaryConditions:
             payload={"user_input": "test", "expected_output": "test"},
             metadata={}
         )
-        
+
         result = engine.run(request)
         assert result is not None
 
@@ -194,7 +194,7 @@ class TestBoundaryConditions:
         from src.domain.models.base import ModelConfig
 
         client = StubLLMClient(ModelConfig(api_key="test", model_name="stub"))
-        
+
         test_cases = [
             {"user_input": "0", "expected_output": "0"},
             {"user_input": "-999999", "expected_output": "-999999"},
@@ -249,7 +249,7 @@ class TestConcurrentExecution:
         from src.domain.models.base import ModelConfig
 
         domains = ["general", "code", "code_review", "finance", "text"]
-        
+
         def evaluate_domain(domain: str, index: int):
             client = StubLLMClient(ModelConfig(api_key="test", model_name="stub"))
             evaluator = EvaluatorFactory.get(domain, client=client)
@@ -266,7 +266,7 @@ class TestConcurrentExecution:
             for i in range(10):
                 domain = domains[i % len(domains)]
                 futures.append(executor.submit(evaluate_domain, domain, i))
-            
+
             results = [f.result() for f in futures]
 
         assert len(results) == 10
@@ -308,7 +308,7 @@ class TestDataIntegrity:
 
         client = StubLLMClient(ModelConfig(api_key="test", model_name="stub"))
         evaluator = EvaluatorFactory.get("text", client=client)
-        
+
         request = EvaluationSchema(
             id="fields_test",
             type="text",
@@ -332,7 +332,7 @@ class TestEvaluatorBehavior:
     def test_all_evaluators_have_default_scoring(self):
         """验证所有评测器有默认评分机制"""
         domains = ["general", "code", "code_review", "finance", "text"]
-        
+
         for domain in domains:
             evaluator = EvaluatorFactory.get(domain, client=MagicMock())
             assert evaluator is not None
@@ -440,7 +440,7 @@ class TestSchemaValidation:
             payload={"user_input": "test", "expected_output": "test"},
             metadata={}
         )
-        
+
         # 初始状态应该是 PENDING
         assert request is not None
 
@@ -467,7 +467,7 @@ class TestPerformanceBounds:
             engine.run(request)
 
         elapsed = time.time() - start_time
-        
+
         # 20 个请求应该在合理时间内完成
         # Stub 客户端很快，所以 elapsed 可能很小，但我们只验证不崩溃
         assert elapsed >= 0

@@ -72,7 +72,7 @@ class BaseMetric:
 class Counter(BaseMetric):
     """
     计数器
-    
+
     只增不减的指标，如请求总数、错误总数
     """
 
@@ -100,7 +100,7 @@ class Counter(BaseMetric):
 class Gauge(BaseMetric):
     """
     仪表
-    
+
     可以上下变化的指标，如当前连接数、内存使用
     """
 
@@ -140,7 +140,7 @@ class Gauge(BaseMetric):
 class Histogram(BaseMetric):
     """
     直方图
-    
+
     记录值的分布，如请求延迟、响应大小
     """
 
@@ -160,7 +160,7 @@ class Histogram(BaseMetric):
         """记录观测值"""
         self._validate_labels(labels)
         key = self._label_key(labels)
-        
+
         self._sums[key] += value
         for i, bound in enumerate(self.buckets):
             if value <= bound:
@@ -171,7 +171,7 @@ class Histogram(BaseMetric):
         """获取统计信息"""
         self._validate_labels(labels)
         key = self._label_key(labels)
-        
+
         total = self._counts[key][-1]
         return {
             "count": total,
@@ -187,7 +187,7 @@ class Histogram(BaseMetric):
 class Summary(BaseMetric):
     """
     摘要
-    
+
     记录分位数，如 P50、P90、P99
     """
 
@@ -212,11 +212,11 @@ class Summary(BaseMetric):
         """获取分位数"""
         self._validate_labels(labels)
         key = self._label_key(labels)
-        
+
         values = sorted(self._values[key])
         if not values:
             return {f"q{q}": 0.0 for q in self.quantiles}
-        
+
         return {
             f"q{q}": values[int(len(values) * q)] if int(len(values) * q) < len(values) else values[-1]
             for q in self.quantiles
@@ -226,7 +226,7 @@ class Summary(BaseMetric):
 class MetricsRegistry:
     """
     指标注册中心
-    
+
     管理所有指标，提供统一采集和导出
     """
 
@@ -338,17 +338,17 @@ class MetricsRegistry:
             metric_type = self._get_metric_type(metric)
             lines.append(f"# HELP {metric.name} {metric.description}")
             lines.append(f"# TYPE {metric.name} {metric_type}")
-            
+
             if isinstance(metric, Counter):
                 for key, value in metric._values.items():
                     labels = self._format_labels(self._parse_label_key(key, metric.labels))
                     lines.append(f"{metric.name}{labels} {value}")
-                    
+
             elif isinstance(metric, Gauge):
                 for key, value in metric._values.items():
                     labels = self._format_labels(self._parse_label_key(key, metric.labels))
                     lines.append(f"{metric.name}{labels} {value}")
-                    
+
             elif isinstance(metric, Histogram):
                 for key in metric._counts:
                     stats = metric.get_stats(**self._parse_label_key(key, metric.labels))
@@ -392,52 +392,52 @@ def get_registry() -> MetricsRegistry:
 def create_standard_metrics() -> None:
     """创建标准指标"""
     registry = get_registry()
-    
+
     # 任务相关
     registry.register_counter(
         "eval_tasks_total",
         "Total number of evaluation tasks",
         ["domain", "status"],
     )
-    
+
     registry.register_histogram(
         "eval_task_duration_seconds",
         "Evaluation task duration in seconds",
         ["domain"],
     )
-    
+
     registry.register_counter(
         "eval_task_errors_total",
         "Total number of evaluation errors",
         ["domain", "error_type"],
     )
-    
+
     # LLM 相关
     registry.register_counter(
         "llm_requests_total",
         "Total number of LLM requests",
         ["model", "status"],
     )
-    
+
     registry.register_histogram(
         "llm_request_duration_seconds",
         "LLM request duration in seconds",
         ["model"],
     )
-    
+
     # 队列相关
     registry.register_gauge(
         "queue_size",
         "Current queue size",
         ["queue_name"],
     )
-    
+
     registry.register_counter(
         "queue_messages_total",
         "Total number of queue messages",
         ["queue_name", "direction"],
     )
-    
+
     # Worker 相关
     registry.register_gauge(
         "worker_active_tasks",

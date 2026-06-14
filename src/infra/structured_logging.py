@@ -82,7 +82,7 @@ class StructuredLogRecord:
     function: str = ""
     line: int = 0
     extra: Dict[str, Any] = None
-    
+
     def to_json(self) -> str:
         """转换为 JSON 字符串"""
         data = asdict(self)
@@ -97,7 +97,7 @@ class StructuredLogRecord:
 
 class JSONFormatter(logging.Formatter):
     """JSON 格式日志格式化器"""
-    
+
     def __init__(
         self,
         service_name: str = "ai-eval-platform",
@@ -106,7 +106,7 @@ class JSONFormatter(logging.Formatter):
         super().__init__()
         self.service_name = service_name
         self.environment = environment
-    
+
     def format(self, record: logging.LogRecord) -> str:
         """格式化日志记录为 JSON"""
         # 获取上下文信息
@@ -114,7 +114,7 @@ class JSONFormatter(logging.Formatter):
         span_id = get_span_id()
         user_id = user_id_var.get()
         request_id = request_id_var.get()
-        
+
         # 构建结构化日志
         log_record = StructuredLogRecord(
             timestamp=datetime.now(timezone.utc).isoformat(),
@@ -131,13 +131,13 @@ class JSONFormatter(logging.Formatter):
             line=record.lineno,
             extra=self._get_extra_fields(record)
         )
-        
+
         return log_record.to_json()
-    
+
     def _get_extra_fields(self, record: logging.LogRecord) -> Dict[str, Any]:
         """获取额外字段"""
         extra = {}
-        
+
         # 添加标准字段
         for key, value in record.__dict__.items():
             if key not in [
@@ -146,18 +146,18 @@ class JSONFormatter(logging.Formatter):
                 'exc_text', 'stack_info', 'message', 'funcName'
             ]:
                 extra[key] = value
-        
+
         # 添加异常信息
         if record.exc_info:
             extra['exception'] = self._format_exception(record.exc_info)
-        
+
         return extra
-    
+
     def _format_exception(self, exc_info) -> Dict[str, Any]:
         """格式化异常信息"""
         import traceback
         exc_type, exc_value, exc_tb = exc_info
-        
+
         return {
             'type': exc_type.__name__ if exc_type else None,
             'message': str(exc_value) if exc_value else None,
@@ -171,7 +171,7 @@ class JSONFormatter(logging.Formatter):
 
 class ColoredConsoleFormatter(logging.Formatter):
     """带颜色的控制台格式化器"""
-    
+
     # ANSI 颜色代码
     COLORS = {
         'DEBUG': '\033[36m',     # Cyan
@@ -181,36 +181,36 @@ class ColoredConsoleFormatter(logging.Formatter):
         'CRITICAL': '\033[35m',  # Magenta
     }
     RESET = '\033[0m'
-    
+
     def format(self, record: logging.LogRecord) -> str:
         """格式化日志记录"""
         # 获取颜色
         color = self.COLORS.get(record.levelname, self.RESET)
-        
+
         # 获取上下文
         trace_id = get_trace_id()
         span_id = get_span_id()
-        
+
         # 构建日志消息
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        
+
         # 基础格式
         base_msg = f"{timestamp} | {color}{record.levelname}{self.RESET} | {record.module}:{record.funcName}:{record.lineno}"
-        
+
         # 添加追踪信息
         if trace_id:
             base_msg += f" | trace:{trace_id[:8]}"
         if span_id:
             base_msg += f" | span:{span_id[:8]}"
-        
+
         # 添加消息
         base_msg += f" | {record.getMessage()}"
-        
+
         # 添加异常信息
         if record.exc_info:
             import traceback
             base_msg += f"\n{traceback.format_exception(*record.exc_info)}"
-        
+
         return base_msg
 
 
@@ -220,7 +220,7 @@ class ColoredConsoleFormatter(logging.Formatter):
 
 class LoggerConfig:
     """日志配置"""
-    
+
     def __init__(
         self,
         service_name: str = "ai-eval-platform",
@@ -234,16 +234,16 @@ class LoggerConfig:
         self.log_level = log_level
         self.json_output = json_output
         self.log_file = log_file
-    
+
     def setup(self) -> logging.Logger:
         """配置日志系统"""
         # 获取根日志器
         root_logger = logging.getLogger()
         root_logger.setLevel(getattr(logging, self.log_level.upper()))
-        
+
         # 清除现有处理器
         root_logger.handlers.clear()
-        
+
         # 添加控制台处理器
         console_handler = logging.StreamHandler(sys.stdout)
         if self.json_output:
@@ -254,7 +254,7 @@ class LoggerConfig:
         else:
             console_handler.setFormatter(ColoredConsoleFormatter())
         root_logger.addHandler(console_handler)
-        
+
         # 添加文件处理器 (如果配置)
         if self.log_file:
             file_handler = logging.FileHandler(self.log_file)
@@ -263,7 +263,7 @@ class LoggerConfig:
                 self.environment
             ))
             root_logger.addHandler(file_handler)
-        
+
         return root_logger
 
 
@@ -346,16 +346,16 @@ if __name__ == "__main__":
         log_level="DEBUG",
         json_output=False
     )
-    
+
     # 设置追踪上下文
     set_trace_context("trace-12345", "span-67890")
     set_user_context("user-001")
-    
+
     # 测试日志
     log_info("系统启动成功")
     log_debug("调试信息", component="api")
     log_warning("资源使用率较高", cpu_usage=85)
-    
+
     try:
         raise ValueError("测试异常")
     except Exception as e:

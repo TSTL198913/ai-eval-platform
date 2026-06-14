@@ -33,7 +33,7 @@ class LockResult:
 class DistributedLock:
     """
     分布式锁实现
-    
+
     特性:
     - 单实例 Redis 锁
     - 自动过期 (TTL)
@@ -62,11 +62,11 @@ class DistributedLock:
     def acquire(self) -> LockResult:
         """
         尝试获取锁
-        
+
         使用 SET NX EX 原子操作确保锁的互斥性
         """
         self.lock_value = f"{uuid.uuid4()}:{time.time()}"
-        
+
         for _ in range(self.retry_times):
             # SET key value NX EX seconds - 原子操作
             acquired = self.redis.set(
@@ -75,7 +75,7 @@ class DistributedLock:
                 nx=True,  # Only set if Not eXists
                 ex=int(self.ttl_seconds),  # Expiration in seconds
             )
-            
+
             if acquired:
                 self._acquired = True
                 return LockResult(
@@ -84,9 +84,9 @@ class DistributedLock:
                     lock_value=self.lock_value,
                     ttl_ms=int(self.ttl_seconds * 1000),
                 )
-            
+
             time.sleep(self.retry_delay)
-        
+
         return LockResult(
             state=LockState.NOT_ACQUIRED,
             lock_key=self.key,
@@ -97,12 +97,12 @@ class DistributedLock:
     def release(self) -> bool:
         """
         释放锁
-        
+
         使用 Lua 脚本确保只删除自己持有的锁
         """
         if not self._acquired or not self.lock_value:
             return False
-        
+
         # Lua 脚本：原子性地检查并删除
         lua_script = """
         if redis.call("get", KEYS[1]) == ARGV[1] then
@@ -111,7 +111,7 @@ class DistributedLock:
             return 0
         end
         """
-        
+
         try:
             result = self.redis.eval(lua_script, 1, self.key, self.lock_value)
             self._acquired = False
@@ -122,12 +122,12 @@ class DistributedLock:
     def extend(self, additional_seconds: float) -> bool:
         """
         延长锁的 TTL
-        
+
         用于长任务执行时的锁续期
         """
         if not self._acquired or not self.lock_value:
             return False
-        
+
         lua_script = """
         if redis.call("get", KEYS[1]) == ARGV[1] then
             return redis.call("expire", KEYS[1], ARGV[2])
@@ -135,7 +135,7 @@ class DistributedLock:
             return 0
         end
         """
-        
+
         result = self.redis.eval(
             lua_script, 1, self.key, self.lock_value, int(additional_seconds)
         )
@@ -159,10 +159,10 @@ class DistributedLock:
 class RedLock:
     """
     Redlock 多节点分布式锁
-    
+
     在多个独立的 Redis 实例上获取锁，提高锁的可靠性。
     多数节点成功即认为获取锁成功。
-    
+
     注意: 这里实现简化版，单实例场景足够使用。
     生产环境建议使用 redisson 或 redis-py-cluster。
     """
@@ -175,7 +175,7 @@ class RedLock:
     def lock(self, resource: str) -> Optional[str]:
         """
         获取多节点锁
-        
+
         Returns:
             lock_value if successful, None otherwise
         """

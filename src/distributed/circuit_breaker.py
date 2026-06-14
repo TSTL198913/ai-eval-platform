@@ -54,13 +54,13 @@ class CircuitBreakerError(Exception):
 class CircuitBreaker:
     """
     熔断器实现
-    
+
     状态转换:
     - CLOSED -> OPEN: 连续失败达到阈值
     - OPEN -> HALF_OPEN: 超时时间到达
     - HALF_OPEN -> CLOSED: 连续成功达到阈值
     - HALF_OPEN -> OPEN: 探测失败
-    
+
     使用示例:
         @circuit_breaker.call
         async def call_remote_service():
@@ -156,14 +156,14 @@ class CircuitBreaker:
     async def call(self, func: Callable[..., T], *args, **kwargs) -> T:
         """
         通过熔断器执行调用
-        
+
         Args:
             func: 异步调用函数
             *args, **kwargs: 函数参数
-            
+
         Returns:
             函数返回值
-            
+
         Raises:
             CircuitBreakerError: 熔断器打开时
         """
@@ -222,7 +222,7 @@ class CircuitBreaker:
 def circuit_breaker(name: str, config: Optional[CircuitBreakerConfig] = None):
     """
     熔断器装饰器工厂
-    
+
     使用示例:
         @circuit_breaker("external_api")
         async def call_external_api():
@@ -240,7 +240,7 @@ def circuit_breaker(name: str, config: Optional[CircuitBreakerConfig] = None):
 class CircuitBreakerRegistry:
     """
     熔断器注册中心
-    
+
     管理多个熔断器，方便统一监控和配置
     """
 

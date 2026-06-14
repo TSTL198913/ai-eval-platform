@@ -76,7 +76,7 @@ class ChatResponse:
 class BaseLLMClient(ABC):
     """
     LLM 客户端基类
-    
+
     提供统一的接口和通用功能
     """
 
@@ -138,18 +138,18 @@ class BaseLLMClient(ABC):
 
         try:
             messages = self._build_messages(prompt, system_prompt)
-            
+
             response = await self._circuit_breaker.call(
                 self._do_request,
                 messages,
             )
-            
+
             chat_response = self._parse_response(response)
             chat_response.latency_ms = (span.end_time or time.time()) - span.start_time
-            
+
             span.set_attribute("response.length", len(chat_response.content))
             span.set_attribute("usage.total_tokens", chat_response.usage.get("total_tokens", 0))
-            
+
             return chat_response
         except Exception as e:
             span.set_status("ERROR", str(e))
@@ -469,7 +469,7 @@ def create_llm_client(
 ) -> BaseLLMClient:
     """
     便捷函数：创建 LLM 客户端
-    
+
     从环境变量读取默认配置
     """
     import os

@@ -23,7 +23,7 @@ class TestLLMConfig:
     def test_default_config(self):
         """测试默认配置"""
         config = LLMConfig()
-        
+
         assert config.provider == LLMProvider.DEEPSEEK
         assert config.temperature == 0.7
         assert config.max_tokens == 1024
@@ -39,7 +39,7 @@ class TestLLMConfig:
             temperature=0.5,
             max_tokens=2000,
         )
-        
+
         assert config.provider == LLMProvider.OPENAI
         assert config.api_key == "sk-test"
         assert config.model_name == "gpt-4"
@@ -53,13 +53,13 @@ class TestStubLLMClient:
     def test_stub_client_response(self):
         """测试桩客户端返回"""
         client = StubLLMClient()
-        
+
         assert client.provider == LLMProvider.STUB
-        
+
         # 异步调用 (chat 是 async 方法)
         import asyncio
         response = asyncio.run(client.chat("Hello", "You are a helpful assistant"))
-        
+
         assert isinstance(response, ChatResponse)
         assert "Hello" in response.content or "模拟" in response.content
         assert response.model == "stub-model"
@@ -68,9 +68,9 @@ class TestStubLLMClient:
         """测试桩客户端异步调用"""
         import asyncio
         client = StubLLMClient()
-        
+
         response = asyncio.run(client.achat("Hello"))
-        
+
         assert isinstance(response, ChatResponse)
         assert len(response.content) > 0
 
@@ -85,9 +85,9 @@ class TestOpenAIClient:
             api_key="sk-test",
             model_name="gpt-4",
         )
-        
+
         client = OpenAIClient(config)
-        
+
         assert client.provider == LLMProvider.OPENAI
         assert client.config.model_name == "gpt-4"
 
@@ -95,9 +95,9 @@ class TestOpenAIClient:
         """测试消息构建"""
         config = LLMConfig(provider=LLMProvider.OPENAI)
         client = OpenAIClient(config)
-        
+
         messages = client._build_messages("Hello", "You are helpful")
-        
+
         assert len(messages) == 2
         assert messages[0]["role"] == "system"
         assert messages[0]["content"] == "You are helpful"
@@ -108,9 +108,9 @@ class TestOpenAIClient:
         """测试无系统提示的消息构建"""
         config = LLMConfig(provider=LLMProvider.OPENAI)
         client = OpenAIClient(config)
-        
+
         messages = client._build_messages("Hello", None)
-        
+
         assert len(messages) == 1
         assert messages[0]["role"] == "user"
         assert messages[0]["content"] == "Hello"
@@ -119,15 +119,15 @@ class TestOpenAIClient:
         """测试响应解析"""
         config = LLMConfig(provider=LLMProvider.OPENAI)
         client = OpenAIClient(config)
-        
+
         raw = {
             "choices": [{"message": {"content": "Test response"}}],
             "model": "gpt-4",
             "usage": {"total_tokens": 100},
         }
-        
+
         response = client._parse_response(raw)
-        
+
         assert response.content == "Test response"
         assert response.model == "gpt-4"
         assert response.usage["total_tokens"] == 100
@@ -140,7 +140,7 @@ class TestDeepSeekClient:
         """测试 DeepSeek 默认 URL"""
         config = LLMConfig(provider=LLMProvider.DEEPSEEK)
         client = DeepSeekClient(config)
-        
+
         assert "deepseek.com" in client.config.base_url
 
 
@@ -151,27 +151,27 @@ class TestLLMClientFactory:
         """测试创建 OpenAI 客户端"""
         config = LLMConfig(provider=LLMProvider.OPENAI)
         client = LLMClientFactory.create(config)
-        
+
         assert isinstance(client, OpenAIClient)
 
     def test_create_deepseek_client(self):
         """测试创建 DeepSeek 客户端"""
         config = LLMConfig(provider=LLMProvider.DEEPSEEK)
         client = LLMClientFactory.create(config)
-        
+
         assert isinstance(client, DeepSeekClient)
 
     def test_create_stub_client(self):
         """测试创建桩客户端"""
         config = LLMConfig(provider=LLMProvider.STUB)
         client = LLMClientFactory.create(config)
-        
+
         assert isinstance(client, StubLLMClient)
 
     def test_unsupported_provider(self):
         """测试不支持的提供者"""
         config = LLMConfig(provider="unknown_provider")
-        
+
         with pytest.raises(ValueError):
             LLMClientFactory.create(config)
 
@@ -183,14 +183,14 @@ class TestCreateLLMClient:
     def test_create_from_env(self):
         """测试从环境变量创建"""
         client = create_llm_client(provider="deepseek")
-        
+
         assert client.config.api_key == "test-key"
 
     @patch.dict("os.environ", {"DEEPSEEK_API_KEY": ""})
     def test_create_stub_without_key(self):
         """测试无 API key 时创建桩客户端"""
         client = create_llm_client(api_key="")
-        
+
         # Empty key should create StubLLMClient
         assert isinstance(client, StubLLMClient)
 
@@ -201,7 +201,7 @@ class TestCreateLLMClient:
             api_key="test",
             model_name="gpt-4-turbo",
         )
-        
+
         assert client.config.model_name == "gpt-4-turbo"
 
 

@@ -68,28 +68,28 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
-    
+
     # 任务执行配置
     task_acks_late=True,           # 任务完成后才 ACK，防止中途失败丢失
     task_reject_on_worker_lost=True,  # Worker 丢失时重新入队
     task_time_limit=120,           # 硬限制 120 秒
     task_soft_time_limit=90,       # 软限制 90 秒
-    
+
     # Worker 配置
     worker_prefetch_multiplier=4,  # 预取任务数
     worker_max_tasks_per_child=100,  # 每个子进程最多执行 100 个任务，防止内存泄漏
     worker_disable_rate_limits=False,
-    
+
     # 结果配置
     result_expires=3600,           # 结果过期时间 1 小时
     result_extended=True,          # 返回更多信息
-    
+
     # 路由配置
     task_routes={
         "src.worker.tasks.eval_case_task": {"queue": "eval_tasks"},
         "src.worker.tasks.eval_case_task_high_prio": {"queue": "eval_tasks_high"},
     },
-    
+
     # 定期任务
     beat_schedule={
         "flush-buffer-every-30s": {
@@ -171,7 +171,7 @@ class EvalTask(Task):
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """任务失败"""
         logger.error(f"Task {task_id} failed: {exc}")
-        
+
         # 更新熔断器
         try:
             cb = global_registry.get_or_create(f"task_{kwargs.get('domain', 'unknown')}")

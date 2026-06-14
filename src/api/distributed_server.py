@@ -25,8 +25,8 @@ from src.distributed.rate_limiter import (
 )
 from src.metrics import get_registry
 from src.tracing import SpanContextCarrier, TraceContext, get_tracer, setup_opentelemetry
-from src.worker.celery_app import get_redis_client
-from src.worker.tasks import eval_case_task
+from src.workers.celery_app import celery_app
+from src.workers.tasks import eval_case_task
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -44,7 +44,13 @@ def get_redis() -> redis.Redis:
     """获取 Redis 客户端"""
     global _redis_client
     if _redis_client is None:
-        _redis_client = get_redis_client()
+        import os
+        _redis_client = redis.Redis(
+            host=os.getenv("REDIS_HOST", "localhost"),
+            port=int(os.getenv("REDIS_PORT", "6379")),
+            db=int(os.getenv("REDIS_DB", "0")),
+            decode_responses=True,
+        )
     return _redis_client
 
 
@@ -438,8 +444,6 @@ async def evaluate_async(request: Request, response: Response):
 @app.get("/api/v1/tasks/{task_id}")
 async def get_task_status(task_id: str):
     """查询任务状态"""
-    from src.worker.celery_app import celery_app
-
     result = celery_app.AsyncResult(task_id)
 
     return {
@@ -452,8 +456,6 @@ async def get_task_status(task_id: str):
 @app.get("/api/v1/tasks/{task_id}/result")
 async def get_task_result(task_id: str):
     """获取任务结果"""
-    from src.worker.celery_app import celery_app
-
     result = celery_app.AsyncResult(task_id)
 
     if not result.ready():

@@ -5,8 +5,7 @@
 
 services:
   # ---------------------------------------------------------------------
-  # PostgreSQL 数据库
-  # ---------------------------------------------------------------------
+  # PostgreSQL 数据�?  # ---------------------------------------------------------------------
   postgres:
     image: postgres:15-alpine
     container_name: ai-eval-postgres
@@ -27,8 +26,7 @@ services:
       - ai-eval-network
 
   # ---------------------------------------------------------------------
-  # Redis 缓存/锁服务
-  # ---------------------------------------------------------------------
+  # Redis 缓存/锁服�?  # ---------------------------------------------------------------------
   redis:
     image: redis:7-alpine
     container_name: ai-eval-redis
@@ -75,13 +73,12 @@ services:
       dockerfile: Dockerfile
     container_name: ai-eval-api
     environment:
-      # 数据库配置
-      - DATABASE_URL=postgresql://eval:eval123@postgres:5432/ai_eval
+      # 数据库配�?      - DATABASE_URL=postgresql://eval:eval123@postgres:5432/ai_eval
       # Redis 配置
       - REDIS_URL=redis://redis:6379
       # RabbitMQ 配置
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
-      # LLM API Keys (请在 .env 中修改)
+      # LLM API Keys (请在 .env 中修�?
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
     ports:
@@ -109,10 +106,9 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: ai-eval-worker
-    command: celery -A src.worker.celery_app worker --loglevel=info
+    command: celery -A src.workers.celery_app worker --loglevel=info
     environment:
-      # 数据库配置
-      - DATABASE_URL=postgresql://eval:eval123@postgres:5432/ai_eval
+      # 数据库配�?      - DATABASE_URL=postgresql://eval:eval123@postgres:5432/ai_eval
       # Redis 配置
       - REDIS_URL=redis://redis:6379
       # RabbitMQ 配置

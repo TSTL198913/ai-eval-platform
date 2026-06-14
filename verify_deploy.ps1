@@ -2,21 +2,14 @@
 # AI Evaluation Platform - 部署验证脚本 (Windows PowerShell)
 # =====================================================================
 #
-# 功能：
-# 1. 检查服务状态
-# 2. 功能测试（API、任务队列）
+# 功能�?# 1. 检查服务状�?# 2. 功能测试（API、任务队列）
 # 3. 查看日志
-# 4. 健康检查
+# 4. 健康检�?#
+# 使用方法�?#   .\verify_deploy.ps1 [命令]
 #
-# 使用方法：
-#   .\verify_deploy.ps1 [命令]
-#
-# 命令：
-#   status    - 查看服务状态
-#   api       - 测试 API 接口
+# 命令�?#   status    - 查看服务状�?#   api       - 测试 API 接口
 #   task      - 测试任务队列
-#   health    - 健康检查
-#   logs      - 查看日志（最近 100 行）
+#   health    - 健康检�?#   logs      - 查看日志（最�?100 行）
 #   logs-all  - 查看完整日志
 #   test      - 完整功能测试
 #   help      - 显示帮助
@@ -34,8 +27,8 @@ $LOG_DIR = if ($env:LOG_DIR) { $env:LOG_DIR } else { ".\logs" }
 $PROJECT_DIR = if ($env:PROJECT_DIR) { $env:PROJECT_DIR } else { "C:\ai-eval-platform" }
 
 # 颜色输出
-function Write-Success($msg) { Write-Host "✅ $msg" -ForegroundColor Green }
-function Write-Error($msg) { Write-Host "❌ $msg" -ForegroundColor Red }
+function Write-Success($msg) { Write-Host "�?$msg" -ForegroundColor Green }
+function Write-Error($msg) { Write-Host "�?$msg" -ForegroundColor Red }
 function Write-Warning($msg) { Write-Host "⚠️  $msg" -ForegroundColor Yellow }
 function Write-Info($msg) { Write-Host "ℹ️  $msg" -ForegroundColor Cyan }
 function Write-Header($msg) {
@@ -45,15 +38,13 @@ function Write-Header($msg) {
     Write-Host "========================================" -ForegroundColor Blue
 }
 
-# 检查 Docker 服务状态
-function Get-DockerStatus {
-    Write-Header "Docker 服务状态"
+# 检�?Docker 服务状�?function Get-DockerStatus {
+    Write-Header "Docker 服务状�?
     docker compose ps
 }
 
-# 检查 API 健康状态
-function Test-ApiHealth {
-    Write-Header "API 健康检查"
+# 检�?API 健康状�?function Test-ApiHealth {
+    Write-Header "API 健康检�?
     
     Write-Host "测试: GET /health" -ForegroundColor Gray
     
@@ -66,7 +57,7 @@ function Test-ApiHealth {
             Write-Error "API 服务返回状态码: $($response.StatusCode)"
         }
     } catch {
-        Write-Error "无法连接到 API: $_"
+        Write-Error "无法连接�?API: $_"
     }
 }
 
@@ -76,7 +67,7 @@ function Test-ApiFunction {
     
     # 测试 1: 契约拦截
     Write-Host ""
-    Write-Host "测试 1: 契约拦截（无效输入应返回 CONTRACT_ERROR）" -ForegroundColor Yellow
+    Write-Host "测试 1: 契约拦截（无效输入应返回 CONTRACT_ERROR�? -ForegroundColor Yellow
     Write-Host "-------------------------------------------" -ForegroundColor DarkGray
     
     try {
@@ -99,7 +90,7 @@ function Test-ApiFunction {
     
     # 测试 2: 业务路由
     Write-Host ""
-    Write-Host "测试 2: 业务路由（finance 类型）" -ForegroundColor Yellow
+    Write-Host "测试 2: 业务路由（finance 类型�? -ForegroundColor Yellow
     Write-Host "-------------------------------------------" -ForegroundColor DarkGray
     
     try {
@@ -109,7 +100,7 @@ function Test-ApiFunction {
             payload = @{
                 case_id = "c1"
                 user_input = "10000元存一年定期，利率3%，利息多少？"
-                expected_output = "300元"
+                expected_output = "300�?
                 metadata = @{ rate = 0.03 }
             }
         } | ConvertTo-Json -Depth 10
@@ -127,7 +118,7 @@ function Test-ApiFunction {
         }
         $content | Format-Json
     } catch {
-        Write-Warning "业务路由测试失败（可能需要配置 LLM）: $_"
+        Write-Warning "业务路由测试失败（可能需要配�?LLM�? $_"
     }
     
     # 测试 3: 异步任务提交
@@ -167,9 +158,9 @@ function Test-ApiFunction {
 function Test-TaskQueue {
     Write-Header "任务队列测试"
     
-    # 检查 Redis
+    # 检�?Redis
     Write-Host ""
-    Write-Host "检查 Redis 连接..." -ForegroundColor Gray
+    Write-Host "检�?Redis 连接..." -ForegroundColor Gray
     
     try {
         $redisResult = docker compose exec -T redis redis-cli ping 2>$null
@@ -181,17 +172,17 @@ function Test-TaskQueue {
         Write-Error "Redis 连接失败: $_"
     }
     
-    # 检查 Celery Worker
+    # 检�?Celery Worker
     Write-Host ""
-    Write-Host "检查 Celery Worker..." -ForegroundColor Gray
+    Write-Host "检�?Celery Worker..." -ForegroundColor Gray
     
     try {
-        $workerStats = docker compose exec -T worker celery -A src.worker.celery_app inspect stats 2>$null
+        $workerStats = docker compose exec -T worker celery -A src.workers.celery_app inspect stats 2>$null
         if ($LASTEXITCODE -eq 0) {
             Write-Success "Celery Worker 运行正常"
         }
     } catch {
-        Write-Warning "Celery Worker 可能未运行: $_"
+        Write-Warning "Celery Worker 可能未运�? $_"
     }
 }
 
@@ -212,7 +203,7 @@ function Get-Logs {
 function Start-FullTest {
     Write-Header "完整功能测试"
     
-    Write-Host "开始全面测试..." -ForegroundColor Gray
+    Write-Host "开始全面测�?.." -ForegroundColor Gray
     Write-Host ""
     
     Get-DockerStatus
@@ -221,7 +212,7 @@ function Start-FullTest {
     Test-TaskQueue
     
     Write-Host ""
-    Write-Host "最近日志:" -ForegroundColor Yellow
+    Write-Host "最近日�?" -ForegroundColor Yellow
     docker compose logs --tail=20 2>$null
     
     Write-Header "测试完成"
@@ -235,11 +226,11 @@ function Show-Help {
     Write-Host "使用方法: .\verify_deploy.ps1 [命令]"
     Write-Host ""
     Write-Host "可用命令:"
-    Write-Host "  status     查看 Docker 服务状态"
-    Write-Host "  health     健康检查（容器 + API）"
+    Write-Host "  status     查看 Docker 服务状�?
+    Write-Host "  health     健康检查（容器 + API�?
     Write-Host "  api        API 功能测试"
     Write-Host "  task       任务队列测试"
-    Write-Host "  logs       查看日志（最近 100 行）"
+    Write-Host "  logs       查看日志（最�?100 行）"
     Write-Host "  logs-all   查看完整日志"
     Write-Host "  test       完整功能测试"
     Write-Host "  help       显示帮助"
@@ -256,8 +247,7 @@ function Show-Help {
     Write-Host ""
 }
 
-# 主程序
-switch ($Command.ToLower()) {
+# 主程�?switch ($Command.ToLower()) {
     "status" { Get-DockerStatus }
     "health" { Test-ApiHealth }
     "api" { Test-ApiHealth; Test-ApiFunction }

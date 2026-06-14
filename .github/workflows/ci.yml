@@ -140,6 +140,47 @@ jobs:
             exit 1
           fi
 
+      # 目录命名规范检查（防止 worker/workers 重复问题）
+      - name: Directory Naming Convention Check
+        run: |
+          echo "=== 检查目录命名规范 ==="
+          # 检测是否存在名称相似的目录（单数/复数形式）
+          duplicate_dirs=$(find src -type d -name "*er" | grep -E "(worker|server|client|manager)" | sort | uniq -d)
+          if [ -n "$duplicate_dirs" ]; then
+            echo "❌ 发现可能重复的目录:"
+            echo "$duplicate_dirs"
+            echo ""
+            echo "警告: 请检查是否存在类似 worker/workers 这样的重复目录"
+          fi
+          
+          # 检测单数/复数配对目录
+          for dir in src/*/; do
+            dir_name=$(basename "$dir")
+            singular="${dir_name%?}"
+            plural="${dir_name}s"
+            
+            if [ -d "src/$singular" ] && [ -d "src/$plural" ]; then
+              echo "❌ 发现可能重复的目录对: src/$singular 和 src/$plural"
+              echo "请确认是否需要保留两个目录"
+              # exit 1  # 可以根据需要启用严格模式
+            fi
+          done
+
+      # 重复代码检测
+      - name: Code Duplication Check
+        run: |
+          pip install -q radon
+          echo "=== 重复代码检测 ==="
+          # 使用 radon 检测代码复杂度和重复
+          radon cc src/ -a -s 2>&1 | head -20
+          
+          # 检查是否存在大量重复代码的文件
+          duplication_threshold=30
+          high_dup_files=$(radon cc src/ -a -s | grep -E "F[4-5]" | wc -l)
+          if [ "$high_dup_files" -gt 0 ]; then
+            echo "⚠️  发现 $high_dup_files 个高复杂度函数"
+          fi
+
   # =====================================================================
   # 单元测试（带质量门限）
   # =====================================================================

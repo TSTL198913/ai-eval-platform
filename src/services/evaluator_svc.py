@@ -20,9 +20,7 @@ def service_exception_handler(func):
         except Exception as e:
             if "ValidationError" in type(e).__name__:
                 return {"status": "error", "code": "CONTRACT_ERROR", "message": str(e)}
-            logging.error(
-                f"系统内部错误: {type(e).__name__} - {str(e)}", exc_info=True
-            )
+            logging.error(f"系统内部错误: {type(e).__name__} - {str(e)}", exc_info=True)
             return {
                 "status": "error",
                 "code": "INTERNAL_ERROR",
@@ -38,9 +36,7 @@ def _normalize_raw_data(raw_data: Dict[str, Any]) -> Dict[str, Any]:
             "id": raw_data.get("id", "unknown"),
             "type": raw_data.get("type"),
             "payload": {
-                k: v
-                for k, v in raw_data.items()
-                if k not in ["id", "type", "metadata"]
+                k: v for k, v in raw_data.items() if k not in ["id", "type", "metadata"]
             },
             "metadata": raw_data.get("metadata", {}),
         }
@@ -48,9 +44,7 @@ def _normalize_raw_data(raw_data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 @service_exception_handler
-def run_evaluation_service(
-    raw_data: Dict[str, Any], client=None
-) -> Dict[str, Any]:
+def run_evaluation_service(raw_data: Dict[str, Any], client=None) -> Dict[str, Any]:
     raw_data = _normalize_raw_data(raw_data)
     case = EvaluationSchema(**raw_data)
 

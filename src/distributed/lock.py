@@ -16,6 +16,7 @@ import redis
 
 class LockState(Enum):
     """锁状态"""
+
     ACQUIRED = "acquired"
     NOT_ACQUIRED = "not_acquired"
     RELEASED = "released"
@@ -24,6 +25,7 @@ class LockState(Enum):
 @dataclass
 class LockResult:
     """锁获取结果"""
+
     state: LockState
     lock_key: str
     lock_value: str
@@ -213,7 +215,9 @@ class RedLock:
                     return 0
                 end
                 """
-                if redis_client.eval(lua_script, 1, f"eval:lock:{resource}", lock_value):
+                if redis_client.eval(
+                    lua_script, 1, f"eval:lock:{resource}", lock_value
+                ):
                     released_count += 1
             except Exception:
                 pass

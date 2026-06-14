@@ -36,9 +36,7 @@ class BaseLLMClient(ABC):
             {"role": "user", "content": prompt},
         ]
 
-    def _build_payload(
-        self, prompt: str, system_prompt: Optional[str] = None
-    ) -> Dict:
+    def _build_payload(self, prompt: str, system_prompt: Optional[str] = None) -> Dict:
         return {
             "model": self.config.model_name,
             "messages": self._build_messages(prompt, system_prompt),

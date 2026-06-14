@@ -1,4 +1,3 @@
-
 from src.domain.evaluators.scoring import PASS_THRESHOLD
 from src.domain.evaluators.text import TextMatchEvaluator
 from src.schemas.evaluation import DomainResponse, EvaluationSchema

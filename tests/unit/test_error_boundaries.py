@@ -180,7 +180,7 @@ class TestQueueMessage:
         msg = QueueMessage(
             message_id="test-123",
             payload={"key": "value"},
-            priority=MessagePriority.HIGH
+            priority=MessagePriority.HIGH,
         )
 
         assert msg.message_id == "test-123"
@@ -224,9 +224,7 @@ class TestMetricsErrors:
 
         registry = MetricsRegistry()
         histogram = registry.register_histogram(
-            "test_empty",
-            "desc",
-            buckets=[0.1, 0.5, 1.0]
+            "test_empty", "desc", buckets=[0.1, 0.5, 1.0]
         )
 
         stats = histogram.get_stats()
@@ -248,7 +246,7 @@ class TestTracingErrors:
             span_id="span-123",
             trace_id="trace-456",
             parent_id=None,
-            start_time=time.time()
+            start_time=time.time(),
         )
 
         assert span.name == "test_operation"
@@ -311,7 +309,7 @@ class TestRegression:
                 failure_threshold=1,
                 success_threshold=1,
                 timeout_seconds=0.05,
-            )
+            ),
         )
 
         # 触发熔断

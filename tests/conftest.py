@@ -37,7 +37,9 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip_slow)
 
     if not os.getenv("REDIS_URL") and not os.getenv("CI"):
-        skip_redis = pytest.mark.skip(reason="跳过 redis 用例，需 REDIS_URL 或 CI Worker")
+        skip_redis = pytest.mark.skip(
+            reason="跳过 redis 用例，需 REDIS_URL 或 CI Worker"
+        )
         for item in items:
             if "redis" in item.keywords:
                 item.add_marker(skip_redis)

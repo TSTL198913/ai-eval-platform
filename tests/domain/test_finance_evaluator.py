@@ -1,4 +1,3 @@
-
 from src.domain.evaluators.finance import FinanceEvaluator
 from src.domain.evaluators.scoring import PASS_THRESHOLD
 from src.schemas.evaluation import DomainResponse, EvaluationSchema

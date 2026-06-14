@@ -24,7 +24,12 @@ from src.distributed.rate_limiter import (
     MultiDimensionRateLimiter,
 )
 from src.metrics import get_registry
-from src.tracing import SpanContextCarrier, TraceContext, get_tracer, setup_opentelemetry
+from src.tracing import (
+    SpanContextCarrier,
+    TraceContext,
+    get_tracer,
+    setup_opentelemetry,
+)
 from src.workers.celery_app import celery_app
 from src.workers.tasks import eval_case_task
 
@@ -45,6 +50,7 @@ def get_redis() -> redis.Redis:
     global _redis_client
     if _redis_client is None:
         import os
+
         _redis_client = redis.Redis(
             host=os.getenv("REDIS_HOST", "localhost"),
             port=int(os.getenv("REDIS_PORT", "6379")),
@@ -65,6 +71,7 @@ def get_rate_limiter() -> MultiDimensionRateLimiter:
 # =====================================================================
 # 2. 追踪中间件
 # =====================================================================
+
 
 async def tracing_middleware(request: Request, call_next):
     """追踪中间件"""
@@ -106,6 +113,7 @@ async def tracing_middleware(request: Request, call_next):
 # =====================================================================
 # 3. 限流中间件
 # =====================================================================
+
 
 async def rate_limit_middleware(request: Request, call_next):
     """限流中间件"""
@@ -149,6 +157,7 @@ async def rate_limit_middleware(request: Request, call_next):
 # =====================================================================
 # 4. 应用生命周期
 # =====================================================================
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -201,6 +210,7 @@ app.middleware("http")(rate_limit_middleware)
 # 6. API 路由
 # =====================================================================
 
+
 @app.get("/health")
 async def health_check():
     """健康检查 - 返回服务基本信息"""
@@ -245,6 +255,7 @@ async def readiness_check():
     # 检查数据库
     try:
         from src.infra.db.session import engine
+
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         checks["database"] = True
@@ -255,6 +266,7 @@ async def readiness_check():
     if settings.celery_broker_url:
         try:
             import pika
+
             params = pika.URLParameters(settings.celery_broker_url)
             connection = pika.BlockingConnection(params)
             connection.close()
@@ -322,6 +334,7 @@ async def detailed_health():
     # 数据库
     try:
         from src.infra.db.session import engine
+
         with engine.connect() as conn:
             result = conn.execute(text("SELECT 1"))
             result.scalar()
@@ -337,6 +350,7 @@ async def detailed_health():
     try:
         if settings.celery_broker_url:
             import pika
+
             params = pika.URLParameters(settings.celery_broker_url)
             connection = pika.BlockingConnection(params)
             connection.close()
@@ -349,11 +363,12 @@ async def detailed_health():
     # 熔断器状态 (如果有的话)
     try:
         from src.distributed.circuit_breaker import CircuitBreakerRegistry
+
         registry = CircuitBreakerRegistry.get_instance()
         breakers = registry.list_breakers()
         components["circuit_breakers"] = {
             "count": len(breakers),
-            "breakers": {name: cb.get_state() for name, cb in breakers.items()}
+            "breakers": {name: cb.get_state() for name, cb in breakers.items()},
         }
     except Exception:
         components["circuit_breakers"] = {"status": "not_available"}

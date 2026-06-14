@@ -27,10 +27,7 @@ class TestStructuredLogging:
 
     def test_json_formatter_basic(self):
         """测试 JSON 格式化器基础功能"""
-        formatter = JSONFormatter(
-            service_name="test-service",
-            environment="test"
-        )
+        formatter = JSONFormatter(service_name="test-service", environment="test")
 
         # 创建日志记录
         record = logging.LogRecord(
@@ -88,6 +85,7 @@ class TestStructuredLogging:
             raise ValueError("Test exception")
         except ValueError:
             import sys
+
             exc_info = sys.exc_info()
 
         # 创建日志记录
@@ -138,7 +136,7 @@ class TestStructuredLogging:
             service_name="test-service",
             environment="test",
             log_level="DEBUG",
-            json_output=True
+            json_output=True,
         )
 
         # 设置日志系统
@@ -153,10 +151,7 @@ class TestStructuredLogging:
     def test_setup_logging_function(self):
         """测试 setup_logging 函数"""
         logger = setup_logging(
-            service_name="test",
-            environment="dev",
-            log_level="INFO",
-            json_output=False
+            service_name="test", environment="dev", log_level="INFO", json_output=False
         )
 
         # 验证返回日志器
@@ -195,10 +190,7 @@ class TestStructuredLogging:
 
     def test_json_output_mode(self):
         """测试 JSON 输出模式"""
-        setup_logging(
-            json_output=True,
-            log_level="INFO"
-        )
+        setup_logging(json_output=True, log_level="INFO")
 
         logger = get_logger("test")
 
@@ -234,9 +226,5 @@ class TestLoggingIntegration:
         set_trace_context("task-trace-123", "task-span-456")
 
         logger = get_logger("worker")
-        logger.info(
-            "Task started", extra={"task_id": "task-001", "domain": "general"}
-        )
-        logger.info(
-            "Task completed", extra={"task_id": "task-001", "score": 0.95}
-        )
+        logger.info("Task started", extra={"task_id": "task-001", "domain": "general"})
+        logger.info("Task completed", extra={"task_id": "task-001", "score": 0.95})

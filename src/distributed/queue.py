@@ -23,6 +23,7 @@ T = TypeVar("T")
 
 class QueueType(Enum):
     """队列类型"""
+
     RABBITMQ = "rabbitmq"
     KAFKA = "kafka"
     REDIS_STREAM = "redis_stream"
@@ -31,6 +32,7 @@ class QueueType(Enum):
 
 class MessagePriority(Enum):
     """消息优先级"""
+
     LOW = 1
     NORMAL = 5
     HIGH = 10
@@ -40,6 +42,7 @@ class MessagePriority(Enum):
 @dataclass
 class QueueMessage(Generic[T]):
     """通用消息格式"""
+
     message_id: str
     payload: T
     priority: MessagePriority = MessagePriority.NORMAL
@@ -78,6 +81,7 @@ class QueueMessage(Generic[T]):
 @dataclass
 class QueueConfig:
     """队列配置"""
+
     queue_type: QueueType = QueueType.REDIS_LIST
     queue_name: str = "eval_tasks"
     dead_letter_queue: str = "eval_tasks_dlq"
@@ -153,16 +157,12 @@ class RedisListQueue(BaseQueue):
             data = json.dumps(message.to_dict())
 
             # 使用 LPUSH + BLPOP 实现 FIFO
-            await asyncio.to_thread(
-                self.redis.lpush, priority_key, data
-            )
+            await asyncio.to_thread(self.redis.lpush, priority_key, data)
 
             # 如果配置了 DLQ，也记录一下
             if message.retry_count >= message.max_retries:
                 dlq_key = f"{self.DLQ_PREFIX}{self.config.queue_name}"
-                await asyncio.to_thread(
-                    self.redis.lpush, dlq_key, data
-                )
+                await asyncio.to_thread(self.redis.lpush, dlq_key, data)
 
             logger.debug(f"Published message {message.message_id} to {priority_key}")
             return True
@@ -173,18 +173,13 @@ class RedisListQueue(BaseQueue):
     async def consume(self, callback: Callable[[QueueMessage], Any]) -> None:
         """从最高优先级队列开始消费"""
         # 按优先级从高到低尝试获取消息
-        priorities = sorted(
-            [p.value for p in MessagePriority],
-            reverse=True
-        )
+        priorities = sorted([p.value for p in MessagePriority], reverse=True)
 
         for priority in priorities:
             priority_key = self._get_priority_key(MessagePriority(priority))
 
             # 尝试非阻塞获取
-            result = await asyncio.to_thread(
-                self.redis.rpop, priority_key
-            )
+            result = await asyncio.to_thread(self.redis.rpop, priority_key)
 
             if result:
                 try:
@@ -202,7 +197,9 @@ class RedisListQueue(BaseQueue):
                 except Exception as e:
                     logger.error(f"Failed to process message: {e}")
                     # 消息已经在 rpop 中移除，这里模拟 nack
-                    await self.nack(QueueMessage.from_dict(json.loads(result)), requeue=False)
+                    await self.nack(
+                        QueueMessage.from_dict(json.loads(result)), requeue=False
+                    )
                     return
 
         # 所有队列都为空，短暂等待
@@ -264,6 +261,7 @@ class RabbitMQQueue(BaseQueue):
         config: Optional[QueueConfig] = None,
     ):
         import pika
+
         super().__init__(config or QueueConfig())
         self.host = host
         self.port = port
@@ -274,6 +272,7 @@ class RabbitMQQueue(BaseQueue):
     def _ensure_connection(self):
         """确保连接可用"""
         import pika
+
         if not self._connection or self._connection.is_closed:
             self._connection = pika.BlockingConnection(
                 pika.ConnectionParameters(
@@ -307,6 +306,7 @@ class RabbitMQQueue(BaseQueue):
     async def publish(self, message: QueueMessage) -> bool:
         """发布消息"""
         import pika
+
         channel = self._ensure_connection()
 
         properties = pika.BasicProperties(

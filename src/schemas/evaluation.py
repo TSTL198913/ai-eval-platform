@@ -33,6 +33,4 @@ class EvaluationSchema(BaseModel):
 
 
 # 覆盖所有潜在的领域类型
-DomainType = Literal[
-    "finance", "crm", "hr", "text", "code_review", "general", "code"
-]
+DomainType = Literal["finance", "crm", "hr", "text", "code_review", "general", "code"]

@@ -59,6 +59,7 @@ class TestStubLLMClient:
 
         # 异步调用 (chat 是 async 方法)
         import asyncio
+
         response = asyncio.run(client.chat("Hello", "You are a helpful assistant"))
 
         assert isinstance(response, ChatResponse)
@@ -68,6 +69,7 @@ class TestStubLLMClient:
     def test_stub_client_async(self):
         """测试桩客户端异步调用"""
         import asyncio
+
         client = StubLLMClient()
 
         response = asyncio.run(client.achat("Hello"))

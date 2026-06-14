@@ -4,8 +4,7 @@ from src.domain.evaluators.scoring import is_passing, score_text_similarity
 from src.schemas.evaluation import DomainResponse
 
 DEFAULT_TEXT_PROMPT = (
-    "你是一个文本评测助手。请准确、简洁地回答用户问题，"
-    "回答应与预期语义一致。"
+    "你是一个文本评测助手。请准确、简洁地回答用户问题，回答应与预期语义一致。"
 )
 
 

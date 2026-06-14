@@ -18,8 +18,15 @@ def test_feature(name, data):
 test_feature("契约拦截", {"wrong": "data"})
 
 # 实测 2: 领域路由 (你将看到评估结果)
-test_feature("业务路由", {
-    "id": "LIVE_001",
-    "type": "finance",
-    "payload": {"case_id": "c1", "user_input": "我想了解定投建议", "metadata": {"rate": 0.05}}
-})
+test_feature(
+    "业务路由",
+    {
+        "id": "LIVE_001",
+        "type": "finance",
+        "payload": {
+            "case_id": "c1",
+            "user_input": "我想了解定投建议",
+            "metadata": {"rate": 0.05},
+        },
+    },
+)

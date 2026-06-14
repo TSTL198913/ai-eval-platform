@@ -2,7 +2,6 @@
 追踪和指标单元测试
 """
 
-
 import pytest
 
 from src.metrics import (
@@ -247,9 +246,9 @@ class TestHistogram:
         )
 
         histogram.observe(0.05)  # < 0.1
-        histogram.observe(0.3)   # < 0.5
-        histogram.observe(0.8)   # < 1.0
-        histogram.observe(2.0)   # >= 1.0
+        histogram.observe(0.3)  # < 0.5
+        histogram.observe(0.8)  # < 1.0
+        histogram.observe(2.0)  # >= 1.0
 
         stats = histogram.get_stats()
 

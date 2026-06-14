@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class MetricType(Enum):
     """指标类型"""
+
     COUNTER = "counter"
     GAUGE = "gauge"
     HISTOGRAM = "histogram"
@@ -29,6 +30,7 @@ class MetricType(Enum):
 @dataclass
 class MetricValue:
     """指标值"""
+
     name: str
     value: float
     labels: Dict[str, str]
@@ -38,6 +40,7 @@ class MetricValue:
 @dataclass
 class HistogramBucket:
     """直方图桶"""
+
     le: float  # Less than or equal
     count: int = 0
 
@@ -152,8 +155,22 @@ class Histogram(BaseMetric):
         labels: Optional[List[str]] = None,
     ):
         super().__init__(name, description, labels)
-        self.buckets = buckets or [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
-        self._counts: Dict[str, List[int]] = defaultdict(lambda: [0] * (len(self.buckets) + 1))
+        self.buckets = buckets or [
+            0.005,
+            0.01,
+            0.025,
+            0.05,
+            0.1,
+            0.25,
+            0.5,
+            1.0,
+            2.5,
+            5.0,
+            10.0,
+        ]
+        self._counts: Dict[str, List[int]] = defaultdict(
+            lambda: [0] * (len(self.buckets) + 1)
+        )
         self._sums: Dict[str, float] = defaultdict(float)
 
     def observe(self, value: float, **labels) -> None:
@@ -302,25 +319,33 @@ class MetricsRegistry:
             if isinstance(metric, (Counter, Gauge)):
                 for key, value in metric._values.items():
                     labels = self._parse_label_key(key, metric.labels)
-                    values.append(MetricValue(
-                        name=metric.name,
-                        value=value,
-                        labels=labels,
-                    ))
+                    values.append(
+                        MetricValue(
+                            name=metric.name,
+                            value=value,
+                            labels=labels,
+                        )
+                    )
             elif isinstance(metric, Histogram):
                 for key in metric._counts:
-                    stats = metric.get_stats(**self._parse_label_key(key, metric.labels))
+                    stats = metric.get_stats(
+                        **self._parse_label_key(key, metric.labels)
+                    )
                     labels = self._parse_label_key(key, metric.labels)
-                    values.append(MetricValue(
-                        name=f"{metric.name}_count",
-                        value=stats["count"],
-                        labels=labels,
-                    ))
-                    values.append(MetricValue(
-                        name=f"{metric.name}_sum",
-                        value=stats["sum"],
-                        labels=labels,
-                    ))
+                    values.append(
+                        MetricValue(
+                            name=f"{metric.name}_count",
+                            value=stats["count"],
+                            labels=labels,
+                        )
+                    )
+                    values.append(
+                        MetricValue(
+                            name=f"{metric.name}_sum",
+                            value=stats["sum"],
+                            labels=labels,
+                        )
+                    )
         return values
 
     @staticmethod
@@ -345,18 +370,26 @@ class MetricsRegistry:
 
             if isinstance(metric, Counter):
                 for key, value in metric._values.items():
-                    labels = self._format_labels(self._parse_label_key(key, metric.labels))
+                    labels = self._format_labels(
+                        self._parse_label_key(key, metric.labels)
+                    )
                     lines.append(f"{metric.name}{labels} {value}")
 
             elif isinstance(metric, Gauge):
                 for key, value in metric._values.items():
-                    labels = self._format_labels(self._parse_label_key(key, metric.labels))
+                    labels = self._format_labels(
+                        self._parse_label_key(key, metric.labels)
+                    )
                     lines.append(f"{metric.name}{labels} {value}")
 
             elif isinstance(metric, Histogram):
                 for key in metric._counts:
-                    stats = metric.get_stats(**self._parse_label_key(key, metric.labels))
-                    labels = self._format_labels(self._parse_label_key(key, metric.labels))
+                    stats = metric.get_stats(
+                        **self._parse_label_key(key, metric.labels)
+                    )
+                    labels = self._format_labels(
+                        self._parse_label_key(key, metric.labels)
+                    )
                     lines.append(f"{metric.name}_count{labels} {stats['count']}")
                     lines.append(f"{metric.name}_sum{labels} {stats['sum']}")
 

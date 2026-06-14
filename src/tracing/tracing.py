@@ -16,13 +16,16 @@ from uuid import uuid4
 logger = logging.getLogger(__name__)
 
 # Context variable for trace ID
-current_trace_id: ContextVar[Optional[str]] = ContextVar("current_trace_id", default=None)
+current_trace_id: ContextVar[Optional[str]] = ContextVar(
+    "current_trace_id", default=None
+)
 current_span_id: ContextVar[Optional[str]] = ContextVar("current_span_id", default=None)
 
 
 @dataclass
 class SpanContext:
     """Span 上下文"""
+
     trace_id: str
     span_id: str
     parent_id: Optional[str] = None
@@ -32,6 +35,7 @@ class SpanContext:
 @dataclass
 class Span:
     """追踪 Span"""
+
     name: str
     span_id: str
     trace_id: str
@@ -48,11 +52,13 @@ class Span:
 
     def add_event(self, name: str, attributes: Optional[Dict] = None) -> None:
         """添加事件"""
-        self.events.append({
-            "name": name,
-            "timestamp": self._current_timestamp(),
-            "attributes": attributes or {},
-        })
+        self.events.append(
+            {
+                "name": name,
+                "timestamp": self._current_timestamp(),
+                "attributes": attributes or {},
+            }
+        )
 
     def set_status(self, status: str, message: str = "") -> None:
         """设置状态"""
@@ -67,6 +73,7 @@ class Span:
     @staticmethod
     def _current_timestamp() -> float:
         import time
+
         return time.time()
 
 

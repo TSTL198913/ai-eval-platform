@@ -52,8 +52,10 @@ def set_request_context(request_id: str) -> None:
 # Log Level Enum
 # =====================================================================
 
+
 class LogLevel(Enum):
     """日志级别"""
+
     DEBUG = "DEBUG"
     INFO = "INFO"
     WARNING = "WARNING"
@@ -65,9 +67,11 @@ class LogLevel(Enum):
 # Structured Log Record
 # =====================================================================
 
+
 @dataclass
 class StructuredLogRecord:
     """结构化日志记录"""
+
     timestamp: str
     level: str
     message: str
@@ -94,13 +98,12 @@ class StructuredLogRecord:
 # JSON Formatter
 # =====================================================================
 
+
 class JSONFormatter(logging.Formatter):
     """JSON 格式日志格式化器"""
 
     def __init__(
-        self,
-        service_name: str = "ai-eval-platform",
-        environment: str = "development"
+        self, service_name: str = "ai-eval-platform", environment: str = "development"
     ):
         super().__init__()
         self.service_name = service_name
@@ -128,7 +131,7 @@ class JSONFormatter(logging.Formatter):
             module=record.module,
             function=record.funcName,
             line=record.lineno,
-            extra=self._get_extra_fields(record)
+            extra=self._get_extra_fields(record),
         )
 
         return log_record.to_json()
@@ -140,27 +143,40 @@ class JSONFormatter(logging.Formatter):
         # 添加标准字段
         for key, value in record.__dict__.items():
             if key not in [
-                'name', 'msg', 'args', 'created', 'filename', 'pathname',
-                'levelname', 'levelno', 'lineno', 'module', 'exc_info',
-                'exc_text', 'stack_info', 'message', 'funcName'
+                "name",
+                "msg",
+                "args",
+                "created",
+                "filename",
+                "pathname",
+                "levelname",
+                "levelno",
+                "lineno",
+                "module",
+                "exc_info",
+                "exc_text",
+                "stack_info",
+                "message",
+                "funcName",
             ]:
                 extra[key] = value
 
         # 添加异常信息
         if record.exc_info:
-            extra['exception'] = self._format_exception(record.exc_info)
+            extra["exception"] = self._format_exception(record.exc_info)
 
         return extra
 
     def _format_exception(self, exc_info) -> Dict[str, Any]:
         """格式化异常信息"""
         import traceback
+
         exc_type, exc_value, exc_tb = exc_info
 
         return {
-            'type': exc_type.__name__ if exc_type else None,
-            'message': str(exc_value) if exc_value else None,
-            'traceback': traceback.format_exception(exc_type, exc_value, exc_tb)
+            "type": exc_type.__name__ if exc_type else None,
+            "message": str(exc_value) if exc_value else None,
+            "traceback": traceback.format_exception(exc_type, exc_value, exc_tb),
         }
 
 
@@ -168,18 +184,19 @@ class JSONFormatter(logging.Formatter):
 # Console Formatter (带颜色)
 # =====================================================================
 
+
 class ColoredConsoleFormatter(logging.Formatter):
     """带颜色的控制台格式化器"""
 
     # ANSI 颜色代码
     COLORS = {
-        'DEBUG': '\033[36m',     # Cyan
-        'INFO': '\033[32m',      # Green
-        'WARNING': '\033[33m',   # Yellow
-        'ERROR': '\033[31m',     # Red
-        'CRITICAL': '\033[35m',  # Magenta
+        "DEBUG": "\033[36m",  # Cyan
+        "INFO": "\033[32m",  # Green
+        "WARNING": "\033[33m",  # Yellow
+        "ERROR": "\033[31m",  # Red
+        "CRITICAL": "\033[35m",  # Magenta
     }
-    RESET = '\033[0m'
+    RESET = "\033[0m"
 
     def format(self, record: logging.LogRecord) -> str:
         """格式化日志记录"""
@@ -191,7 +208,7 @@ class ColoredConsoleFormatter(logging.Formatter):
         span_id = get_span_id()
 
         # 构建日志消息
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         # 基础格式
         base_msg = (
@@ -211,6 +228,7 @@ class ColoredConsoleFormatter(logging.Formatter):
         # 添加异常信息
         if record.exc_info:
             import traceback
+
             base_msg += f"\n{traceback.format_exception(*record.exc_info)}"
 
         return base_msg
@@ -219,6 +237,7 @@ class ColoredConsoleFormatter(logging.Formatter):
 # =====================================================================
 # Logger Configuration
 # =====================================================================
+
 
 class LoggerConfig:
     """日志配置"""
@@ -229,7 +248,7 @@ class LoggerConfig:
         environment: str = "development",
         log_level: str = "INFO",
         json_output: bool = False,
-        log_file: Optional[str] = None
+        log_file: Optional[str] = None,
     ):
         self.service_name = service_name
         self.environment = environment
@@ -249,10 +268,9 @@ class LoggerConfig:
         # 添加控制台处理器
         console_handler = logging.StreamHandler(sys.stdout)
         if self.json_output:
-            console_handler.setFormatter(JSONFormatter(
-                self.service_name,
-                self.environment
-            ))
+            console_handler.setFormatter(
+                JSONFormatter(self.service_name, self.environment)
+            )
         else:
             console_handler.setFormatter(ColoredConsoleFormatter())
         root_logger.addHandler(console_handler)
@@ -260,10 +278,9 @@ class LoggerConfig:
         # 添加文件处理器 (如果配置)
         if self.log_file:
             file_handler = logging.FileHandler(self.log_file)
-            file_handler.setFormatter(JSONFormatter(
-                self.service_name,
-                self.environment
-            ))
+            file_handler.setFormatter(
+                JSONFormatter(self.service_name, self.environment)
+            )
             root_logger.addHandler(file_handler)
 
         return root_logger
@@ -272,6 +289,7 @@ class LoggerConfig:
 # =====================================================================
 # Logger Factory
 # =====================================================================
+
 
 def get_logger(name: str) -> logging.Logger:
     """获取日志器"""
@@ -283,7 +301,7 @@ def setup_logging(
     environment: str = "development",
     log_level: str = "INFO",
     json_output: bool = False,
-    log_file: Optional[str] = None
+    log_file: Optional[str] = None,
 ) -> logging.Logger:
     """设置日志系统"""
     config = LoggerConfig(
@@ -291,7 +309,7 @@ def setup_logging(
         environment=environment,
         log_level=log_level,
         json_output=json_output,
-        log_file=log_file
+        log_file=log_file,
     )
     return config.setup()
 
@@ -299,6 +317,7 @@ def setup_logging(
 # =====================================================================
 # Convenience Functions
 # =====================================================================
+
 
 def log_info(message: str, **kwargs) -> None:
     """记录 INFO 日志"""
@@ -346,7 +365,7 @@ if __name__ == "__main__":
         service_name="ai-eval-platform",
         environment="development",
         log_level="DEBUG",
-        json_output=False
+        json_output=False,
     )
 
     # 设置追踪上下文

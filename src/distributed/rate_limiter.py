@@ -28,14 +28,16 @@ class RateLimitStrategy(Enum):
 @dataclass
 class RateLimitConfig:
     """限流配置"""
-    max_tokens: int = 100           # 桶容量
-    refill_rate: float = 10.0       # 每秒补充令牌数
+
+    max_tokens: int = 100  # 桶容量
+    refill_rate: float = 10.0  # 每秒补充令牌数
     initial_tokens: Optional[int] = None  # 初始令牌数，None 表示满桶
 
 
 @dataclass
 class RateLimitResult:
     """限流结果"""
+
     allowed: bool
     remaining_tokens: int
     retry_after_ms: Optional[int]
@@ -334,7 +336,9 @@ async def rate_limit_async(
         result = limiter.allow(tokens)
         if result.allowed:
             return result
-        await asyncio.sleep(result.retry_after_ms / 1000 if result.retry_after_ms else retry_delay)
+        await asyncio.sleep(
+            result.retry_after_ms / 1000 if result.retry_after_ms else retry_delay
+        )
 
     return RateLimitResult(
         allowed=False,

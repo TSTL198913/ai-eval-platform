@@ -28,15 +28,17 @@ class CircuitState(Enum):
 @dataclass
 class CircuitBreakerConfig:
     """熔断器配置"""
-    failure_threshold: int = 5          # 连续失败次数阈值，触发熔断
-    success_threshold: int = 2          # 半开状态下，连续成功次数，关闭熔断
-    timeout_seconds: float = 30.0        # 熔断持续时间，之后进入半开
-    half_open_max_calls: int = 3        # 半开状态下最大探测调用数
+
+    failure_threshold: int = 5  # 连续失败次数阈值，触发熔断
+    success_threshold: int = 2  # 半开状态下，连续成功次数，关闭熔断
+    timeout_seconds: float = 30.0  # 熔断持续时间，之后进入半开
+    half_open_max_calls: int = 3  # 半开状态下最大探测调用数
 
 
 @dataclass
 class CircuitBreakerStats:
     """熔断器统计"""
+
     total_calls: int = 0
     successful_calls: int = 0
     failed_calls: int = 0
@@ -47,6 +49,7 @@ class CircuitBreakerStats:
 
 class CircuitBreakerError(Exception):
     """熔断器打开时抛出的异常"""
+
     def __init__(self, message: str = "Circuit breaker is open"):
         self.message = message
         super().__init__(self.message)
@@ -234,7 +237,9 @@ def circuit_breaker(name: str, config: Optional[CircuitBreakerConfig] = None):
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         async def wrapper(*args, **kwargs) -> T:
             return await _breaker.call(func, *args, **kwargs)
+
         return wrapper
+
     return decorator
 
 

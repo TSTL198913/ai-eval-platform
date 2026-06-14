@@ -28,9 +28,7 @@ def test_db_failure_recovery_chaos():
 
 
 def test_flush_success_clears_buffer(db_session):
-    buffer_service.add(
-        EvaluationResultModel(case_id="FLUSH_1", status="passed")
-    )
+    buffer_service.add(EvaluationResultModel(case_id="FLUSH_1", status="passed"))
     buffer_service.flush(db_session=db_session)
     assert len(buffer_service.buffer) == 0
     assert db_session.query(EvaluationResultModel).count() == 1
@@ -41,9 +39,7 @@ def test_concurrent_write_safety():
 
     def write_task():
         for _ in range(500):
-            buffer_service.add(
-                EvaluationResultModel(case_id="CONC", status="pending")
-            )
+            buffer_service.add(EvaluationResultModel(case_id="CONC", status="pending"))
 
     threads = [threading.Thread(target=write_task) for _ in range(10)]
     for t in threads:

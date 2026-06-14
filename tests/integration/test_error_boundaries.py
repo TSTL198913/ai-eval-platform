@@ -33,13 +33,15 @@ class TestLLMErrorHandling:
 
         # Stub 客户端响应正常，但模拟超时场景
         # 通过 patch 实现超时模拟
-        with patch.object(client, 'chat', side_effect=asyncio.TimeoutError("LLM timeout")):
+        with patch.object(
+            client, "chat", side_effect=asyncio.TimeoutError("LLM timeout")
+        ):
             engine = EvaluationEngine(client)
             request = EvaluationSchema(
                 id="timeout_test",
                 type="general",
                 payload={"user_input": "hello", "expected_output": "hi"},
-                metadata={}
+                metadata={},
             )
 
             # 应该能处理超时异常，不崩溃
@@ -59,13 +61,15 @@ class TestLLMErrorHandling:
         config = ModelConfig(api_key="test", model_name="stub")
         client = StubLLMClient(config)
 
-        with patch.object(client, 'chat', side_effect=ConnectionError("Connection refused")):
+        with patch.object(
+            client, "chat", side_effect=ConnectionError("Connection refused")
+        ):
             engine = EvaluationEngine(client)
             request = EvaluationSchema(
                 id="connection_test",
                 type="general",
                 payload={"user_input": "hello", "expected_output": "hi"},
-                metadata={}
+                metadata={},
             )
 
             try:
@@ -84,13 +88,15 @@ class TestLLMErrorHandling:
 
         for domain in domains:
             client = StubLLMClient(config)
-            with patch.object(client, 'chat', side_effect=Exception(f"{domain} LLM error")):
+            with patch.object(
+                client, "chat", side_effect=Exception(f"{domain} LLM error")
+            ):
                 evaluator = EvaluatorFactory.get(domain, client=client)
                 request = EvaluationSchema(
                     id=f"error_test_{domain}",
                     type=domain,
                     payload={"user_input": "test", "expected_output": "test"},
-                    metadata={}
+                    metadata={},
                 )
 
                 # 不应崩溃，应该有错误处理
@@ -115,7 +121,7 @@ class TestBoundaryConditions:
             id="empty_input",
             type="general",
             payload={"user_input": "", "expected_output": ""},
-            metadata={}
+            metadata={},
         )
 
         result = engine.run(request)
@@ -136,7 +142,7 @@ class TestBoundaryConditions:
             id="long_input",
             type="general",
             payload={"user_input": long_text, "expected_output": "response"},
-            metadata={}
+            metadata={},
         )
 
         # 不应因输入过长而崩溃
@@ -165,7 +171,7 @@ class TestBoundaryConditions:
                 id=f"special_{i}",
                 type="general",
                 payload={"user_input": text, "expected_output": "safe"},
-                metadata={}
+                metadata={},
             )
             result = engine.run(request)
             assert result is not None
@@ -183,7 +189,7 @@ class TestBoundaryConditions:
             id="no_metadata",
             type="general",
             payload={"user_input": "test", "expected_output": "test"},
-            metadata={}
+            metadata={},
         )
 
         result = engine.run(request)
@@ -205,10 +211,7 @@ class TestBoundaryConditions:
 
         for i, case in enumerate(test_cases):
             EvaluationSchema(
-                id=f"numeric_{i}",
-                type="general",
-                payload=case,
-                metadata={}
+                id=f"numeric_{i}", type="general", payload=case, metadata={}
             )
             result = client.chat(case["user_input"], "You are a calculator")
             assert result is not None
@@ -229,8 +232,11 @@ class TestConcurrentExecution:
             request = EvaluationSchema(
                 id=case_id,
                 type="general",
-                payload={"user_input": f"input_{case_id}", "expected_output": "response"},
-                metadata={}
+                payload={
+                    "user_input": f"input_{case_id}",
+                    "expected_output": "response",
+                },
+                metadata={},
             )
             return engine.run(request)
 
@@ -258,7 +264,7 @@ class TestConcurrentExecution:
                 id=f"concurrent_{domain}_{index}",
                 type=domain,
                 payload={"user_input": f"test {domain}", "expected_output": "response"},
-                metadata={}
+                metadata={},
             )
             return evaluator.evaluate(request)
 
@@ -288,16 +294,16 @@ class TestDataIntegrity:
             id="consistency_test",
             type="general",
             payload={"user_input": "test", "expected_output": "expected"},
-            metadata={"test_id": "123"}
+            metadata={"test_id": "123"},
         )
 
         result = engine.run(request)
 
         # 验证结果字段完整性
-        assert hasattr(result, 'case_id')
-        assert hasattr(result, 'status')
-        assert hasattr(result, 'response')
-        assert hasattr(result, 'adapter_name')
+        assert hasattr(result, "case_id")
+        assert hasattr(result, "status")
+        assert hasattr(result, "response")
+        assert hasattr(result, "adapter_name")
 
         # 验证结果与请求一致
         assert result.case_id == "consistency_test"
@@ -314,15 +320,15 @@ class TestDataIntegrity:
             id="fields_test",
             type="text",
             payload={"user_input": "analyze this", "expected_output": "analysis"},
-            metadata={}
+            metadata={},
         )
 
         response = evaluator.evaluate(request)
 
         # 验证响应字段
-        assert hasattr(response, 'is_valid')
-        assert hasattr(response, 'text')
-        assert hasattr(response, 'score')
+        assert hasattr(response, "is_valid")
+        assert hasattr(response, "text")
+        assert hasattr(response, "score")
         # response 可能有 metadata 字段
         assert response.is_valid is not None
 
@@ -350,14 +356,14 @@ class TestEvaluatorBehavior:
             "user_id": "user_123",
             "session_id": "sess_456",
             "timestamp": "2024-01-01",
-            "custom_field": "custom_value"
+            "custom_field": "custom_value",
         }
 
         request = EvaluationSchema(
             id="metadata_test",
             type="finance",
             payload={"user_input": "test", "expected_output": "test"},
-            metadata=metadata
+            metadata=metadata,
         )
 
         response = evaluator.evaluate(request)
@@ -385,7 +391,7 @@ class TestEvaluatorBehavior:
                 id=f"code_test_{i}",
                 type="code",
                 payload={"user_input": code, "expected_output": "valid"},
-                metadata={}
+                metadata={},
             )
             response = evaluator.evaluate(request)
             assert response is not None
@@ -403,9 +409,9 @@ class TestEvaluatorBehavior:
             type="code_review",
             payload={
                 "user_input": "Review this code for bugs",
-                "expected_output": "No critical bugs found"
+                "expected_output": "No critical bugs found",
             },
-            metadata={}
+            metadata={},
         )
 
         response = evaluator.evaluate(request)
@@ -439,7 +445,7 @@ class TestSchemaValidation:
             id="status_test",
             type="general",
             payload={"user_input": "test", "expected_output": "test"},
-            metadata={}
+            metadata={},
         )
 
         # 初始状态应该是 PENDING
@@ -463,7 +469,7 @@ class TestPerformanceBounds:
                 id=f"rapid_{i}",
                 type="general",
                 payload={"user_input": f"request_{i}", "expected_output": "response"},
-                metadata={}
+                metadata={},
             )
             engine.run(request)
 
@@ -484,8 +490,11 @@ class TestPerformanceBounds:
         request = EvaluationSchema(
             id="repeated_test",
             type="general",
-            payload={"user_input": "consistent input", "expected_output": "consistent output"},
-            metadata={}
+            payload={
+                "user_input": "consistent input",
+                "expected_output": "consistent output",
+            },
+            metadata={},
         )
 
         # 执行 5 次相同的评测

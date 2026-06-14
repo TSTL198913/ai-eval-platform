@@ -35,6 +35,7 @@ T = TypeVar("T")
 
 class LLMProvider(Enum):
     """LLM 提供者"""
+
     OPENAI = "openai"
     DEEPSEEK = "deepseek"
     ANTHROPIC = "anthropic"
@@ -45,6 +46,7 @@ class LLMProvider(Enum):
 @dataclass
 class LLMConfig:
     """LLM 配置"""
+
     provider: LLMProvider = LLMProvider.DEEPSEEK
     api_key: str = ""
     model_name: str = "deepseek-chat"
@@ -59,6 +61,7 @@ class LLMConfig:
 @dataclass
 class ChatMessage:
     """聊天消息"""
+
     role: str  # system, user, assistant
     content: str
 
@@ -66,6 +69,7 @@ class ChatMessage:
 @dataclass
 class ChatResponse:
     """聊天响应"""
+
     content: str
     model: str
     usage: Dict[str, int] = field(default_factory=dict)
@@ -148,7 +152,9 @@ class BaseLLMClient(ABC):
             chat_response.latency_ms = (span.end_time or time.time()) - span.start_time
 
             span.set_attribute("response.length", len(chat_response.content))
-            span.set_attribute("usage.total_tokens", chat_response.usage.get("total_tokens", 0))
+            span.set_attribute(
+                "usage.total_tokens", chat_response.usage.get("total_tokens", 0)
+            )
 
             return chat_response
         except Exception as e:

@@ -116,9 +116,7 @@ class ComparisonReport:
 
         for model, rank in sorted(self.rankings.items(), key=lambda x: x[1]):
             result = next(r for r in self.results if r.model == model)
-            metrics_str = ", ".join(
-                f"{k}={v:.2f}" for k, v in result.metrics.items()
-            )
+            metrics_str = ", ".join(f"{k}={v:.2f}" for k, v in result.metrics.items())
             print(f"#{rank} {model:20s} | {metrics_str} | {result.latency_ms:.1f}ms")
 
         print("=" * 60 + "\n")

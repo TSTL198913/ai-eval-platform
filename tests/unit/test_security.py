@@ -1,6 +1,5 @@
 """测试 src/infra/security.py - 安全认证模块"""
 
-
 import pytest
 
 from src.infra.security import (
@@ -241,16 +240,64 @@ class TestAuditLogger:
 
     def test_get_user_logs(self, audit_logger):
         """测试获取用户日志"""
-        audit_logger.log(user_id="user1", api_key_id="key1", action="evaluate", resource="model", method="POST", path="/v1/evaluate", status_code=200, ip_address="127.0.0.1", user_agent="test", request_id="req1", duration_ms=100.0)
-        audit_logger.log(user_id="user1", api_key_id="key1", action="compare", resource="model", method="POST", path="/v1/compare", status_code=200, ip_address="127.0.0.1", user_agent="test", request_id="req2", duration_ms=100.0)
+        audit_logger.log(
+            user_id="user1",
+            api_key_id="key1",
+            action="evaluate",
+            resource="model",
+            method="POST",
+            path="/v1/evaluate",
+            status_code=200,
+            ip_address="127.0.0.1",
+            user_agent="test",
+            request_id="req1",
+            duration_ms=100.0,
+        )
+        audit_logger.log(
+            user_id="user1",
+            api_key_id="key1",
+            action="compare",
+            resource="model",
+            method="POST",
+            path="/v1/compare",
+            status_code=200,
+            ip_address="127.0.0.1",
+            user_agent="test",
+            request_id="req2",
+            duration_ms=100.0,
+        )
 
         logs = audit_logger.get_user_logs("user1")
         assert len(logs) == 2
 
     def test_search_logs(self, audit_logger):
         """测试搜索日志"""
-        audit_logger.log(user_id="user1", api_key_id="key1", action="evaluate", resource="model", method="POST", path="/v1/evaluate", status_code=200, ip_address="127.0.0.1", user_agent="test", request_id="req1", duration_ms=100.0)
-        audit_logger.log(user_id="user1", api_key_id="key1", action="compare", resource="model", method="POST", path="/v1/compare", status_code=200, ip_address="127.0.0.1", user_agent="test", request_id="req2", duration_ms=100.0)
+        audit_logger.log(
+            user_id="user1",
+            api_key_id="key1",
+            action="evaluate",
+            resource="model",
+            method="POST",
+            path="/v1/evaluate",
+            status_code=200,
+            ip_address="127.0.0.1",
+            user_agent="test",
+            request_id="req1",
+            duration_ms=100.0,
+        )
+        audit_logger.log(
+            user_id="user1",
+            api_key_id="key1",
+            action="compare",
+            resource="model",
+            method="POST",
+            path="/v1/compare",
+            status_code=200,
+            ip_address="127.0.0.1",
+            user_agent="test",
+            request_id="req2",
+            duration_ms=100.0,
+        )
 
         logs = audit_logger.search_logs(action="evaluate")
         assert len(logs) == 1
@@ -258,7 +305,19 @@ class TestAuditLogger:
 
     def test_get_stats(self, audit_logger):
         """测试获取统计"""
-        audit_logger.log(user_id="user1", api_key_id="key1", action="evaluate", resource="model", method="POST", path="/v1/evaluate", status_code=200, ip_address="127.0.0.1", user_agent="test", request_id="req1", duration_ms=100.0)
+        audit_logger.log(
+            user_id="user1",
+            api_key_id="key1",
+            action="evaluate",
+            resource="model",
+            method="POST",
+            path="/v1/evaluate",
+            status_code=200,
+            ip_address="127.0.0.1",
+            user_agent="test",
+            request_id="req1",
+            duration_ms=100.0,
+        )
 
         stats = audit_logger.get_stats()
         assert stats["total_logs"] == 1

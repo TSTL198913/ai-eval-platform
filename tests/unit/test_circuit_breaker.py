@@ -275,21 +275,23 @@ class TestCircuitBreakerRedisPersistence:
         mock_redis = Mock()
         # 使用当前时间，确保状态不会被超时转换
         current_time = time.time()
-        mock_redis.get.return_value = json.dumps({
-            "state": "open",
-            "failure_count": 5,
-            "success_count": 0,
-            "last_failure_time": current_time,  # 使用当前时间
-            "half_open_calls": 0,
-            "stats": {
-                "total_calls": 10,
-                "successful_calls": 5,
-                "failed_calls": 5,
-                "rejected_calls": 0,
-                "state_changes": 1,
-                "last_state_change_time": current_time,
-            },
-        })
+        mock_redis.get.return_value = json.dumps(
+            {
+                "state": "open",
+                "failure_count": 5,
+                "success_count": 0,
+                "last_failure_time": current_time,  # 使用当前时间
+                "half_open_calls": 0,
+                "stats": {
+                    "total_calls": 10,
+                    "successful_calls": 5,
+                    "failed_calls": 5,
+                    "rejected_calls": 0,
+                    "state_changes": 1,
+                    "last_state_change_time": current_time,
+                },
+            }
+        )
 
         cb = CircuitBreaker("load_test", redis_client=mock_redis)
         # 由于 last_failure_time 是当前时间，状态应该保持 OPEN

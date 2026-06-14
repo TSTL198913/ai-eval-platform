@@ -106,9 +106,7 @@ class RequestOptimizer:
 
     async def batch_process(self, requests: list[tuple[str, callable]]) -> list[Any]:
         """批量并行处理"""
-        tasks = [
-            self.optimize_request(req_id, handler) for req_id, handler in requests
-        ]
+        tasks = [self.optimize_request(req_id, handler) for req_id, handler in requests]
         return await asyncio.gather(*tasks)
 
 
@@ -204,9 +202,7 @@ class PerformanceBreakthrough:
         self._connection_optimizer = ConnectionOptimizer()
         self._cache_optimizer = CacheOptimizer()
 
-    async def process_request(
-        self, request_id: str, handler: callable
-    ) -> tuple[Any, float]:
+    async def process_request(self, request_id: str, handler: callable) -> tuple[Any, float]:
         """处理请求并追踪延迟"""
         start_time = time.time()
 

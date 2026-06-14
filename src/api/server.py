@@ -8,6 +8,12 @@ from src.workers.tasks import eval_case_task
 app = FastAPI(title="AI Eval Platform")
 
 
+@app.get("/health")
+async def health_check():
+    """健康检查端点"""
+    return {"status": "healthy", "service": "ai-eval-platform"}
+
+
 @app.post("/api/v1/evaluate")
 async def evaluate_endpoint(raw_data: dict, response: Response):
     result = run_evaluation_service(raw_data)

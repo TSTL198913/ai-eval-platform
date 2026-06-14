@@ -76,9 +76,7 @@ class EdgeEvaluator:
         # 如果有用户位置，优先选择就近节点
         if user_location:
             # 简化：按位置匹配
-            matching_nodes = [
-                n for n in available_nodes if n.location == user_location
-            ]
+            matching_nodes = [n for n in available_nodes if n.location == user_location]
             if matching_nodes:
                 return min(matching_nodes, key=lambda n: n.current_load)
 
@@ -118,8 +116,7 @@ class EdgeEvaluator:
         self._pending_tasks[task_id] = task
 
         logger.info(
-            f"Submitted edge evaluation {task_id} to node {node.node_id} "
-            f"at {node.location}"
+            f"Submitted edge evaluation {task_id} to node {node.node_id} at {node.location}"
         )
 
         # 异步执行评测
@@ -155,10 +152,7 @@ class EdgeEvaluator:
             if task.task_id in self._pending_tasks:
                 del self._pending_tasks[task.task_id]
 
-            logger.info(
-                f"Edge evaluation {task.task_id} completed in "
-                f"{task.latency_ms:.1f}ms"
-            )
+            logger.info(f"Edge evaluation {task.task_id} completed in {task.latency_ms:.1f}ms")
 
         except Exception as e:
             logger.error(f"Edge evaluation failed: {e}")
@@ -256,9 +250,7 @@ class EdgeNetwork:
         if not evaluator:
             return None
 
-        return await evaluator.submit_evaluation(
-            model, dataset, metrics, user_location
-        )
+        return await evaluator.submit_evaluation(model, dataset, metrics, user_location)
 
     def _select_best_region(self, user_location: str | None = None) -> EdgeEvaluator | None:
         """选择最佳区域"""
@@ -268,9 +260,7 @@ class EdgeNetwork:
         # 简化：选择负载最低的区域
         best_region = min(
             self._evaluators.keys(),
-            key=lambda r: sum(
-                n.current_load for n in self._evaluators[r]._nodes.values()
-            ),
+            key=lambda r: sum(n.current_load for n in self._evaluators[r]._nodes.values()),
         )
         return self._evaluators[best_region]
 

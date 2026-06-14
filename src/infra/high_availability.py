@@ -290,8 +290,7 @@ class FailoverManager:
         """处理故障转移"""
         self._failover_count += 1
         logger.warning(
-            f"Failover triggered for node {node.id}, "
-            f"total failovers: {self._failover_count}"
+            f"Failover triggered for node {node.id}, total failovers: {self._failover_count}"
         )
 
         # 降低故障节点权重
@@ -306,10 +305,7 @@ class FailoverManager:
     async def _handle_recovery(self, node: NodeInfo):
         """处理节点恢复"""
         self._recovery_count += 1
-        logger.info(
-            f"Node {node.id} recovered, "
-            f"total recoveries: {self._recovery_count}"
-        )
+        logger.info(f"Node {node.id} recovered, total recoveries: {self._recovery_count}")
 
         # 恢复节点权重
         node.weight = 1.0
@@ -335,9 +331,7 @@ class MultiActiveDeployer:
         self._regions: dict[str, list[NodeInfo]] = {}
         self._health_checker = HealthChecker()
         self._load_balancer = LoadBalancer(strategy="weighted_round_robin")
-        self._failover_manager = FailoverManager(
-            self._health_checker, self._load_balancer
-        )
+        self._failover_manager = FailoverManager(self._health_checker, self._load_balancer)
 
     def add_region(self, region: str, nodes: list[NodeInfo]):
         """添加区域"""
@@ -388,9 +382,7 @@ class MultiActiveDeployer:
         }
 
         for region, nodes in self._regions.items():
-            healthy_count = sum(
-                1 for n in nodes if n.status == NodeStatus.HEALTHY
-            )
+            healthy_count = sum(1 for n in nodes if n.status == NodeStatus.HEALTHY)
             stats["regions"][region] = {
                 "total_nodes": len(nodes),
                 "healthy_nodes": healthy_count,
@@ -419,9 +411,7 @@ class AutoRecoveryService:
         history = self._recovery_history.get(node_id, [])
 
         # 检查恢复历史
-        recent_failures = [
-            h for h in history if time.time() - h["timestamp"] < 3600
-        ]
+        recent_failures = [h for h in history if time.time() - h["timestamp"] < 3600]
         if len(recent_failures) >= self._max_attempts:
             logger.warning(f"Node {node_id} exceeded max recovery attempts")
             return False

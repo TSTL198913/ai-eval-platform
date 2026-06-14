@@ -48,9 +48,9 @@ class PerfResult:
 
 async def test_endpoint(config: PerfTestConfig) -> PerfResult:
     """测试单个端点"""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Testing: {config.name}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     latencies = []
     errors = []
@@ -130,7 +130,7 @@ def print_result(result: PerfResult, target_p99: float):
     print(f"\nResults for {result.name}:")
     print(f"  Status:    {status}")
     print(f"  Total:     {result.total}")
-    print(f"  Success:   {result.success} ({result.success/result.total*100:.1f}%)")
+    print(f"  Success:   {result.success} ({result.success / result.total * 100:.1f}%)")
     print(f"  Errors:    {result.errors}")
     print("\nLatency:")
     print(f"  Min:       {result.min:.2f}ms")
@@ -182,7 +182,8 @@ async def main():
                 "requests": [
                     {"input": "What is 1+1?", "expected": "2"},
                     {"input": "What is 2+2?", "expected": "4"},
-                ] * 5,  # 10 requests
+                ]
+                * 5,  # 10 requests
             },
             warmup_requests=10,
             test_requests=100,

@@ -95,21 +95,25 @@ class TestIdempotencyChecker:
 
     def test_get_cached_result(self, checker, mock_redis):
         """测试获取缓存结果"""
-        mock_redis.get.return_value = json.dumps({
-            "status": "processed",
-            "result": {"score": 0.95},
-            "timestamp": time.time(),
-        })
+        mock_redis.get.return_value = json.dumps(
+            {
+                "status": "processed",
+                "result": {"score": 0.95},
+                "timestamp": time.time(),
+            }
+        )
 
         result = checker.get_cached_result("req-001")
         assert result["score"] == 0.95
 
     def test_get_cached_result_not_processed(self, checker, mock_redis):
         """测试获取缓存结果（未处理状态）"""
-        mock_redis.get.return_value = json.dumps({
-            "status": "processing",
-            "timestamp": time.time(),
-        })
+        mock_redis.get.return_value = json.dumps(
+            {
+                "status": "processing",
+                "timestamp": time.time(),
+            }
+        )
 
         result = checker.get_cached_result("req-001")
         assert result is None
@@ -123,10 +127,12 @@ class TestIdempotencyChecker:
 
     def test_get_status(self, checker, mock_redis):
         """测试获取状态"""
-        mock_redis.get.return_value = json.dumps({
-            "status": "processing",
-            "timestamp": 1000.0,
-        })
+        mock_redis.get.return_value = json.dumps(
+            {
+                "status": "processing",
+                "timestamp": 1000.0,
+            }
+        )
 
         status = checker.get_status("req-001")
         assert status["status"] == "processing"
@@ -154,6 +160,7 @@ class TestIdempotentDecorator:
 
     async def test_decorator_success(self, mock_redis):
         """测试装饰器成功执行"""
+
         @idempotent(mock_redis)
         async def process_request(request_id: str):
             return {"result": "success"}
@@ -165,10 +172,12 @@ class TestIdempotentDecorator:
     async def test_decorator_duplicate_cached(self, mock_redis):
         """测试装饰器重复请求返回缓存"""
         mock_redis.exists.return_value = 1
-        mock_redis.get.return_value = json.dumps({
-            "status": "processed",
-            "result": {"result": "cached"},
-        })
+        mock_redis.get.return_value = json.dumps(
+            {
+                "status": "processed",
+                "result": {"result": "cached"},
+            }
+        )
 
         @idempotent(mock_redis)
         async def process_request(request_id: str):
@@ -180,9 +189,11 @@ class TestIdempotentDecorator:
     async def test_decorator_duplicate_processing(self, mock_redis):
         """测试装饰器重复请求正在处理"""
         mock_redis.exists.return_value = 1
-        mock_redis.get.return_value = json.dumps({
-            "status": "processing",
-        })
+        mock_redis.get.return_value = json.dumps(
+            {
+                "status": "processing",
+            }
+        )
 
         @idempotent(mock_redis)
         async def process_request(request_id: str):
@@ -207,6 +218,7 @@ class TestIdempotentDecorator:
 
     async def test_decorator_with_key_extractor(self, mock_redis):
         """测试装饰器使用自定义 key 提取器"""
+
         @idempotent(mock_redis, key_extractor=lambda req: req["id"])
         async def process_request(request: dict):
             return {"result": "success"}

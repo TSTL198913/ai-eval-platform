@@ -62,6 +62,7 @@ class TestLoggerModule:
 
     def test_logger_import(self):
         from src.infra import logger
+
         assert logger is not None
 
     def test_logger_has_trace_id(self):

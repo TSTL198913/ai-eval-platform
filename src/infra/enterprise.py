@@ -208,9 +208,7 @@ class TenantManager:
         """获取租户资源"""
         return self._resources.get(tenant_id, {})
 
-    def allocate_resource(
-        self, tenant_id: str, resource_type: str, amount: int
-    ) -> bool:
+    def allocate_resource(self, tenant_id: str, resource_type: str, amount: int) -> bool:
         """分配资源"""
         tenant = self._tenants.get(tenant_id)
         if not tenant:
@@ -231,9 +229,7 @@ class TenantManager:
 
         return True
 
-    def release_resource(
-        self, tenant_id: str, resource_type: str, amount: int
-    ) -> bool:
+    def release_resource(self, tenant_id: str, resource_type: str, amount: int) -> bool:
         """释放资源"""
         resources = self._resources.get(tenant_id, {})
         resource = resources.get(resource_type)
@@ -285,9 +281,7 @@ class SLAMonitor:
         self._metrics: dict[str, dict[str, list[float]]] = {}
         self._incidents: dict[str, list[dict]] = {}
 
-    def record_metric(
-        self, tenant_id: str, metric_type: str, value: float
-    ):
+    def record_metric(self, tenant_id: str, metric_type: str, value: float):
         """记录指标"""
         if tenant_id not in self._metrics:
             self._metrics[tenant_id] = {}
@@ -352,9 +346,7 @@ class SLAMonitor:
             ),
         }
 
-    def record_incident(
-        self, tenant_id: str, incident_type: str, details: dict
-    ):
+    def record_incident(self, tenant_id: str, incident_type: str, details: dict):
         """记录 SLA 事故"""
         if tenant_id not in self._incidents:
             self._incidents[tenant_id] = []
@@ -387,9 +379,7 @@ class EnterpriseFeatures:
         self._custom_datasets: dict[str, dict] = {}
         self._audit_logs: dict[str, list] = {}
 
-    def register_custom_model(
-        self, tenant_id: str, model_name: str, model_config: dict
-    ):
+    def register_custom_model(self, tenant_id: str, model_name: str, model_config: dict):
         """注册自定义模型"""
         key = f"{tenant_id}:{model_name}"
         self._custom_models[key] = {
@@ -402,15 +392,9 @@ class EnterpriseFeatures:
 
     def get_custom_models(self, tenant_id: str) -> list[dict]:
         """获取租户的自定义模型"""
-        return [
-            m
-            for key, m in self._custom_models.items()
-            if m["tenant_id"] == tenant_id
-        ]
+        return [m for key, m in self._custom_models.items() if m["tenant_id"] == tenant_id]
 
-    def register_custom_dataset(
-        self, tenant_id: str, dataset_name: str, dataset_data: dict
-    ):
+    def register_custom_dataset(self, tenant_id: str, dataset_name: str, dataset_data: dict):
         """注册自定义数据集"""
         key = f"{tenant_id}:{dataset_name}"
         self._custom_datasets[key] = {
@@ -423,15 +407,9 @@ class EnterpriseFeatures:
 
     def get_custom_datasets(self, tenant_id: str) -> list[dict]:
         """获取租户的自定义数据集"""
-        return [
-            d
-            for key, d in self._custom_datasets.items()
-            if d["tenant_id"] == tenant_id
-        ]
+        return [d for key, d in self._custom_datasets.items() if d["tenant_id"] == tenant_id]
 
-    def log_audit(
-        self, tenant_id: str, action: str, details: dict
-    ):
+    def log_audit(self, tenant_id: str, action: str, details: dict):
         """记录审计日志"""
         if tenant_id not in self._audit_logs:
             self._audit_logs[tenant_id] = []
@@ -466,9 +444,7 @@ class EnterpriseManager:
         self._sla_monitor = SLAMonitor()
         self._enterprise_features = EnterpriseFeatures()
 
-    def create_enterprise_tenant(
-        self, name: str, sla_type: SLAType = SLAType.STANDARD
-    ) -> Tenant:
+    def create_enterprise_tenant(self, name: str, sla_type: SLAType = SLAType.STANDARD) -> Tenant:
         """创建企业租户"""
         return self._tenant_manager.create_tenant(
             name=name,

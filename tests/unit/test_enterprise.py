@@ -1,6 +1,5 @@
 """测试 src/infra/enterprise.py - 企业版模块"""
 
-
 import pytest
 
 from src.infra.enterprise import (
@@ -181,7 +180,9 @@ class TestTenantManager:
 
     def test_list_tenants(self, manager):
         """测试列出租户"""
-        manager.create_tenant(name="Company1", tier=TenantTier.ENTERPRISE, sla_type=SLAType.STANDARD)
+        manager.create_tenant(
+            name="Company1", tier=TenantTier.ENTERPRISE, sla_type=SLAType.STANDARD
+        )
         manager.create_tenant(name="Company2", tier=TenantTier.PROFESSIONAL, sla_type=SLAType.BASIC)
 
         tenants = manager.list_tenants()

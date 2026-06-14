@@ -20,9 +20,7 @@ async def example_basic_evaluation():
     async with Client(api_key=API_KEY) as client:
         # 评测 GPT-4 在 MMLU 数据集上的表现
         result = await client.evaluate(
-            model="gpt-4",
-            dataset="mmlu",
-            metrics=["accuracy", "latency", "cost"]
+            model="gpt-4", dataset="mmlu", metrics=["accuracy", "latency", "cost"]
         )
 
         print(f"评测结果: {result}")
@@ -45,14 +43,12 @@ async def example_custom_prompts():
         ]
 
         result = await client.evaluate(
-            model="gpt-4",
-            custom_prompts=custom_prompts,
-            metrics=["accuracy", "relevance"]
+            model="gpt-4", custom_prompts=custom_prompts, metrics=["accuracy", "relevance"]
         )
 
         print(f"自定义评测结果: {result}")
         for i, detail in enumerate(result.details.get("responses", [])):
-            print(f"\n问题 {i+1}: {custom_prompts[i]}")
+            print(f"\n问题 {i + 1}: {custom_prompts[i]}")
             print(f"回答: {detail.get('response', '')[:100]}...")
 
 
@@ -70,7 +66,7 @@ async def example_model_comparison():
                 {"model": "gpt-3.5-turbo", "dataset": "mmlu"},
                 {"model": "claude-3-opus", "dataset": "mmlu"},
             ],
-            metrics=["accuracy", "latency", "cost"]
+            metrics=["accuracy", "latency", "cost"],
         )
 
         # 打印对比摘要
@@ -91,9 +87,7 @@ async def example_async_evaluation():
     async with Client(api_key=API_KEY) as client:
         # 提交异步评测任务
         task_id = await client.evaluate_async(
-            model="gpt-4",
-            dataset="humaneval",
-            metrics=["pass_rate", "code_quality"]
+            model="gpt-4", dataset="humaneval", metrics=["pass_rate", "code_quality"]
         )
 
         print(f"任务已提交，ID: {task_id}")
@@ -104,7 +98,7 @@ async def example_async_evaluation():
             if result:
                 print(f"\n评测完成: {result}")
                 break
-            print(f"等待中... ({i+1}/10)")
+            print(f"等待中... ({i + 1}/10)")
             await asyncio.sleep(2)
 
 

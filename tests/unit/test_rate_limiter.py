@@ -238,9 +238,7 @@ class TestMultiDimensionRateLimiter:
             )
             limiter._script = mock_script
 
-        results = multi_limiter.check(
-            user_id="test_user", api_key="test_key", ip="127.0.0.1"
-        )
+        results = multi_limiter.check(user_id="test_user", api_key="test_key", ip="127.0.0.1")
         assert len(results) == 3
         assert all(r.allowed for r in results)
 
@@ -325,7 +323,9 @@ class TestRateLimitAsync:
         bucket = Mock(spec=TokenBucket)
         bucket.allow.side_effect = [
             RateLimitResult(allowed=False, remaining_tokens=0, retry_after_ms=10, limit_key="test"),
-            RateLimitResult(allowed=True, remaining_tokens=99, retry_after_ms=None, limit_key="test"),
+            RateLimitResult(
+                allowed=True, remaining_tokens=99, retry_after_ms=None, limit_key="test"
+            ),
         ]
 
         result = await rate_limit_async(bucket, tokens=1, retry_delay=0.01)

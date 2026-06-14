@@ -142,10 +142,7 @@ class TestBatchProcessor:
         processor._execute_batch = AsyncMock(return_value=["result1", "result2"])
 
         # 并发添加两个项，确保在同一批处理中
-        result1, result2 = await asyncio.gather(
-            processor.add("item1"),
-            processor.add("item2")
-        )
+        result1, result2 = await asyncio.gather(processor.add("item1"), processor.add("item2"))
 
         # 验证结果
         assert result1 == "result1"

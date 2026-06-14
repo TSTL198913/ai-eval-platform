@@ -129,10 +129,18 @@ class TestHealthChecker:
 
     def test_get_healthy_nodes_filters(self, checker):
         """测试获取健康节点过滤：HEALTHY 和 DEGRADED 都算健康"""
-        healthy = NodeInfo(id="h1", host="localhost", port=8000, region="r1", status=NodeStatus.HEALTHY)
-        degraded = NodeInfo(id="d1", host="localhost", port=8001, region="r1", status=NodeStatus.DEGRADED)
-        unhealthy = NodeInfo(id="u1", host="localhost", port=8002, region="r1", status=NodeStatus.UNHEALTHY)
-        offline = NodeInfo(id="o1", host="localhost", port=8003, region="r1", status=NodeStatus.OFFLINE)
+        healthy = NodeInfo(
+            id="h1", host="localhost", port=8000, region="r1", status=NodeStatus.HEALTHY
+        )
+        degraded = NodeInfo(
+            id="d1", host="localhost", port=8001, region="r1", status=NodeStatus.DEGRADED
+        )
+        unhealthy = NodeInfo(
+            id="u1", host="localhost", port=8002, region="r1", status=NodeStatus.UNHEALTHY
+        )
+        offline = NodeInfo(
+            id="o1", host="localhost", port=8003, region="r1", status=NodeStatus.OFFLINE
+        )
 
         for n in [healthy, degraded, unhealthy, offline]:
             checker.register_node(n)
@@ -149,7 +157,9 @@ class TestHealthChecker:
         callback = Mock()
         checker.add_status_callback(callback)
 
-        node = NodeInfo(id="n1", host="localhost", port=8000, region="r1", status=NodeStatus.HEALTHY)
+        node = NodeInfo(
+            id="n1", host="localhost", port=8000, region="r1", status=NodeStatus.HEALTHY
+        )
         checker.register_node(node)
 
         # 模拟状态变化

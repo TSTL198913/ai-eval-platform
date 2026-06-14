@@ -273,9 +273,7 @@ class PermissionChecker:
 
         # 检查角色权限
         if not api_key.has_permission(permission):
-            logger.warning(
-                f"User {api_key.user_id} lacks permission {permission.value}"
-            )
+            logger.warning(f"User {api_key.user_id} lacks permission {permission.value}")
             return False, api_key
 
         return True, api_key

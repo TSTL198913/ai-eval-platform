@@ -108,7 +108,9 @@ class IdempotencyChecker:
         """
         key = self._generate_key(request_id)
         # 使用 SETNX 实现原子性检查
-        result = self._redis.setnx(key, json.dumps({"status": "processing", "timestamp": time.time()}))
+        result = self._redis.setnx(
+            key, json.dumps({"status": "processing", "timestamp": time.time()})
+        )
         if result:
             self._redis.expire(key, self._config.ttl_seconds)
         return result
@@ -225,7 +227,9 @@ def idempotent(
 
             # 标记正在处理
             if not checker.mark_processing(request_id):
-                raise IdempotencyError(f"Request {request_id} is already being processed by another instance")
+                raise IdempotencyError(
+                    f"Request {request_id} is already being processed by another instance"
+                )
 
             # 执行函数
             try:

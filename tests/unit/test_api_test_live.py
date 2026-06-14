@@ -28,4 +28,5 @@ class TestTestFeature:
 
     def test_base_url_constant(self):
         from src.api.test_live import BASE_URL
+
         assert BASE_URL == "http://127.0.0.1:8000/api/v1/evaluate"

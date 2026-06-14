@@ -74,10 +74,7 @@ class EvaluationBufferService:
 
     def _maybe_time_based_flush(self):
         """检查是否需要基于时间的 flush"""
-        if (
-            self.buffer
-            and time.time() - self.last_flush_time >= self.flush_interval_seconds
-        ):
+        if self.buffer and time.time() - self.last_flush_time >= self.flush_interval_seconds:
             # 在锁内直接 flush 小批量数据，避免长时间阻塞
             if len(self.buffer) < self.batch_size // 10:  # 小于 10% 批次大小时触发
                 try:

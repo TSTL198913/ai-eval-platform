@@ -206,10 +206,18 @@ def print_results(result: LoadTestResult, targets: dict | None = None):
 
     if targets:
         print("\nPerformance Targets:")
-        print(f"  P50 Target:    {targets.get('p50', 100):8.2f}ms  {'✓' if result.p50_latency_ms <= targets.get('p50', 100) else '✗'}")
-        print(f"  P95 Target:    {targets.get('p95', 300):8.2f}ms  {'✓' if result.p95_latency_ms <= targets.get('p95', 300) else '✗'}")
-        print(f"  P99 Target:    {targets.get('p99', 500):8.2f}ms  {'✓' if result.p99_latency_ms <= targets.get('p99', 500) else '✗'}")
-        print(f"  Success Rate:  {targets.get('min_success_rate', 99):8.2f}%  {'✓' if result.success_rate >= targets.get('min_success_rate', 99) else '✗'}")
+        print(
+            f"  P50 Target:    {targets.get('p50', 100):8.2f}ms  {'✓' if result.p50_latency_ms <= targets.get('p50', 100) else '✗'}"
+        )
+        print(
+            f"  P95 Target:    {targets.get('p95', 300):8.2f}ms  {'✓' if result.p95_latency_ms <= targets.get('p95', 300) else '✗'}"
+        )
+        print(
+            f"  P99 Target:    {targets.get('p99', 500):8.2f}ms  {'✓' if result.p99_latency_ms <= targets.get('p99', 500) else '✗'}"
+        )
+        print(
+            f"  Success Rate:  {targets.get('min_success_rate', 99):8.2f}%  {'✓' if result.success_rate >= targets.get('min_success_rate', 99) else '✗'}"
+        )
 
     # 显示错误分布
     if result.errors:
@@ -286,6 +294,7 @@ def simple_latency_test(url: str, count: int = 100) -> dict:
         start = time.time()
         try:
             import urllib.request
+
             urllib.request.urlopen(url, timeout=5)
             latency = (time.time() - start) * 1000
             latencies.append(latency)

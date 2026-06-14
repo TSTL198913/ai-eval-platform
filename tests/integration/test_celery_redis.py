@@ -4,6 +4,7 @@ import os
 import time
 
 import pytest
+
 from src.workers.celery_app import celery_app
 from src.workers.tasks import eval_case_task
 

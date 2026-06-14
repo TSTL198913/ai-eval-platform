@@ -1,4 +1,5 @@
 import pytest
+
 from src.infra.db.models import EvaluationResultModel
 from src.workers.tasks import buffer_service
 

@@ -8,15 +8,16 @@
 4. 降级策略
 """
 
-import pytest
 import asyncio
 import time
-from unittest.mock import MagicMock, patch
 from concurrent.futures import ThreadPoolExecutor
+from unittest.mock import MagicMock, patch
 
-from src.schemas.evaluation import EvaluationSchema, EvaluationStatus
+import pytest
+
 from src.domain.evaluators.base import EvaluatorFactory
 from src.engine import EvaluationEngine
+from src.schemas.evaluation import EvaluationSchema, EvaluationStatus
 
 
 class TestLLMErrorHandling:
@@ -24,8 +25,8 @@ class TestLLMErrorHandling:
 
     def test_llm_timeout_handling(self):
         """测试 LLM 超时时的错误处理"""
-        from src.domain.models.stub import StubLLMClient
         from src.domain.models.base import ModelConfig
+        from src.domain.models.stub import StubLLMClient
 
         config = ModelConfig(api_key="test", model_name="stub")
         client = StubLLMClient(config)
@@ -52,8 +53,8 @@ class TestLLMErrorHandling:
 
     def test_llm_connection_error(self):
         """测试 LLM 连接错误时的处理"""
-        from src.domain.models.stub import StubLLMClient
         from src.domain.models.base import ModelConfig
+        from src.domain.models.stub import StubLLMClient
 
         config = ModelConfig(api_key="test", model_name="stub")
         client = StubLLMClient(config)
@@ -75,8 +76,8 @@ class TestLLMErrorHandling:
 
     def test_all_domains_handle_llm_error(self):
         """测试所有领域在 LLM 错误时都能正确处理"""
-        from src.domain.models.stub import StubLLMClient
         from src.domain.models.base import ModelConfig
+        from src.domain.models.stub import StubLLMClient
 
         domains = ["general", "code", "code_review", "finance", "text"]
         config = ModelConfig(api_key="test", model_name="stub")
@@ -104,8 +105,8 @@ class TestBoundaryConditions:
 
     def test_empty_input(self):
         """测试空输入处理"""
-        from src.domain.models.stub import StubLLMClient
         from src.domain.models.base import ModelConfig
+        from src.domain.models.stub import StubLLMClient
 
         client = StubLLMClient(ModelConfig(api_key="test", model_name="stub"))
         engine = EvaluationEngine(client)
@@ -123,8 +124,8 @@ class TestBoundaryConditions:
 
     def test_very_long_input(self):
         """测试超长输入处理"""
-        from src.domain.models.stub import StubLLMClient
         from src.domain.models.base import ModelConfig
+        from src.domain.models.stub import StubLLMClient
 
         client = StubLLMClient(ModelConfig(api_key="test", model_name="stub"))
         engine = EvaluationEngine(client)
@@ -144,8 +145,8 @@ class TestBoundaryConditions:
 
     def test_special_characters_input(self):
         """测试特殊字符处理"""
-        from src.domain.models.stub import StubLLMClient
         from src.domain.models.base import ModelConfig
+        from src.domain.models.stub import StubLLMClient
 
         client = StubLLMClient(ModelConfig(api_key="test", model_name="stub"))
         engine = EvaluationEngine(client)
@@ -171,8 +172,8 @@ class TestBoundaryConditions:
 
     def test_missing_metadata(self):
         """测试缺少 metadata 的处理"""
-        from src.domain.models.stub import StubLLMClient
         from src.domain.models.base import ModelConfig
+        from src.domain.models.stub import StubLLMClient
 
         client = StubLLMClient(ModelConfig(api_key="test", model_name="stub"))
         engine = EvaluationEngine(client)
@@ -190,8 +191,8 @@ class TestBoundaryConditions:
 
     def test_numeric_boundaries(self):
         """测试数值边界"""
-        from src.domain.models.stub import StubLLMClient
         from src.domain.models.base import ModelConfig
+        from src.domain.models.stub import StubLLMClient
 
         client = StubLLMClient(ModelConfig(api_key="test", model_name="stub"))
 
@@ -218,8 +219,8 @@ class TestConcurrentExecution:
 
     def test_concurrent_evaluation_requests(self):
         """测试并发评测请求"""
-        from src.domain.models.stub import StubLLMClient
         from src.domain.models.base import ModelConfig
+        from src.domain.models.stub import StubLLMClient
 
         client = StubLLMClient(ModelConfig(api_key="test", model_name="stub"))
         engine = EvaluationEngine(client)
@@ -245,8 +246,8 @@ class TestConcurrentExecution:
 
     def test_concurrent_different_domains(self):
         """测试并发不同领域的评测"""
-        from src.domain.models.stub import StubLLMClient
         from src.domain.models.base import ModelConfig
+        from src.domain.models.stub import StubLLMClient
 
         domains = ["general", "code", "code_review", "finance", "text"]
 
@@ -277,8 +278,8 @@ class TestDataIntegrity:
 
     def test_evaluation_result_consistency(self):
         """测试评测结果的数据一致性"""
-        from src.domain.models.stub import StubLLMClient
         from src.domain.models.base import ModelConfig
+        from src.domain.models.stub import StubLLMClient
 
         client = StubLLMClient(ModelConfig(api_key="test", model_name="stub"))
         engine = EvaluationEngine(client)
@@ -303,8 +304,8 @@ class TestDataIntegrity:
 
     def test_response_fields_complete(self):
         """测试响应字段完整性"""
-        from src.domain.models.stub import StubLLMClient
         from src.domain.models.base import ModelConfig
+        from src.domain.models.stub import StubLLMClient
 
         client = StubLLMClient(ModelConfig(api_key="test", model_name="stub"))
         evaluator = EvaluatorFactory.get("text", client=client)
@@ -339,8 +340,8 @@ class TestEvaluatorBehavior:
 
     def test_evaluator_preserves_metadata(self):
         """验证评测器保留 metadata"""
-        from src.domain.models.stub import StubLLMClient
         from src.domain.models.base import ModelConfig
+        from src.domain.models.stub import StubLLMClient
 
         client = StubLLMClient(ModelConfig(api_key="test", model_name="stub"))
         evaluator = EvaluatorFactory.get("finance", client=client)
@@ -366,8 +367,8 @@ class TestEvaluatorBehavior:
 
     def test_code_evaluator_syntax_handling(self):
         """测试代码评测器的语法处理"""
-        from src.domain.models.stub import StubLLMClient
         from src.domain.models.base import ModelConfig
+        from src.domain.models.stub import StubLLMClient
 
         client = StubLLMClient(ModelConfig(api_key="test", model_name="stub"))
         evaluator = EvaluatorFactory.get("code", client=client)
@@ -391,8 +392,8 @@ class TestEvaluatorBehavior:
 
     def test_code_review_evaluator_input(self):
         """测试代码审查评测器"""
-        from src.domain.models.stub import StubLLMClient
         from src.domain.models.base import ModelConfig
+        from src.domain.models.stub import StubLLMClient
 
         client = StubLLMClient(ModelConfig(api_key="test", model_name="stub"))
         evaluator = EvaluatorFactory.get("code_review", client=client)
@@ -450,8 +451,8 @@ class TestPerformanceBounds:
 
     def test_rapid_sequence_requests(self):
         """测试快速连续请求"""
-        from src.domain.models.stub import StubLLMClient
         from src.domain.models.base import ModelConfig
+        from src.domain.models.stub import StubLLMClient
 
         client = StubLLMClient(ModelConfig(api_key="test", model_name="stub"))
         engine = EvaluationEngine(client)
@@ -474,8 +475,8 @@ class TestPerformanceBounds:
 
     def test_repeated_same_evaluation(self):
         """测试重复相同评测的稳定性"""
-        from src.domain.models.stub import StubLLMClient
         from src.domain.models.base import ModelConfig
+        from src.domain.models.stub import StubLLMClient
 
         client = StubLLMClient(ModelConfig(api_key="test", model_name="stub"))
         engine = EvaluationEngine(client)

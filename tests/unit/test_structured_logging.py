@@ -4,20 +4,21 @@
 
 import json
 import logging
+
 from src.infra.structured_logging import (
-    JSONFormatter,
     ColoredConsoleFormatter,
+    JSONFormatter,
     LoggerConfig,
-    setup_logging,
     get_logger,
+    get_span_id,
+    get_trace_id,
+    log_debug,
+    log_error,
     log_info,
     log_warning,
-    log_error,
-    log_debug,
     set_trace_context,
     set_user_context,
-    get_trace_id,
-    get_span_id,
+    setup_logging,
 )
 
 

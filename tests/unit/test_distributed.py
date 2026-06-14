@@ -8,17 +8,17 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from src.distributed.lock import DistributedLock, LockState
 from src.distributed.circuit_breaker import (
     CircuitBreaker,
     CircuitBreakerConfig,
     CircuitBreakerError,
     CircuitState,
 )
+from src.distributed.lock import DistributedLock, LockState
 from src.distributed.rate_limiter import (
     RateLimitConfig,
-    TokenBucket,
     RateLimitResult,
+    TokenBucket,
 )
 
 

@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 
 import pytest
+
 from src.domain.models.base import ModelConfig
 from src.domain.models.deepseek import DeepSeekClient
 

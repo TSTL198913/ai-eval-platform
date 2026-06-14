@@ -1,5 +1,6 @@
 import pytest
 from sqlalchemy import text
+
 from src.infra.db.session import SessionLocal, engine, get_db_session
 
 

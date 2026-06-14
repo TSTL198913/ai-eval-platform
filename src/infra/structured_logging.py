@@ -2,15 +2,14 @@
 # AI Evaluation Platform - 结构化日志系统
 # =====================================================================
 
+import json
 import logging
 import sys
-import json
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
 from contextvars import ContextVar
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from enum import Enum
-
+from typing import Any, Dict, Optional
 
 # =====================================================================
 # Context Variables - 用于跨函数传递追踪信息

@@ -1,5 +1,6 @@
 import pytest
 from celery.exceptions import Retry
+
 from src.schemas.evaluation import DomainResponse
 from src.schemas.schemas import EvaluationResult, EvaluationStatus
 from src.workers.tasks import _result_to_model, eval_case_task

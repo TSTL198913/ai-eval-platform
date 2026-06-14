@@ -1,6 +1,7 @@
 
 import pytest
 from fastapi.testclient import TestClient
+
 from src.api.server import app
 from src.domain.models.llm_factory import create_llm_client
 from src.domain.models.stub import StubLLMClient

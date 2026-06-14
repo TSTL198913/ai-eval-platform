@@ -15,7 +15,7 @@ import uuid
 
 import redis
 from celery import Celery, Task
-from celery.signals import worker_init, worker_shutdown, task_prerun, task_postrun
+from celery.signals import task_postrun, task_prerun, worker_init, worker_shutdown
 
 from src.distributed.circuit_breaker import global_registry
 from src.metrics import get_registry

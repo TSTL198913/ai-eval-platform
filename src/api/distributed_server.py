@@ -218,8 +218,9 @@ async def readiness_check():
     - 数据库连接
     - RabbitMQ 连接 (如果配置了)
     """
-    from src.config import settings
     from sqlalchemy import text
+
+    from src.config import settings
 
     checks = {
         "redis": False,
@@ -281,8 +282,9 @@ async def detailed_health():
 
     用于运维监控和调试
     """
-    from src.config import settings
     from sqlalchemy import text
+
+    from src.config import settings
 
     health_info = {
         "service": {

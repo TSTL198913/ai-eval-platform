@@ -17,7 +17,11 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, Optional
 
-from src.distributed.circuit_breaker import CircuitBreaker, CircuitBreakerError, CircuitBreakerConfig
+from src.distributed.circuit_breaker import (
+    CircuitBreaker,
+    CircuitBreakerConfig,
+    CircuitBreakerError,
+)
 from src.distributed.lock import DistributedLock, LockState
 from src.distributed.queue import QueueMessage
 from src.llm.base import LLMConfig, create_llm_client

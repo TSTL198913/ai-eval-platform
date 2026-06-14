@@ -5,18 +5,18 @@
 
 import pytest
 
-from src.tracing import (
-    Tracer,
-    SpanContext,
-    SpanContextCarrier,
-    TraceContext,
-)
 from src.metrics import (
     Counter,
     Gauge,
     Histogram,
     MetricsRegistry,
     get_registry,
+)
+from src.tracing import (
+    SpanContext,
+    SpanContextCarrier,
+    TraceContext,
+    Tracer,
 )
 
 

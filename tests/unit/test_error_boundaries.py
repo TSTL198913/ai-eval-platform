@@ -13,8 +13,8 @@ class TestLLMErrors:
 
     def test_stub_llm_returns_string(self):
         """StubLLMClient 返回字符串"""
-        from src.domain.models.stub import StubLLMClient
         from src.domain.models.base import ModelConfig
+        from src.domain.models.stub import StubLLMClient
 
         config = ModelConfig(api_key="test", model_name="stub")
         client = StubLLMClient(config)
@@ -26,8 +26,8 @@ class TestLLMErrors:
 
     def test_stub_llm_async_returns_string(self):
         """StubLLMClient 异步调用返回字符串"""
-        from src.domain.models.stub import StubLLMClient
         from src.domain.models.base import ModelConfig
+        from src.domain.models.stub import StubLLMClient
 
         config = ModelConfig(api_key="test", model_name="stub")
         client = StubLLMClient(config)
@@ -46,8 +46,9 @@ class TestDistributedLockErrors:
 
     def test_lock_double_release(self):
         """测试重复释放锁"""
-        from src.distributed.lock import DistributedLock
         from unittest.mock import MagicMock
+
+        from src.distributed.lock import DistributedLock
 
         # 模拟 Redis
         mock_redis = MagicMock()
@@ -68,8 +69,9 @@ class TestDistributedLockErrors:
 
     def test_lock_invalid_key(self):
         """测试无效锁键"""
-        from src.distributed.lock import DistributedLock
         from unittest.mock import MagicMock
+
+        from src.distributed.lock import DistributedLock
 
         mock_redis = MagicMock()
 
@@ -129,8 +131,9 @@ class TestRateLimiterErrors:
 
     def test_token_bucket_initial_state(self):
         """测试令牌桶初始状态"""
-        from src.distributed.rate_limiter import TokenBucket
         from unittest.mock import MagicMock
+
+        from src.distributed.rate_limiter import TokenBucket
 
         mock_redis = MagicMock()
         mock_redis.register_script.return_value = MagicMock()
@@ -143,8 +146,9 @@ class TestRateLimiterErrors:
 
     def test_token_bucket_depletion(self):
         """测试令牌桶耗尽"""
-        from src.distributed.rate_limiter import TokenBucket
         from unittest.mock import MagicMock
+
+        from src.distributed.rate_limiter import TokenBucket
 
         mock_redis = MagicMock()
         mock_redis.register_script.return_value = MagicMock()
@@ -171,7 +175,7 @@ class TestQueueMessage:
 
     def test_message_creation(self):
         """测试消息创建"""
-        from src.distributed.queue import QueueMessage, MessagePriority
+        from src.distributed.queue import MessagePriority, QueueMessage
 
         msg = QueueMessage(
             message_id="test-123",
@@ -235,8 +239,9 @@ class TestTracingErrors:
 
     def test_span_creation(self):
         """测试 Span 创建"""
-        from src.tracing import Span
         import time
+
+        from src.tracing import Span
 
         span = Span(
             name="test_operation",
@@ -269,6 +274,7 @@ class TestConcurrency:
     def test_concurrent_counter(self):
         """测试并发计数器"""
         import threading
+
         from src.metrics import MetricsRegistry
 
         registry = MetricsRegistry()
@@ -296,7 +302,7 @@ class TestRegression:
         from src.distributed.circuit_breaker import (
             CircuitBreaker,
             CircuitBreakerConfig,
-            CircuitState
+            CircuitState,
         )
 
         cb = CircuitBreaker(
@@ -335,9 +341,11 @@ class TestRegression:
 
     def test_lock_context_manager(self):
         """回归: 确保锁上下文管理器正常工作"""
-        from src.distributed.lock import DistributedLock
         from unittest.mock import MagicMock
+
         import redis
+
+        from src.distributed.lock import DistributedLock
 
         mock_redis = MagicMock(spec=redis.Redis)
 

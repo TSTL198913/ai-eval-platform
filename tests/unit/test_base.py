@@ -1,4 +1,5 @@
 import pytest
+
 from src.domain.models.base import BaseLLMClient, ModelConfig
 
 

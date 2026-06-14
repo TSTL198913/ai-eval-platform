@@ -3,6 +3,7 @@ import time
 from pathlib import Path
 
 import pytest
+
 from src.infra.analytics.benchmark_report import build_benchmark_report
 from src.services.evaluator_svc import run_evaluation_service
 

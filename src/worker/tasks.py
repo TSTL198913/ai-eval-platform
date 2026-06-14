@@ -13,7 +13,6 @@ import time
 import uuid
 from typing import Any, Dict, List, Optional
 
-
 from src.distributed.circuit_breaker import global_registry
 from src.infra.db.models import EvaluationResultModel
 from src.infra.db.session import SessionLocal
@@ -240,7 +239,7 @@ def eval_case_task(self, case_data: Dict) -> Dict[str, Any]:
             raise Exception(f"Circuit breaker open for domain {domain}")
 
         # 执行任务处理
-        from src.distributed.queue import QueueMessage, MessagePriority
+        from src.distributed.queue import MessagePriority, QueueMessage
 
         task_msg = QueueMessage(
             message_id=task_id,

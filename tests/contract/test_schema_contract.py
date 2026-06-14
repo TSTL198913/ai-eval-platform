@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
+
 from src.domain.evaluators import EVALUATOR_REGISTRY
 from src.schemas.evaluation import EvaluationSchema
 

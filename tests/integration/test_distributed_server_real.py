@@ -15,6 +15,7 @@ from src.api.distributed_server import app
 def use_real_redis():
     """清除全局缓存，确保使用真实 Redis 连接"""
     import src.api.distributed_server as server
+
     server._redis_client = None
     server._rate_limiter = None
     yield

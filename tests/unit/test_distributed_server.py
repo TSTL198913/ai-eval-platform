@@ -29,6 +29,7 @@ def mock_redis_and_rate_limiter():
 
             # 清除缓存的客户端
             import src.api.distributed_server as server
+
             server._redis_client = None
             server._rate_limiter = None
 

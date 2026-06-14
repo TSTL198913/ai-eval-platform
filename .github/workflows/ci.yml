@@ -52,7 +52,7 @@ jobs:
 
       - name: Lint (Flake8)
         run: |
-          flake8 src/ tests/ --count --show-source --statistics --max-line-length=88
+          flake8 src/ tests/ --count --show-source --statistics --max-line-length=100
 
   # =====================================================================
   # 单元测试

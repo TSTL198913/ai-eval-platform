@@ -2,13 +2,14 @@ import os
 import sys
 from unittest.mock import MagicMock
 
+import pytest
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.orm import sessionmaker
+
 # 测试环境使用 SQLite，避免强依赖 PostgreSQL
 os.environ.setdefault("TESTING", "1")
 os.environ.setdefault("TEST_DATABASE_URL", "sqlite:///:memory:")
 
-import pytest
-from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.orm import sessionmaker
 from src.infra.db.session import Base
 from src.schemas.evaluation import EvaluationSchema
 from src.workers.celery_app import celery_app

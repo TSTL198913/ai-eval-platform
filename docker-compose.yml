@@ -131,7 +131,7 @@ services:
       - ai-eval-network
 
   # ---------------------------------------------------------------------
-  # Prometheus 监控 (可选)
+  # Prometheus 监控
   # ---------------------------------------------------------------------
   prometheus:
     image: prom/prometheus:latest
@@ -139,18 +139,36 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./docker/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
     networks:
       - ai-eval-network
     profiles:
       - monitoring
 
   # ---------------------------------------------------------------------
-  # Grafana 监控面板 (可选)
+  # Alertmanager (告警管理)
+  # ---------------------------------------------------------------------
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: ai-eval-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./docker/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager_data:/alertmanager
+    networks:
+      - ai-eval-network
+    profiles:
+      - monitoring
+
+  # ---------------------------------------------------------------------
+  # Grafana 监控面板
   # ---------------------------------------------------------------------
   grafana:
     image: grafana/grafana:latest
@@ -159,8 +177,12 @@ services:
       - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-clock-panel
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./docker/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
     depends_on:
       - prometheus
     networks:
@@ -181,3 +203,4 @@ volumes:
   rabbitmq_data:
   prometheus_data:
   grafana_data:
+  alertmanager_data:

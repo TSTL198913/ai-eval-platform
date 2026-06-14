@@ -1,0 +1,183 @@
+# =====================================================================
+# AI Evaluation Platform - Prometheus Alert Rules
+# =====================================================================
+
+groups:
+  # =====================================================================
+  # API 服务告警
+  # =====================================================================
+  - name: api_alerts
+    rules:
+      # API 响应时间告警
+      - alert: APIHighResponseTime
+        expr: histogram_quantile(0.95, rate(api_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: "API 响应时间过高"
+          description: "API P95 响应时间超过 1 秒，当前值: {{ $value }}s"
+      
+      # API 错误率告警
+      - alert: APIHighErrorRate
+        expr: rate(api_requests_total{status="error"}[5m]) / rate(api_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: "API 错误率过高"
+          description: "API 错误率超过 5%，当前值: {{ $value }}"
+      
+      # API 请求量异常低
+      - alert: APILowRequestRate
+        expr: rate(api_requests_total[5m]) < 1
+        for: 10m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: "API 请求量异常低"
+          description: "API 请求速率低于 1 req/s，可能服务异常"
+
+  # =====================================================================
+  # Celery Worker 告警
+  # =====================================================================
+  - name: worker_alerts
+    rules:
+      # 任务失败率告警
+      - alert: HighTaskFailureRate
+        expr: rate(celery_tasks_total{status="failure"}[5m]) / rate(celery_tasks_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          service: worker
+        annotations:
+          summary: "任务失败率过高"
+          description: "Celery 任务失败率超过 10%，当前值: {{ $value }}"
+      
+      # 任务队列积压告警
+      - alert: TaskQueueBacklog
+        expr: celery_queue_length > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: worker
+        annotations:
+          summary: "任务队列积压"
+          description: "任务队列长度超过 100，当前值: {{ $value }}"
+      
+      # Worker 数量不足
+      - alert: InsufficientWorkers
+        expr: celery_active_workers < 2
+        for: 5m
+        labels:
+          severity: warning
+          service: worker
+        annotations:
+          summary: "Worker 数量不足"
+          description: "活跃 Worker 数量少于 2，当前值: {{ $value }}"
+
+  # =====================================================================
+  # 系统资源告警
+  # =====================================================================
+  - name: system_alerts
+    rules:
+      # CPU 使用率告警
+      - alert: HighCPUUsage
+        expr: system_cpu_usage > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "CPU 使用率过高"
+          description: "CPU 使用率超过 80%，当前值: {{ $value }}%"
+      
+      # 内存使用率告警
+      - alert: HighMemoryUsage
+        expr: system_memory_usage > 85
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "内存使用率过高"
+          description: "内存使用率超过 85%，当前值: {{ $value }}%"
+      
+      # 磁盘使用率告警
+      - alert: HighDiskUsage
+        expr: system_disk_usage > 90
+        for: 5m
+        labels:
+          severity: critical
+          service: system
+        annotations:
+          summary: "磁盘使用率过高"
+          description: "磁盘使用率超过 90%，当前值: {{ $value }}%"
+
+  # =====================================================================
+  # 分布式组件告警
+  # =====================================================================
+  - name: distributed_alerts
+    rules:
+      # 熔断器打开告警
+      - alert: CircuitBreakerOpen
+        expr: circuit_breaker_state{state="open"} == 1
+        for: 1m
+        labels:
+          severity: critical
+          service: circuit_breaker
+        annotations:
+          summary: "熔断器已打开"
+          description: "服务 {{ $labels.service_name }} 熔断器已打开，请求被拒绝"
+      
+      # 限流拒绝过多告警
+      - alert: HighRateLimitRejects
+        expr: rate(rate_limiter_requests_rejected_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: rate_limiter
+        annotations:
+          summary: "限流拒绝请求过多"
+          description: "限流器拒绝请求速率超过 10 req/s，当前值: {{ $value }}"
+      
+      # Redis 连接失败告警
+      - alert: RedisConnectionFailure
+        expr: redis_connection_status == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: redis
+        annotations:
+          summary: "Redis 连接失败"
+          description: "Redis 连接状态异常，请检查 Redis 服务"
+
+  # =====================================================================
+  # LLM 服务告警
+  # =====================================================================
+  - name: llm_alerts
+    rules:
+      # LLM 响应时间告警
+      - alert: LLMHighResponseTime
+        expr: histogram_quantile(0.95, rate(llm_request_duration_seconds_bucket[5m])) > 30
+        for: 5m
+        labels:
+          severity: warning
+          service: llm
+        annotations:
+          summary: "LLM 响应时间过高"
+          description: "LLM P95 响应时间超过 30 秒，当前值: {{ $value }}s"
+      
+      # LLM 错误率告警
+      - alert: LLMHighErrorRate
+        expr: rate(llm_requests_total{status="error"}[5m]) / rate(llm_requests_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          service: llm
+        annotations:
+          summary: "LLM 错误率过高"
+          description: "LLM 错误率超过 10%，当前值: {{ $value }}"

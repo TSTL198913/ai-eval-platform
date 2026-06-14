@@ -1,0 +1,68 @@
+# =====================================================================
+# AI Evaluation Platform - Pre-commit 配置
+# =====================================================================
+# 安装: pip install pre-commit
+# 使用: pre-commit install
+# 运行: pre-commit run --all-files
+# =====================================================================
+
+repos:
+  # Python 代码格式化
+  - repo: https://github.com/psf/black
+    rev: 24.1.0
+    hooks:
+      - id: black
+        language_version: python3.10
+        description: "格式化 Python 代码 (black)"
+
+  # Python import 排序
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        name: isort (python)
+        description: "排序 Python imports"
+        args: ["--profile", "black"]
+
+  # Python Linting
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        name: flake8
+        description: "Python Linting"
+        args: ["--config=pyproject.toml"]
+        additional_dependencies:
+          - flake8-docstrings
+          - flake8-comprehensions
+          - flake8-broken-line
+
+  # 避免提交 secrets
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: detect-secrets
+        name: detect-secrets
+        description: "检测提交的 secrets"
+
+  # 避免大文件
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-yaml
+        name: check-yaml
+        description: "验证 YAML 文件"
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: end-of-file-fixer
+        name: end-of-file-fixer
+        description: "确保文件以换行符结尾"
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        name: trailing-whitespace
+        description: "去除尾部空白"

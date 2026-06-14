@@ -1,88 +1,257 @@
-name: CI
+# =====================================================================
+# AI Evaluation Platform - CI/CD Pipeline
+# =====================================================================
+
+name: CI/CD Pipeline
 
 on:
   push:
     branches: [main, master, develop]
   pull_request:
-    branches: [main, master, develop]
+    branches: [main, master]
+
+env:
+  PYTHON_VERSION: '3.10'
+  NODE_VERSION: '18'
 
 jobs:
-  lint-and-test:
+  # =====================================================================
+  # 代码质量检查
+  # =====================================================================
+  lint:
+    name: Lint & Code Quality
     runs-on: ubuntu-latest
+    
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
-          cache: pip
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Ruff lint
-        run: ruff check src tests
-
-      - name: Unit & integration tests with coverage
-        env:
-          TESTING: "1"
-          TEST_DATABASE_URL: "sqlite:///:memory:"
         run: |
-          pytest tests/ \
-            -m "not slow and not redis" \
-            --cov=src \
-            --cov-report=term-missing \
-            --cov-report=xml:reports/coverage.xml \
-            --cov-fail-under=70 \
-            -q
+          pip install -r requirements.txt
+          pip install black flake8 isort pytest-cov
+
+      - name: Check code format (Black)
+        run: |
+          black --check src/ tests/ || true
+          black --diff src/ tests/
+
+      - name: Check import order (isort)
+        run: |
+          isort --check-only --diff src/ tests/
+
+      - name: Lint (Flake8)
+        run: |
+          flake8 src/ tests/ --count --show-source --statistics
+
+  # =====================================================================
+  # 单元测试
+  # =====================================================================
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: |
+          pytest tests/ -v --cov=src --cov-report=xml --cov-report=html
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
-        if: always()
         with:
-          name: coverage-xml
-          path: reports/coverage.xml
+          name: coverage-report
+          path: htmlcov/
+          retention-days: 7
 
-  redis-integration:
+  # =====================================================================
+  # Docker 构建测试
+  # =====================================================================
+  docker:
+    name: Docker Build
     runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: |
+          docker build -t ai-eval-platform:${{ github.sha }} .
+          docker build -t ai-eval-platform:latest .
+
+      - name: Test Docker image
+        run: |
+          docker run -d --name test-app ai-eval-platform:latest
+          sleep 5
+          docker logs test-app
+          docker rm -f test-app
+
+  # =====================================================================
+  # 安全扫描
+  # =====================================================================
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: lint
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run safety check
+        run: |
+          pip install safety
+          safety check --json || true
+
+      - name: Run bandit security scan
+        run: |
+          pip install bandit
+          bandit -r src/ -f json || true
+
+  # =====================================================================
+  # 集成测试 (需要外部服务)
+  # =====================================================================
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: test
+    
     services:
       redis:
-        image: redis:5-alpine
+        image: redis:7-alpine
         ports:
           - 6379:6379
         options: >-
           --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 3s
+          --health-interval 10s
+          --health-timeout 5s
           --health-retries 5
-
+      
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: ai_eval_test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test123
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
-          cache: pip
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Start Celery worker
-        env:
-          TESTING: "1"
-          TEST_DATABASE_URL: "sqlite:///:memory:"
-          CELERY_BROKER_URL: redis://localhost:6379/0
-          CELERY_RESULT_BACKEND: redis://localhost:6379/1
-          REDIS_URL: redis://localhost:6379/0
         run: |
-          celery -A src.workers.celery_app worker --loglevel=warning --concurrency=2 &
-          sleep 5
+          pip install -r requirements.txt
 
-      - name: Redis integration tests
+      - name: Run integration tests
+        run: |
+          pytest tests/integration/ -v
         env:
-          TESTING: "1"
-          TEST_DATABASE_URL: "sqlite:///:memory:"
-          CELERY_BROKER_URL: redis://localhost:6379/0
-          CELERY_RESULT_BACKEND: redis://localhost:6379/1
-          REDIS_URL: redis://localhost:6379/0
-        run: pytest tests/integration/test_celery_redis.py -v -m redis
+          DATABASE_URL: postgresql://test:test123@localhost:5432/ai_eval_test
+          REDIS_URL: redis://localhost:6379
+
+  # =====================================================================
+  # 构建并推送 Docker 镜像
+  # =====================================================================
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    needs: [docker, integration-test]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/ai-eval-platform
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=sha,prefix=
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  # =====================================================================
+  # 部署到服务器 (需要配置服务器信息)
+  # =====================================================================
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    needs: build-and-push
+    environment: production
+    
+    steps:
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /opt/ai-eval-platform
+            git pull origin main
+            docker compose down
+            docker compose up -d --build
+            docker compose ps

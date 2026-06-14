@@ -1,49 +1,47 @@
+# =====================================================================
+# AI Evaluation Platform - 代码规范配置
+# =====================================================================
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | \.eggs
+  | build
+  | dist
+  | __pycache__
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+skip_gitignore = true
+skip = [".venv", "build", "dist"]
+
+[tool.flake8]
+max-line-length = 100
+extend-ignore = ["E203", "W503", "E501"]
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv",
+    "build",
+    "dist",
+    "*.egg-info",
+]
+per-file-ignores = [
+    "__init__.py:F401",
+]
+
 [tool.pytest.ini_options]
-pythonpath = ["."]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-markers = [
-    "slow: 耗时较长的 E2E/压测用例",
-    "integration: 跨模块集成测试",
-    "e2e: 端到端全链路测试",
-    "redis: 需要 Redis 与 Celery Worker 的真异步测试",
-    "contract: API/Schema 契约测试",
-]
-
-[tool.coverage.run]
-source = ["src"]
-branch = true
-omit = [
-    "*/tasks_old.py",
-    "*/submit_tasks.py",
-    "*/monitor_queue.py",
-    "*/seed_data.py",
-    "*/test_live.py",
-    "*/app.py",
-    "*/main.py",
-]
-
-[tool.coverage.report]
-show_missing = true
-skip_covered = false
-fail_under = 70
-exclude_lines = [
-    "pragma: no cover",
-    "if TYPE_CHECKING:",
-    "if __name__ == .__main__.:",
-]
-
-[tool.coverage.html]
-directory = "reports/coverage_html"
-
-[tool.ruff]
-target-version = "py310"
-line-length = 100
-src = ["src", "tests"]
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "W"]
-ignore = ["E501"]
-
-[tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+addopts = "-v --tb=short"

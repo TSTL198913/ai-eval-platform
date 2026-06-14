@@ -209,3 +209,107 @@ class TestRedLock:
         redlock = RedLock([mock_redis], ttl_seconds=10.0)
         result = redlock.lock("resource")
         assert ":" in result
+
+    def test_unlock_success(self):
+        """测试 RedLock unlock 成功"""
+        mock_redis = Mock(spec=redis.Redis)
+        mock_redis.set.return_value = True
+        mock_redis.eval.return_value = 1
+        redlock = RedLock([mock_redis], ttl_seconds=10.0)
+        lock_value = redlock.lock("resource")
+        result = redlock.unlock("resource", lock_value)
+        assert result is True
+
+    def test_unlock_multi_node_quorum(self):
+        """测试多节点 unlock 达到 quorum"""
+        redis1 = Mock(spec=redis.Redis)
+        redis2 = Mock(spec=redis.Redis)
+        redis3 = Mock(spec=redis.Redis)
+
+        redis1.set.return_value = True
+        redis2.set.return_value = True
+        redis3.set.return_value = True
+
+        redis1.eval.return_value = 1
+        redis2.eval.return_value = 1
+        redis3.eval.return_value = 0
+
+        redlock = RedLock([redis1, redis2, redis3], ttl_seconds=10.0)
+        lock_value = redlock.lock("resource")
+        result = redlock.unlock("resource", lock_value)
+        assert result is True  # 2/3 >= quorum
+
+    def test_unlock_multi_node_no_quorum(self):
+        """测试多节点 unlock 未达到 quorum"""
+        redis1 = Mock(spec=redis.Redis)
+        redis2 = Mock(spec=redis.Redis)
+        redis3 = Mock(spec=redis.Redis)
+
+        redis1.set.return_value = True
+        redis2.set.return_value = True
+        redis3.set.return_value = True
+
+        redis1.eval.return_value = 0
+        redis2.eval.return_value = 0
+        redis3.eval.return_value = 0
+
+        redlock = RedLock([redis1, redis2, redis3], ttl_seconds=10.0)
+        lock_value = redlock.lock("resource")
+        result = redlock.unlock("resource", lock_value)
+        assert result is False
+
+    def test_unlock_exception_handled(self):
+        """测试 unlock 时 Redis 异常处理"""
+        mock_redis = Mock(spec=redis.Redis)
+        mock_redis.set.return_value = True
+        mock_redis.eval.side_effect = Exception("Redis error")
+        redlock = RedLock([mock_redis], ttl_seconds=10.0)
+        lock_value = redlock.lock("resource")
+        result = redlock.unlock("resource", lock_value)
+        assert result is False
+
+
+class TestDistributedLockContextManager:
+    """测试 distributed_lock 上下文管理器"""
+
+    def test_context_manager_success(self):
+        """测试上下文管理器成功获取锁"""
+        mock_redis = Mock(spec=redis.Redis)
+        mock_redis.set.return_value = True
+        mock_redis.eval.return_value = 1
+
+        from src.distributed.lock import distributed_lock
+
+        with distributed_lock(mock_redis, "test_key") as lock:
+            assert lock.is_acquired is True
+
+        # 退出后应释放锁
+        mock_redis.eval.assert_called()
+
+    def test_context_manager_acquire_failure(self):
+        """测试上下文管理器获取锁失败"""
+        mock_redis = Mock(spec=redis.Redis)
+        mock_redis.set.return_value = None
+
+        from src.distributed.lock import distributed_lock
+
+        with pytest.raises(RuntimeError, match="Failed to acquire"):
+            with distributed_lock(mock_redis, "test_key", ttl_seconds=10.0):
+                pass
+
+    def test_context_manager_release_on_exception(self):
+        """测试上下文管理器在异常时释放锁"""
+        mock_redis = Mock(spec=redis.Redis)
+        mock_redis.set.return_value = True
+        mock_redis.eval.return_value = 1
+
+        from src.distributed.lock import distributed_lock
+
+        try:
+            with distributed_lock(mock_redis, "test_key") as lock:
+                raise ValueError("Test error")
+        except ValueError:
+            pass
+
+        # 即使异常也应释放锁
+        mock_redis.eval.assert_called()

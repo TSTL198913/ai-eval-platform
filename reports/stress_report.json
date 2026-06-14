@@ -1,0 +1,19 @@
+{
+  "total_cases": 100,
+  "success_count": 100,
+  "success_rate": 1.0,
+  "total_time_ms": 278.95669994177297,
+  "avg_latency_ms": 2.7895669994177297,
+  "p50_latency_ms": 0.6714999981340952,
+  "p95_latency_ms": 0.8414999974775128,
+  "p99_latency_ms": 210.16550000058487,
+  "tps": 358.47857398970217,
+  "error_summary": {},
+  "generated_at": "2026-06-14T13:28:27.667064",
+  "submit_total_ms": 279.36290000070585,
+  "queue_drained": false,
+  "queue_drain_sec": 120,
+  "db_baseline_count": 0,
+  "db_new_records": 0,
+  "db_reconciliation_passed": false
+}

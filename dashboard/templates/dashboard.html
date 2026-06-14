@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 评测平台仪表盘</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .header .user-info {
+            display: flex;
+            gap: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px;
+        }
+
+        .overview-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .card h3 {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .card .value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .card .change {
+            font-size: 14px;
+            color: #52c41a;
+            margin-top: 5px;
+        }
+
+        .card .change.negative {
+            color: #f5222d;
+        }
+
+        .section {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+        }
+
+        .section h2 {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .models-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .model-card {
+            border: 1px solid #e8e8e8;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .model-card .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .model-card .name {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .model-card .provider {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .model-card .metrics {
+            display: flex;
+            gap: 20px;
+        }
+
+        .model-card .metric {
+            text-align: center;
+        }
+
+        .model-card .metric-label {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .model-card .metric-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .chart-container {
+            height: 300px;
+            margin-top: 20px;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table th, .table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e8e8e8;
+        }
+
+        .table th {
+            font-weight: 600;
+            color: #666;
+            font-size: 12px;
+        }
+
+        .table td {
+            font-size: 14px;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-badge.success {
+            background: #f6ffed;
+            color: #52c41a;
+        }
+
+        .status-badge.warning {
+            background: #fffbe6;
+            color: #faad14;
+        }
+
+        .status-badge.error {
+            background: #fff2f0;
+            color: #f5222d;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a67d8;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #667eea;
+            border: 1px solid #667eea;
+        }
+
+        .compare-form {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .compare-form select {
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid #d9d9d9;
+            font-size: 14px;
+        }
+
+        .health-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .health-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 6px;
+        }
+
+        .health-item .name {
+            font-size: 14px;
+            color: #333;
+        }
+
+        .health-item .status {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .refresh-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #667eea;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 20px;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🤖 AI 评测平台仪表盘</h1>
+        <div class="user-info">
+            <span>API Key: xxx-xxx-xxx</span>
+            <span>本月调用: 12,543 次</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 概览卡片 -->
+        <div class="overview-cards" id="overview">
+            <div class="card">
+                <h3>总评测次数</h3>
+                <div class="value" id="total-evaluations">12,543</div>
+                <div class="change">↑ 12.3% 较上月</div>
+            </div>
+            <div class="card">
+                <h3>活跃模型</h3>
+                <div class="value" id="active-models">15</div>
+                <div class="change">↑ 3 个新增</div>
+            </div>
+            <div class="card">
+                <h3>成功率</h3>
+                <div class="value" id="success-rate">98.5%</div>
+                <div class="change">↑ 0.5% 较上周</div>
+            </div>
+            <div class="card">
+                <h3>平均延迟</h3>
+                <div class="value" id="avg-latency">245ms</div>
+                <div class="change negative">↑ 15ms 较昨日</div>
+            </div>
+            <div class="card">
+                <h3>本月费用</h3>
+                <div class="value" id="monthly-cost">¥8,560</div>
+                <div class="change">预算内</div>
+            </div>
+        </div>
+
+        <!-- 模型列表 -->
+        <div class="section">
+            <h2>活跃模型</h2>
+            <div class="models-grid" id="models-grid"></div>
+        </div>
+
+        <!-- 模型对比 -->
+        <div class="section">
+            <h2>模型对比</h2>
+            <div class="compare-form">
+                <select id="model1">
+                    <option value="gpt-4">GPT-4</option>
+                    <option value="claude-3">Claude 3</option>
+                    <option value="gemini-pro">Gemini Pro</option>
+                </select>
+                <select id="model2">
+                    <option value="claude-3">Claude 3</option>
+                    <option value="gpt-4">GPT-4</option>
+                    <option value="gemini-pro">Gemini Pro</option>
+                </select>
+                <select id="dataset">
+                    <option value="mmlu">MMLU</option>
+                    <option value="humaneval">HumanEval</option>
+                    <option value="gsm8k">GSM8K</option>
+                </select>
+                <button class="btn btn-primary" onclick="runCompare()">开始对比</button>
+            </div>
+            <div class="chart-container">
+                <canvas id="compareChart"></canvas>
+            </div>
+        </div>
+
+        <!-- 评测历史 -->
+        <div class="section">
+            <h2>评测历史</h2>
+            <table class="table" id="evaluations-table">
+                <thead>
+                    <tr>
+                        <th>评测 ID</th>
+                        <th>模型</th>
+                        <th>数据集</th>
+                        <th>时间</th>
+                        <th>状态</th>
+                        <th>准确率</th>
+                        <th>延迟</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- 系统健康 -->
+        <div class="section">
+            <h2>系统健康状态</h2>
+            <div class="health-grid" id="health-grid"></div>
+        </div>
+
+        <!-- 性能指标 -->
+        <div class="section">
+            <h2>性能指标</h2>
+            <div class="chart-container">
+                <canvas id="metricsChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <button class="refresh-btn" onclick="refreshData()">🔄</button>
+
+    <script>
+        // 初始化图表
+        let compareChart, metricsChart;
+
+        // 加载概览数据
+        async function loadOverview() {
+            const response = await fetch('/api/overview');
+            const data = await response.json();
+
+            document.getElementById('total-evaluations').textContent = data.total_evaluations.toLocaleString();
+            document.getElementById('active-models').textContent = data.active_models;
+            document.getElementById('success-rate').textContent = data.success_rate + '%';
+            document.getElementById('avg-latency').textContent = data.avg_latency_ms + 'ms';
+            document.getElementById('monthly-cost').textContent = '¥' + data.monthly_cost.toLocaleString();
+        }
+
+        // 加载模型列表
+        async function loadModels() {
+            const response = await fetch('/api/models');
+            const models = await response.json();
+
+            const grid = document.getElementById('models-grid');
+            grid.innerHTML = models.map(model => `
+                <div class="model-card">
+                    <div class="header">
+                        <div>
+                            <div class="name">${model.name}</div>
+                            <div class="provider">${model.provider}</div>
+                        </div>
+                        <span class="status-badge success">${model.status}</span>
+                    </div>
+                    <div class="metrics">
+                        <div class="metric">
+                            <div class="metric-label">评测次数</div>
+                            <div class="metric-value">${model.evaluations.toLocaleString()}</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">准确率</div>
+                            <div class="metric-value">${(model.avg_accuracy * 100).toFixed(1)}%</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">延迟</div>
+                            <div class="metric-value">${model.avg_latency_ms}ms</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 加载评测历史
+        async function loadEvaluations() {
+            const response = await fetch('/api/evaluations');
+            const evaluations = await response.json();
+
+            const tbody = document.querySelector('#evaluations-table tbody');
+            tbody.innerHTML = evaluations.map(eval => `
+                <tr>
+                    <td>${eval.id}</td>
+                    <td>${eval.model}</td>
+                    <td>${eval.dataset}</td>
+                    <td>${new Date(eval.timestamp).toLocaleString()}</td>
+                    <td><span class="status-badge success">${eval.status}</span></td>
+                    <td>${(eval.accuracy * 100).toFixed(1)}%</td>
+                    <td>${eval.latency_ms}ms</td>
+                </tr>
+            `).join('');
+        }
+
+        // 加载健康状态
+        async function loadHealth() {
+            const response = await fetch('/api/health');
+            const health = await response.json();
+
+            const grid = document.getElementById('health-grid');
+            const components = Object.entries(health.components).map(([name, data]) => `
+                <div class="health-item">
+                    <div class="name">${name}</div>
+                    <span class="status-badge success">${data.status}</span>
+                </div>
+            `).join('');
+            grid.innerHTML = components;
+        }
+
+        // 初始化对比图表
+        function initCompareChart() {
+            const ctx = document.getElementById('compareChart').getContext('2d');
+            compareChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['准确率', '延迟', '成本'],
+                    datasets: []
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // 运行对比
+        async function runCompare() {
+            const model1 = document.getElementById('model1').value;
+            const model2 = document.getElementById('model2').value;
+            const dataset = document.getElementById('dataset').value;
+
+            const response = await fetch('/api/compare', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({models: [model1, model2], dataset})
+            });
+            const data = await response.json();
+
+            // 更新图表
+            compareChart.data.datasets = data.results.map((result, index) => ({
+                label: result.model,
+                data: [
+                    result.accuracy * 100,
+                    result.latency_ms,
+                    result.cost * 100
+                ],
+                backgroundColor: index === 0 ? '#667eea' : '#764ba2'
+            }));
+            compareChart.update();
+        }
+
+        // 初始化性能图表
+        async function initMetricsChart() {
+            const response = await fetch('/api/metrics');
+            const metrics = await response.json();
+
+            const ctx = document.getElementById('metricsChart').getContext('2d');
+            metricsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['P50', 'P95', 'P99'],
+                    datasets: [{
+                        label: '延迟 (ms)',
+                        data: [metrics.p50_latency_ms, metrics.p95_latency_ms, metrics.p99_latency_ms],
+                        borderColor: '#667eea',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        // 刷新所有数据
+        async function refreshData() {
+            await Promise.all([
+                loadOverview(),
+                loadModels(),
+                loadEvaluations(),
+                loadHealth()
+            ]);
+        }
+
+        // 页面加载时初始化
+        window.onload = async function() {
+            initCompareChart();
+            await initMetricsChart();
+            await refreshData();
+
+            // 每 30 秒自动刷新
+            setInterval(refreshData, 30000);
+        };
+    </script>
+</body>
+</html>

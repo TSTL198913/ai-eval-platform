@@ -3,15 +3,18 @@
 
 当下游服务连续失败超过阈值时，打开熔断器，快速失败。
 一段时间后，进入半开状态，允许探测请求尝试恢复。
+
+支持 Redis 持久化，实现多实例间状态共享。
 """
 
 import asyncio
+import json
 import logging
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from enum import Enum
-from typing import Optional, TypeVar
+from typing import Optional, TypeVar, Any
 
 logger = logging.getLogger(__name__)
 
@@ -66,16 +69,23 @@ class CircuitBreaker:
     - HALF_OPEN -> CLOSED: 连续成功达到阈值
     - HALF_OPEN -> OPEN: 探测失败
 
+    支持 Redis 持久化，实现多实例间状态共享。
+
     使用示例:
         @circuit_breaker.call
         async def call_remote_service():
             return await remote_client.request()
     """
 
+    # Redis key 前缀
+    REDIS_KEY_PREFIX = "circuit_breaker:"
+
     def __init__(
         self,
         name: str,
         config: CircuitBreakerConfig | None = None,
+        redis_client: Any = None,
+        persist_ttl: int = 3600,
     ):
         self.name = name
         self.config = config or CircuitBreakerConfig()
@@ -86,6 +96,13 @@ class CircuitBreaker:
         self._half_open_calls = 0
         self._lock = asyncio.Lock()
         self.stats = CircuitBreakerStats()
+        self._redis_client = redis_client
+        self._persist_ttl = persist_ttl
+        self._redis_key = f"{self.REDIS_KEY_PREFIX}{name}"
+
+        # 如果提供了 Redis 客户端，尝试从 Redis 恢复状态
+        if self._redis_client:
+            self._load_state_from_redis()
 
     @property
     def state(self) -> CircuitState:
@@ -158,6 +175,69 @@ class CircuitBreaker:
             self._failure_count = 0
             self._success_count = 0
 
+        # 持久化状态到 Redis
+        if self._redis_client:
+            self._save_state_to_redis()
+
+    def _save_state_to_redis(self):
+        """将熔断器状态保存到 Redis"""
+        if not self._redis_client:
+            return
+
+        try:
+            state_data = {
+                "state": self._state.value,
+                "failure_count": self._failure_count,
+                "success_count": self._success_count,
+                "last_failure_time": self._last_failure_time,
+                "half_open_calls": self._half_open_calls,
+                "stats": {
+                    "total_calls": self.stats.total_calls,
+                    "successful_calls": self.stats.successful_calls,
+                    "failed_calls": self.stats.failed_calls,
+                    "rejected_calls": self.stats.rejected_calls,
+                    "state_changes": self.stats.state_changes,
+                    "last_state_change_time": self.stats.last_state_change_time,
+                },
+            }
+            self._redis_client.set(
+                self._redis_key,
+                json.dumps(state_data),
+                ex=self._persist_ttl,
+            )
+            logger.debug(f"CircuitBreaker [{self.name}] state saved to Redis")
+        except Exception as e:
+            logger.error(f"CircuitBreaker [{self.name}] failed to save state to Redis: {e}")
+
+    def _load_state_from_redis(self):
+        """从 Redis 加载熔断器状态"""
+        if not self._redis_client:
+            return
+
+        try:
+            data = self._redis_client.get(self._redis_key)
+            if data:
+                state_data = json.loads(data)
+                self._state = CircuitState(state_data["state"])
+                self._failure_count = state_data["failure_count"]
+                self._success_count = state_data["success_count"]
+                self._last_failure_time = state_data["last_failure_time"]
+                self._half_open_calls = state_data["half_open_calls"]
+
+                stats_data = state_data["stats"]
+                self.stats.total_calls = stats_data["total_calls"]
+                self.stats.successful_calls = stats_data["successful_calls"]
+                self.stats.failed_calls = stats_data["failed_calls"]
+                self.stats.rejected_calls = stats_data["rejected_calls"]
+                self.stats.state_changes = stats_data["state_changes"]
+                self.stats.last_state_change_time = stats_data["last_state_change_time"]
+
+                logger.info(
+                    f"CircuitBreaker [{self.name}] state loaded from Redis: {self._state.value}"
+                )
+        except Exception as e:
+            logger.error(f"CircuitBreaker [{self.name}] failed to load state from Redis: {e}")
+
     async def call(self, func: Callable[..., T], *args, **kwargs) -> T:
         """
         通过熔断器执行调用
@@ -206,6 +286,10 @@ class CircuitBreaker:
         self._last_failure_time = None
         self._half_open_calls = 0
         logger.info(f"CircuitBreaker [{self.name}] has been reset")
+
+        # 重置后保存状态到 Redis
+        if self._redis_client:
+            self._save_state_to_redis()
 
     def get_stats(self) -> dict:
         """获取统计信息"""

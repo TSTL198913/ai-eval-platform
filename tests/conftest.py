@@ -37,9 +37,7 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip_slow)
 
     if not os.getenv("REDIS_URL") and not os.getenv("CI"):
-        skip_redis = pytest.mark.skip(
-            reason="跳过 redis 用例，需 REDIS_URL 或 CI Worker"
-        )
+        skip_redis = pytest.mark.skip(reason="跳过 redis 用例，需 REDIS_URL 或 CI Worker")
         for item in items:
             if "redis" in item.keywords:
                 item.add_marker(skip_redis)
@@ -57,9 +55,7 @@ def init_db_tables():
 def mock_llm():
     """统一 Mock LLM，避免测试依赖真实 API。"""
     client = MagicMock()
-    client.chat.return_value = (
-        "利息为30元。语法正确，结构清晰，机器学习是人工智能的重要分支。"
-    )
+    client.chat.return_value = "利息为30元。语法正确，结构清晰，机器学习是人工智能的重要分支。"
     client.config.model_name = "mock-model"
     return client
 

@@ -4,9 +4,9 @@ import os
 def refactor_logs(directory):
     for root, _, files in os.walk(directory):
         for file in files:
-            if file.endswith((".py")):
+            if file.endswith(".py"):
                 path = os.path.join(root, file)
-                with open(path, "r", encoding="utf-8") as f:
+                with open(path, encoding="utf-8") as f:
                     content = f.read()
 
                 # 简单的批量替换逻辑

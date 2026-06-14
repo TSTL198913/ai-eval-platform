@@ -213,9 +213,7 @@ class TestLoggingIntegration:
         set_user_context("user-api-001")
 
         logger = get_logger("api")
-        logger.info(
-            "API request received", extra={"method": "POST", "path": "/evaluate"}
-        )
+        logger.info("API request received", extra={"method": "POST", "path": "/evaluate"})
         logger.debug("Processing request", extra={"request_id": "req-001"})
 
     def test_logging_with_worker_context(self):

@@ -1,6 +1,5 @@
 import os
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional
 
 from pydantic import BaseModel, SecretStr
 
@@ -12,7 +11,7 @@ class ModelConfig(BaseModel):
     model_name: str
     temperature: float = 0.7
     max_tokens: int = 1024
-    base_url: Optional[str] = None
+    base_url: str | None = None
 
 
 def default_model_config() -> ModelConfig:
@@ -25,9 +24,7 @@ class BaseLLMClient(ABC):
     def __init__(self, config: ModelConfig):
         self.config = config
 
-    def _build_messages(
-        self, prompt: str, system_prompt: Optional[str]
-    ) -> List[Dict[str, str]]:
+    def _build_messages(self, prompt: str, system_prompt: str | None) -> list[dict[str, str]]:
         return [
             {
                 "role": "system",
@@ -36,7 +33,7 @@ class BaseLLMClient(ABC):
             {"role": "user", "content": prompt},
         ]
 
-    def _build_payload(self, prompt: str, system_prompt: Optional[str] = None) -> Dict:
+    def _build_payload(self, prompt: str, system_prompt: str | None = None) -> dict:
         return {
             "model": self.config.model_name,
             "messages": self._build_messages(prompt, system_prompt),
@@ -45,9 +42,9 @@ class BaseLLMClient(ABC):
         }
 
     @abstractmethod
-    def chat(self, prompt: str, system_prompt: Optional[str] = None) -> str:
+    def chat(self, prompt: str, system_prompt: str | None = None) -> str:
         pass
 
     @abstractmethod
-    async def achat(self, prompt: str, system_prompt: Optional[str] = None) -> str:
+    async def achat(self, prompt: str, system_prompt: str | None = None) -> str:
         pass

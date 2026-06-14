@@ -14,9 +14,7 @@ def clean_buffer():
 
 def test_db_failure_recovery_chaos():
     for i in range(100):
-        buffer_service.add(
-            EvaluationResultModel(case_id=f"CHAOS_{i}", status="pending")
-        )
+        buffer_service.add(EvaluationResultModel(case_id=f"CHAOS_{i}", status="pending"))
 
     mock_db = MagicMock()
     mock_db.bulk_save_objects.side_effect = Exception("Database Connection Lost!")

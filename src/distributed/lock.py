@@ -9,7 +9,6 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 import redis
 
@@ -58,7 +57,7 @@ class DistributedLock:
         self.ttl_seconds = ttl_seconds
         self.retry_times = retry_times
         self.retry_delay = retry_delay
-        self.lock_value: Optional[str] = None
+        self.lock_value: str | None = None
         self._acquired = False
 
     def acquire(self) -> LockResult:
@@ -138,9 +137,7 @@ class DistributedLock:
         end
         """
 
-        result = self.redis.eval(
-            lua_script, 1, self.key, self.lock_value, int(additional_seconds)
-        )
+        result = self.redis.eval(lua_script, 1, self.key, self.lock_value, int(additional_seconds))
         return result == 1
 
     @property
@@ -174,7 +171,7 @@ class RedLock:
         self.ttl_seconds = ttl_seconds
         self.quorum = len(redis_clients) // 2 + 1
 
-    def lock(self, resource: str) -> Optional[str]:
+    def lock(self, resource: str) -> str | None:
         """
         获取多节点锁
 
@@ -215,9 +212,7 @@ class RedLock:
                     return 0
                 end
                 """
-                if redis_client.eval(
-                    lua_script, 1, f"eval:lock:{resource}", lock_value
-                ):
+                if redis_client.eval(lua_script, 1, f"eval:lock:{resource}", lock_value):
                     released_count += 1
             except Exception:
                 pass

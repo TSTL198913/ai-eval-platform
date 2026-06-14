@@ -21,9 +21,7 @@ class EvaluationEngine:
             domain_response = evaluator.safe_evaluate(request)
 
             status = (
-                EvaluationStatus.PASSED
-                if domain_response.is_valid
-                else EvaluationStatus.FAILED
+                EvaluationStatus.PASSED if domain_response.is_valid else EvaluationStatus.FAILED
             )
 
             return EvaluationResult(

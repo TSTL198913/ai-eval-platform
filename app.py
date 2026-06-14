@@ -1,8 +1,9 @@
+from typing import Any
+
 import streamlit as st
-from infra.db import SessionLocal
+
 from infra.analytics.analytics import QueryService
-from infra.db import EvaluationResultModel
-from typing import Dict, Any, Tuple, List
+from infra.db import EvaluationResultModel, SessionLocal
 
 
 # 1. 架构级配置：全局单例数据库会话，避免连接泄露
@@ -12,7 +13,7 @@ def get_db_session():
 
 
 # 2. 数据契约层：确保数据类型永远是安全的
-def validate_report(report: Dict[str, Any]) -> Dict[str, Any]:
+def validate_report(report: dict[str, Any]) -> dict[str, Any]:
     """强类型转换，防止类型漂移导致的运行时错误"""
     return {
         "total_evals": int(report.get("total_evals", 0)),
@@ -23,7 +24,7 @@ def validate_report(report: Dict[str, Any]) -> Dict[str, Any]:
 
 # 3. 数据拉取逻辑：引入缓存，避免频繁 IO
 @st.cache_data(ttl=30)
-def load_dashboard_data() -> Tuple[Dict[str, Any], List[EvaluationResultModel]]:
+def load_dashboard_data() -> tuple[dict[str, Any], list[EvaluationResultModel]]:
     db = get_db_session()
     service = QueryService(db)
 
@@ -33,10 +34,7 @@ def load_dashboard_data() -> Tuple[Dict[str, Any], List[EvaluationResultModel]]:
 
     # 获取最近 50 条详情
     details = (
-        db.query(EvaluationResultModel)
-        .order_by(EvaluationResultModel.id.desc())
-        .limit(50)
-        .all()
+        db.query(EvaluationResultModel).order_by(EvaluationResultModel.id.desc()).limit(50).all()
     )
     return report, details
 
@@ -62,12 +60,9 @@ c3.metric("平均耗时", f"{report['avg_latency_ms']:.0f} ms")
 st.subheader("近期评测流水")
 if details:
     data_to_show = [
-        {"ID": r.id, "Case": r.case_id, "耗时(ms)": r.latency_ms, "状态": r.status}
-        for r in details
+        {"ID": r.id, "Case": r.case_id, "耗时(ms)": r.latency_ms, "状态": r.status} for r in details
     ]
-    selected_row = st.dataframe(
-        data_to_show, use_container_width=True, on_select="rerun"
-    )
+    selected_row = st.dataframe(data_to_show, use_container_width=True, on_select="rerun")
 
     # 深度洞察与操作闭环
     if selected_row.selection.rows:

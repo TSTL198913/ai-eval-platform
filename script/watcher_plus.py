@@ -1,9 +1,9 @@
+import importlib.util
 import os
+import subprocess
 import sys
 import time
-import subprocess
-import importlib.util
-from typing import Optional, List
+
 from loguru import logger
 
 # =====================================================================
@@ -50,7 +50,7 @@ class CeleryWorkerGuardian:
 
     def __init__(self, target_app: str = "src.workers.celery_app"):
         self.target_app = target_app
-        self.process: Optional[subprocess.Popen] = None
+        self.process: subprocess.Popen | None = None
         self.child_env = self._prepare_environment()
         self._worker_log_file = None
 
@@ -71,19 +71,15 @@ class CeleryWorkerGuardian:
         try:
             spec = importlib.util.find_spec(self.target_app)
             if spec is None:
-                raise ModuleNotFoundError(
-                    f"无法在当前命名空间定位模块: {self.target_app}"
-                )
-            watcher_logger.info(
-                "✅ 路径自测成功！'src' 命名空间已成功激活，PYTHONPATH 有效。"
-            )
+                raise ModuleNotFoundError(f"无法在当前命名空间定位模块: {self.target_app}")
+            watcher_logger.info("✅ 路径自测成功！'src' 命名空间已成功激活，PYTHONPATH 有效。")
             return True
         except Exception as e:
             watcher_logger.critical("❌ 核心路径自测未通过！")
             watcher_logger.error(f"   原因: {e}")
             return False
 
-    def build_boot_cmd(self) -> List[str]:
+    def build_boot_cmd(self) -> list[str]:
         safe_root = PROJECT_ROOT.replace("\\", "/")
         # cpu_cores = os.cpu_count()
         inline_script = (
@@ -108,12 +104,8 @@ class CeleryWorkerGuardian:
                 stdout=self._worker_log_file,
                 stderr=subprocess.STDOUT,
             )
-            watcher_logger.info(
-                f"🚀 成功捕获子进程 [Celery Worker], 分配 PID: {self.process.pid}"
-            )
-            watcher_logger.info(
-                f"📊 计算节点吞吐日志已重定向输出至: logs/celery_worker.log"
-            )
+            watcher_logger.info(f"🚀 成功捕获子进程 [Celery Worker], 分配 PID: {self.process.pid}")
+            watcher_logger.info("📊 计算节点吞吐日志已重定向输出至: logs/celery_worker.log")
         except Exception as e:
             watcher_logger.error(f"❌ Worker 进程拉起遭遇底层物理异常: {e}")
             self.process = None
@@ -129,9 +121,7 @@ class CeleryWorkerGuardian:
         """自动愈合机制（Self-Healing Loop）"""
         if not self.is_alive():
             exit_code = "未拉起" if self.process is None else self.process.poll()
-            watcher_logger.warning(
-                f"🚨 检测到后台计算节点异常退出 [退出码: {exit_code}]！"
-            )
+            watcher_logger.warning(f"🚨 检测到后台计算节点异常退出 [退出码: {exit_code}]！")
 
             if self._worker_log_file:
                 self._worker_log_file.close()
@@ -147,9 +137,7 @@ class CeleryWorkerGuardian:
             try:
                 self.process.wait(timeout=5)
             except subprocess.TimeoutExpired:
-                watcher_logger.warning(
-                    "⚠️ 子进程拒绝优雅退出，执行强制杀灭 (SIGKILL)..."
-                )
+                watcher_logger.warning("⚠️ 子进程拒绝优雅退出，执行强制杀灭 (SIGKILL)...")
                 self.process.kill()
 
         if self._worker_log_file:
@@ -165,9 +153,7 @@ def main():
     guardian = CeleryWorkerGuardian(target_app="src.workers.celery_app")
 
     if not guardian.verify_environment():
-        watcher_logger.critical(
-            "🚨 基础依赖或路径自测失败，监控进程主动启动熔断防御，拒绝拉起。"
-        )
+        watcher_logger.critical("🚨 基础依赖或路径自测失败，监控进程主动启动熔断防御，拒绝拉起。")
         sys.exit(1)
 
     guardian.start()

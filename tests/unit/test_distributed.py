@@ -181,9 +181,7 @@ class TestCircuitBreaker:
         cb._record_success()
         # 验证状态转换
         expected_state = CircuitState.CLOSED
-        assert cb._state == expected_state, (
-            f"After success, expected CLOSED but got {cb._state}"
-        )
+        assert cb._state == expected_state, f"After success, expected CLOSED but got {cb._state}"
 
     def test_circuit_breaker_stats(self):
         """测试统计信息"""

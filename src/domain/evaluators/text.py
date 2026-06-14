@@ -3,9 +3,7 @@ from src.domain.evaluators.metadata import TextMetadata
 from src.domain.evaluators.scoring import is_passing, score_text_similarity
 from src.schemas.evaluation import DomainResponse
 
-DEFAULT_TEXT_PROMPT = (
-    "你是一个文本评测助手。请准确、简洁地回答用户问题，回答应与预期语义一致。"
-)
+DEFAULT_TEXT_PROMPT = "你是一个文本评测助手。请准确、简洁地回答用户问题，回答应与预期语义一致。"
 
 
 @EvaluatorFactory.register("text")
@@ -17,9 +15,7 @@ class TextMatchEvaluator(BaseEvaluator):
     def evaluate(self, request) -> DomainResponse:
         user_input = self.get_input_text(request)
         expected_output = self.get_payload_data(request, "expected_output")
-        system_prompt = (
-            self.get_payload_data(request, "system_prompt") or DEFAULT_TEXT_PROMPT
-        )
+        system_prompt = self.get_payload_data(request, "system_prompt") or DEFAULT_TEXT_PROMPT
         meta = TextMetadata.model_validate(request.metadata or {})
 
         if not user_input:

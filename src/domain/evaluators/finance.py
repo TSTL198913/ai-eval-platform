@@ -4,8 +4,7 @@ from src.domain.evaluators.scoring import is_passing, score_numeric_match
 from src.schemas.evaluation import DomainResponse
 
 DEFAULT_FINANCE_PROMPT = (
-    "你是一个专业的金融分析师。请准确回答用户的金融问题，"
-    "回答需包含具体金额、币种和简要计算过程。"
+    "你是一个专业的金融分析师。请准确回答用户的金融问题，回答需包含具体金额、币种和简要计算过程。"
 )
 
 
@@ -18,9 +17,7 @@ class FinanceEvaluator(BaseEvaluator):
     def evaluate(self, request) -> DomainResponse:
         user_input = self.get_input_text(request)
         expected_output = self.get_payload_data(request, "expected_output")
-        system_prompt = (
-            self.get_payload_data(request, "system_prompt") or DEFAULT_FINANCE_PROMPT
-        )
+        system_prompt = self.get_payload_data(request, "system_prompt") or DEFAULT_FINANCE_PROMPT
 
         meta = FinanceMetadata.model_validate(request.metadata or {})
 

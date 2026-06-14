@@ -8,9 +8,10 @@
 import asyncio
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Optional, TypeVar
+from typing import Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -74,14 +75,14 @@ class CircuitBreaker:
     def __init__(
         self,
         name: str,
-        config: Optional[CircuitBreakerConfig] = None,
+        config: CircuitBreakerConfig | None = None,
     ):
         self.name = name
         self.config = config or CircuitBreakerConfig()
         self._state = CircuitState.CLOSED
         self._failure_count = 0
         self._success_count = 0
-        self._last_failure_time: Optional[float] = None
+        self._last_failure_time: float | None = None
         self._half_open_calls = 0
         self._lock = asyncio.Lock()
         self.stats = CircuitBreakerStats()
@@ -175,9 +176,7 @@ class CircuitBreaker:
 
         if current_state == CircuitState.OPEN:
             self.stats.rejected_calls += 1
-            raise CircuitBreakerError(
-                f"Circuit breaker [{self.name}] is OPEN, call rejected"
-            )
+            raise CircuitBreakerError(f"Circuit breaker [{self.name}] is OPEN, call rejected")
 
         if current_state == CircuitState.HALF_OPEN:
             async with self._lock:
@@ -223,7 +222,7 @@ class CircuitBreaker:
         }
 
 
-def circuit_breaker(name: str, config: Optional[CircuitBreakerConfig] = None):
+def circuit_breaker(name: str, config: CircuitBreakerConfig | None = None):
     """
     熔断器装饰器工厂
 
@@ -266,14 +265,14 @@ class CircuitBreakerRegistry:
     def get_or_create(
         self,
         name: str,
-        config: Optional[CircuitBreakerConfig] = None,
+        config: CircuitBreakerConfig | None = None,
     ) -> CircuitBreaker:
         """获取或创建熔断器"""
         if name not in self._breakers:
             self._breakers[name] = CircuitBreaker(name, config)
         return self._breakers[name]
 
-    def get(self, name: str) -> Optional[CircuitBreaker]:
+    def get(self, name: str) -> CircuitBreaker | None:
         """获取熔断器"""
         return self._breakers.get(name)
 

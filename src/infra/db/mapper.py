@@ -1,18 +1,16 @@
 # src/infra/mapper.py
-from typing import Any, Dict
+from typing import Any
 
 
 class EvaluationMapper:
     @staticmethod
-    def to_persistence_dict(result_model: Any, case_id: str) -> Dict[str, Any]:
+    def to_persistence_dict(result_model: Any, case_id: str) -> dict[str, Any]:
         """
         职责：将评测结果转换为持久层格式，处理所有的数据对齐与字段补全。
         """
         # 1. 提取原始数据
         data = (
-            result_model.model_dump()
-            if hasattr(result_model, "model_dump")
-            else dict(result_model)
+            result_model.model_dump() if hasattr(result_model, "model_dump") else dict(result_model)
         )
 
         # 2. 强制契约补全：确保 case_id 永远存在

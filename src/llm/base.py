@@ -21,7 +21,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, TypeVar
+from typing import TypeVar
 
 import httpx
 
@@ -50,7 +50,7 @@ class LLMConfig:
     provider: LLMProvider = LLMProvider.DEEPSEEK
     api_key: str = ""
     model_name: str = "deepseek-chat"
-    base_url: Optional[str] = None
+    base_url: str | None = None
     temperature: float = 0.7
     max_tokens: int = 1024
     timeout: float = 30.0
@@ -72,9 +72,9 @@ class ChatResponse:
 
     content: str
     model: str
-    usage: Dict[str, int] = field(default_factory=dict)
+    usage: dict[str, int] = field(default_factory=dict)
     latency_ms: float = 0.0
-    raw_response: Optional[Dict] = None
+    raw_response: dict | None = None
 
 
 class BaseLLMClient(ABC):
@@ -86,7 +86,7 @@ class BaseLLMClient(ABC):
 
     def __init__(self, config: LLMConfig):
         self.config = config
-        self._http_client: Optional[httpx.AsyncClient] = None
+        self._http_client: httpx.AsyncClient | None = None
         self._circuit_breaker = CircuitBreaker(
             f"llm_{config.provider.value}",
             CircuitBreakerConfig(
@@ -105,28 +105,28 @@ class BaseLLMClient(ABC):
     def _build_messages(
         self,
         prompt: str,
-        system_prompt: Optional[str],
-    ) -> List[Dict[str, str]]:
+        system_prompt: str | None,
+    ) -> list[dict[str, str]]:
         """构建消息列表"""
         pass
 
     @abstractmethod
-    def _parse_response(self, raw_response: Dict) -> ChatResponse:
+    def _parse_response(self, raw_response: dict) -> ChatResponse:
         """解析响应"""
         pass
 
     @abstractmethod
     async def _do_request(
         self,
-        messages: List[Dict[str, str]],
-    ) -> Dict:
+        messages: list[dict[str, str]],
+    ) -> dict:
         """执行 HTTP 请求"""
         pass
 
     async def chat(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
+        system_prompt: str | None = None,
     ) -> ChatResponse:
         """
         同步聊天 (实际是异步)
@@ -152,9 +152,7 @@ class BaseLLMClient(ABC):
             chat_response.latency_ms = (span.end_time or time.time()) - span.start_time
 
             span.set_attribute("response.length", len(chat_response.content))
-            span.set_attribute(
-                "usage.total_tokens", chat_response.usage.get("total_tokens", 0)
-            )
+            span.set_attribute("usage.total_tokens", chat_response.usage.get("total_tokens", 0))
 
             return chat_response
         except Exception as e:
@@ -166,7 +164,7 @@ class BaseLLMClient(ABC):
     async def achat(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
+        system_prompt: str | None = None,
     ) -> ChatResponse:
         """异步聊天"""
         return await self.chat(prompt, system_prompt)
@@ -192,15 +190,15 @@ class OpenAIClient(BaseLLMClient):
     def _build_messages(
         self,
         prompt: str,
-        system_prompt: Optional[str],
-    ) -> List[Dict[str, str]]:
+        system_prompt: str | None,
+    ) -> list[dict[str, str]]:
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
         return messages
 
-    def _parse_response(self, raw_response: Dict) -> ChatResponse:
+    def _parse_response(self, raw_response: dict) -> ChatResponse:
         return ChatResponse(
             content=raw_response["choices"][0]["message"]["content"],
             model=raw_response.get("model", self.config.model_name),
@@ -208,7 +206,7 @@ class OpenAIClient(BaseLLMClient):
             raw_response=raw_response,
         )
 
-    async def _do_request(self, messages: List[Dict[str, str]]) -> Dict:
+    async def _do_request(self, messages: list[dict[str, str]]) -> dict:
         if not self._http_client:
             self._http_client = httpx.AsyncClient(timeout=self.config.timeout)
 
@@ -248,15 +246,15 @@ class DeepSeekClient(BaseLLMClient):
     def _build_messages(
         self,
         prompt: str,
-        system_prompt: Optional[str],
-    ) -> List[Dict[str, str]]:
+        system_prompt: str | None,
+    ) -> list[dict[str, str]]:
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
         return messages
 
-    def _parse_response(self, raw_response: Dict) -> ChatResponse:
+    def _parse_response(self, raw_response: dict) -> ChatResponse:
         return ChatResponse(
             content=raw_response["choices"][0]["message"]["content"],
             model=raw_response.get("model", self.config.model_name),
@@ -264,7 +262,7 @@ class DeepSeekClient(BaseLLMClient):
             raw_response=raw_response,
         )
 
-    async def _do_request(self, messages: List[Dict[str, str]]) -> Dict:
+    async def _do_request(self, messages: list[dict[str, str]]) -> dict:
         if not self._http_client:
             self._http_client = httpx.AsyncClient(timeout=self.config.timeout)
 
@@ -304,8 +302,8 @@ class AnthropicClient(BaseLLMClient):
     def _build_messages(
         self,
         prompt: str,
-        system_prompt: Optional[str],
-    ) -> List[Dict[str, str]]:
+        system_prompt: str | None,
+    ) -> list[dict[str, str]]:
         messages = []
         if system_prompt:
             # Anthropic 使用 system 字段
@@ -314,7 +312,7 @@ class AnthropicClient(BaseLLMClient):
         messages.append({"role": "user", "content": prompt})
         return messages
 
-    def _parse_response(self, raw_response: Dict) -> ChatResponse:
+    def _parse_response(self, raw_response: dict) -> ChatResponse:
         return ChatResponse(
             content=raw_response["content"][0]["text"],
             model=raw_response.get("model", self.config.model_name),
@@ -322,7 +320,7 @@ class AnthropicClient(BaseLLMClient):
             raw_response=raw_response,
         )
 
-    async def _do_request(self, messages: List[Dict[str, str]]) -> Dict:
+    async def _do_request(self, messages: list[dict[str, str]]) -> dict:
         if not self._http_client:
             self._http_client = httpx.AsyncClient(timeout=self.config.timeout)
 
@@ -373,15 +371,15 @@ class OllamaClient(BaseLLMClient):
     def _build_messages(
         self,
         prompt: str,
-        system_prompt: Optional[str],
-    ) -> List[Dict[str, str]]:
+        system_prompt: str | None,
+    ) -> list[dict[str, str]]:
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
         return messages
 
-    def _parse_response(self, raw_response: Dict) -> ChatResponse:
+    def _parse_response(self, raw_response: dict) -> ChatResponse:
         return ChatResponse(
             content=raw_response["message"]["content"],
             model=raw_response.get("model", self.config.model_name),
@@ -389,7 +387,7 @@ class OllamaClient(BaseLLMClient):
             raw_response=raw_response,
         )
 
-    async def _do_request(self, messages: List[Dict[str, str]]) -> Dict:
+    async def _do_request(self, messages: list[dict[str, str]]) -> dict:
         if not self._http_client:
             self._http_client = httpx.AsyncClient(timeout=self.config.timeout)
 
@@ -410,7 +408,7 @@ class OllamaClient(BaseLLMClient):
 class StubLLMClient(BaseLLMClient):
     """桩客户端，用于测试和开发"""
 
-    def __init__(self, config: Optional[LLMConfig] = None):
+    def __init__(self, config: LLMConfig | None = None):
         if config is None:
             config = LLMConfig(provider=LLMProvider.STUB, model_name="stub-model")
         super().__init__(config)
@@ -422,18 +420,18 @@ class StubLLMClient(BaseLLMClient):
     def _build_messages(
         self,
         prompt: str,
-        system_prompt: Optional[str],
-    ) -> List[Dict[str, str]]:
+        system_prompt: str | None,
+    ) -> list[dict[str, str]]:
         return [{"role": "user", "content": prompt}]
 
-    def _parse_response(self, raw_response: Dict) -> ChatResponse:
+    def _parse_response(self, raw_response: dict) -> ChatResponse:
         return ChatResponse(
             content=raw_response.get("content", "Stub response"),
             model="stub-model",
             usage={"total_tokens": 10},
         )
 
-    async def _do_request(self, messages: List[Dict[str, str]]) -> Dict:
+    async def _do_request(self, messages: list[dict[str, str]]) -> dict:
         # 模拟延迟
         await asyncio.sleep(0.01)
         return {
@@ -445,7 +443,7 @@ class StubLLMClient(BaseLLMClient):
 class LLMClientFactory:
     """LLM 客户端工厂"""
 
-    _clients: Dict[LLMProvider, type] = {
+    _clients: dict[LLMProvider, type] = {
         LLMProvider.OPENAI: OpenAIClient,
         LLMProvider.DEEPSEEK: DeepSeekClient,
         LLMProvider.ANTHROPIC: AnthropicClient,
@@ -468,10 +466,10 @@ class LLMClientFactory:
 
 
 def create_llm_client(
-    provider: Optional[str] = None,
-    api_key: Optional[str] = None,
-    model_name: Optional[str] = None,
-    base_url: Optional[str] = None,
+    provider: str | None = None,
+    api_key: str | None = None,
+    model_name: str | None = None,
+    base_url: str | None = None,
 ) -> BaseLLMClient:
     """
     便捷函数：创建 LLM 客户端

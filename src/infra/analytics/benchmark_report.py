@@ -3,10 +3,10 @@ import statistics
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
-def percentile(values: List[float], pct: float) -> float:
+def percentile(values: list[float], pct: float) -> float:
     if not values:
         return 0.0
     sorted_values = sorted(values)
@@ -26,18 +26,18 @@ class BenchmarkReport:
     p95_latency_ms: float
     p99_latency_ms: float
     tps: float
-    error_summary: Dict[str, int] = field(default_factory=dict)
+    error_summary: dict[str, int] = field(default_factory=dict)
     generated_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 def build_benchmark_report(
-    latencies_ms: List[float],
+    latencies_ms: list[float],
     success_count: int,
     total_cases: int,
-    error_summary: Optional[Dict[str, int]] = None,
+    error_summary: dict[str, int] | None = None,
 ) -> BenchmarkReport:
     total_time_ms = sum(latencies_ms)
     total_cases = max(total_cases, 1)
@@ -62,9 +62,7 @@ def build_benchmark_report(
 def save_benchmark_report(report: BenchmarkReport, output_path: str) -> str:
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(report.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    path.write_text(json.dumps(report.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
     return str(path)
 
 

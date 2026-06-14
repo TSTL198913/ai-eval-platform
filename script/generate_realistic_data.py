@@ -1,8 +1,8 @@
-import os
-import json
-import uuid
-import random
 import datetime
+import json
+import os
+import random
+import uuid
 
 
 def generate_realistic_payload(case_type):
@@ -22,7 +22,7 @@ def generate_realistic_payload(case_type):
 def generate_bulk_cases(count=50):
     case_types = ["finance", "code_review", "general"]
     cases = []
-    for i in range(count):
+    for _ in range(count):
         case_type = random.choice(case_types)
         cases.append(
             {

@@ -9,5 +9,6 @@ def reset_database():
     Base.metadata.create_all(engine)
     print("数据库已重置，架构更新完成。")
 
+
 if __name__ == "__main__":
     reset_database()

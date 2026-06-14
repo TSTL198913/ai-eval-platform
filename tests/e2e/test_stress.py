@@ -12,9 +12,7 @@ from src.workers.tasks import eval_case_task  # noqa: E402
 
 
 def run_stress_test(task_count=100):
-    print(
-        f"[{datetime.now()}] 🚀 开始全链路闭环压测：提交 {task_count} 个标准契约任务..."
-    )
+    print(f"[{datetime.now()}] 🚀 开始全链路闭环压测：提交 {task_count} 个标准契约任务...")
     start_time = time.time()
 
     for i in range(task_count):

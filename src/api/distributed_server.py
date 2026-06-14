@@ -13,7 +13,6 @@ import logging
 import os
 import time
 from contextlib import asynccontextmanager
-from typing import Optional
 
 import redis
 from fastapi import FastAPI, HTTPException, Request, Response, status
@@ -41,8 +40,8 @@ logger = logging.getLogger(__name__)
 # 1. 依赖注入
 # =====================================================================
 
-_redis_client: Optional[redis.Redis] = None
-_rate_limiter: Optional[MultiDimensionRateLimiter] = None
+_redis_client: redis.Redis | None = None
+_rate_limiter: MultiDimensionRateLimiter | None = None
 
 
 def get_redis() -> redis.Redis:
@@ -421,7 +420,7 @@ async def evaluate_sync(request: Request):
             }
         except Exception as e:
             ctx.span.set_status("ERROR", str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/api/v1/evaluate/async")
@@ -453,7 +452,7 @@ async def evaluate_async(request: Request, response: Response):
             }
         except Exception as e:
             ctx.span.set_status("ERROR", str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/api/v1/tasks/{task_id}")

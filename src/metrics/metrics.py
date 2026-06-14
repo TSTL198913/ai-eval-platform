@@ -13,7 +13,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class MetricValue:
 
     name: str
     value: float
-    labels: Dict[str, str]
+    labels: dict[str, str]
     timestamp: float = field(default_factory=time.time)
 
 
@@ -52,20 +52,20 @@ class BaseMetric:
         self,
         name: str,
         description: str,
-        labels: Optional[List[str]] = None,
+        labels: list[str] | None = None,
     ):
         self.name = name
         self.description = description
         self.labels = labels or []
-        self._values: Dict[str, float] = defaultdict(float)
+        self._values: dict[str, float] = defaultdict(float)
 
-    def _label_key(self, labels: Dict[str, str]) -> str:
+    def _label_key(self, labels: dict[str, str]) -> str:
         """生成标签键"""
         if not self.labels:
             return "_total_"
         return "|".join(f"{k}={labels.get(k, '')}" for k in self.labels)
 
-    def _validate_labels(self, labels: Dict[str, str]) -> None:
+    def _validate_labels(self, labels: dict[str, str]) -> None:
         """验证标签"""
         for label in self.labels:
             if label not in labels:
@@ -83,7 +83,7 @@ class Counter(BaseMetric):
         self,
         name: str,
         description: str,
-        labels: Optional[List[str]] = None,
+        labels: list[str] | None = None,
     ):
         super().__init__(name, description, labels)
 
@@ -111,7 +111,7 @@ class Gauge(BaseMetric):
         self,
         name: str,
         description: str,
-        labels: Optional[List[str]] = None,
+        labels: list[str] | None = None,
     ):
         super().__init__(name, description, labels)
 
@@ -151,8 +151,8 @@ class Histogram(BaseMetric):
         self,
         name: str,
         description: str,
-        buckets: Optional[List[float]] = None,
-        labels: Optional[List[str]] = None,
+        buckets: list[float] | None = None,
+        labels: list[str] | None = None,
     ):
         super().__init__(name, description, labels)
         self.buckets = buckets or [
@@ -168,10 +168,8 @@ class Histogram(BaseMetric):
             5.0,
             10.0,
         ]
-        self._counts: Dict[str, List[int]] = defaultdict(
-            lambda: [0] * (len(self.buckets) + 1)
-        )
-        self._sums: Dict[str, float] = defaultdict(float)
+        self._counts: dict[str, list[int]] = defaultdict(lambda: [0] * (len(self.buckets) + 1))
+        self._sums: dict[str, float] = defaultdict(float)
 
     def observe(self, value: float, **labels) -> None:
         """记录观测值"""
@@ -184,7 +182,7 @@ class Histogram(BaseMetric):
                 self._counts[key][i] += 1
         self._counts[key][-1] += 1  # +Inf bucket
 
-    def get_stats(self, **labels) -> Dict[str, Any]:
+    def get_stats(self, **labels) -> dict[str, Any]:
         """获取统计信息"""
         self._validate_labels(labels)
         key = self._label_key(labels)
@@ -195,8 +193,7 @@ class Histogram(BaseMetric):
             "sum": self._sums[key],
             "mean": self._sums[key] / total if total > 0 else 0,
             "buckets": {
-                f"le_{bound}": self._counts[key][i]
-                for i, bound in enumerate(self.buckets)
+                f"le_{bound}": self._counts[key][i] for i, bound in enumerate(self.buckets)
             },
         }
 
@@ -212,12 +209,12 @@ class Summary(BaseMetric):
         self,
         name: str,
         description: str,
-        quantiles: Optional[List[float]] = None,
-        labels: Optional[List[str]] = None,
+        quantiles: list[float] | None = None,
+        labels: list[str] | None = None,
     ):
         super().__init__(name, description, labels)
         self.quantiles = quantiles or [0.5, 0.9, 0.99]
-        self._values: Dict[str, List[float]] = defaultdict(list)
+        self._values: dict[str, list[float]] = defaultdict(list)
 
     def observe(self, value: float, **labels) -> None:
         """记录观测值"""
@@ -225,7 +222,7 @@ class Summary(BaseMetric):
         key = self._label_key(labels)
         self._values[key].append(value)
 
-    def get_quantiles(self, **labels) -> Dict[str, float]:
+    def get_quantiles(self, **labels) -> dict[str, float]:
         """获取分位数"""
         self._validate_labels(labels)
         key = self._label_key(labels)
@@ -236,9 +233,7 @@ class Summary(BaseMetric):
 
         return {
             f"q{q}": (
-                values[int(len(values) * q)]
-                if int(len(values) * q) < len(values)
-                else values[-1]
+                values[int(len(values) * q)] if int(len(values) * q) < len(values) else values[-1]
             )
             for q in self.quantiles
         }
@@ -252,17 +247,17 @@ class MetricsRegistry:
     """
 
     def __init__(self):
-        self._metrics: Dict[str, BaseMetric] = {}
-        self._counters: Dict[str, Counter] = {}
-        self._gauges: Dict[str, Gauge] = {}
-        self._histograms: Dict[str, Histogram] = {}
-        self._summaries: Dict[str, Summary] = {}
+        self._metrics: dict[str, BaseMetric] = {}
+        self._counters: dict[str, Counter] = {}
+        self._gauges: dict[str, Gauge] = {}
+        self._histograms: dict[str, Histogram] = {}
+        self._summaries: dict[str, Summary] = {}
 
     def register_counter(
         self,
         name: str,
         description: str,
-        labels: Optional[List[str]] = None,
+        labels: list[str] | None = None,
     ) -> Counter:
         """注册计数器"""
         counter = Counter(name, description, labels)
@@ -274,7 +269,7 @@ class MetricsRegistry:
         self,
         name: str,
         description: str,
-        labels: Optional[List[str]] = None,
+        labels: list[str] | None = None,
     ) -> Gauge:
         """注册仪表"""
         gauge = Gauge(name, description, labels)
@@ -286,8 +281,8 @@ class MetricsRegistry:
         self,
         name: str,
         description: str,
-        buckets: Optional[List[float]] = None,
-        labels: Optional[List[str]] = None,
+        buckets: list[float] | None = None,
+        labels: list[str] | None = None,
     ) -> Histogram:
         """注册直方图"""
         histogram = Histogram(name, description, buckets, labels)
@@ -299,8 +294,8 @@ class MetricsRegistry:
         self,
         name: str,
         description: str,
-        quantiles: Optional[List[float]] = None,
-        labels: Optional[List[str]] = None,
+        quantiles: list[float] | None = None,
+        labels: list[str] | None = None,
     ) -> Summary:
         """注册摘要"""
         summary = Summary(name, description, quantiles, labels)
@@ -308,11 +303,11 @@ class MetricsRegistry:
         self._summaries[name] = summary
         return summary
 
-    def get_metric(self, name: str) -> Optional[BaseMetric]:
+    def get_metric(self, name: str) -> BaseMetric | None:
         """获取指标"""
         return self._metrics.get(name)
 
-    def collect(self) -> List[MetricValue]:
+    def collect(self) -> list[MetricValue]:
         """采集所有指标"""
         values = []
         for metric in self._metrics.values():
@@ -328,9 +323,7 @@ class MetricsRegistry:
                     )
             elif isinstance(metric, Histogram):
                 for key in metric._counts:
-                    stats = metric.get_stats(
-                        **self._parse_label_key(key, metric.labels)
-                    )
+                    stats = metric.get_stats(**self._parse_label_key(key, metric.labels))
                     labels = self._parse_label_key(key, metric.labels)
                     values.append(
                         MetricValue(
@@ -349,7 +342,7 @@ class MetricsRegistry:
         return values
 
     @staticmethod
-    def _parse_label_key(key: str, label_names: List[str]) -> Dict[str, str]:
+    def _parse_label_key(key: str, label_names: list[str]) -> dict[str, str]:
         """解析标签键"""
         if key == "_total_" or not label_names:
             return {}
@@ -370,26 +363,18 @@ class MetricsRegistry:
 
             if isinstance(metric, Counter):
                 for key, value in metric._values.items():
-                    labels = self._format_labels(
-                        self._parse_label_key(key, metric.labels)
-                    )
+                    labels = self._format_labels(self._parse_label_key(key, metric.labels))
                     lines.append(f"{metric.name}{labels} {value}")
 
             elif isinstance(metric, Gauge):
                 for key, value in metric._values.items():
-                    labels = self._format_labels(
-                        self._parse_label_key(key, metric.labels)
-                    )
+                    labels = self._format_labels(self._parse_label_key(key, metric.labels))
                     lines.append(f"{metric.name}{labels} {value}")
 
             elif isinstance(metric, Histogram):
                 for key in metric._counts:
-                    stats = metric.get_stats(
-                        **self._parse_label_key(key, metric.labels)
-                    )
-                    labels = self._format_labels(
-                        self._parse_label_key(key, metric.labels)
-                    )
+                    stats = metric.get_stats(**self._parse_label_key(key, metric.labels))
+                    labels = self._format_labels(self._parse_label_key(key, metric.labels))
                     lines.append(f"{metric.name}_count{labels} {stats['count']}")
                     lines.append(f"{metric.name}_sum{labels} {stats['sum']}")
 
@@ -409,7 +394,7 @@ class MetricsRegistry:
         return "untyped"
 
     @staticmethod
-    def _format_labels(labels: Dict[str, str]) -> str:
+    def _format_labels(labels: dict[str, str]) -> str:
         """格式化标签"""
         if not labels:
             return ""

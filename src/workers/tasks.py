@@ -1,6 +1,5 @@
 import threading
 import time
-from typing import Dict
 
 from celery import Task
 
@@ -77,7 +76,7 @@ def _result_to_model(result: EvaluationResult) -> EvaluationResultModel:
     autoretry_for=(Exception,),
     retry_backoff=True,
 )
-def eval_case_task(self, case_data: Dict):
+def eval_case_task(self, case_data: dict):
     case = EvaluationSchema(**case_data)
     engine = EvaluationEngine(create_llm_client())
     result = engine.run(case)

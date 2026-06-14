@@ -33,9 +33,7 @@ class TestLLMErrorHandling:
 
         # Stub 客户端响应正常，但模拟超时场景
         # 通过 patch 实现超时模拟
-        with patch.object(
-            client, "chat", side_effect=asyncio.TimeoutError("LLM timeout")
-        ):
+        with patch.object(client, "chat", side_effect=asyncio.TimeoutError("LLM timeout")):
             engine = EvaluationEngine(client)
             request = EvaluationSchema(
                 id="timeout_test",
@@ -61,9 +59,7 @@ class TestLLMErrorHandling:
         config = ModelConfig(api_key="test", model_name="stub")
         client = StubLLMClient(config)
 
-        with patch.object(
-            client, "chat", side_effect=ConnectionError("Connection refused")
-        ):
+        with patch.object(client, "chat", side_effect=ConnectionError("Connection refused")):
             engine = EvaluationEngine(client)
             request = EvaluationSchema(
                 id="connection_test",
@@ -88,9 +84,7 @@ class TestLLMErrorHandling:
 
         for domain in domains:
             client = StubLLMClient(config)
-            with patch.object(
-                client, "chat", side_effect=Exception(f"{domain} LLM error")
-            ):
+            with patch.object(client, "chat", side_effect=Exception(f"{domain} LLM error")):
                 evaluator = EvaluatorFactory.get(domain, client=client)
                 request = EvaluationSchema(
                     id=f"error_test_{domain}",
@@ -210,9 +204,7 @@ class TestBoundaryConditions:
         ]
 
         for i, case in enumerate(test_cases):
-            EvaluationSchema(
-                id=f"numeric_{i}", type="general", payload=case, metadata={}
-            )
+            EvaluationSchema(id=f"numeric_{i}", type="general", payload=case, metadata={})
             result = client.chat(case["user_input"], "You are a calculator")
             assert result is not None
 

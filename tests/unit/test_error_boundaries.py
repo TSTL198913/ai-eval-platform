@@ -223,9 +223,7 @@ class TestMetricsErrors:
         from src.metrics import MetricsRegistry
 
         registry = MetricsRegistry()
-        histogram = registry.register_histogram(
-            "test_empty", "desc", buckets=[0.1, 0.5, 1.0]
-        )
+        histogram = registry.register_histogram("test_empty", "desc", buckets=[0.1, 0.5, 1.0])
 
         stats = histogram.get_stats()
         assert stats["count"] == 0

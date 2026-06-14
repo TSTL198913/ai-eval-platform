@@ -27,7 +27,7 @@ class BaseEvaluator(ABC):
             or default
         )
 
-    def require_client(self) -> Optional[DomainResponse]:
+    def require_client(self) -> DomainResponse | None:
         if not self.client:
             return DomainResponse(is_valid=False, error="LLM client 未配置")
         return None
@@ -36,14 +36,10 @@ class BaseEvaluator(ABC):
         try:
             response = self.evaluate(request)
             if response is None:
-                return DomainResponse(
-                    is_valid=False, error="Evaluator returned None unexpectedly."
-                )
+                return DomainResponse(is_valid=False, error="Evaluator returned None unexpectedly.")
             return response
         except Exception as e:
-            return DomainResponse(
-                is_valid=False, error=f"Evaluation execution error: {str(e)}"
-            )
+            return DomainResponse(is_valid=False, error=f"Evaluation execution error: {str(e)}")
 
 
 class EvaluatorFactory:
@@ -61,7 +57,5 @@ class EvaluatorFactory:
     def get(cls, case_type: str, client: Optional["BaseLLMClient"] = None) -> Any:
         if case_type not in cls._registry:
             available_types = list(cls._registry.keys())
-            raise ValueError(
-                f"领域 '{case_type}' 未找到。当前已注册: {available_types}"
-            )
+            raise ValueError(f"领域 '{case_type}' 未找到。当前已注册: {available_types}")
         return cls._registry[case_type](client=client)

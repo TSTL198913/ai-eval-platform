@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -23,10 +23,10 @@ class EvaluationResult(BaseModel):
     adapter_name: str
     response: DomainResponse
     latency_ms: float
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
 
 class PayloadModel(BaseModel):
     case_id: str
     domain: str
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None

@@ -13,11 +13,9 @@ import os
 import re
 import subprocess
 import sys
-import time
-import urllib.request
 import urllib.error
+import urllib.request
 from datetime import datetime
-
 
 # GitHub 配置
 GITHUB_REPO = "TSTL198913/ai-eval-platform"
@@ -27,9 +25,9 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 def run_command(cmd, description="", timeout=120):
     """运行命令并返回结果"""
     if description:
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"  {description}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
     try:
         result = subprocess.run(
@@ -136,9 +134,7 @@ def auto_fix():
 
     # 2. 运行 Black 格式化
     print("\n[2/5] 运行 Black 格式化...")
-    code, stdout, stderr = run_command(
-        "black --line-length 100 src/ tests/", "Black 格式化"
-    )
+    code, stdout, stderr = run_command("black --line-length 100 src/ tests/", "Black 格式化")
     if code == 0:
         fixes_applied.append("Black 格式化")
         print("  ✅ Black 格式化完成")
@@ -196,9 +192,7 @@ def commit_and_push():
     # 创建提交
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     commit_msg = f"Auto Fix: CI issues ({timestamp})"
-    code, stdout, stderr = run_command(
-        f'git commit --no-verify -m "{commit_msg}"', "创建提交"
-    )
+    code, stdout, stderr = run_command(f'git commit --no-verify -m "{commit_msg}"', "创建提交")
 
     if code != 0:
         print(f"  ❌ 提交失败: {stderr}")
@@ -228,7 +222,9 @@ def main():
 
     if run_info:
         print(f"  最新运行: {run_info.get('name', 'Unknown')}")
-        print(f"  状态: {run_info.get('status', 'Unknown')} / {run_info.get('conclusion', 'Unknown')}")
+        print(
+            f"  状态: {run_info.get('status', 'Unknown')} / {run_info.get('conclusion', 'Unknown')}"
+        )
         print(f"  触发时间: {run_info.get('created_at', 'Unknown')}")
 
         if run_info.get("conclusion") == "failure":
@@ -246,7 +242,9 @@ def main():
     print("\n" + "=" * 60)
     print("  修复结果")
     print("=" * 60)
-    print(f"  已应用的修复: {', '.join(result['fixes_applied']) if result['fixes_applied'] else '无'}")
+    print(
+        f"  已应用的修复: {', '.join(result['fixes_applied']) if result['fixes_applied'] else '无'}"
+    )
     print(f"  Lint 检查: {'✅ 通过' if result['lint_passed'] else '❌ 失败'}")
     print(f"  单元测试: {'✅ 通过' if result['tests_passed'] else '❌ 失败'}")
 

@@ -1,6 +1,6 @@
 import logging
 from functools import wraps
-from typing import Any, Dict
+from typing import Any
 
 from src.domain.evaluators import EVALUATOR_REGISTRY
 from src.domain.models.llm_factory import create_llm_client
@@ -30,21 +30,19 @@ def service_exception_handler(func):
     return wrapper
 
 
-def _normalize_raw_data(raw_data: Dict[str, Any]) -> Dict[str, Any]:
+def _normalize_raw_data(raw_data: dict[str, Any]) -> dict[str, Any]:
     if "payload" not in raw_data:
         return {
             "id": raw_data.get("id", "unknown"),
             "type": raw_data.get("type"),
-            "payload": {
-                k: v for k, v in raw_data.items() if k not in ["id", "type", "metadata"]
-            },
+            "payload": {k: v for k, v in raw_data.items() if k not in ["id", "type", "metadata"]},
             "metadata": raw_data.get("metadata", {}),
         }
     return raw_data
 
 
 @service_exception_handler
-def run_evaluation_service(raw_data: Dict[str, Any], client=None) -> Dict[str, Any]:
+def run_evaluation_service(raw_data: dict[str, Any], client=None) -> dict[str, Any]:
     raw_data = _normalize_raw_data(raw_data)
     case = EvaluationSchema(**raw_data)
 

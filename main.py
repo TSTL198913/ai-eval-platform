@@ -1,8 +1,8 @@
 from domain.models.base import ModelConfig
-from infra.db.repository import PostgresRepository
 from infra.db import SessionLocal
-from src.engine import EvaluationEngine
+from infra.db.repository import PostgresRepository
 from src.domain.models.deepseek import DeepSeekClient  # 假设你的模型实现类在这里
+from src.engine import EvaluationEngine
 from src.schemas.schemas import EvaluationSchema
 
 request = EvaluationSchema(
@@ -13,9 +13,7 @@ request = EvaluationSchema(
 )
 
 # 配置客户端
-config = ModelConfig(
-    api_key="sk-5e5d625e3c7845959f8cc17c872a7169", model_name="deepseek-chat"
-)
+config = ModelConfig(api_key="sk-5e5d625e3c7845959f8cc17c872a7169", model_name="deepseek-chat")
 my_client = DeepSeekClient(config=config)
 
 

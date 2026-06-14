@@ -9,7 +9,7 @@ from contextvars import ContextVar
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any
 
 # =====================================================================
 # Context Variables - 用于跨函数传递追踪信息
@@ -84,7 +84,7 @@ class StructuredLogRecord:
     module: str = ""
     function: str = ""
     line: int = 0
-    extra: Dict[str, Any] = None
+    extra: dict[str, Any] = None
 
     def to_json(self) -> str:
         """转换为 JSON 字符串"""
@@ -102,9 +102,7 @@ class StructuredLogRecord:
 class JSONFormatter(logging.Formatter):
     """JSON 格式日志格式化器"""
 
-    def __init__(
-        self, service_name: str = "ai-eval-platform", environment: str = "development"
-    ):
+    def __init__(self, service_name: str = "ai-eval-platform", environment: str = "development"):
         super().__init__()
         self.service_name = service_name
         self.environment = environment
@@ -136,7 +134,7 @@ class JSONFormatter(logging.Formatter):
 
         return log_record.to_json()
 
-    def _get_extra_fields(self, record: logging.LogRecord) -> Dict[str, Any]:
+    def _get_extra_fields(self, record: logging.LogRecord) -> dict[str, Any]:
         """获取额外字段"""
         extra = {}
 
@@ -167,7 +165,7 @@ class JSONFormatter(logging.Formatter):
 
         return extra
 
-    def _format_exception(self, exc_info) -> Dict[str, Any]:
+    def _format_exception(self, exc_info) -> dict[str, Any]:
         """格式化异常信息"""
         import traceback
 
@@ -248,7 +246,7 @@ class LoggerConfig:
         environment: str = "development",
         log_level: str = "INFO",
         json_output: bool = False,
-        log_file: Optional[str] = None,
+        log_file: str | None = None,
     ):
         self.service_name = service_name
         self.environment = environment
@@ -268,9 +266,7 @@ class LoggerConfig:
         # 添加控制台处理器
         console_handler = logging.StreamHandler(sys.stdout)
         if self.json_output:
-            console_handler.setFormatter(
-                JSONFormatter(self.service_name, self.environment)
-            )
+            console_handler.setFormatter(JSONFormatter(self.service_name, self.environment))
         else:
             console_handler.setFormatter(ColoredConsoleFormatter())
         root_logger.addHandler(console_handler)
@@ -278,9 +274,7 @@ class LoggerConfig:
         # 添加文件处理器 (如果配置)
         if self.log_file:
             file_handler = logging.FileHandler(self.log_file)
-            file_handler.setFormatter(
-                JSONFormatter(self.service_name, self.environment)
-            )
+            file_handler.setFormatter(JSONFormatter(self.service_name, self.environment))
             root_logger.addHandler(file_handler)
 
         return root_logger
@@ -301,7 +295,7 @@ def setup_logging(
     environment: str = "development",
     log_level: str = "INFO",
     json_output: bool = False,
-    log_file: Optional[str] = None,
+    log_file: str | None = None,
 ) -> logging.Logger:
     """设置日志系统"""
     config = LoggerConfig(
@@ -331,7 +325,7 @@ def log_warning(message: str, **kwargs) -> None:
     logger.warning(message, extra=kwargs)
 
 
-def log_error(message: str, exception: Optional[Exception] = None, **kwargs) -> None:
+def log_error(message: str, exception: Exception | None = None, **kwargs) -> None:
     """记录 ERROR 日志"""
     logger = get_logger("app")
     if exception:
@@ -346,7 +340,7 @@ def log_debug(message: str, **kwargs) -> None:
     logger.debug(message, extra=kwargs)
 
 
-def log_critical(message: str, exception: Optional[Exception] = None, **kwargs) -> None:
+def log_critical(message: str, exception: Exception | None = None, **kwargs) -> None:
     """记录 CRITICAL 日志"""
     logger = get_logger("app")
     if exception:

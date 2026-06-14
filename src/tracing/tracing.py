@@ -10,16 +10,14 @@ OpenTelemetry 分布式追踪
 import logging
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
 # Context variable for trace ID
-current_trace_id: ContextVar[Optional[str]] = ContextVar(
-    "current_trace_id", default=None
-)
-current_span_id: ContextVar[Optional[str]] = ContextVar("current_span_id", default=None)
+current_trace_id: ContextVar[str | None] = ContextVar("current_trace_id", default=None)
+current_span_id: ContextVar[str | None] = ContextVar("current_span_id", default=None)
 
 
 @dataclass
@@ -28,7 +26,7 @@ class SpanContext:
 
     trace_id: str
     span_id: str
-    parent_id: Optional[str] = None
+    parent_id: str | None = None
     sampled: bool = True
 
 
@@ -39,10 +37,10 @@ class Span:
     name: str
     span_id: str
     trace_id: str
-    parent_id: Optional[str]
+    parent_id: str | None
     start_time: float
-    end_time: Optional[float] = None
-    attributes: Dict[str, Any] = field(default_factory=dict)
+    end_time: float | None = None
+    attributes: dict[str, Any] = field(default_factory=dict)
     events: list = field(default_factory=list)
     status: str = "OK"
 
@@ -50,7 +48,7 @@ class Span:
         """设置属性"""
         self.attributes[key] = value
 
-    def add_event(self, name: str, attributes: Optional[Dict] = None) -> None:
+    def add_event(self, name: str, attributes: dict | None = None) -> None:
         """添加事件"""
         self.events.append(
             {
@@ -91,9 +89,9 @@ class Tracer:
     def create_span(
         self,
         name: str,
-        trace_id: Optional[str] = None,
-        parent_id: Optional[str] = None,
-        attributes: Optional[Dict[str, Any]] = None,
+        trace_id: str | None = None,
+        parent_id: str | None = None,
+        attributes: dict[str, Any] | None = None,
     ) -> Span:
         """创建新的 Span"""
         span_id = self._generate_span_id()
@@ -119,7 +117,7 @@ class Tracer:
     def start_span(
         self,
         name: str,
-        attributes: Optional[Dict[str, Any]] = None,
+        attributes: dict[str, Any] | None = None,
     ) -> "SpanContext":
         """开始一个 span，返回上下文用于传播"""
         span = self.create_span(name, attributes=attributes)
@@ -140,10 +138,7 @@ class Tracer:
     def _export_span(self, span: Span) -> None:
         """导出 span 到追踪后端"""
         # 简化实现，实际应该发送到 OTLP endpoint
-        logger.debug(
-            f"Trace exported: {span.trace_id}/{span.span_id} "
-            f"[{span.name}] {span.status}"
-        )
+        logger.debug(f"Trace exported: {span.trace_id}/{span.span_id} [{span.name}] {span.status}")
 
     @staticmethod
     def _generate_span_id() -> str:
@@ -159,7 +154,7 @@ class Tracer:
             current_trace_id.set(trace_id)
         return trace_id
 
-    def get_current_trace_id(self) -> Optional[str]:
+    def get_current_trace_id(self) -> str | None:
         """获取当前 trace ID"""
         return current_trace_id.get()
 
@@ -175,7 +170,7 @@ class SpanContextCarrier:
     PARENT_HEADER_KEY = "x-parent-span-id"
 
     @classmethod
-    def inject(cls, span_context: SpanContext) -> Dict[str, str]:
+    def inject(cls, span_context: SpanContext) -> dict[str, str]:
         """注入上下文到 HTTP headers"""
         headers = {
             cls.HEADER_KEY: span_context.trace_id,
@@ -185,7 +180,7 @@ class SpanContextCarrier:
         return headers
 
     @classmethod
-    def extract(cls, headers: Dict[str, str]) -> Optional[SpanContext]:
+    def extract(cls, headers: dict[str, str]) -> SpanContext | None:
         """从 HTTP headers 提取上下文"""
         trace_id = headers.get(cls.HEADER_KEY)
         if not trace_id:
@@ -202,11 +197,11 @@ class SpanContextCarrier:
 class TraceContext:
     """追踪上下文管理器"""
 
-    def __init__(self, tracer: Tracer, name: str, attributes: Optional[Dict] = None):
+    def __init__(self, tracer: Tracer, name: str, attributes: dict | None = None):
         self.tracer = tracer
         self.name = name
         self.attributes = attributes or {}
-        self.span: Optional[Span] = None
+        self.span: Span | None = None
 
     def __enter__(self) -> "TraceContext":
         self.span = self.tracer.create_span(self.name, attributes=self.attributes)
@@ -224,7 +219,7 @@ class TraceContext:
 
 def setup_opentelemetry(
     service_name: str,
-    otlp_endpoint: Optional[str] = None,
+    otlp_endpoint: str | None = None,
 ) -> Tracer:
     """
     设置 OpenTelemetry
@@ -252,7 +247,7 @@ def setup_opentelemetry(
 
 
 # 全局 tracer 实例
-_tracer: Optional[Tracer] = None
+_tracer: Tracer | None = None
 
 
 def get_tracer() -> Tracer:

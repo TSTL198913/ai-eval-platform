@@ -1,6 +1,6 @@
 # =====================================================================
-# AI Evaluation Platform - Docker Compose
-# 一键启动分布式 AI 评测平台
+# AI Evaluation Platform - Docker Compose (Production)
+# 生产环境配置 - 使用预构建镜像，不在服务器上构建
 # =====================================================================
 
 services:
@@ -12,14 +12,14 @@ services:
     container_name: ai-eval-postgres
     environment:
       POSTGRES_DB: ai_eval
-      POSTGRES_USER: eval
-      POSTGRES_PASSWORD: eval123
+      POSTGRES_USER: ${POSTGRES_USER:-eval}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eval123}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U eval"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-eval}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -51,11 +51,11 @@ services:
     image: rabbitmq:3.12-management-alpine
     container_name: ai-eval-rabbitmq
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
     ports:
-      - "5672:5672"    # AMQP 协议端口
-      - "15672:15672"  # Management UI 端口
+      - "5672:5672"
+      - "15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -67,22 +67,18 @@ services:
       - ai-eval-network
 
   # ---------------------------------------------------------------------
-  # API 服务 (FastAPI)
+  # API 服务 (FastAPI) - 生产环境使用预构建镜像
   # ---------------------------------------------------------------------
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${DOCKER_REGISTRY:-ghcr.io/tstl198913}/ai-eval-platform:${IMAGE_TAG:-latest}
     container_name: ai-eval-api
     environment:
-      # 数据库配置      - DATABASE_URL=postgresql://eval:eval123@postgres:5432/ai_eval
-      # Redis 配置
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-eval}:${POSTGRES_PASSWORD:-eval123}@postgres:5432/ai_eval
       - REDIS_URL=redis://redis:6379
-      # RabbitMQ 配置
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
-      # LLM API Keys (请在 .env 中修�?
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ENV=production
     ports:
       - "8000:8000"
     depends_on:
@@ -97,27 +93,31 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    deploy:
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
     networks:
       - ai-eval-network
 
   # ---------------------------------------------------------------------
-  # Celery Worker (任务处理)
+  # Celery Worker (任务处理) - 生产环境使用预构建镜像
   # ---------------------------------------------------------------------
   worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${DOCKER_REGISTRY:-ghcr.io/tstl198913}/ai-eval-platform:${IMAGE_TAG:-latest}
     container_name: ai-eval-worker
-    command: celery -A src.workers.celery_app worker --loglevel=info
+    command: celery -A src.workers.celery_app worker --loglevel=info --concurrency=4
     environment:
-      # 数据库配置      - DATABASE_URL=postgresql://eval:eval123@postgres:5432/ai_eval
-      # Redis 配置
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-eval}:${POSTGRES_PASSWORD:-eval123}@postgres:5432/ai_eval
       - REDIS_URL=redis://redis:6379
-      # RabbitMQ 配置
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
-      # LLM API Keys
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ENV=production
     depends_on:
       postgres:
         condition: service_healthy
@@ -125,68 +125,16 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    deploy:
+      update_config:
+        parallelism: 1
+        delay: 15s
+        order: start-first
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
     networks:
       - ai-eval-network
-
-  # ---------------------------------------------------------------------
-  # Prometheus 监控
-  # ---------------------------------------------------------------------
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: ai-eval-prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      - ./docker/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.enable-lifecycle'
-    networks:
-      - ai-eval-network
-    profiles:
-      - monitoring
-
-  # ---------------------------------------------------------------------
-  # Alertmanager (告警管理)
-  # ---------------------------------------------------------------------
-  alertmanager:
-    image: prom/alertmanager:latest
-    container_name: ai-eval-alertmanager
-    ports:
-      - "9093:9093"
-    volumes:
-      - ./docker/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
-      - alertmanager_data:/alertmanager
-    networks:
-      - ai-eval-network
-    profiles:
-      - monitoring
-
-  # ---------------------------------------------------------------------
-  # Grafana 监控面板
-  # ---------------------------------------------------------------------
-  grafana:
-    image: grafana/grafana:latest
-    container_name: ai-eval-grafana
-    ports:
-      - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_INSTALL_PLUGINS=grafana-clock-panel
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./docker/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
-      - ./docker/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
-    depends_on:
-      - prometheus
-    networks:
-      - ai-eval-network
-    profiles:
-      - monitoring
 
 # =====================================================================
 # 网络和存储卷
@@ -199,6 +147,3 @@ volumes:
   postgres_data:
   redis_data:
   rabbitmq_data:
-  prometheus_data:
-  grafana_data:
-  alertmanager_data:

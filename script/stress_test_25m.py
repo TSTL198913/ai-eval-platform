@@ -6,9 +6,8 @@ from datetime import datetime
 # 注入项目根目录
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.workers.tasks import buffer_service
 from src.infra.db.models import EvaluationResultModel
-from src.infra.db.session import SessionLocal
+from src.workers.tasks import buffer_service
 
 
 def stress_test_25m():
@@ -20,10 +19,7 @@ def stress_test_25m():
 
     for i in range(0, TOTAL_COUNT, BATCH_SIZE):
         # 批量构建数据
-        results = [
-            EvaluationResultModel(case_id=f"T_{i + j}", status=1)
-            for j in range(BATCH_SIZE)
-        ]
+        results = [EvaluationResultModel(case_id=f"T_{i + j}", status=1) for j in range(BATCH_SIZE)]
 
         # 直接调用底层的 engine 模拟高性能写入
         buffer_service.buffer.extend(results)

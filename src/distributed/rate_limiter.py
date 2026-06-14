@@ -10,7 +10,6 @@ import logging
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 import redis
 
@@ -31,7 +30,7 @@ class RateLimitConfig:
 
     max_tokens: int = 100  # 桶容量
     refill_rate: float = 10.0  # 每秒补充令牌数
-    initial_tokens: Optional[int] = None  # 初始令牌数，None 表示满桶
+    initial_tokens: int | None = None  # 初始令牌数，None 表示满桶
 
 
 @dataclass
@@ -40,7 +39,7 @@ class RateLimitResult:
 
     allowed: bool
     remaining_tokens: int
-    retry_after_ms: Optional[int]
+    retry_after_ms: int | None
     limit_key: str
 
 
@@ -92,7 +91,7 @@ class TokenBucket:
         self,
         redis_client: redis.Redis,
         key: str,
-        config: Optional[RateLimitConfig] = None,
+        config: RateLimitConfig | None = None,
     ):
         self.redis = redis_client
         self.key = f"ratelimit:token_bucket:{key}"
@@ -230,9 +229,9 @@ class RateLimiter:
     def create_limiter(
         self,
         key: str,
-        config: Optional[RateLimitConfig] = None,
-        max_calls: Optional[int] = None,
-        window_seconds: Optional[float] = None,
+        config: RateLimitConfig | None = None,
+        max_calls: int | None = None,
+        window_seconds: float | None = None,
     ) -> TokenBucket | SlidingWindowLog:
         """创建限流器"""
         if self.strategy == RateLimitStrategy.TOKEN_BUCKET:
@@ -267,9 +266,9 @@ class MultiDimensionRateLimiter:
 
     def check(
         self,
-        user_id: Optional[str] = None,
-        api_key: Optional[str] = None,
-        ip: Optional[str] = None,
+        user_id: str | None = None,
+        api_key: str | None = None,
+        ip: str | None = None,
         tokens: int = 1,
     ) -> list[RateLimitResult]:
         """
@@ -304,10 +303,10 @@ class MultiDimensionRateLimiter:
 
     def is_allowed(
         self,
-        user_id: Optional[str] = None,
-        api_key: Optional[str] = None,
-        ip: Optional[str] = None,
-    ) -> tuple[bool, Optional[RateLimitResult]]:
+        user_id: str | None = None,
+        api_key: str | None = None,
+        ip: str | None = None,
+    ) -> tuple[bool, RateLimitResult | None]:
         """
         检查是否允许请求
 
@@ -336,9 +335,7 @@ async def rate_limit_async(
         result = limiter.allow(tokens)
         if result.allowed:
             return result
-        await asyncio.sleep(
-            result.retry_after_ms / 1000 if result.retry_after_ms else retry_delay
-        )
+        await asyncio.sleep(result.retry_after_ms / 1000 if result.retry_after_ms else retry_delay)
 
     return RateLimitResult(
         allowed=False,

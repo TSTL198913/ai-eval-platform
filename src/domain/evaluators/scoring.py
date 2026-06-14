@@ -1,11 +1,10 @@
 import re
 from difflib import SequenceMatcher
-from typing import Optional
 
 PASS_THRESHOLD = 0.8
 
 
-def score_numeric_match(output: str, expected: Optional[str]) -> float:
+def score_numeric_match(output: str, expected: str | None) -> float:
     if not output.strip():
         return 0.0
     if not expected:
@@ -19,7 +18,7 @@ def score_numeric_match(output: str, expected: Optional[str]) -> float:
     return 1.0 if expected.lower() in output.lower() else 0.0
 
 
-def score_text_similarity(output: str, expected: Optional[str]) -> float:
+def score_text_similarity(output: str, expected: str | None) -> float:
     if not output.strip():
         return 0.0
     if not expected:
@@ -30,7 +29,7 @@ def score_text_similarity(output: str, expected: Optional[str]) -> float:
     return max(ratio, keyword_score)
 
 
-def score_keyword_overlap(output: str, expected: Optional[str]) -> float:
+def score_keyword_overlap(output: str, expected: str | None) -> float:
     if not output.strip():
         return 0.0
     if not expected:

@@ -12,9 +12,7 @@ class Base(DeclarativeBase):
 if os.getenv("TESTING") == "1":
     DATABASE_URL = os.getenv("TEST_DATABASE_URL", "sqlite:///:memory:")
 else:
-    DATABASE_URL = os.getenv(
-        "DATABASE_URL", "postgresql://postgres:tiger13@localhost:5432/eval_db"
-    )
+    DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:tiger13@localhost:5432/eval_db")
 
 if DATABASE_URL.startswith("sqlite"):
     from sqlalchemy.pool import StaticPool

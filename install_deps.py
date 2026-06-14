@@ -11,10 +11,9 @@
     --upgrade   升级所有依赖
 """
 
+import argparse
 import subprocess
 import sys
-import argparse
-
 
 # 国内镜像源列表
 MIRRORS = {
@@ -93,9 +92,7 @@ def main():
     args = parser.parse_args()
 
     try:
-        install_dependencies(
-            mirror=args.mirror, dev=args.dev, upgrade=args.upgrade
-        )
+        install_dependencies(mirror=args.mirror, dev=args.dev, upgrade=args.upgrade)
     except subprocess.CalledProcessError as e:
         print(f"\n❌ 安装失败: {e}")
         sys.exit(1)

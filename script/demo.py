@@ -1,13 +1,12 @@
 import json
-from src.schemas.evaluation import EvaluationSchema
+
 from src.domain.evaluators import EvaluatorFactory
+from src.schemas.evaluation import EvaluationSchema
 
 
 def run_live_demo(title: str, raw_json_data: dict):
     print(f"\n{'=' * 30} {title} {'=' * 30}")
-    print(
-        f"【1. 进来的原始数据】:\n{json.dumps(raw_json_data, indent=4, ensure_ascii=False)}"
-    )
+    print(f"【1. 进来的原始数据】:\n{json.dumps(raw_json_data, indent=4, ensure_ascii=False)}")
 
     try:
         # 1. 体验数据整形 (Contract Layer)

@@ -1,5 +1,4 @@
 import ast
-from typing import Tuple
 
 from src.domain.evaluators.base import BaseEvaluator, EvaluatorFactory
 from src.domain.evaluators.metadata import CodeMetadata
@@ -11,8 +10,7 @@ from src.domain.evaluators.scoring import (
 from src.schemas.evaluation import DomainResponse
 
 DEFAULT_CODE_PROMPT = (
-    "你是一个资深代码审查工程师。请审查代码的语法、潜在 bug 和可读性，"
-    "并给出简洁的审查结论。"
+    "你是一个资深代码审查工程师。请审查代码的语法、潜在 bug 和可读性，并给出简洁的审查结论。"
 )
 
 SYNTAX_WEIGHT = 0.3
@@ -28,9 +26,7 @@ class CodeEvaluator(BaseEvaluator):
     def evaluate(self, request) -> DomainResponse:
         code = self.get_payload_data(request, "code") or self.get_input_text(request)
         expected_output = self.get_payload_data(request, "expected_output")
-        system_prompt = (
-            self.get_payload_data(request, "system_prompt") or DEFAULT_CODE_PROMPT
-        )
+        system_prompt = self.get_payload_data(request, "system_prompt") or DEFAULT_CODE_PROMPT
         meta = CodeMetadata.model_validate(request.metadata or {})
 
         if not code:
@@ -68,16 +64,14 @@ class CodeEvaluator(BaseEvaluator):
             },
         )
 
-    def _check_syntax(self, code: str) -> Tuple[bool, str]:
+    def _check_syntax(self, code: str) -> tuple[bool, str]:
         try:
             ast.parse(code)
             return True, ""
         except SyntaxError as exc:
             return False, f"语法错误: {exc.msg} (line {exc.lineno})"
 
-    def _score_review(
-        self, llm_output: str, expected_output: str | None, syntax_ok: bool
-    ) -> float:
+    def _score_review(self, llm_output: str, expected_output: str | None, syntax_ok: bool) -> float:
         syntax_score = SYNTAX_WEIGHT if syntax_ok else 0.0
 
         if not expected_output:

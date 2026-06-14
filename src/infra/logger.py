@@ -20,6 +20,4 @@ logger.add(
 )
 
 # 核心：定义 patch 函数，自动关联 contextvars
-logger = logger.patch(
-    lambda record: record["extra"].update(trace_id=trace_id_var.get())
-)
+logger = logger.patch(lambda record: record["extra"].update(trace_id=trace_id_var.get()))

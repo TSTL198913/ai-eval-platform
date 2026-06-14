@@ -9,10 +9,11 @@ import asyncio
 import json
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
 import redis
 
@@ -47,8 +48,8 @@ class QueueMessage(Generic[T]):
     payload: T
     priority: MessagePriority = MessagePriority.NORMAL
     created_at: datetime = field(default_factory=datetime.utcnow)
-    trace_id: Optional[str] = None
-    headers: Dict[str, str] = field(default_factory=dict)
+    trace_id: str | None = None
+    headers: dict[str, str] = field(default_factory=dict)
     retry_count: int = 0
     max_retries: int = 3
 
@@ -197,9 +198,7 @@ class RedisListQueue(BaseQueue):
                 except Exception as e:
                     logger.error(f"Failed to process message: {e}")
                     # 消息已经在 rpop 中移除，这里模拟 nack
-                    await self.nack(
-                        QueueMessage.from_dict(json.loads(result)), requeue=False
-                    )
+                    await self.nack(QueueMessage.from_dict(json.loads(result)), requeue=False)
                     return
 
         # 所有队列都为空，短暂等待
@@ -220,9 +219,7 @@ class RedisListQueue(BaseQueue):
         else:
             # 发送到 DLQ
             dlq_key = f"{self.DLQ_PREFIX}{self.config.queue_name}"
-            await asyncio.to_thread(
-                self.redis.lpush, dlq_key, json.dumps(message.to_dict())
-            )
+            await asyncio.to_thread(self.redis.lpush, dlq_key, json.dumps(message.to_dict()))
             logger.warning(f"NACK message {message.message_id} sent to DLQ")
 
     async def get_queue_size(self) -> int:
@@ -258,7 +255,7 @@ class RabbitMQQueue(BaseQueue):
         port: int = 5672,
         username: str = "guest",
         password: str = "guest",
-        config: Optional[QueueConfig] = None,
+        config: QueueConfig | None = None,
     ):
         import pika
 

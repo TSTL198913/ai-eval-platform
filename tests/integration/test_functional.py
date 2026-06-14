@@ -13,9 +13,7 @@ def clear_buffer():
 def test_buffer_threshold_trigger(db_session):
     # 1. 业务逻辑层测试：直接操作 Service 单例
     for i in range(1000):
-        buffer_service.add(
-            EvaluationResultModel(case_id=f"BATCH_{i}", status="pending")
-        )
+        buffer_service.add(EvaluationResultModel(case_id=f"BATCH_{i}", status="pending"))
 
     assert len(buffer_service.buffer) == 1000
 

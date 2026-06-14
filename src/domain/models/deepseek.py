@@ -1,5 +1,3 @@
-from typing import Optional
-
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -22,16 +20,14 @@ class DeepSeekClient(BaseLLMClient):
         wait=wait_exponential(multiplier=1, min=1, max=8),
         reraise=True,
     )
-    def chat(self, prompt: str, system_prompt: Optional[str] = None) -> str:
+    def chat(self, prompt: str, system_prompt: str | None = None) -> str:
         payload = self._build_payload(prompt, system_prompt)
         response = self.client.post(self.api_url, headers=self.headers, json=payload)
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
 
-    async def achat(self, prompt: str, system_prompt: Optional[str] = None) -> str:
+    async def achat(self, prompt: str, system_prompt: str | None = None) -> str:
         payload = self._build_payload(prompt, system_prompt)
-        response = await self.async_client.post(
-            self.api_url, headers=self.headers, json=payload
-        )
+        response = await self.async_client.post(self.api_url, headers=self.headers, json=payload)
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]

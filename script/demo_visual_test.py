@@ -1,14 +1,14 @@
-# 【关键点】强制将项目根目录加入到搜索路径
 import os
 import sys
+import time
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, PROJECT_ROOT)
 
-import time
-from src.workers.tasks import buffer_service, EvaluationBufferService
-from src.infra.db.models import EvaluationResultModel
-from src.infra.db.session import SessionLocal
+from src.infra.db.models import EvaluationResultModel  # noqa: E402
+from src.infra.db.session import SessionLocal  # noqa: E402
+from src.workers.tasks import buffer_service  # noqa: E402
+
 
 def clear_db():
     db = SessionLocal()
@@ -23,7 +23,7 @@ def visual_demo():
     service.buffer.clear()  # 确保缓冲区干净
 
     # 1. 模拟瞬间涌入 2500 个任务 (远超 Batch_size=1000)
-    print(f"模拟涌入 2500 个任务...")
+    print("模拟涌入 2500 个任务...")
     for i in range(2500):
         service.add(EvaluationResultModel(case_id=f"TEST_{i}", status=1))
 

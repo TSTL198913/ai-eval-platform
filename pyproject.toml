@@ -45,3 +45,49 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
 addopts = "-v --tb=short"
+
+# =====================================================================
+# CI/CD 配置（架构师建议：统一管理环境变量）
+# =====================================================================
+[tool.ci]
+python_version = "3.10"
+node_version = "18"
+pip_index_url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+pip_trusted_host = "pypi.tuna.tsinghua.edu.cn"
+coverage_threshold = 80
+
+# =====================================================================
+# Ruff 配置（统一代码质量工具）
+# =====================================================================
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+cache-dir = ".ruff_cache"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex
+    "B017",  # assert blind exception (common in tests)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B017"]  # 允许测试中使用 pytest.raises(Exception)
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true

@@ -48,8 +48,6 @@ def get_redis() -> redis.Redis:
     """获取 Redis 客户端"""
     global _redis_client
     if _redis_client is None:
-        import os
-
         _redis_client = redis.Redis(
             host=os.getenv("REDIS_HOST", "localhost"),
             port=int(os.getenv("REDIS_PORT", "6379")),
@@ -141,14 +139,15 @@ async def rate_limit_middleware(request: Request, call_next):
             },
             headers={
                 "Retry-After": str((result.retry_after_ms or 1000) // 1000),
-                "X-RateLimit-Remaining": str(result.remaining_tokens),
+                "X-RateLimit-Remaining": str(result.remaining_tokens if result else 0),
             },
         )
 
     response = await call_next(request)
 
-    # 添加限流信息到响应头
-    response.headers["X-RateLimit-Remaining"] = str(result.remaining_tokens)
+    # 添加限流信息到响应头（result 可能为 None）
+    if result:
+        response.headers["X-RateLimit-Remaining"] = str(result.remaining_tokens)
 
     return response
 
@@ -264,7 +263,7 @@ async def readiness_check():
     # 检查 RabbitMQ (如果 celery broker 已配置)
     if settings.celery_broker_url:
         try:
-            import pika
+            import pika  # noqa: F401
 
             params = pika.URLParameters(settings.celery_broker_url)
             connection = pika.BlockingConnection(params)

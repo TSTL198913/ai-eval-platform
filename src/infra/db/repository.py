@@ -16,8 +16,8 @@ class BaseRepository(ABC):
 # 2. 完美的工业级 Postgres/SQLAlchemy 仓储实现
 class EvaluationRepository(BaseRepository):
     def save(self, result: EvaluationResult) -> int:
-        # 1. 安全校验：防止漏掉关键键
-        if not result.case_id:
+        # 1. 安全校验：防止漏掉关键键（包括空白字符）
+        if not result.case_id or not result.case_id.strip():
             raise ValueError("持久化失败：评估结果缺少核心 case_id")
 
         db_record = EvaluationResultModel(

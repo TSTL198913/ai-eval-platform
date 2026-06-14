@@ -2,6 +2,34 @@
 # AI Evaluation Platform - 代码规范配置
 # =====================================================================
 
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "src/__init__.py",
+    "src/*/__init__.py",
+    "src/**/__init__.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.json]
+output = "coverage.json"
+
+# 增量覆盖率配置
+[tool.coverage.incremental]
+mode = "append"
+history = ".coverage_history"
+
 [tool.black]
 line-length = 100
 target-version = ['py310']

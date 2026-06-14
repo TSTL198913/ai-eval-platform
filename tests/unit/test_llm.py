@@ -3,15 +3,13 @@ LLM 客户端单元测试
 """
 
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import patch
 
 from src.llm.base import (
     LLMConfig,
     LLMProvider,
     OpenAIClient,
     DeepSeekClient,
-    AnthropicClient,
-    OllamaClient,
     StubLLMClient,
     LLMClientFactory,
     create_llm_client,

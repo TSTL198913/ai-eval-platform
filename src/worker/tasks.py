@@ -7,12 +7,12 @@ Celery 任务定义
 """
 
 import logging
+import os
 import threading
 import time
 import uuid
 from typing import Any, Dict, List, Optional
 
-from celery import Task
 
 from src.distributed.circuit_breaker import global_registry
 from src.infra.db.models import EvaluationResultModel
@@ -20,7 +20,7 @@ from src.infra.db.session import SessionLocal
 from src.metrics import get_registry
 from src.schemas.evaluation import EvaluationSchema
 from src.worker.celery_app import EvalTask, celery_app, get_redis_client
-from src.worker.task_processor import DistributedTaskProcessor, RetryPolicy, TaskResult, TaskStatus
+from src.worker.task_processor import DistributedTaskProcessor, TaskResult
 
 logger = logging.getLogger(__name__)
 
@@ -339,7 +339,3 @@ def get_worker_stats() -> Dict[str, Any]:
         "circuit_breakers": global_registry.all_stats(),
         "metrics": metrics.all_stats(),
     }
-
-
-# 导入 os 以支持 CELERY_WORKER_ID
-import os

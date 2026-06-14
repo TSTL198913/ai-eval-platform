@@ -4,11 +4,11 @@
 
 import asyncio
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
-from src.distributed.lock import DistributedLock, LockResult, LockState
+from src.distributed.lock import DistributedLock, LockState
 from src.distributed.circuit_breaker import (
     CircuitBreaker,
     CircuitBreakerConfig,
@@ -136,7 +136,6 @@ class TestCircuitBreaker:
 
     def test_circuit_breaker_rejects_when_open(self):
         """测试熔断器打开时拒绝调用"""
-        import asyncio
         
         cb = CircuitBreaker(
             "test_service",
@@ -156,7 +155,6 @@ class TestCircuitBreaker:
 
     def test_circuit_breaker_success_resets(self):
         """测试成功后关闭熔断器"""
-        import asyncio
         
         cb = CircuitBreaker(
             "test_service",

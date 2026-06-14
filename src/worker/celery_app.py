@@ -11,9 +11,7 @@
 
 import logging
 import os
-import time
 import uuid
-from typing import Any, Dict
 
 import redis
 from celery import Celery, Task

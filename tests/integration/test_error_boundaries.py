@@ -11,13 +11,12 @@
 import pytest
 import asyncio
 import time
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import MagicMock, patch
 from concurrent.futures import ThreadPoolExecutor
 
 from src.schemas.evaluation import EvaluationSchema, EvaluationStatus
 from src.domain.evaluators.base import EvaluatorFactory
 from src.engine import EvaluationEngine
-from src.llm.base import LLMConfig, LLMProvider
 
 
 class TestLLMErrorHandling:
@@ -69,7 +68,7 @@ class TestLLMErrorHandling:
             )
             
             try:
-                result = engine.run(request)
+                engine.run(request)
             except ConnectionError:
                 # 连接错误被正确传播
                 pass
@@ -204,7 +203,7 @@ class TestBoundaryConditions:
         ]
 
         for i, case in enumerate(test_cases):
-            request = EvaluationSchema(
+            EvaluationSchema(
                 id=f"numeric_{i}",
                 type="general",
                 payload=case,
@@ -432,7 +431,7 @@ class TestSchemaValidation:
 
     def test_invalid_evaluation_status(self):
         """测试无效的评测状态"""
-        from src.schemas.evaluation import EvaluationSchema, EvaluationStatus
+        from src.schemas.evaluation import EvaluationSchema
 
         # 无效状态值应该被拒绝或转换
         request = EvaluationSchema(

@@ -13,18 +13,15 @@ import logging
 import os
 import time
 from contextlib import asynccontextmanager
-from typing import Any, Dict, Optional
+from typing import Optional
 
 import redis
-from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.distributed.rate_limiter import (
     MultiDimensionRateLimiter,
-    RateLimitConfig,
-    RateLimitStrategy,
-    TokenBucket,
 )
 from src.metrics import get_registry
 from src.tracing import SpanContextCarrier, TraceContext, get_tracer, setup_opentelemetry
@@ -72,9 +69,9 @@ async def tracing_middleware(request: Request, call_next):
     span_context = SpanContextCarrier.extract(headers)
     
     if span_context:
-        trace_id = span_context.trace_id
+        pass
     else:
-        trace_id = None
+        pass
     
     # 创建 span
     with TraceContext(tracer, f"{request.method} {request.url.path}") as ctx:

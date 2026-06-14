@@ -4,8 +4,6 @@
 基于实际代码接口编写的测试用例
 """
 
-import pytest
-from unittest.mock import Mock, patch, AsyncMock
 import asyncio
 import time
 
@@ -48,7 +46,7 @@ class TestDistributedLockErrors:
 
     def test_lock_double_release(self):
         """测试重复释放锁"""
-        from src.distributed.lock import DistributedLock, LockState
+        from src.distributed.lock import DistributedLock
         from unittest.mock import MagicMock
         
         # 模拟 Redis
@@ -95,7 +93,7 @@ class TestCircuitBreakerErrors:
 
     def test_circuit_breaker_stats_initialization(self):
         """测试熔断器统计初始化"""
-        from src.distributed.circuit_breaker import CircuitBreaker, CircuitState
+        from src.distributed.circuit_breaker import CircuitBreaker
         
         cb = CircuitBreaker("test_stats")
         
@@ -123,8 +121,7 @@ class TestRateLimiterErrors:
 
     def test_rate_limiter_config_defaults(self):
         """测试限流器默认配置"""
-        from src.distributed.rate_limiter import RateLimitConfig, TokenBucket
-        from unittest.mock import MagicMock
+        from src.distributed.rate_limiter import RateLimitConfig
         
         config = RateLimitConfig()
         assert config.max_tokens == 100
@@ -142,7 +139,7 @@ class TestRateLimiterErrors:
         
         # 初始调用 - 需要检查返回值
         result = bucket.allow(1)
-        assert result.allowed == True  # 应该允许
+        assert result.allowed  # 应该允许
         
     def test_token_bucket_depletion(self):
         """测试令牌桶耗尽"""
@@ -192,7 +189,7 @@ class TestMetricsErrors:
 
     def test_counter_with_labels(self):
         """测试带标签计数器"""
-        from src.metrics import Counter, MetricsRegistry
+        from src.metrics import MetricsRegistry
         
         registry = MetricsRegistry()
         counter = registry.register_counter("test_labels", "desc", labels=["domain"])
@@ -206,7 +203,7 @@ class TestMetricsErrors:
 
     def test_gauge_extreme_values(self):
         """测试极端值"""
-        from src.metrics import Gauge, MetricsRegistry
+        from src.metrics import MetricsRegistry
         
         registry = MetricsRegistry()
         gauge = registry.register_gauge("test_extreme", "desc")
@@ -219,7 +216,7 @@ class TestMetricsErrors:
 
     def test_histogram_empty_stats(self):
         """测试空直方图统计"""
-        from src.metrics import Histogram, MetricsRegistry
+        from src.metrics import MetricsRegistry
         
         registry = MetricsRegistry()
         histogram = registry.register_histogram(
@@ -272,7 +269,7 @@ class TestConcurrency:
     def test_concurrent_counter(self):
         """测试并发计数器"""
         import threading
-        from src.metrics import Counter, MetricsRegistry
+        from src.metrics import MetricsRegistry
         
         registry = MetricsRegistry()
         counter = registry.register_counter("concurrent_test", "desc")
@@ -325,7 +322,7 @@ class TestRegression:
 
     def test_metrics_prometheus_format(self):
         """回归: 确保 Prometheus 格式正确"""
-        from src.metrics import Counter, MetricsRegistry
+        from src.metrics import MetricsRegistry
         
         registry = MetricsRegistry()
         counter = registry.register_counter("prom_test", "test counter")

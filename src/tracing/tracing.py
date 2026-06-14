@@ -104,7 +104,7 @@ class Tracer:
         self._spans.append(span)
         
         # 设置 context variable
-        token = current_trace_id.set(trace_id)
+        current_trace_id.set(trace_id)
         current_span_id.set(span_id)
         
         return span

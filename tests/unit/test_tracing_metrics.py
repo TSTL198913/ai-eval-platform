@@ -2,14 +2,11 @@
 追踪和指标单元测试
 """
 
-import time
-from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.tracing import (
     Tracer,
-    Span,
     SpanContext,
     SpanContextCarrier,
     TraceContext,
@@ -18,7 +15,6 @@ from src.metrics import (
     Counter,
     Gauge,
     Histogram,
-    Summary,
     MetricsRegistry,
     get_registry,
 )

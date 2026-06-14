@@ -20,7 +20,7 @@ from typing import Any, Callable, Dict, Optional
 from src.distributed.circuit_breaker import CircuitBreaker, CircuitBreakerError, CircuitBreakerConfig
 from src.distributed.lock import DistributedLock, LockState
 from src.distributed.queue import QueueMessage
-from src.llm.base import BaseLLMClient, LLMConfig, create_llm_client
+from src.llm.base import LLMConfig, create_llm_client
 from src.metrics import get_registry
 from src.tracing import TraceContext, get_tracer
 

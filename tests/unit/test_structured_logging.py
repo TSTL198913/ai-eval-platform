@@ -2,7 +2,6 @@
 # AI Evaluation Platform - 结构化日志系统测试
 # =====================================================================
 
-import pytest
 import json
 import logging
 from src.infra.structured_logging import (

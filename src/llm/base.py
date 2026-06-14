@@ -21,12 +21,11 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, TypeVar
+from typing import Dict, List, Optional, TypeVar
 
 import httpx
 
 from src.distributed.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
-from src.distributed.rate_limiter import RateLimitConfig, TokenBucket
 from src.tracing import get_tracer
 
 logger = logging.getLogger(__name__)

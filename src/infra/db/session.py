@@ -9,35 +9,66 @@ class Base(DeclarativeBase):
     pass
 
 
-if os.getenv("TESTING") == "1":
-    DATABASE_URL = os.getenv("TEST_DATABASE_URL", "sqlite:///:memory:")
-else:
-    DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:tiger13@localhost:5432/eval_db")
+def _get_database_url() -> str:
+    """延迟获取数据库 URL，确保环境变量已设置"""
+    if os.getenv("TESTING") == "1":
+        return os.getenv("TEST_DATABASE_URL", "sqlite:///:memory:")
+    return os.getenv("DATABASE_URL", "postgresql://postgres:tiger13@localhost:5432/eval_db")
 
-if DATABASE_URL.startswith("sqlite"):
-    from sqlalchemy.pool import StaticPool
 
-    engine = create_engine(
-        DATABASE_URL,
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-else:
-    engine = create_engine(
-        DATABASE_URL,
-        pool_size=10,
-        max_overflow=20,
-        pool_recycle=3600,
-        pool_pre_ping=True,
-    )
+def _create_engine():
+    """延迟创建引擎函数"""
+    database_url = _get_database_url()
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    if database_url.startswith("sqlite"):
+        from sqlalchemy.pool import StaticPool
+
+        return create_engine(
+            database_url,
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+    else:
+        return create_engine(
+            database_url,
+            pool_size=10,
+            max_overflow=20,
+            pool_recycle=3600,
+            pool_pre_ping=True,
+        )
+
+
+# 使用惰性初始化模式，避免模块导入时创建引擎
+_engine = None
+_session_local = None
+
+
+def get_engine():
+    """获取数据库引擎（惰性初始化）"""
+    global _engine
+    if _engine is None:
+        _engine = _create_engine()
+    return _engine
+
+
+def get_session_local():
+    """获取 SessionLocal（惰性初始化）"""
+    global _session_local, SessionLocal
+    if _session_local is None:
+        _session_local = sessionmaker(autocommit=False, autoflush=False, bind=get_engine())
+        # 同步更新 SessionLocal 变量（向后兼容）
+        SessionLocal = _session_local
+    return _session_local
+
+
+# 为了保持向后兼容，提供可调用的 SessionLocal
+SessionLocal = None  # 占位符，将在首次调用时初始化
 
 
 # 3. 继承 db.py 的增强版上下文管理器：彻底解决大模型报错时的事务回滚与连接泄露
 @contextmanager
 def get_db_session():
-    db = SessionLocal()
+    db = get_session_local()()
     try:
         yield db
     except Exception:
@@ -57,8 +88,19 @@ def get_db():
 def init_tables():
     from src.infra.db import models  # noqa: F401  确保模型注册到 metadata
 
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=get_engine())
     print("【系统通知】表结构已在 eval_db 中创建成功！")
+
+
+# 提供 engine 属性访问（惰性）
+class _LazyEngine:
+    """惰性引擎包装器，支持属性访问"""
+
+    def __getattr__(self, name):
+        return getattr(get_engine(), name)
+
+
+engine = _LazyEngine()
 
 
 if __name__ == "__main__":

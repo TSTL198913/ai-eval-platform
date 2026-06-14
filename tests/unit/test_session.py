@@ -9,40 +9,29 @@ class TestSessionModule:
 
     @patch.dict(os.environ, {"TESTING": "1", "TEST_DATABASE_URL": "sqlite:///:memory:"})
     def test_testing_mode(self):
-        import importlib
-
         from src.infra.db import session as session_module
 
-        importlib.reload(session_module)
-        assert session_module.DATABASE_URL == "sqlite:///:memory:"
+        assert session_module._get_database_url() == "sqlite:///:memory:"
 
     @patch.dict(os.environ, {"TESTING": "1"}, clear=True)
     def test_testing_default(self):
-        import importlib
-
         from src.infra.db import session as session_module
 
-        importlib.reload(session_module)
-        assert ":memory:" in session_module.DATABASE_URL
+        assert ":memory:" in session_module._get_database_url()
 
     @patch.dict(os.environ, {}, clear=True)
     def test_production_default(self):
-        import importlib
-
         from src.infra.db import session as session_module
 
-        importlib.reload(session_module)
-        assert "postgresql" in session_module.DATABASE_URL
+        assert "postgresql" in session_module._get_database_url()
 
     @patch.dict(os.environ, {"DATABASE_URL": "sqlite:///test.db"})
     def test_sqlite_engine_config(self):
-        import importlib
-
         from src.infra.db import session as session_module
 
-        importlib.reload(session_module)
-        assert session_module.engine is not None
-        assert session_module.SessionLocal is not None
+        # 测试惰性初始化的引擎和 SessionLocal
+        assert session_module.get_engine() is not None
+        assert session_module.get_session_local() is not None
 
 
 class TestGetDbSession:

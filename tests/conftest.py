@@ -130,9 +130,9 @@ def clean_buffer():
 @pytest.fixture(autouse=True)
 def clean_global_db():
     """清理 Repository / SessionLocal 使用的全局引擎数据。"""
-    from src.infra.db.session import SessionLocal
+    from src.infra.db.session import get_session_local
 
-    db = SessionLocal()
+    db = get_session_local()()
     try:
         inspector = inspect(db.get_bind())
         for table in inspector.get_table_names():

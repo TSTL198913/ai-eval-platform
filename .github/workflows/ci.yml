@@ -1,5 +1,6 @@
 # =====================================================================
-# AI Evaluation Platform - CI/CD Pipeline
+# AI Evaluation Platform - CI/CD Pipeline (优化版)
+# 架构师审查：增强严谨性、增量扫描、质量保障
 # =====================================================================
 
 name: CI/CD Pipeline
@@ -7,27 +8,81 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [main, master, develop]
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - '*.md'
   pull_request:
     branches: [main, master]
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - '*.md'
 
 env:
   PYTHON_VERSION: '3.10'
   NODE_VERSION: '18'
-  # 国内镜像源加速下载
   PIP_INDEX_URL: 'https://pypi.tuna.tsinghua.edu.cn/simple'
   PIP_TRUSTED_HOST: 'pypi.tuna.tsinghua.edu.cn'
+  # 质量门限
+  COVERAGE_THRESHOLD: '80'
+  MAX_LINT_ERRORS: '0'
+
+# 并发控制：同一分支只允许一个工作流运行
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # =====================================================================
-  # 代码质量检查
+  # 变更检测（增量扫描基础）
+  # =====================================================================
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      src_changed: ${{ steps.detect.outputs.src_changed }}
+      tests_changed: ${{ steps.detect.outputs.tests_changed }}
+      docker_changed: ${{ steps.detect.outputs.docker_changed }}
+      deps_changed: ${{ steps.detect.outputs.deps_changed }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # 只获取最近两次提交用于对比
+
+      - name: Detect changes
+        id: detect
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            src_changed:
+              - 'src/**'
+              - 'pyproject.toml'
+              - 'setup.py'
+            tests_changed:
+              - 'tests/**'
+            docker_changed:
+              - 'Dockerfile'
+              - 'docker-compose*.yml'
+            deps_changed:
+              - 'requirements*.txt'
+
+  # =====================================================================
+  # 代码质量检查（增量模式）
   # =====================================================================
   lint:
     name: Lint & Code Quality
     runs-on: ubuntu-latest
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.src_changed == 'true' || needs.detect-changes.outputs.tests_changed == 'true' }}
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整历史用于增量分析
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -39,64 +94,97 @@ jobs:
         run: |
           pip config set global.index-url $PIP_INDEX_URL
           pip config set global.trusted-host $PIP_TRUSTED_HOST
-          pip install -r requirements.txt
-          pip install black flake8 isort pytest-cov ruff
+          pip install -q -r requirements.txt
+          pip install -q black flake8 isort pytest-cov ruff
+
+      # 增量 lint：只检查修改的文件
+      - name: Get changed Python files
+        id: changed-files
+        uses: tj-actions/changed-files@v41
+        with:
+          files: |
+            src/**/*.py
+            tests/**/*.py
 
       - name: Check code format (Black)
+        if: ${{ steps.changed-files.outputs.any_changed == 'true' }}
         run: |
-          black --check src/ tests/ || true
-          black --diff src/ tests/
+          changed_files="${{ steps.changed-files.outputs.all_changed_files }}"
+          if [ -n "$changed_files" ]; then
+            black --check $changed_files
+          fi
 
       - name: Check import order (isort)
+        if: ${{ steps.changed-files.outputs.any_changed == 'true' }}
         run: |
-          isort --check-only --diff src/ tests/
+          changed_files="${{ steps.changed-files.outputs.all_changed_files }}"
+          if [ -n "$changed_files" ]; then
+            isort --check-only $changed_files
+          fi
 
-      - name: Lint (Ruff)
+      - name: Lint (Ruff - 快速检查)
+        if: ${{ steps.changed-files.outputs.any_changed == 'true' }}
         run: |
-          ruff check src/ tests/
+          changed_files="${{ steps.changed-files.outputs.all_changed_files }}"
+          if [ -n "$changed_files" ]; then
+            ruff check $changed_files
+          fi
 
-      - name: Lint (Flake8)
+      # 全量检查（确保整体质量）
+      - name: Full Lint (Flake8)
         run: |
           flake8 src/ tests/ --count --show-source --statistics --max-line-length=100
+          lint_errors=$(flake8 src/ tests/ --count --max-line-length=100)
+          if [ "$lint_errors" -gt "${{ env.MAX_LINT_ERRORS }}" ]; then
+            echo "Lint errors exceed threshold: $lint_errors"
+            exit 1
+          fi
 
   # =====================================================================
-  # 单元测试
+  # 单元测试（带质量门限）
   # =====================================================================
   test:
-    name: Unit Tests
+    name: Unit Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     needs: lint
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11']
+      fail-fast: false  # 一个版本失败不影响其他版本
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ matrix.python-version }}
           cache: 'pip'
 
       - name: Install dependencies
         run: |
           pip config set global.index-url $PIP_INDEX_URL
           pip config set global.trusted-host $PIP_TRUSTED_HOST
-          pip install -r requirements.txt
+          pip install -q -r requirements.txt
+          pip install -q pytest pytest-cov
 
-      - name: Run tests
+      - name: Run tests with coverage
         run: |
-          pytest tests/ -v --cov=src --cov-report=xml --cov-report=html
+          pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=term-missing \
+            --cov-fail-under=${{ env.COVERAGE_THRESHOLD }}
 
-      - name: Upload coverage
+      - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
           file: ./coverage.xml
-          fail_ci_if_error: false
+          flags: unit
+          fail_ci_if_error: true
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report
+          name: coverage-report-py${{ matrix.python-version }}
           path: htmlcov/
           retention-days: 7
 
@@ -106,7 +194,10 @@ jobs:
   docker:
     name: Docker Build
     runs-on: ubuntu-latest
-    needs: test
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.docker_changed == 'true' || 
+            needs.detect-changes.outputs.src_changed == 'true' || 
+            needs.detect-changes.outputs.deps_changed == 'true' }}
     
     steps:
       - name: Checkout code
@@ -115,47 +206,105 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
       - name: Build Docker image
-        run: |
-          docker build -t ai-eval-platform:${{ github.sha }} .
-          docker build -t ai-eval-platform:latest .
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: ai-eval-platform:test
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache
 
       - name: Test Docker image
         run: |
-          docker run -d --name test-app ai-eval-platform:latest
-          sleep 5
-          docker logs test-app
+          # 启动容器
+          docker run -d --name test-app -p 8000:8000 ai-eval-platform:test
+          
+          # 等待服务启动（带超时）
+          timeout=30
+          interval=2
+          elapsed=0
+          while [ $elapsed -lt $timeout ]; do
+            if curl -s http://localhost:8000/health | grep -q "healthy"; then
+              echo "✅ 服务启动成功"
+              break
+            fi
+            sleep $interval
+            elapsed=$((elapsed + interval))
+          done
+          
+          if [ $elapsed -ge $timeout ]; then
+            echo "❌ 服务启动超时"
+            docker logs test-app
+            docker rm -f test-app
+            exit 1
+          fi
+          
+          # 清理
           docker rm -f test-app
 
   # =====================================================================
-  # 安全扫描
+  # 安全扫描（带失败策略）
   # =====================================================================
   security:
     name: Security Scan
     runs-on: ubuntu-latest
-    needs: lint
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.src_changed == 'true' }}
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run safety check
-        run: |
-          pip install safety
-          safety check --json || true
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Run bandit security scan
+      - name: Run safety check (依赖漏洞扫描)
         run: |
-          pip install bandit
-          bandit -r src/ -f json || true
+          pip install -q safety
+          safety check --json --full-report > safety-report.json || true
+          cat safety-report.json
+
+      - name: Run bandit security scan (代码安全扫描)
+        run: |
+          pip install -q bandit
+          bandit -r src/ -f json -o bandit-report.json
+          
+          # 如果发现严重漏洞则失败
+          critical_count=$(jq '.results | map(select(.issue_severity == "CRITICAL")) | length' bandit-report.json)
+          if [ "$critical_count" -gt 0 ]; then
+            echo "发现 $critical_count 个严重安全漏洞"
+            cat bandit-report.json
+            exit 1
+          fi
+
+      - name: Upload security reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: |
+            safety-report.json
+            bandit-report.json
+          retention-days: 7
 
   # =====================================================================
-  # 集成测试 (需要外部服务)
+  # 集成测试
   # =====================================================================
   integration-test:
     name: Integration Tests
     runs-on: ubuntu-latest
-    needs: test
+    needs: [test, docker]
     
     services:
       redis:
@@ -196,11 +345,12 @@ jobs:
         run: |
           pip config set global.index-url $PIP_INDEX_URL
           pip config set global.trusted-host $PIP_TRUSTED_HOST
-          pip install -r requirements.txt
+          pip install -q -r requirements.txt
 
       - name: Run integration tests
+        timeout-minutes: 10  # 超时保护
         run: |
-          pytest tests/integration/ -v
+          pytest tests/integration/ -v --tb=short
         env:
           DATABASE_URL: postgresql://test:test123@localhost:5432/ai_eval_test
           REDIS_URL: redis://localhost:6379
@@ -244,9 +394,11 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   # =====================================================================
-  # 部署到服务器 (需要配置服务器信息)
+  # 部署到服务器（带回滚机制）
   # =====================================================================
   deploy:
     name: Deploy to Server
@@ -254,17 +406,92 @@ jobs:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     needs: build-and-push
     environment: production
+    timeout-minutes: 15
     
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Deploy to server
+        id: deploy
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
           script: |
+            set -e
             cd /opt/ai-eval-platform
-            git pull origin main
+            
+            # 备份当前配置
+            timestamp=$(date +%Y%m%d_%H%M%S)
             docker compose down
+            cp -r docker-compose.yml docker-compose.yml.backup.$timestamp
+            
+            # 拉取最新代码和镜像
+            git pull origin main
+            docker pull ${{ secrets.DOCKER_USERNAME }}/ai-eval-platform:latest
+            
+            # 启动新服务
             docker compose up -d --build
-            docker compose ps
+            
+            # 健康检查
+            timeout=30
+            interval=2
+            elapsed=0
+            while [ $elapsed -lt $timeout ]; do
+              if curl -s http://localhost:8000/health | grep -q "healthy"; then
+                echo "✅ 部署成功"
+                exit 0
+              fi
+              sleep $interval
+              elapsed=$((elapsed + interval))
+            done
+            
+            # 回滚
+            echo "❌ 部署失败，执行回滚"
+            docker compose down
+            cp docker-compose.yml.backup.$timestamp docker-compose.yml
+            docker compose up -d
+            exit 1
+
+      - name: Notify deployment result
+        if: always()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_TITLE: "Deployment ${{ steps.deploy.outcome }}"
+          SLACK_MESSAGE: |
+            Branch: ${{ github.ref }}
+            Commit: ${{ github.sha }}
+            Result: ${{ steps.deploy.outcome }}
+          SLACK_COLOR: ${{ steps.deploy.outcome == 'success' ? 'good' : 'danger' }}
+
+  # =====================================================================
+  # 工作流总结
+  # =====================================================================
+  summary:
+    name: Workflow Summary
+    runs-on: ubuntu-latest
+    needs: [lint, test, docker, security, integration-test, build-and-push, deploy]
+    if: always()
+    
+    steps:
+      - name: Summary
+        run: |
+          echo "=== CI/CD Pipeline Summary ==="
+          echo "Lint: ${{ needs.lint.result }}"
+          echo "Test: ${{ needs.test.result }}"
+          echo "Docker: ${{ needs.docker.result }}"
+          echo "Security: ${{ needs.security.result }}"
+          echo "Integration: ${{ needs.integration-test.result }}"
+          echo "Build & Push: ${{ needs.build-and-push.result }}"
+          echo "Deploy: ${{ needs.deploy.result }}"
+          
+          # 如果有失败的任务，标记为失败
+          if [[ "${{ needs.lint.result }}" == "failure" || 
+                "${{ needs.test.result }}" == "failure" || 
+                "${{ needs.integration-test.result }}" == "failure" ]]; then
+            exit 1
+          fi

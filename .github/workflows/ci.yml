@@ -48,7 +48,6 @@ jobs:
       docker_changed: ${{ steps.detect.outputs.docker_changed }}
       deps_changed: ${{ steps.detect.outputs.deps_changed }}
       ci_changed: ${{ steps.detect.outputs.ci_changed }}
-      any_changed: ${{ steps.detect.outputs.any_changed }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -60,7 +59,6 @@ jobs:
             docker_changed: ['Dockerfile', 'docker-compose*.yml']
             deps_changed: ['requirements*.txt', 'pyproject.toml']
             ci_changed: ['.github/workflows/ci.yml']
-            any_changed: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
 
   lint:
     name: Lint & Format

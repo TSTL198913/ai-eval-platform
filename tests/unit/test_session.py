@@ -1,9 +1,7 @@
 """测试 infra/db/session.py - 数据库会话管理"""
 
 import os
-from unittest.mock import Mock, patch
-
-import pytest
+from unittest.mock import patch
 
 
 class TestSessionModule:
@@ -12,6 +10,7 @@ class TestSessionModule:
     @patch.dict(os.environ, {"TESTING": "1", "TEST_DATABASE_URL": "sqlite:///:memory:"})
     def test_testing_mode(self):
         import importlib
+
         from src.infra.db import session as session_module
 
         importlib.reload(session_module)
@@ -20,6 +19,7 @@ class TestSessionModule:
     @patch.dict(os.environ, {"TESTING": "1"}, clear=True)
     def test_testing_default(self):
         import importlib
+
         from src.infra.db import session as session_module
 
         importlib.reload(session_module)
@@ -28,6 +28,7 @@ class TestSessionModule:
     @patch.dict(os.environ, {}, clear=True)
     def test_production_default(self):
         import importlib
+
         from src.infra.db import session as session_module
 
         importlib.reload(session_module)
@@ -36,6 +37,7 @@ class TestSessionModule:
     @patch.dict(os.environ, {"DATABASE_URL": "sqlite:///test.db"})
     def test_sqlite_engine_config(self):
         import importlib
+
         from src.infra.db import session as session_module
 
         importlib.reload(session_module)
@@ -49,6 +51,7 @@ class TestGetDbSession:
     @patch.dict(os.environ, {"TESTING": "1", "TEST_DATABASE_URL": "sqlite:///:memory:"})
     def test_session_commit(self):
         import importlib
+
         from src.infra.db import session as session_module
 
         importlib.reload(session_module)
@@ -58,6 +61,7 @@ class TestGetDbSession:
     @patch.dict(os.environ, {"TESTING": "1", "TEST_DATABASE_URL": "sqlite:///:memory:"})
     def test_session_rollback(self):
         import importlib
+
         from src.infra.db import session as session_module
 
         importlib.reload(session_module)
@@ -71,10 +75,11 @@ class TestGetDbSession:
     @patch.dict(os.environ, {"TESTING": "1", "TEST_DATABASE_URL": "sqlite:///:memory:"})
     def test_session_close(self):
         import importlib
+
         from src.infra.db import session as session_module
 
         importlib.reload(session_module)
-        with session_module.get_db_session() as db:
+        with session_module.get_db_session():
             pass
 
 
@@ -84,6 +89,7 @@ class TestGetDb:
     @patch.dict(os.environ, {"TESTING": "1", "TEST_DATABASE_URL": "sqlite:///:memory:"})
     def test_get_db(self):
         import importlib
+
         from src.infra.db import session as session_module
 
         importlib.reload(session_module)
@@ -102,6 +108,7 @@ class TestInitTables:
     @patch.dict(os.environ, {"TESTING": "1", "TEST_DATABASE_URL": "sqlite:///:memory:"})
     def test_init_tables(self):
         import importlib
+
         from src.infra.db import session as session_module
 
         importlib.reload(session_module)

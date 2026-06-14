@@ -1,17 +1,14 @@
 """测试 src/infra/enterprise.py - 企业版模块"""
 
-import time
-from unittest.mock import Mock, patch
 
 import pytest
 
 from src.infra.enterprise import (
+    SLA_CONFIGS,
     EnterpriseFeatures,
     EnterpriseManager,
-    SLAConfig,
     SLAMonitor,
     SLAType,
-    SLA_CONFIGS,
     Tenant,
     TenantManager,
     TenantResource,
@@ -237,7 +234,7 @@ class TestSLAMonitor:
             monitor.record_metric("tenant1", "success", 1)
             monitor.record_metric("tenant1", "total", 1)
 
-        for i in range(100):
+        for _i in range(100):
             monitor.record_metric("tenant1", "latency", 80.0)  # 低于 100ms
 
         result = monitor.check_sla_compliance(tenant)

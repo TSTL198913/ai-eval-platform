@@ -23,7 +23,6 @@ AI Evaluation Platform SDK v1.0
 """
 
 import asyncio
-import json
 import logging
 import time
 from dataclasses import dataclass, field
@@ -354,7 +353,7 @@ class Client:
                     await asyncio.sleep(self._config.retry_delay * (attempt + 1))
                     continue
                 raise
-            except httpx.RequestError as e:
+            except httpx.RequestError:
                 if attempt < self._config.max_retries - 1:
                     await asyncio.sleep(self._config.retry_delay * (attempt + 1))
                     continue

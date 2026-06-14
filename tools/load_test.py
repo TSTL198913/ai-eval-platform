@@ -8,7 +8,6 @@ import asyncio
 import statistics
 import time
 from dataclasses import dataclass
-from typing import Callable
 
 import httpx
 
@@ -197,7 +196,7 @@ def print_results(result: LoadTestResult, targets: dict | None = None):
     print(f"Errors: {result.error_count}")
     print(f"Duration: {result.total_duration_ms:.2f}ms")
 
-    print(f"\nLatency Statistics:")
+    print("\nLatency Statistics:")
     print(f"  Min:     {result.min_latency_ms:8.2f}ms")
     print(f"  Avg:     {result.avg_latency_ms:8.2f}ms")
     print(f"  P50:     {result.p50_latency_ms:8.2f}ms")
@@ -206,7 +205,7 @@ def print_results(result: LoadTestResult, targets: dict | None = None):
     print(f"  Max:     {result.max_latency_ms:8.2f}ms")
 
     if targets:
-        print(f"\nPerformance Targets:")
+        print("\nPerformance Targets:")
         print(f"  P50 Target:    {targets.get('p50', 100):8.2f}ms  {'✓' if result.p50_latency_ms <= targets.get('p50', 100) else '✗'}")
         print(f"  P95 Target:    {targets.get('p95', 300):8.2f}ms  {'✓' if result.p95_latency_ms <= targets.get('p95', 300) else '✗'}")
         print(f"  P99 Target:    {targets.get('p99', 500):8.2f}ms  {'✓' if result.p99_latency_ms <= targets.get('p99', 500) else '✗'}")
@@ -214,7 +213,7 @@ def print_results(result: LoadTestResult, targets: dict | None = None):
 
     # 显示错误分布
     if result.errors:
-        print(f"\nError Distribution:")
+        print("\nError Distribution:")
         error_counts = {}
         for error in result.errors:
             error_counts[error] = error_counts.get(error, 0) + 1

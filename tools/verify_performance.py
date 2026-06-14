@@ -132,7 +132,7 @@ def print_result(result: PerfResult, target_p99: float):
     print(f"  Total:     {result.total}")
     print(f"  Success:   {result.success} ({result.success/result.total*100:.1f}%)")
     print(f"  Errors:    {result.errors}")
-    print(f"\nLatency:")
+    print("\nLatency:")
     print(f"  Min:       {result.min:.2f}ms")
     print(f"  Avg:       {result.avg:.2f}ms")
     print(f"  P50:       {result.p50:.2f}ms")
@@ -141,7 +141,7 @@ def print_result(result: PerfResult, target_p99: float):
     print(f"  Max:       {result.max:.2f}ms")
 
     if result.errors > 0:
-        print(f"\nErrors:")
+        print("\nErrors:")
         error_counts = {}
         for e in result.errors:
             error_counts[e] = error_counts.get(e, 0) + 1

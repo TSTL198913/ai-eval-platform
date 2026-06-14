@@ -1,8 +1,7 @@
 """测试 src/infra/edge_evaluation.py - 边缘评测模块"""
 
 import asyncio
-import time
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 

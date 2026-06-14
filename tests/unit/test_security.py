@@ -1,19 +1,17 @@
 """测试 src/infra/security.py - 安全认证模块"""
 
-from unittest.mock import Mock, patch
 
 import pytest
 
 from src.infra.security import (
+    ROLE_PERMISSIONS,
     APIKey,
     APIKeyManager,
-    AuditLog,
     AuditLogger,
     Permission,
     PermissionChecker,
     RequestSigner,
     Role,
-    ROLE_PERMISSIONS,
     SecurityManager,
 )
 

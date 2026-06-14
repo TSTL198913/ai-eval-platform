@@ -2,8 +2,6 @@
 
 from unittest.mock import Mock, patch
 
-import pytest
-
 
 class TestTestFeature:
     """测试实时测试功能"""

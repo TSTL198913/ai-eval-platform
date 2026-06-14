@@ -2,8 +2,6 @@
 
 from unittest.mock import Mock, patch
 
-import pytest
-
 
 class TestMonitorQueue:
     """测试队列监控模块"""

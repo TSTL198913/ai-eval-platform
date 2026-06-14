@@ -2,8 +2,6 @@
 
 from unittest.mock import Mock, patch
 
-import pytest
-
 
 class TestSeedData:
     """测试数据种子模块"""

@@ -1,10 +1,6 @@
 """测试 infra/logger.py 和 infra/tracing.py"""
 
-import contextvars
 import uuid
-from unittest.mock import patch
-
-import pytest
 
 from src.infra.tracing import generate_trace_id, trace_id_var
 

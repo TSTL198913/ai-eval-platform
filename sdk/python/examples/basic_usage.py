@@ -99,7 +99,6 @@ async def example_async_evaluation():
         print(f"任务已提交，ID: {task_id}")
 
         # 等待结果
-        import time
         for i in range(10):
             result = await client.get_result(task_id)
             if result:
@@ -144,7 +143,7 @@ async def example_usage_stats():
 
 def example_sync_client():
     """同步客户端示例"""
-    from ai_eval_sdk import SyncClient, evaluate, compare
+    from ai_eval_sdk import SyncClient, compare, evaluate
 
     print("\n=== 同步客户端示例 ===")
 

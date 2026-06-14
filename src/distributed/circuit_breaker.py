@@ -12,9 +12,9 @@ import json
 import logging
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, TypeVar, Any
+from typing import Any, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 

@@ -1,8 +1,7 @@
 """测试 distributed/lock.py - 分布式锁核心模块"""
 
-import time
 import uuid
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 import redis
@@ -125,8 +124,8 @@ class TestDistributedLock:
         mock_redis.set.return_value = True
         mock_redis.eval.return_value = 1
         lock = DistributedLock(mock_redis, "ctx_test")
-        with lock as l:
-            assert l.is_acquired is True
+        with lock as acquired_lock:
+            assert acquired_lock.is_acquired is True
         assert lock.is_acquired is False
 
     def test_context_manager_failure(self, mock_redis):
@@ -306,7 +305,7 @@ class TestDistributedLockContextManager:
         from src.distributed.lock import distributed_lock
 
         try:
-            with distributed_lock(mock_redis, "test_key") as lock:
+            with distributed_lock(mock_redis, "test_key"):
                 raise ValueError("Test error")
         except ValueError:
             pass

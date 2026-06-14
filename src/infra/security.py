@@ -10,7 +10,6 @@
 
 import hashlib
 import hmac
-import json
 import logging
 import time
 from dataclasses import dataclass, field
@@ -517,6 +516,7 @@ _global_security: SecurityManager | None = None
 
 def get_security(secret_key: str | None = None) -> SecurityManager:
     """获取全局安全管理器"""
+    global _global_security
     if _global_security is None:
         import os
 

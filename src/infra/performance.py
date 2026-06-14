@@ -232,7 +232,7 @@ class BatchProcessor:
         # 执行批量处理
         try:
             results = await self._execute_batch([item for item, _ in batch])
-            for (_, future), result in zip(batch, results):
+            for (_, future), result in zip(batch, results, strict=False):
                 future.set_result(result)
         except Exception as e:
             for _, future in batch:
@@ -382,6 +382,7 @@ _global_optimizer: PerformanceOptimizer | None = None
 
 def get_optimizer() -> PerformanceOptimizer:
     """获取全局性能优化器"""
+    global _global_optimizer
     if _global_optimizer is None:
         _global_optimizer = PerformanceOptimizer()
     return _global_optimizer

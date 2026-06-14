@@ -2,8 +2,6 @@
 
 from unittest.mock import Mock, patch
 
-import pytest
-
 
 class TestSubmitTasks:
     """测试任务提交模块"""

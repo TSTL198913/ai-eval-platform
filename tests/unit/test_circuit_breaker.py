@@ -1,6 +1,5 @@
 """测试 distributed/circuit_breaker.py - 熔断器核心模块"""
 
-import asyncio
 import time
 from unittest.mock import Mock
 

@@ -11,9 +11,10 @@ import hashlib
 import json
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -231,7 +232,7 @@ def idempotent(
                 result = await func(*args, **kwargs)
                 checker.mark_processed(request_id, result)
                 return result
-            except Exception as e:
+            except Exception:
                 # 失败时清除标记，允许重试
                 checker.clear(request_id)
                 raise

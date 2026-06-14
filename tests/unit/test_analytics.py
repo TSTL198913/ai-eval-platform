@@ -1,6 +1,6 @@
 """测试 infra/analytics/* 模块"""
 
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 

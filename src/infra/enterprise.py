@@ -8,7 +8,6 @@
 4. 企业级功能
 """
 
-import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
@@ -509,6 +508,7 @@ _global_enterprise: EnterpriseManager | None = None
 
 def get_enterprise_manager() -> EnterpriseManager:
     """获取全局企业版管理器"""
+    global _global_enterprise
     if _global_enterprise is None:
         _global_enterprise = EnterpriseManager()
     return _global_enterprise

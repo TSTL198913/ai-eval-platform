@@ -31,7 +31,7 @@ class TestEvaluationBufferService:
 
     def test_add_multiple_items(self):
         service = EvaluationBufferService()
-        for i in range(5):
+        for _i in range(5):
             service.add(Mock())
         assert len(service.buffer) == 5
 

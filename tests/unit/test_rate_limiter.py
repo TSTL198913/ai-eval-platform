@@ -1,6 +1,5 @@
 """补充测试 distributed/rate_limiter.py - 限流器"""
 
-import asyncio
 from unittest.mock import Mock
 
 import pytest

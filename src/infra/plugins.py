@@ -7,6 +7,7 @@
 import importlib
 import json
 import logging
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -276,7 +277,7 @@ class CustomAccuracyMetric(BaseMetricPlugin):
             raise ValueError("Predictions and references must have same length")
 
         correct = 0
-        for pred, ref in zip(predictions, references):
+        for pred, ref in zip(predictions, references, strict=False):
             if pred.strip().lower() == ref.strip().lower():
                 correct += 1
 
@@ -367,6 +368,7 @@ _global_plugin_manager: PluginManager | None = None
 
 def get_plugin_manager() -> PluginManager:
     """获取全局插件管理器"""
+    global _global_plugin_manager
     if _global_plugin_manager is None:
         _global_plugin_manager = PluginManager()
     return _global_plugin_manager

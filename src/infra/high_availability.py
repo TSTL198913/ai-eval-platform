@@ -9,7 +9,6 @@
 """
 
 import asyncio
-import json
 import logging
 import random
 import time
@@ -463,6 +462,7 @@ _global_deployer: MultiActiveDeployer | None = None
 
 def get_deployer() -> MultiActiveDeployer:
     """获取全局部署管理器"""
+    global _global_deployer
     if _global_deployer is None:
         _global_deployer = MultiActiveDeployer()
     return _global_deployer

@@ -319,9 +319,10 @@ async def detailed_health():
         with engine.connect() as conn:
             result = conn.execute(text("SELECT 1"))
             result.scalar()
+        db_url = settings.database_url
         components["database"] = {
             "status": "healthy",
-            "url": settings.database_url.split("@")[-1] if "@" in settings.database_url else "embedded",
+            "url": db_url.split("@")[-1] if "@" in db_url else "embedded",
         }
     except Exception as e:
         components["database"] = {"status": "unhealthy", "error": str(e)}

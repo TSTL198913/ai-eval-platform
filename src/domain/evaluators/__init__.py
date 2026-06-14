@@ -11,6 +11,7 @@ def auto_discover():
         if name not in ["base", "metadata"]:
             importlib.import_module(f".{name}", package=__name__)
 
+
 # 执行自动注册
 auto_discover()
 

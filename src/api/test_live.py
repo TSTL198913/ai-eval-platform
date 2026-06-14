@@ -4,6 +4,7 @@ import requests
 
 BASE_URL = "http://127.0.0.1:8000/api/v1/evaluate"
 
+
 def test_feature(name, data):
     print(f"\n>>> 正在测试功能: {name}")
     try:
@@ -11,6 +12,7 @@ def test_feature(name, data):
         print(f"结果: {json.dumps(response.json(), indent=2, ensure_ascii=False)}")
     except Exception as e:
         print(f"连接失败，请确保服务已启动: {e}")
+
 
 # 实测 1: 契约拦截 (你将看到CONTRACT_ERROR)
 test_feature("契约拦截", {"wrong": "data"})

@@ -19,9 +19,10 @@ logger = logging.getLogger(__name__)
 
 class RateLimitStrategy(Enum):
     """限流策略"""
-    TOKEN_BUCKET = "token_bucket"    # 令牌桶
-    FIXED_WINDOW = "fixed_window"    # 固定窗口
-    SLIDING_WINDOW = "sliding_window" # 滑动窗口
+
+    TOKEN_BUCKET = "token_bucket"  # 令牌桶
+    FIXED_WINDOW = "fixed_window"  # 固定窗口
+    SLIDING_WINDOW = "sliding_window"  # 滑动窗口
 
 
 @dataclass

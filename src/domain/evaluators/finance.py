@@ -43,4 +43,3 @@ class FinanceEvaluator(BaseEvaluator):
                 "target": meta.target,
             },
         )
-

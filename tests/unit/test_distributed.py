@@ -180,7 +180,10 @@ class TestCircuitBreaker:
         # 在 HALF_OPEN 状态下记录成功应该转换到 CLOSED
         cb._record_success()
         # 验证状态转换
-        assert cb._state == CircuitState.CLOSED, f"After success, expected CLOSED but got {cb._state}"
+        expected_state = CircuitState.CLOSED
+        assert cb._state == expected_state, (
+            f"After success, expected CLOSED but got {cb._state}"
+        )
 
     def test_circuit_breaker_stats(self):
         """测试统计信息"""

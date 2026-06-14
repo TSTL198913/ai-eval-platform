@@ -105,8 +105,6 @@ def test_get_task_status_endpoint(monkeypatch):
     assert body["result"]["evaluation_status"] == "passed"
 
 
-
-
 def test_async_evaluate_invalid_payload_returns_400(api_client):
     response = api_client.post("/api/v1/evaluate/async", json={"id": "only_id"})
     assert response.status_code == 400

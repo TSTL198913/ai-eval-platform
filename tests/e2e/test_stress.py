@@ -7,8 +7,8 @@ from datetime import datetime
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 # 2. 闭环核心：引入系统统一的数据契约
-from src.schemas.evaluation import EvaluationSchema
-from src.workers.tasks import eval_case_task
+from src.schemas.evaluation import EvaluationSchema  # noqa: E402
+from src.workers.tasks import eval_case_task  # noqa: E402
 
 
 def run_stress_test(task_count=100):

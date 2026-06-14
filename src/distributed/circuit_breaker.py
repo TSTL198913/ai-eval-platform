@@ -19,9 +19,10 @@ T = TypeVar("T")
 
 class CircuitState(Enum):
     """熔断器状态"""
-    CLOSED = "closed"       # 正常，流量通过
-    OPEN = "open"           # 熔断，快速失败
-    HALF_OPEN = "half_open" # 半开，允许探测
+
+    CLOSED = "closed"  # 正常，流量通过
+    OPEN = "open"  # 熔断，快速失败
+    HALF_OPEN = "half_open"  # 半开，允许探测
 
 
 @dataclass

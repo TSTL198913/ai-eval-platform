@@ -12,6 +12,7 @@ class BaseRepository(ABC):
         """持久化评估结果，返回入库后的自增 ID"""
         pass
 
+
 # 2. 完美的工业级 Postgres/SQLAlchemy 仓储实现
 class EvaluationRepository(BaseRepository):
     def save(self, result: EvaluationResult) -> int:
@@ -31,9 +32,10 @@ class EvaluationRepository(BaseRepository):
         # 4. 使用全新的上下文管理器进行事务安全的持久化
         with get_db_session() as session:
             session.add(db_record)
-            session.flush()          # 刷新以获取数据库生成的自增 ID (id)
-            session.commit()         # 显式提交事务
+            session.flush()  # 刷新以获取数据库生成的自增 ID (id)
+            session.commit()  # 显式提交事务
             return db_record.id
+
 
 # 3. 如果你的旧测试还需要原 SQLiteRepository，可以暂时保留在这里做兼容
 class SQLiteRepository(BaseRepository):

@@ -218,7 +218,11 @@ class Summary(BaseMetric):
             return {f"q{q}": 0.0 for q in self.quantiles}
 
         return {
-            f"q{q}": values[int(len(values) * q)] if int(len(values) * q) < len(values) else values[-1]
+            f"q{q}": (
+                values[int(len(values) * q)]
+                if int(len(values) * q) < len(values)
+                else values[-1]
+            )
             for q in self.quantiles
         }
 

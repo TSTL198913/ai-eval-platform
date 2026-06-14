@@ -11,10 +11,6 @@ class EvaluationStatus(str, Enum):
     ERROR = "error"
 
 
-# src/models/schemas.py
-
-
-
 class DomainResponse(BaseModel):
     is_valid: bool = True
     text: Optional[str] = None
@@ -37,4 +33,6 @@ class EvaluationSchema(BaseModel):
 
 
 # 覆盖所有潜在的领域类型
-DomainType = Literal["finance", "crm", "hr", "text", "code_review", "general", "code"]
+DomainType = Literal[
+    "finance", "crm", "hr", "text", "code_review", "general", "code"
+]

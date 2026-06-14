@@ -10,9 +10,9 @@ from sqlalchemy.orm import sessionmaker
 os.environ.setdefault("TESTING", "1")
 os.environ.setdefault("TEST_DATABASE_URL", "sqlite:///:memory:")
 
-from src.infra.db.session import Base
-from src.schemas.evaluation import EvaluationSchema
-from src.workers.celery_app import celery_app
+from src.infra.db.session import Base  # noqa: E402
+from src.schemas.evaluation import EvaluationSchema  # noqa: E402
+from src.workers.celery_app import celery_app  # noqa: E402
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:

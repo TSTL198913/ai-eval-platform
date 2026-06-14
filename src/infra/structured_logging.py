@@ -194,7 +194,10 @@ class ColoredConsoleFormatter(logging.Formatter):
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         # 基础格式
-        base_msg = f"{timestamp} | {color}{record.levelname}{self.RESET} | {record.module}:{record.funcName}:{record.lineno}"
+        base_msg = (
+            f"{timestamp} | {color}{record.levelname}{self.RESET} | "
+            f"{record.module}:{record.funcName}:{record.lineno}"
+        )
 
         # 添加追踪信息
         if trace_id:

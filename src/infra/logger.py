@@ -10,8 +10,13 @@ logger.remove()
 # 添加配置，注入 trace_id
 logger.add(
     sys.stderr,
-    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{extra[trace_id]}</cyan> | <level>{message}</level>",
-    level="INFO"
+    format=(
+        "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+        "<level>{level: <8}</level> | "
+        "<cyan>{extra[trace_id]}</cyan> | "
+        "<level>{message}</level>"
+    ),
+    level="INFO",
 )
 
 # 核心：定义 patch 函数，自动关联 contextvars

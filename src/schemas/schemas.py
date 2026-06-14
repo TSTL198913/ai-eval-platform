@@ -26,10 +26,7 @@ class EvaluationResult(BaseModel):
     error_message: Optional[str] = None
 
 
-
 class PayloadModel(BaseModel):
     case_id: str
     domain: str
     metadata: Optional[Dict[str, Any]] = None
-
-

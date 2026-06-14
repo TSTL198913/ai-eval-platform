@@ -1,7 +1,7 @@
 import random
 
-from infra.db.models import EvaluationResultModel
-from infra.db.session import SessionLocal
+from src.infra.db.models import EvaluationResultModel
+from src.infra.db.session import SessionLocal
 
 
 def seed_db():

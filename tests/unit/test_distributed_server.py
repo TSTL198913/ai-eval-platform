@@ -67,6 +67,28 @@ class TestHealthEndpoints:
             assert response.status_code == 200
             assert "X-Trace-ID" in response.headers
 
+    def test_health_check_redis_failure(self):
+        """测试 Redis 健康检查失败的情况"""
+        with patch("src.api.distributed_server.get_redis") as mock_get_redis:
+            mock_get_redis.return_value.ping.side_effect = Exception("Redis connection failed")
+
+            with TestClient(app) as client:
+                response = client.get("/health")
+                assert response.status_code == 200
+                data = response.json()
+                # 即使 Redis 失败，整体状态仍应为 healthy（降级模式）
+                assert "status" in data
+
+    def test_health_detail_endpoint(self):
+        """测试 /health/detailed 端点"""
+        with TestClient(app) as client:
+            response = client.get("/health/detailed")
+            assert response.status_code == 200
+            data = response.json()
+            assert "components" in data
+            assert "redis" in data["components"]
+            assert "database" in data["components"]
+
 
 class TestMetricsEndpoints:
     """测试指标端点"""
@@ -173,6 +195,26 @@ class TestEvaluateEndpoints:
                 data = response.json()
                 assert data["status"] == "queued"
                 assert data["case_id"].startswith("case_")
+
+    def test_evaluate_async_failure(self):
+        """测试异步评测失败时返回 500"""
+        with patch("src.api.distributed_server.eval_case_task") as mock_task:
+            mock_task.delay.side_effect = Exception("Queue connection failed")
+
+            with TestClient(app) as client:
+                response = client.post("/api/v1/evaluate/async", json={"case_id": "test_case"})
+                assert response.status_code == 500
+                data = response.json()
+                assert "detail" in data
+
+    def test_evaluate_sync_with_empty_body(self):
+        """测试同步评测空请求体"""
+        with TestClient(app) as client:
+            response = client.post("/api/v1/evaluate", json={})
+            assert response.status_code == 200
+            data = response.json()
+            assert data["status"] == "success"
+            assert data["case_id"] is None
 
 
 class TestTaskEndpoints:

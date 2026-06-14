@@ -21,7 +21,7 @@ class TestEvaluationRepository:
             details={"key": "value"},
             error=None,
         )
-        
+
         result = EvaluationResult(
             case_id="TEST_CASE_001",
             status=EvaluationStatus.SUCCESS,
@@ -47,7 +47,7 @@ class TestEvaluationRepository:
             details={},
             error=None,
         )
-        
+
         result = EvaluationResult(
             case_id="   ",  # 空白字符
             status=EvaluationStatus.SUCCESS,
@@ -58,10 +58,10 @@ class TestEvaluationRepository:
         )
 
         repository = EvaluationRepository()
-        
+
         with pytest.raises(ValueError) as exc_info:
             repository.save(result)
-        
+
         assert "持久化失败：评估结果缺少核心 case_id" in str(exc_info.value)
 
     def test_save_empty_case_id_raises_error(self):
@@ -72,7 +72,7 @@ class TestEvaluationRepository:
             details={},
             error=None,
         )
-        
+
         result = EvaluationResult(
             case_id="",
             status=EvaluationStatus.SUCCESS,
@@ -83,10 +83,10 @@ class TestEvaluationRepository:
         )
 
         repository = EvaluationRepository()
-        
+
         with pytest.raises(ValueError) as exc_info:
             repository.save(result)
-        
+
         assert "持久化失败：评估结果缺少核心 case_id" in str(exc_info.value)
 
     def test_save_with_default_values(self, clean_global_db):
@@ -97,7 +97,7 @@ class TestEvaluationRepository:
             details={},
             error=None,
         )
-        
+
         result = EvaluationResult(
             case_id="TEST_CASE_002",
             status=EvaluationStatus.PENDING,
@@ -125,7 +125,7 @@ class TestEvaluationRepository:
                 details={"index": i},
                 error=None,
             )
-            
+
             result = EvaluationResult(
                 case_id=f"TEST_CASE_{i:03d}",
                 status=EvaluationStatus.SUCCESS,
@@ -155,7 +155,7 @@ class TestSQLiteRepository:
             details={},
             error=None,
         )
-        
+
         result = EvaluationResult(
             case_id="TEST_CASE_SQLITE",
             status=EvaluationStatus.SUCCESS,

@@ -1,11 +1,12 @@
 """
 分布式服务器集成测试 - 使用真实 Redis 连接
-需要先启动 Redis 服务: D:\softwore\Redis-x64-5.0.14.1\redis-server.exe
+需要先启动 Redis 服务: D:\\softwore\\Redis-x64-5.0.14.1\redis-server.exe
 """
+
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock, patch
 
 from src.api.distributed_server import app
 

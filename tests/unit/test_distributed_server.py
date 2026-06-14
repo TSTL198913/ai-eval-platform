@@ -2,9 +2,10 @@
 分布式服务器测试用例
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock, patch, AsyncMock
 
 from src.api.distributed_server import app
 

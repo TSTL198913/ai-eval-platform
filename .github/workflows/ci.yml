@@ -202,6 +202,8 @@ jobs:
           context: .
           push: false
           tags: ai-eval-platform:test
+          # load: true 会将镜像导出到 Docker Daemon，确保 docker run 能找到
+          load: true
           # type=gha 是 GitHub Actions 原生的高效缓存方案
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -543,15 +545,15 @@ jobs:
           echo "Run Number: ${{ github.run_number }}"
           echo ""
           
-          # 安全地获取各任务状态
+          # 安全地获取各任务状态（使用 format 函数避免未定义 needs 导致语法错误）
           echo "--- Task Status ---"
-          echo "Lint: ${{ needs.lint.result || 'skipped' }}"
-          echo "Test: ${{ needs.test.result || 'skipped' }}"
-          echo "Docker: ${{ needs.docker.result || 'skipped' }}"
-          echo "Security: ${{ needs.security.result || 'skipped' }}"
-          echo "Integration: ${{ needs.integration-test.result || 'skipped' }}"
-          echo "Build & Push: ${{ needs.build-and-push.result || 'skipped' }}"
-          echo "Deploy: ${{ needs.deploy.result || 'skipped' }}"
+          echo "Lint: ${{ format('{0}', needs.lint.result) || 'skipped' }}"
+          echo "Test: ${{ format('{0}', needs.test.result) || 'skipped' }}"
+          echo "Docker: ${{ format('{0}', needs.docker.result) || 'skipped' }}"
+          echo "Security: ${{ format('{0}', needs.security.result) || 'skipped' }}"
+          echo "Integration: ${{ format('{0}', needs.integration-test.result) || 'skipped' }}"
+          echo "Build & Push: ${{ format('{0}', needs.build-and-push.result) || 'skipped' }}"
+          echo "Deploy: ${{ format('{0}', needs.deploy.result) || 'skipped' }}"
           echo ""
           
           # 耗时分析（架构师建议）
@@ -572,11 +574,11 @@ jobs:
           echo "如果 Integration 测试 > 10分钟，考虑拆分测试用例"
           echo ""
           
-          # 判断是否有失败
+          # 判断是否有失败（使用 format 函数安全处理）
           failure_count=0
-          if ${{ needs.lint.result == 'failure' }}; then failure_count=$((failure_count+1)); fi
-          if ${{ needs.test.result == 'failure' }}; then failure_count=$((failure_count+1)); fi
-          if ${{ needs.integration-test.result == 'failure' }}; then failure_count=$((failure_count+1)); fi
+          if [ "${{ format('{0}', needs.lint.result) }}" = "failure" ]; then failure_count=$((failure_count+1)); fi
+          if [ "${{ format('{0}', needs.test.result) }}" = "failure" ]; then failure_count=$((failure_count+1)); fi
+          if [ "${{ format('{0}', needs.integration-test.result) }}" = "failure" ]; then failure_count=$((failure_count+1)); fi
           
           if [ $failure_count -gt 0 ]; then
             echo "=========================================="

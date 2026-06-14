@@ -1,0 +1,552 @@
+[
+  {
+    "id": "prod_case_981d71",
+    "type": "finance",
+    "payload": {
+      "text": "\u5206\u6790\u4ee5\u4e0b\u8d22\u52a1\u62a5\u8868\u6570\u636e: \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... ",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.6249779298715927
+      }
+    }
+  },
+  {
+    "id": "prod_case_9ba932",
+    "type": "general",
+    "payload": {
+      "text": "\u89e3\u91ca\u4e00\u4e0b\u91cf\u5b50\u529b\u5b66\u5728\u751f\u6d3b\u4e2d\u7684\u5e94\u7528\u3002",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.1977673622573434
+      }
+    }
+  },
+  {
+    "id": "prod_case_588561",
+    "type": "general",
+    "payload": {
+      "text": "\u89e3\u91ca\u4e00\u4e0b\u91cf\u5b50\u529b\u5b66\u5728\u751f\u6d3b\u4e2d\u7684\u5e94\u7528\u3002",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.8224906926693593
+      }
+    }
+  },
+  {
+    "id": "prod_case_ab3645",
+    "type": "code_review",
+    "payload": {
+      "text": "def calculate(a, b): return a + b # \u8fd9\u662f\u4e00\u4e2a\u7b80\u5355\u7684\u52a0\u6cd5\u51fd\u6570",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.500887435934008
+      }
+    }
+  },
+  {
+    "id": "prod_case_efa0a8",
+    "type": "code_review",
+    "payload": {
+      "text": "def calculate(a, b): return a + b # \u8fd9\u662f\u4e00\u4e2a\u7b80\u5355\u7684\u52a0\u6cd5\u51fd\u6570",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.8746946813361851
+      }
+    }
+  },
+  {
+    "id": "prod_case_39989a",
+    "type": "code_review",
+    "payload": {
+      "text": "def calculate(a, b): return a + b # \u8fd9\u662f\u4e00\u4e2a\u7b80\u5355\u7684\u52a0\u6cd5\u51fd\u6570",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.4507543374440799
+      }
+    }
+  },
+  {
+    "id": "prod_case_c1f3d7",
+    "type": "finance",
+    "payload": {
+      "text": "\u5206\u6790\u4ee5\u4e0b\u8d22\u52a1\u62a5\u8868\u6570\u636e: \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... ",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.3589565205943782
+      }
+    }
+  },
+  {
+    "id": "prod_case_24ac8b",
+    "type": "finance",
+    "payload": {
+      "text": "\u5206\u6790\u4ee5\u4e0b\u8d22\u52a1\u62a5\u8868\u6570\u636e: \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... ",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.4834529303566406
+      }
+    }
+  },
+  {
+    "id": "prod_case_81bcc5",
+    "type": "finance",
+    "payload": {
+      "text": "\u5206\u6790\u4ee5\u4e0b\u8d22\u52a1\u62a5\u8868\u6570\u636e: \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... ",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.7682162764389504
+      }
+    }
+  },
+  {
+    "id": "prod_case_ebb52d",
+    "type": "general",
+    "payload": {
+      "text": "\u89e3\u91ca\u4e00\u4e0b\u91cf\u5b50\u529b\u5b66\u5728\u751f\u6d3b\u4e2d\u7684\u5e94\u7528\u3002",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.6588822840509769
+      }
+    }
+  },
+  {
+    "id": "prod_case_a2d1e0",
+    "type": "finance",
+    "payload": {
+      "text": "\u5206\u6790\u4ee5\u4e0b\u8d22\u52a1\u62a5\u8868\u6570\u636e: \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... ",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.238513968242832
+      }
+    }
+  },
+  {
+    "id": "prod_case_d30a03",
+    "type": "finance",
+    "payload": {
+      "text": "\u5206\u6790\u4ee5\u4e0b\u8d22\u52a1\u62a5\u8868\u6570\u636e: \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... ",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.29199011842831474
+      }
+    }
+  },
+  {
+    "id": "prod_case_c5d9f1",
+    "type": "general",
+    "payload": {
+      "text": "\u89e3\u91ca\u4e00\u4e0b\u91cf\u5b50\u529b\u5b66\u5728\u751f\u6d3b\u4e2d\u7684\u5e94\u7528\u3002",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.23508465073239543
+      }
+    }
+  },
+  {
+    "id": "prod_case_4ee922",
+    "type": "code_review",
+    "payload": {
+      "text": "def calculate(a, b): return a + b # \u8fd9\u662f\u4e00\u4e2a\u7b80\u5355\u7684\u52a0\u6cd5\u51fd\u6570",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.7801507288666544
+      }
+    }
+  },
+  {
+    "id": "prod_case_d0cdac",
+    "type": "finance",
+    "payload": {
+      "text": "\u5206\u6790\u4ee5\u4e0b\u8d22\u52a1\u62a5\u8868\u6570\u636e: \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... ",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.4848087669344916
+      }
+    }
+  },
+  {
+    "id": "prod_case_62cec4",
+    "type": "general",
+    "payload": {
+      "text": "\u89e3\u91ca\u4e00\u4e0b\u91cf\u5b50\u529b\u5b66\u5728\u751f\u6d3b\u4e2d\u7684\u5e94\u7528\u3002",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.1785021384365388
+      }
+    }
+  },
+  {
+    "id": "prod_case_acbe16",
+    "type": "finance",
+    "payload": {
+      "text": "\u5206\u6790\u4ee5\u4e0b\u8d22\u52a1\u62a5\u8868\u6570\u636e: \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... ",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.40363042794500403
+      }
+    }
+  },
+  {
+    "id": "prod_case_5bc51d",
+    "type": "general",
+    "payload": {
+      "text": "\u89e3\u91ca\u4e00\u4e0b\u91cf\u5b50\u529b\u5b66\u5728\u751f\u6d3b\u4e2d\u7684\u5e94\u7528\u3002",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.8470551619683737
+      }
+    }
+  },
+  {
+    "id": "prod_case_53e325",
+    "type": "finance",
+    "payload": {
+      "text": "\u5206\u6790\u4ee5\u4e0b\u8d22\u52a1\u62a5\u8868\u6570\u636e: \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... ",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.37847703231114715
+      }
+    }
+  },
+  {
+    "id": "prod_case_1b2317",
+    "type": "code_review",
+    "payload": {
+      "text": "def calculate(a, b): return a + b # \u8fd9\u662f\u4e00\u4e2a\u7b80\u5355\u7684\u52a0\u6cd5\u51fd\u6570",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.1330875742307872
+      }
+    }
+  },
+  {
+    "id": "prod_case_61435c",
+    "type": "general",
+    "payload": {
+      "text": "\u89e3\u91ca\u4e00\u4e0b\u91cf\u5b50\u529b\u5b66\u5728\u751f\u6d3b\u4e2d\u7684\u5e94\u7528\u3002",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.4349669472094706
+      }
+    }
+  },
+  {
+    "id": "prod_case_7d58d6",
+    "type": "code_review",
+    "payload": {
+      "text": "def calculate(a, b): return a + b # \u8fd9\u662f\u4e00\u4e2a\u7b80\u5355\u7684\u52a0\u6cd5\u51fd\u6570",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.35088713460725385
+      }
+    }
+  },
+  {
+    "id": "prod_case_2bf117",
+    "type": "finance",
+    "payload": {
+      "text": "\u5206\u6790\u4ee5\u4e0b\u8d22\u52a1\u62a5\u8868\u6570\u636e: \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... ",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.16704915463543363
+      }
+    }
+  },
+  {
+    "id": "prod_case_c8256a",
+    "type": "finance",
+    "payload": {
+      "text": "\u5206\u6790\u4ee5\u4e0b\u8d22\u52a1\u62a5\u8868\u6570\u636e: \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... ",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.5583542169385279
+      }
+    }
+  },
+  {
+    "id": "prod_case_a63cad",
+    "type": "code_review",
+    "payload": {
+      "text": "def calculate(a, b): return a + b # \u8fd9\u662f\u4e00\u4e2a\u7b80\u5355\u7684\u52a0\u6cd5\u51fd\u6570",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.8623391215372992
+      }
+    }
+  },
+  {
+    "id": "prod_case_ed0f64",
+    "type": "code_review",
+    "payload": {
+      "text": "def calculate(a, b): return a + b # \u8fd9\u662f\u4e00\u4e2a\u7b80\u5355\u7684\u52a0\u6cd5\u51fd\u6570",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.8509137960114544
+      }
+    }
+  },
+  {
+    "id": "prod_case_9e8f52",
+    "type": "code_review",
+    "payload": {
+      "text": "def calculate(a, b): return a + b # \u8fd9\u662f\u4e00\u4e2a\u7b80\u5355\u7684\u52a0\u6cd5\u51fd\u6570",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.6787210692901864
+      }
+    }
+  },
+  {
+    "id": "prod_case_4e008f",
+    "type": "code_review",
+    "payload": {
+      "text": "def calculate(a, b): return a + b # \u8fd9\u662f\u4e00\u4e2a\u7b80\u5355\u7684\u52a0\u6cd5\u51fd\u6570",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.8441234822540887
+      }
+    }
+  },
+  {
+    "id": "prod_case_945490",
+    "type": "general",
+    "payload": {
+      "text": "\u89e3\u91ca\u4e00\u4e0b\u91cf\u5b50\u529b\u5b66\u5728\u751f\u6d3b\u4e2d\u7684\u5e94\u7528\u3002",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.8496674432496657
+      }
+    }
+  },
+  {
+    "id": "prod_case_8ddfbf",
+    "type": "finance",
+    "payload": {
+      "text": "\u5206\u6790\u4ee5\u4e0b\u8d22\u52a1\u62a5\u8868\u6570\u636e: \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... ",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.43446437894515233
+      }
+    }
+  },
+  {
+    "id": "prod_case_e3f751",
+    "type": "code_review",
+    "payload": {
+      "text": "def calculate(a, b): return a + b # \u8fd9\u662f\u4e00\u4e2a\u7b80\u5355\u7684\u52a0\u6cd5\u51fd\u6570",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.3700473286022623
+      }
+    }
+  },
+  {
+    "id": "prod_case_3b2293",
+    "type": "finance",
+    "payload": {
+      "text": "\u5206\u6790\u4ee5\u4e0b\u8d22\u52a1\u62a5\u8868\u6570\u636e: \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... ",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.4104627359602828
+      }
+    }
+  },
+  {
+    "id": "prod_case_ae9e9f",
+    "type": "finance",
+    "payload": {
+      "text": "\u5206\u6790\u4ee5\u4e0b\u8d22\u52a1\u62a5\u8868\u6570\u636e: \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... ",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.6020381667956748
+      }
+    }
+  },
+  {
+    "id": "prod_case_6b6b11",
+    "type": "finance",
+    "payload": {
+      "text": "\u5206\u6790\u4ee5\u4e0b\u8d22\u52a1\u62a5\u8868\u6570\u636e: \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... ",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.8995494865026268
+      }
+    }
+  },
+  {
+    "id": "prod_case_fce184",
+    "type": "finance",
+    "payload": {
+      "text": "\u5206\u6790\u4ee5\u4e0b\u8d22\u52a1\u62a5\u8868\u6570\u636e: \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... ",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.15340162087548936
+      }
+    }
+  },
+  {
+    "id": "prod_case_76dc9e",
+    "type": "general",
+    "payload": {
+      "text": "\u89e3\u91ca\u4e00\u4e0b\u91cf\u5b50\u529b\u5b66\u5728\u751f\u6d3b\u4e2d\u7684\u5e94\u7528\u3002",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.5030662210606914
+      }
+    }
+  },
+  {
+    "id": "prod_case_3f80d1",
+    "type": "finance",
+    "payload": {
+      "text": "\u5206\u6790\u4ee5\u4e0b\u8d22\u52a1\u62a5\u8868\u6570\u636e: \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... ",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.3115322338535205
+      }
+    }
+  },
+  {
+    "id": "prod_case_2dbd07",
+    "type": "finance",
+    "payload": {
+      "text": "\u5206\u6790\u4ee5\u4e0b\u8d22\u52a1\u62a5\u8868\u6570\u636e: \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... ",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.8620333842885496
+      }
+    }
+  },
+  {
+    "id": "prod_case_179985",
+    "type": "code_review",
+    "payload": {
+      "text": "def calculate(a, b): return a + b # \u8fd9\u662f\u4e00\u4e2a\u7b80\u5355\u7684\u52a0\u6cd5\u51fd\u6570",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.6161239641804901
+      }
+    }
+  },
+  {
+    "id": "prod_case_39fe1d",
+    "type": "finance",
+    "payload": {
+      "text": "\u5206\u6790\u4ee5\u4e0b\u8d22\u52a1\u62a5\u8868\u6570\u636e: \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... ",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.3607267909861517
+      }
+    }
+  },
+  {
+    "id": "prod_case_df78f9",
+    "type": "finance",
+    "payload": {
+      "text": "\u5206\u6790\u4ee5\u4e0b\u8d22\u52a1\u62a5\u8868\u6570\u636e: \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... ",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.148751336824051
+      }
+    }
+  },
+  {
+    "id": "prod_case_1d57fc",
+    "type": "general",
+    "payload": {
+      "text": "\u89e3\u91ca\u4e00\u4e0b\u91cf\u5b50\u529b\u5b66\u5728\u751f\u6d3b\u4e2d\u7684\u5e94\u7528\u3002",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.4851565341011306
+      }
+    }
+  },
+  {
+    "id": "prod_case_74cc03",
+    "type": "finance",
+    "payload": {
+      "text": "\u5206\u6790\u4ee5\u4e0b\u8d22\u52a1\u62a5\u8868\u6570\u636e: \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... \u8d44\u4ea7\u8d1f\u503a\u8868\u6570\u636e... ",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.27263180404321374
+      }
+    }
+  },
+  {
+    "id": "prod_case_2b6e37",
+    "type": "code_review",
+    "payload": {
+      "text": "def calculate(a, b): return a + b # \u8fd9\u662f\u4e00\u4e2a\u7b80\u5355\u7684\u52a0\u6cd5\u51fd\u6570",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.2454828964270167
+      }
+    }
+  },
+  {
+    "id": "prod_case_a93099",
+    "type": "code_review",
+    "payload": {
+      "text": "def calculate(a, b): return a + b # \u8fd9\u662f\u4e00\u4e2a\u7b80\u5355\u7684\u52a0\u6cd5\u51fd\u6570",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.6590499219689858
+      }
+    }
+  },
+  {
+    "id": "prod_case_96849d",
+    "type": "code_review",
+    "payload": {
+      "text": "def calculate(a, b): return a + b # \u8fd9\u662f\u4e00\u4e2a\u7b80\u5355\u7684\u52a0\u6cd5\u51fd\u6570",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.6791820942982831
+      }
+    }
+  },
+  {
+    "id": "prod_case_e52e09",
+    "type": "general",
+    "payload": {
+      "text": "\u89e3\u91ca\u4e00\u4e0b\u91cf\u5b50\u529b\u5b66\u5728\u751f\u6d3b\u4e2d\u7684\u5e94\u7528\u3002",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.7764456100543813
+      }
+    }
+  },
+  {
+    "id": "prod_case_288fe2",
+    "type": "code_review",
+    "payload": {
+      "text": "def calculate(a, b): return a + b # \u8fd9\u662f\u4e00\u4e2a\u7b80\u5355\u7684\u52a0\u6cd5\u51fd\u6570",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.32459215992332857
+      }
+    }
+  },
+  {
+    "id": "prod_case_74868a",
+    "type": "general",
+    "payload": {
+      "text": "\u89e3\u91ca\u4e00\u4e0b\u91cf\u5b50\u529b\u5b66\u5728\u751f\u6d3b\u4e2d\u7684\u5e94\u7528\u3002",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.8514273215579707
+      }
+    }
+  },
+  {
+    "id": "prod_case_135801",
+    "type": "general",
+    "payload": {
+      "text": "\u89e3\u91ca\u4e00\u4e0b\u91cf\u5b50\u529b\u5b66\u5728\u751f\u6d3b\u4e2d\u7684\u5e94\u7528\u3002",
+      "timestamp": "2026-06-11T14:59:58.891403",
+      "model_params": {
+        "temperature": 0.2700562838075957
+      }
+    }
+  }
+]

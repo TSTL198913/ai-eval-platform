@@ -1,0 +1,129 @@
+../
+├── .gitignore
+├── alembic.ini
+├── app.py
+├── main.py
+├── performance_report.json
+├── pyproject.toml
+├── pytest.ini
+├── README.md
+├── requirements.txt
+├── run_platform.bat
+├── watcher.log
+├── alembic/
+│   ├── env.py
+│   ├── README
+│   ├── script.py.mako
+│   ├── versions/
+├── config/
+│   ├── __init__.py
+├── docs/
+│   ├── architecture.md
+│   ├── registry_guide.md
+│   ├── usage.md
+├── logs/
+│   ├── celery_worker.log
+│   ├── watcher.log
+├── script/
+│   ├── connect_postgres_test.py
+│   ├── db_table_select.py
+│   ├── demo.py
+│   ├── demo_visual_test.py
+│   ├── generate_realistic_data.py
+│   ├── generate_structure.py
+│   ├── health_check.py
+│   ├── kill_python_process.py
+│   ├── Makefile
+│   ├── print_structure.py
+│   ├── refactor_logs.py
+│   ├── reset_db.py
+│   ├── stress_test_25m.py
+│   ├── stress_test_launcher.py
+│   ├── stress_test_launcher_old.py
+│   ├── structure.txt
+│   ├── tracer.py
+│   ├── watcher.py
+│   ├── watcher_plus.py
+├── src/
+│   ├── engine.py
+│   ├── exceptions.py
+│   ├── __init__.py
+│   ├── api/
+│   │   ├── server.py
+│   │   ├── test_live.py
+│   │   ├── __init__.py
+│   ├── domain/
+│   │   ├── __init__.py
+│   │   ├── evaluators/
+│   │   │   ├── base.py
+│   │   │   ├── code.py
+│   │   │   ├── code_review.py
+│   │   │   ├── finance.py
+│   │   │   ├── general.py
+│   │   │   ├── metadata.py
+│   │   │   ├── text.py
+│   │   │   ├── __init__.py
+│   │   ├── models/
+│   │   │   ├── base.py
+│   │   │   ├── deepseek.py
+│   │   │   ├── __init__.py
+│   ├── infra/
+│   │   ├── logger.py
+│   │   ├── tracing.py
+│   │   ├── __init__.py
+│   │   ├── analytics/
+│   │   │   ├── analytics.py
+│   │   │   ├── report.py
+│   │   │   ├── __init__.py
+│   │   ├── db/
+│   │   │   ├── mapper.py
+│   │   │   ├── models.py
+│   │   │   ├── repository.py
+│   │   │   ├── seed_data.py
+│   │   │   ├── session.py
+│   │   │   ├── __init__.py
+│   ├── schemas/
+│   │   ├── evaluation.py
+│   │   ├── schemas.py
+│   │   ├── __init__.py
+│   ├── services/
+│   │   ├── evaluator_svc.py
+│   │   ├── __init__.py
+│   ├── workers/
+│   │   ├── celery_app.py
+│   │   ├── monitor_queue.py
+│   │   ├── submit_tasks.py
+│   │   ├── tasks.py
+│   │   ├── tasks_old.py
+│   │   ├── __init__.py
+├── tests/
+│   ├── conftest.py
+│   ├── prod_simulated_cases.json
+│   ├── test_resilience.py
+│   ├── __init__.py
+│   ├── domain/
+│   │   ├── test_finance_evaluator.py
+│   │   ├── __init__.py
+│   ├── e2e/
+│   │   ├── test_full_pipeline.py
+│   │   ├── test_performance_bench.py
+│   │   ├── test_stress.py
+│   │   ├── __init__.py
+│   ├── integration/
+│   │   ├── test_acks.py
+│   │   ├── test_db.py
+│   │   ├── test_db_persistence.py
+│   │   ├── test_engine.py
+│   │   ├── test_functional.py
+│   │   ├── test_integration.py
+│   │   ├── test_llm_integration.py
+│   │   ├── test_persistence.py
+│   │   ├── __init__.py
+│   ├── unit/
+│   │   ├── test_adapters.py
+│   │   ├── test_base.py
+│   │   ├── test_deepseek.py
+│   │   ├── test_mapper.py
+│   │   ├── test_schemas.py
+│   │   ├── test_service_resilience.py
+│   │   ├── __init__.py

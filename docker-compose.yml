@@ -1,0 +1,183 @@
+# =====================================================================
+# AI Evaluation Platform - Docker Compose
+# 一键启动分布式 AI 评测平台
+# =====================================================================
+
+services:
+  # ---------------------------------------------------------------------
+  # PostgreSQL 数据库
+  # ---------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: ai-eval-postgres
+    environment:
+      POSTGRES_DB: ai_eval
+      POSTGRES_USER: eval
+      POSTGRES_PASSWORD: eval123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eval"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai-eval-network
+
+  # ---------------------------------------------------------------------
+  # Redis 缓存/锁服务
+  # ---------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: ai-eval-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai-eval-network
+
+  # ---------------------------------------------------------------------
+  # RabbitMQ 消息队列
+  # ---------------------------------------------------------------------
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: ai-eval-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"    # AMQP 协议端口
+      - "15672:15672"  # Management UI 端口
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai-eval-network
+
+  # ---------------------------------------------------------------------
+  # API 服务 (FastAPI)
+  # ---------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-eval-api
+    environment:
+      # 数据库配置
+      - DATABASE_URL=postgresql://eval:eval123@postgres:5432/ai_eval
+      # Redis 配置
+      - REDIS_URL=redis://redis:6379
+      # RabbitMQ 配置
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      # LLM API Keys (请在 .env 中修改)
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - ai-eval-network
+
+  # ---------------------------------------------------------------------
+  # Celery Worker (任务处理)
+  # ---------------------------------------------------------------------
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-eval-worker
+    command: celery -A src.worker.celery_app worker --loglevel=info
+    environment:
+      # 数据库配置
+      - DATABASE_URL=postgresql://eval:eval123@postgres:5432/ai_eval
+      # Redis 配置
+      - REDIS_URL=redis://redis:6379
+      # RabbitMQ 配置
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      # LLM API Keys
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - ai-eval-network
+
+  # ---------------------------------------------------------------------
+  # Prometheus 监控 (可选)
+  # ---------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ai-eval-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - ai-eval-network
+    profiles:
+      - monitoring
+
+  # ---------------------------------------------------------------------
+  # Grafana 监控面板 (可选)
+  # ---------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ai-eval-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - ai-eval-network
+    profiles:
+      - monitoring
+
+# =====================================================================
+# 网络和存储卷
+# =====================================================================
+networks:
+  ai-eval-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  prometheus_data:
+  grafana_data:

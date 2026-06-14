@@ -1,0 +1,49 @@
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+markers = [
+    "slow: 耗时较长的 E2E/压测用例",
+    "integration: 跨模块集成测试",
+    "e2e: 端到端全链路测试",
+    "redis: 需要 Redis 与 Celery Worker 的真异步测试",
+    "contract: API/Schema 契约测试",
+]
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+omit = [
+    "*/tasks_old.py",
+    "*/submit_tasks.py",
+    "*/monitor_queue.py",
+    "*/seed_data.py",
+    "*/test_live.py",
+    "*/app.py",
+    "*/main.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 70
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+
+[tool.coverage.html]
+directory = "reports/coverage_html"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]

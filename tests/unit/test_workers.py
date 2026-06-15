@@ -95,9 +95,9 @@ class TestEvaluationBufferService:
         service = EvaluationBufferService()
         service.add(Mock())
 
-        with patch("src.workers.tasks.SessionLocal") as mock_session_local:
+        with patch("src.workers.tasks.get_session_local") as mock_get_session_local:
             mock_session = Mock()
-            mock_session_local.return_value = mock_session
+            mock_get_session_local.return_value = Mock(return_value=mock_session)
             service.flush()
             mock_session.close.assert_called_once()
 

@@ -10,7 +10,7 @@ from celery import Task
 from src.domain.models.llm_factory import create_llm_client
 from src.engine import EvaluationEngine
 from src.infra.db.models import EvaluationResultModel
-from src.infra.db.session import SessionLocal
+from src.infra.db.session import get_session_local
 from src.schemas.evaluation import EvaluationSchema
 from src.schemas.schemas import EvaluationResult
 from src.workers.celery_app import celery_app
@@ -139,7 +139,7 @@ class EvaluationBufferService:
         batch = list(self.buffer)
         self.buffer = []
 
-        session = db_session if db_session is not None else SessionLocal()
+        session = db_session if db_session is not None else get_session_local()()
         created_locally = not is_external and db_session is None
 
         try:

@@ -6,14 +6,16 @@
 
 import functools
 import logging
-from typing import Callable, Any, Optional, Type
+from collections.abc import Callable
+from typing import Any
+
 from tenacity import (
+    after_log,
+    before_sleep_log,
     retry,
+    retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
-    retry_if_exception_type,
-    before_sleep_log,
-    after_log,
 )
 
 logger = logging.getLogger(__name__)
@@ -23,7 +25,7 @@ def retry_with_backoff(
     max_attempts: int = 3,
     wait_min: float = 1.0,
     wait_max: float = 10.0,
-    exception_types: tuple[Type[Exception], ...] = (Exception,),
+    exception_types: tuple[type[Exception], ...] = (Exception,),
     logger_name: str = __name__,
 ):
     """
@@ -78,7 +80,7 @@ class CircuitBreaker:
         self.recovery_timeout = recovery_timeout
         self.half_open_max_requests = half_open_max_requests
 
-        self._state = 'closed'  # closed, open, half_open
+        self._state = "closed"  # closed, open, half_open
         self._failure_count = 0
         self._last_failure_time = 0.0
         self._half_open_request_count = 0
@@ -99,16 +101,16 @@ class CircuitBreaker:
         current_time = time.time()
 
         # 检查熔断状态
-        if self._state == 'open':
+        if self._state == "open":
             # 检查是否可以尝试恢复
             if current_time - self._last_failure_time >= self.recovery_timeout:
-                self._state = 'half_open'
+                self._state = "half_open"
                 self._half_open_request_count = 0
                 logger.info("熔断器从 OPEN 状态转换为 HALF_OPEN 状态")
             else:
                 raise CircuitBreakerError("服务已熔断，请稍后重试")
 
-        if self._state == 'half_open':
+        if self._state == "half_open":
             # 限制半开状态下的请求数
             if self._half_open_request_count >= self.half_open_max_requests:
                 raise CircuitBreakerError("熔断器半开状态请求数已达上限")
@@ -118,17 +120,17 @@ class CircuitBreaker:
             result = func(*args, **kwargs)
             # 成功，重置计数器
             self._failure_count = 0
-            if self._state == 'half_open':
-                self._state = 'closed'
+            if self._state == "half_open":
+                self._state = "closed"
                 logger.info("熔断器从 HALF_OPEN 状态转换为 CLOSED 状态")
             return result
-        except Exception as e:
+        except Exception:
             # 失败，增加计数器
             self._failure_count += 1
             self._last_failure_time = current_time
 
-            if self._state == 'closed' and self._failure_count >= self.failure_threshold:
-                self._state = 'open'
+            if self._state == "closed" and self._failure_count >= self.failure_threshold:
+                self._state = "open"
                 logger.error(f"熔断器触发！连续失败 {self.failure_threshold} 次")
 
             raise
@@ -141,6 +143,7 @@ class CircuitBreaker:
 
 class CircuitBreakerError(Exception):
     """熔断器错误"""
+
     pass
 
 
@@ -158,7 +161,7 @@ def fallback_to(default_value: Any = None, exception_types: tuple = (Exception,)
         def wrapper(*args, **kwargs) -> Any:
             try:
                 return func(*args, **kwargs)
-            except exception_types as e:
+            except exception_types:
                 logger.warning(f"降级触发: {func.__name__} 失败，返回默认值: {default_value}")
                 return default_value
 

@@ -12,10 +12,10 @@ from src.engine import EvaluationEngine
 from src.infra.db.models import EvaluationResultModel
 from src.infra.db.session import get_session_local
 from src.infra.monitoring.metrics import (
-    EVALUATION_LATENCY,
-    EVALUATION_COUNTER,
-    BUFFER_SIZE,
     BUFFER_FLUSH_LATENCY,
+    BUFFER_SIZE,
+    EVALUATION_COUNTER,
+    EVALUATION_LATENCY,
 )
 from src.schemas.evaluation import EvaluationSchema
 from src.schemas.schemas import EvaluationResult
@@ -224,7 +224,7 @@ def _result_to_model(result: EvaluationResult) -> EvaluationResultModel:
 )
 def eval_case_task(self, case_data: dict):
     start_time = time.time()
-    
+
     case = EvaluationSchema(**case_data)
     engine = EvaluationEngine(create_llm_client())
     result = engine.run(case)
@@ -237,7 +237,7 @@ def eval_case_task(self, case_data: dict):
     db_record = _result_to_model(result)
     count = buffer_service.add(db_record)
     BUFFER_SIZE.set(buffer_service.buffer_size)
-    
+
     if count >= buffer_service.batch_size:
         flush_start = time.time()
         buffer_service.flush()

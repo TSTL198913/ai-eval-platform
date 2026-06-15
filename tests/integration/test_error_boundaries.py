@@ -20,6 +20,7 @@ from src.engine import EvaluationEngine
 from src.schemas.evaluation import EvaluationSchema, EvaluationStatus
 
 
+@pytest.mark.timeout(60)
 class TestLLMErrorHandling:
     """LLM 错误处理集成测试"""
 
@@ -100,6 +101,7 @@ class TestLLMErrorHandling:
                     assert domain in str(e) or "LLM" in str(e)
 
 
+@pytest.mark.timeout(60)
 class TestBoundaryConditions:
     """边界条件集成测试"""
 
@@ -209,6 +211,7 @@ class TestBoundaryConditions:
             assert result is not None
 
 
+@pytest.mark.timeout(120)
 class TestConcurrentExecution:
     """并发执行集成测试"""
 
@@ -271,6 +274,7 @@ class TestConcurrentExecution:
         assert len(results) == 10
 
 
+@pytest.mark.timeout(60)
 class TestDataIntegrity:
     """数据完整性集成测试"""
 
@@ -325,6 +329,7 @@ class TestDataIntegrity:
         assert response.is_valid is not None
 
 
+@pytest.mark.timeout(60)
 class TestEvaluatorBehavior:
     """评测器行为集成测试"""
 
@@ -410,6 +415,7 @@ class TestEvaluatorBehavior:
         assert response is not None
 
 
+@pytest.mark.timeout(60)
 class TestSchemaValidation:
     """Schema 验证集成测试"""
 
@@ -444,6 +450,7 @@ class TestSchemaValidation:
         assert request is not None
 
 
+@pytest.mark.timeout(120)
 class TestPerformanceBounds:
     """性能边界集成测试"""
 

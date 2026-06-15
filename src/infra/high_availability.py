@@ -230,7 +230,7 @@ class LoadBalancer:
             return nodes[0]
 
         # 根据权重选择
-        r = random.uniform(0, total_weight)
+        r = random.uniform(0, total_weight)  # nosec B311 - 负载均衡选择，非安全用途
         current_weight = 0
         for node in nodes:
             current_weight += node.weight
@@ -245,7 +245,7 @@ class LoadBalancer:
 
     def _random(self, nodes: list[NodeInfo]) -> NodeInfo:
         """随机选择"""
-        return random.choice(nodes)
+        return random.choice(nodes)  # nosec B311 - 负载均衡选择，非安全用途
 
     def _latency_based(self, nodes: list[NodeInfo]) -> NodeInfo:
         """基于延迟选择"""

@@ -251,18 +251,27 @@ class RabbitMQQueue(BaseQueue):
 
     def __init__(
         self,
-        host: str = "localhost",
-        port: int = 5672,
-        username: str = "guest",
-        password: str = "guest",
+        host: str | None = None,
+        port: int | None = None,
+        username: str | None = None,
+        password: str | None = None,
         config: QueueConfig | None = None,
     ):
+        import os
+
         import pika
 
         super().__init__(config or QueueConfig())
-        self.host = host
-        self.port = port
-        self.credentials = pika.PlainCredentials(username, password)
+        self.host = host or os.environ.get("RABBITMQ_HOST", "localhost")
+        self.port = port or int(os.environ.get("RABBITMQ_PORT", "5672"))
+        self.username = username or os.environ.get("RABBITMQ_USERNAME", "")
+        self.password = password or os.environ.get("RABBITMQ_PASSWORD", "")
+
+        if self.username and self.password:
+            self.credentials = pika.PlainCredentials(self.username, self.password)
+        else:
+            self.credentials = None
+
         self._connection = None
         self._channel = None
 

@@ -146,4 +146,4 @@ def test_create_llm_client_returns_stub_without_api_key(monkeypatch):
 
 
 def test_create_llm_client_returns_injected_instance(mock_llm):
-    assert create_llm_client(mock_llm) is mock_llm
+    assert create_llm_client(client=mock_llm) is mock_llm

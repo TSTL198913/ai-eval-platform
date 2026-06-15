@@ -49,7 +49,7 @@ def run_evaluation_service(raw_data: dict[str, Any], client=None) -> dict[str, A
     if case.type not in EVALUATOR_REGISTRY:
         raise DomainLogicError(f"No adapter found for type: {case.type}")
 
-    engine = EvaluationEngine(create_llm_client(client))
+    engine = EvaluationEngine(create_llm_client(client=client))
     result = engine.run(case)
 
     return {

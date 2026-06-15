@@ -22,8 +22,9 @@ from fastapi.responses import JSONResponse
 from src.distributed.rate_limiter import (
     MultiDimensionRateLimiter,
 )
-from src.metrics import get_registry
-from src.tracing import (
+from src.infra.monitoring.metrics import expose_metrics
+from src.infra.monitoring.metrics import registry as metrics_registry
+from src.infra.monitoring.tracing import (
     SpanContextCarrier,
     TraceContext,
     get_tracer,
@@ -169,8 +170,8 @@ async def lifespan(app: FastAPI):
         otlp_endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
     )
 
-    # 初始化指标
-    get_registry()
+    # 初始化指标（metrics_registry 已在模块导入时初始化）
+    logger.info("Metrics registry initialized")
 
     logger.info("AI Eval Platform API started")
 
@@ -377,9 +378,8 @@ async def detailed_health():
 @app.get("/metrics")
 async def metrics():
     """Prometheus 指标"""
-    registry = get_registry()
     return Response(
-        content=registry.export_prometheus(),
+        content=expose_metrics(),
         media_type="text/plain",
     )
 
@@ -387,8 +387,29 @@ async def metrics():
 @app.get("/metrics/json")
 async def metrics_json():
     """JSON 格式的指标"""
-    registry = get_registry()
-    return registry.collect()
+    from prometheus_client import CollectorRegistry
+
+    def _collect_metrics(registry: CollectorRegistry) -> list[dict]:
+        """收集指标并转换为 JSON 格式"""
+        metrics = []
+        for collector in registry._collector_to_names.keys():
+            for metric in collector.collect():
+                metrics.append({
+                    "name": metric.name,
+                    "help": metric.documentation,
+                    "type": metric.type,
+                    "samples": [
+                        {
+                            "labels": dict(sample.labels),
+                            "value": float(sample.value),
+                            "timestamp": sample.timestamp,
+                        }
+                        for sample in metric.samples
+                    ],
+                })
+        return metrics
+
+    return _collect_metrics(metrics_registry)
 
 
 @app.post("/api/v1/evaluate")
@@ -485,12 +506,17 @@ async def get_task_result(task_id: str):
 # =====================================================================
 
 if __name__ == "__main__":
+    import os
+
     import uvicorn
+
+    host = os.environ.get("API_HOST", "127.0.0.1")
+    port = int(os.environ.get("API_PORT", "8000"))
 
     uvicorn.run(
         "src.api.server:app",
-        host="0.0.0.0",
-        port=8000,
+        host=host,
+        port=port,
         reload=True,
         log_level="info",
     )

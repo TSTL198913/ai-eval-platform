@@ -15,6 +15,7 @@ from src.infra.monitoring.metrics import (
     BUFFER_FLUSH_LATENCY,
     BUFFER_SIZE,
     EVALUATION_COUNTER,
+    EVALUATION_ERRORS,
     EVALUATION_LATENCY,
 )
 from src.schemas.evaluation import EvaluationSchema
@@ -85,8 +86,8 @@ class EvaluationBufferService:
             if len(self.buffer) < self.batch_size // 10:  # 小于 10% 批次大小时触发
                 try:
                     self._flush_internal()
-                except Exception:
-                    pass  # 静默失败，避免影响主流程
+                except Exception as e:
+                    logger.debug(f"Time-based flush failed, will retry later: {str(e)}")
 
     def add_and_flush_if_needed(self, item: EvaluationResultModel) -> int:
         """添加记录，达到阈值时自动 flush"""
@@ -225,27 +226,35 @@ def _result_to_model(result: EvaluationResult) -> EvaluationResultModel:
 def eval_case_task(self, case_data: dict):
     start_time = time.time()
 
-    case = EvaluationSchema(**case_data)
-    engine = EvaluationEngine(create_llm_client())
-    result = engine.run(case)
+    try:
+        case = EvaluationSchema(**case_data)
+        engine = EvaluationEngine(create_llm_client())
+        result = engine.run(case)
 
-    # 记录指标
-    latency = time.time() - start_time
-    EVALUATION_LATENCY.labels(domain=case.type, status=result.status.value).observe(latency)
-    EVALUATION_COUNTER.labels(domain=case.type, status=result.status.value).inc()
+        # 记录指标
+        latency = time.time() - start_time
+        EVALUATION_LATENCY.labels(domain=case.type, status=result.status.value).observe(latency)
+        EVALUATION_COUNTER.labels(domain=case.type, status=result.status.value).inc()
 
-    db_record = _result_to_model(result)
-    count = buffer_service.add(db_record)
-    BUFFER_SIZE.set(buffer_service.buffer_size)
+        db_record = _result_to_model(result)
+        count = buffer_service.add(db_record)
+        BUFFER_SIZE.set(buffer_service.buffer_size)
 
-    if count >= buffer_service.batch_size:
-        flush_start = time.time()
-        buffer_service.flush()
-        BUFFER_FLUSH_LATENCY.observe(time.time() - flush_start)
+        if count >= buffer_service.batch_size:
+            flush_start = time.time()
+            buffer_service.flush()
+            BUFFER_FLUSH_LATENCY.observe(time.time() - flush_start)
 
-    return {
-        "status": "success",
-        "case_id": case.id,
-        "evaluation_status": result.status.value,
-        "latency_ms": result.latency_ms,
-    }
+        return {
+            "status": "success",
+            "case_id": case.id,
+            "evaluation_status": result.status.value,
+            "latency_ms": result.latency_ms,
+        }
+    except Exception as e:
+        # 记录错误指标
+        latency = time.time() - start_time
+        case_type = case.type if 'case' in locals() else 'unknown'
+        EVALUATION_LATENCY.labels(domain=case_type, status='error').observe(latency)
+        EVALUATION_ERRORS.labels(domain=case_type, error_type=type(e).__name__).inc()
+        raise

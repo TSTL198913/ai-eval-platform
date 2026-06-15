@@ -4,6 +4,7 @@
 提供分布式环境下的互斥访问能力，防止任务重复执行。
 """
 
+import logging
 import time
 import uuid
 from contextlib import contextmanager
@@ -11,6 +12,8 @@ from dataclasses import dataclass
 from enum import Enum
 
 import redis
+
+logger = logging.getLogger(__name__)
 
 
 class LockState(Enum):
@@ -190,8 +193,8 @@ class RedLock:
                     ex=int(self.ttl_seconds),
                 ):
                     acquired_count += 1
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to acquire lock on redis node: {str(e)}")
 
         if acquired_count >= self.quorum:
             return lock_value
@@ -214,8 +217,8 @@ class RedLock:
                 """
                 if redis_client.eval(lua_script, 1, f"eval:lock:{resource}", lock_value):
                     released_count += 1
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to release lock on redis node: {str(e)}")
 
         return released_count >= self.quorum
 

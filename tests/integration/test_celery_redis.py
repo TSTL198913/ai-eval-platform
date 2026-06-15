@@ -1,6 +1,7 @@
 """真 Redis + Celery Worker 异步链路（非 eager 模式）。"""
 
 import os
+import subprocess
 import time
 
 import pytest
@@ -52,7 +53,57 @@ def celery_real_mode(redis_broker_url, monkeypatch, mock_llm):
     )
 
 
-def test_task_executes_through_redis_broker(celery_real_mode):
+@pytest.fixture
+def celery_worker(redis_broker_url, monkeypatch, mock_llm):
+    from src.domain.models import llm_factory
+
+    monkeypatch.setattr(llm_factory, "create_llm_client", lambda client=None: mock_llm)
+    mock_llm.chat.return_value = "利息为30元，本金1000元。"
+
+    backend_url = redis_broker_url.replace("/0", "/1")
+    if backend_url == redis_broker_url:
+        backend_url = f"{redis_broker_url}/1"
+
+    celery_app.conf.update(
+        broker_url=redis_broker_url,
+        result_backend=backend_url,
+        task_always_eager=False,
+        task_eager_propagates=False,
+        task_store_eager_result=True,
+        broker_transport_options={"protocol": 2},
+        result_backend_transport_options={"protocol": 2},
+    )
+
+    worker_process = subprocess.Popen(
+        [
+            "celery",
+            "-A",
+            "src.workers.celery_app",
+            "worker",
+            "--loglevel=warning",
+            "--concurrency=1",
+            "--without-heartbeat",
+            "--without-gossip",
+            "--without-mingle",
+        ],
+        env={**os.environ, "TESTING": "1"},
+    )
+
+    time.sleep(3)
+
+    try:
+        yield
+    finally:
+        worker_process.terminate()
+        worker_process.wait(timeout=10)
+        celery_app.conf.update(
+            task_always_eager=True,
+            task_eager_propagates=True,
+            result_backend="cache+memory://",
+        )
+
+
+def test_task_executes_through_redis_broker(celery_worker):
     case_data = {
         "id": f"redis_case_{int(time.time())}",
         "type": "finance",

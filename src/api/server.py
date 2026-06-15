@@ -1,5 +1,7 @@
 from fastapi import FastAPI, Response, status
+from fastapi.responses import PlainTextResponse
 
+from src.infra.monitoring.metrics import expose_metrics
 from src.schemas.evaluation import EvaluationSchema
 from src.services.evaluator_svc import _normalize_raw_data, run_evaluation_service
 from src.workers.celery_app import celery_app
@@ -12,6 +14,12 @@ app = FastAPI(title="AI Eval Platform")
 async def health_check():
     """健康检查端点"""
     return {"status": "healthy", "service": "ai-eval-platform"}
+
+
+@app.get("/metrics", response_class=PlainTextResponse)
+async def metrics():
+    """Prometheus metrics endpoint"""
+    return expose_metrics()
 
 
 @app.post("/api/v1/evaluate")

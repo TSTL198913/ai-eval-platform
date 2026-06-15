@@ -6,6 +6,8 @@
 
 import functools
 import logging
+import threading
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -80,6 +82,7 @@ class CircuitBreaker:
         self.recovery_timeout = recovery_timeout
         self.half_open_max_requests = half_open_max_requests
 
+        self._lock = threading.Lock()
         self._state = "closed"  # closed, open, half_open
         self._failure_count = 0
         self._last_failure_time = 0.0
@@ -96,42 +99,43 @@ class CircuitBreaker:
 
     def execute(self, func: Callable, *args, **kwargs) -> Any:
         """执行函数，应用熔断逻辑"""
-        import time
-
         current_time = time.time()
 
-        # 检查熔断状态
-        if self._state == "open":
-            # 检查是否可以尝试恢复
-            if current_time - self._last_failure_time >= self.recovery_timeout:
-                self._state = "half_open"
-                self._half_open_request_count = 0
-                logger.info("熔断器从 OPEN 状态转换为 HALF_OPEN 状态")
-            else:
-                raise CircuitBreakerError("服务已熔断，请稍后重试")
+        # 检查熔断状态（加锁）
+        with self._lock:
+            if self._state == "open":
+                # 检查是否可以尝试恢复
+                if current_time - self._last_failure_time >= self.recovery_timeout:
+                    self._state = "half_open"
+                    self._half_open_request_count = 0
+                    logger.info("熔断器从 OPEN 状态转换为 HALF_OPEN 状态")
+                else:
+                    raise CircuitBreakerError("服务已熔断，请稍后重试")
 
-        if self._state == "half_open":
-            # 限制半开状态下的请求数
-            if self._half_open_request_count >= self.half_open_max_requests:
-                raise CircuitBreakerError("熔断器半开状态请求数已达上限")
-            self._half_open_request_count += 1
+            if self._state == "half_open":
+                # 限制半开状态下的请求数
+                if self._half_open_request_count >= self.half_open_max_requests:
+                    raise CircuitBreakerError("熔断器半开状态请求数已达上限")
+                self._half_open_request_count += 1
 
         try:
             result = func(*args, **kwargs)
-            # 成功，重置计数器
-            self._failure_count = 0
-            if self._state == "half_open":
-                self._state = "closed"
-                logger.info("熔断器从 HALF_OPEN 状态转换为 CLOSED 状态")
+            # 成功，重置计数器（加锁）
+            with self._lock:
+                self._failure_count = 0
+                if self._state == "half_open":
+                    self._state = "closed"
+                    logger.info("熔断器从 HALF_OPEN 状态转换为 CLOSED 状态")
             return result
         except Exception:
-            # 失败，增加计数器
-            self._failure_count += 1
-            self._last_failure_time = current_time
+            # 失败，增加计数器（加锁）
+            with self._lock:
+                self._failure_count += 1
+                self._last_failure_time = current_time
 
-            if self._state == "closed" and self._failure_count >= self.failure_threshold:
-                self._state = "open"
-                logger.error(f"熔断器触发！连续失败 {self.failure_threshold} 次")
+                if self._state == "closed" and self._failure_count >= self.failure_threshold:
+                    self._state = "open"
+                    logger.error(f"熔断器触发！连续失败 {self.failure_threshold} 次")
 
             raise
 

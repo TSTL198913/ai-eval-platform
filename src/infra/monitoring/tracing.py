@@ -108,7 +108,6 @@ class Tracer:
 
         self._spans.append(span)
 
-        # 设置 context variable
         current_trace_id.set(trace_id)
         current_span_id.set(span_id)
 
@@ -131,13 +130,10 @@ class Tracer:
         """结束 span"""
         span.set_status(status)
         span.finish()
-
-        # 记录 span 到 exporter (简化实现)
         self._export_span(span)
 
     def _export_span(self, span: Span) -> None:
         """导出 span 到追踪后端"""
-        # 简化实现，实际应该发送到 OTLP endpoint
         logger.debug(f"Trace exported: {span.trace_id}/{span.span_id} [{span.name}] {span.status}")
 
     @staticmethod
@@ -189,7 +185,7 @@ class SpanContextCarrier:
         parent_id = headers.get(cls.PARENT_HEADER_KEY)
         return SpanContext(
             trace_id=trace_id,
-            span_id="",  # 新 span
+            span_id="",
             parent_id=parent_id,
         )
 
@@ -231,15 +227,8 @@ def setup_opentelemetry(
     Returns:
         配置好的 Tracer 实例
     """
-    # 实际生产环境应该使用:
-    # from opentelemetry import trace
-    # from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-    # from opentelemetry.sdk.trace import TracerProvider
-    # from opentelemetry.sdk.trace.export import BatchSpanProcessor
-
     tracer = Tracer(service_name)
 
-    # 如果提供了 OTLP 端点，配置导出器
     if otlp_endpoint:
         logger.info(f"OpenTelemetry configured with OTLP endpoint: {otlp_endpoint}")
 

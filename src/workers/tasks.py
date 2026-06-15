@@ -11,6 +11,12 @@ from src.domain.models.llm_factory import create_llm_client
 from src.engine import EvaluationEngine
 from src.infra.db.models import EvaluationResultModel
 from src.infra.db.session import get_session_local
+from src.infra.monitoring.metrics import (
+    EVALUATION_LATENCY,
+    EVALUATION_COUNTER,
+    BUFFER_SIZE,
+    BUFFER_FLUSH_LATENCY,
+)
 from src.schemas.evaluation import EvaluationSchema
 from src.schemas.schemas import EvaluationResult
 from src.workers.celery_app import celery_app
@@ -217,14 +223,25 @@ def _result_to_model(result: EvaluationResult) -> EvaluationResultModel:
     retry_backoff=True,
 )
 def eval_case_task(self, case_data: dict):
+    start_time = time.time()
+    
     case = EvaluationSchema(**case_data)
     engine = EvaluationEngine(create_llm_client())
     result = engine.run(case)
 
+    # 记录指标
+    latency = time.time() - start_time
+    EVALUATION_LATENCY.labels(domain=case.type, status=result.status.value).observe(latency)
+    EVALUATION_COUNTER.labels(domain=case.type, status=result.status.value).inc()
+
     db_record = _result_to_model(result)
     count = buffer_service.add(db_record)
+    BUFFER_SIZE.set(buffer_service.buffer_size)
+    
     if count >= buffer_service.batch_size:
+        flush_start = time.time()
         buffer_service.flush()
+        BUFFER_FLUSH_LATENCY.observe(time.time() - flush_start)
 
     return {
         "status": "success",

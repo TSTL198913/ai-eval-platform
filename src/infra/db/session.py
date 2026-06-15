@@ -29,12 +29,16 @@ def _create_engine():
             poolclass=StaticPool,
         )
     else:
+        from sqlalchemy.pool import QueuePool
+
         return create_engine(
             database_url,
+            poolclass=QueuePool,
             pool_size=10,
             max_overflow=20,
-            pool_recycle=3600,
+            pool_recycle=300,  # 5分钟回收连接，避免连接超时
             pool_pre_ping=True,
+            pool_use_lifo=True,  # LIFO策略，减少连接空闲时间
         )
 
 

@@ -1,15 +1,14 @@
 # =====================================================================
-# AI Evaluation Platform - CI/CD Pipeline (架构师增强版)
-# 
-# 优化要点:
-# 1. 完整 DAG 三层结构 (Lint → Test → Integration → Deploy)
-# 2. 集成测试支持 (Redis + PostgreSQL)
-# 3. 端到端测试 (E2E)
-# 4. 安全扫描 (pip-audit + Bandit)
-# 5. Docker 构建与验证
-# 6. 制品治理 (manifest.json)
-# 7. CD 部署到生产环境
-# 8. 健康检查与回滚机制
+# AI Evaluation Platform - CI/CD Pipeline (最终生产版)
+#
+# 核心特性:
+# - 基于变更检测的条件执行，实现最快反馈
+# - 单元测试 100% 覆盖率强制门禁
+# - 并行最大化 + 智能缓存
+# - 集成测试自动数据库迁移
+# - 安全扫描按事件类型差异化容错
+# - CD 部署含完整回滚机制
+# - 可配置健康检查
 # =====================================================================
 
 name: CI/CD Pipeline
@@ -22,23 +21,26 @@ on:
     branches: [main, master]
     paths-ignore: ['README.md', 'docs/**', '*.md']
   schedule:
-    - cron: '0 2 * * *'  # 每日安全扫描
+    - cron: '0 2 * * *'
 
 env:
   PYTHON_VERSION: '3.10'
   PIP_INDEX_URL: 'https://pypi.tuna.tsinghua.edu.cn/simple'
   PIP_TRUSTED_HOST: 'pypi.tuna.tsinghua.edu.cn'
-  COVERAGE_THRESHOLD: '80'
+  COVERAGE_THRESHOLD: '100'
+  HEALTH_ENDPOINT: 'http://localhost:8000/health'
+  HEALTH_TIMEOUT: 60
+  DOCKER_IMAGE_NAME: 'ai-eval-platform'
+  DOCKER_BUILDKIT: 1
 
-# 并发控制：同一分支只允许一个工作流运行
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  # =====================================================================
-  # Level 1: 变更检测 + Lint (并行基准层)
-  # =====================================================================
+  # ------------------------------------------------------------------
+  # 变更检测 – 为后续任务提供决策依据
+  # ------------------------------------------------------------------
   detect-changes:
     name: Detect Changes
     runs-on: ubuntu-latest
@@ -57,21 +59,20 @@ jobs:
             src_changed: ['src/**', 'pyproject.toml', 'setup.py']
             tests_changed: ['tests/**']
             docker_changed: ['Dockerfile', 'docker-compose*.yml']
-            deps_changed: ['requirements*.txt', 'pyproject.toml']
+            deps_changed: ['requirements*.txt', 'pyproject.toml', 'setup.py']
             ci_changed: ['.github/workflows/ci.yml']
 
+  # ------------------------------------------------------------------
+  # 代码质量检查 – 低开销，始终执行
+  # ------------------------------------------------------------------
   lint:
     name: Lint & Format
     runs-on: ubuntu-latest
-    needs: detect-changes
-    if: ${{ needs.detect-changes.outputs.src_changed == 'true' || 
-            needs.detect-changes.outputs.tests_changed == 'true' || 
-            needs.detect-changes.outputs.ci_changed == 'true' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '${{ env.PYTHON_VERSION }}'
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
       - name: Install Ruff
         run: pip install ruff
@@ -80,144 +81,136 @@ jobs:
       - name: Ruff Format Check
         run: ruff format --check . --cache-dir=.ruff_cache
 
-  # =====================================================================
-  # Level 2: 单元测试 + Docker 构建 (质量校验层)
-  # =====================================================================
+  # ------------------------------------------------------------------
+  # 单元测试 – 仅在有源码/测试/依赖变更时执行，矩阵并行
+  # ------------------------------------------------------------------
   test:
     name: Unit Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
-    needs: [detect-changes, lint]
-    if: needs.lint.result == 'success'
+    needs: [lint, detect-changes]
+    if: |
+      needs.detect-changes.outputs.src_changed == 'true' ||
+      needs.detect-changes.outputs.tests_changed == 'true' ||
+      needs.detect-changes.outputs.deps_changed == 'true'
     strategy:
       matrix:
         python-version: ['3.10', '3.11']
-      fail-fast: true
+      fail-fast: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '${{ matrix.python-version }}'
+          python-version: ${{ matrix.python-version }}
           cache: 'pip'
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install pytest-cov
-      - name: Run unit tests
+          pip install pytest-cov pytest-xdist
+      - name: Run unit tests with coverage
         run: |
-          pytest tests/unit/ -v \
+          pytest tests/unit/ -n auto -v \
             --cov=src --cov-report=xml --cov-report=term-missing \
             --cov-fail-under=${{ env.COVERAGE_THRESHOLD }}
-      - name: Upload coverage
+      - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           file: ./coverage.xml
-          flags: unit
+          flags: unit-${{ matrix.python-version }}
 
-  docker:
-    name: Docker Build & Test
+  # ------------------------------------------------------------------
+  # Docker 构建验证 – 仅当相关文件变更时执行
+  # ------------------------------------------------------------------
+  docker-validate:
+    name: Docker Build & Validate
     runs-on: ubuntu-latest
-    needs: [detect-changes, lint]
-    if: needs.lint.result == 'success' && (
-          needs.detect-changes.outputs.docker_changed == 'true' || 
-          needs.detect-changes.outputs.src_changed == 'true' || 
-          needs.detect-changes.outputs.deps_changed == 'true')
+    needs: [lint, detect-changes]
+    if: |
+      needs.detect-changes.outputs.docker_changed == 'true' ||
+      needs.detect-changes.outputs.src_changed == 'true' ||
+      needs.detect-changes.outputs.deps_changed == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-      - name: Build Docker image
-        uses: docker/build-push-action@v5
+      - uses: docker/build-push-action@v5
         with:
           context: .
           push: false
           load: true
-          tags: ai-eval-platform:test
+          tags: ${{ env.DOCKER_IMAGE_NAME }}:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Verify image
-        run: |
-          if ! docker images | grep -q ai-eval-platform; then
-            echo "Error: Docker image not found!"
-            exit 1
-          fi
-          echo "Docker image built successfully"
       - name: Health check
         run: |
-          docker run -d --name test-app -p 8000:8000 ai-eval-platform:test
-          
-          # 等待容器启动 (最多 60 秒)
-          timeout=60
-          interval=2
+          docker run -d --name test-app -p 8000:8000 ${{ env.DOCKER_IMAGE_NAME }}:test
+          timeout=${{ env.HEALTH_TIMEOUT }}
+          interval=5
           elapsed=0
           while [ $elapsed -lt $timeout ]; do
-            if docker inspect --format '{{.State.Running}}' test-app 2>/dev/null | grep -q true; then
-              echo "Container started"
-              break
-            fi
-            sleep $interval
-            elapsed=$((elapsed + interval))
-          done
-          
-          # 健康检查 (最多 30 秒)
-          timeout=30
-          elapsed=0
-          while [ $elapsed -lt $timeout ]; do
-            if curl -sf http://localhost:8000/health 2>/dev/null; then
+            if curl -sf ${{ env.HEALTH_ENDPOINT }} > /dev/null 2>&1; then
               echo "Health check passed"
               docker rm -f test-app
               exit 0
             fi
+            echo "Waiting for health endpoint... ($elapsed/$timeout)"
             sleep $interval
             elapsed=$((elapsed + interval))
           done
-          
-          echo "Health check timeout"
+          echo "Health check failed after ${timeout}s"
           docker logs test-app
           docker rm -f test-app
           exit 1
 
-  # =====================================================================
-  # Level 3: 安全扫描 (独立并行)
-  # =====================================================================
+  # ------------------------------------------------------------------
+  # 安全扫描 – 定时任务不阻断，PR/推送时强制通过
+  # ------------------------------------------------------------------
   security:
     name: Security Audit
     runs-on: ubuntu-latest
     needs: detect-changes
-    if: ${{ github.event_name == 'schedule' || 
-            needs.detect-changes.outputs.deps_changed == 'true' || 
-            needs.detect-changes.outputs.src_changed == 'true' }}
+    if: |
+      github.event_name == 'schedule' ||
+      needs.detect-changes.outputs.deps_changed == 'true' ||
+      needs.detect-changes.outputs.src_changed == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '${{ env.PYTHON_VERSION }}'
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
       - name: Install security tools
         run: pip install pip-audit bandit
-      - name: pip-audit
-        run: pip-audit -r requirements.txt || true
-      - name: Bandit scan
-        run: bandit -r src/ -f json -o bandit-report.json || true
-      - name: Upload reports
+      - name: Run pip-audit
+        run: |
+          if [ -f requirements.txt ]; then
+            pip-audit -r requirements.txt
+          else
+            echo "No requirements.txt found, skipping pip-audit"
+          fi
+        continue-on-error: ${{ github.event_name == 'schedule' }}
+      - name: Run Bandit
+        run: bandit -r src/ -f json -o bandit-report.json
+        continue-on-error: ${{ github.event_name == 'schedule' }}
+      - name: Upload Bandit report
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: security-reports
+          name: bandit-report
           path: bandit-report.json
           retention-days: 30
 
-  # =====================================================================
-  # Level 4: 集成测试 (服务依赖层)
-  # =====================================================================
+  # ------------------------------------------------------------------
+  # 集成测试 – 真实 Redis/PostgreSQL，自动运行迁移
+  # ------------------------------------------------------------------
   integration-test:
     name: Integration Tests
     runs-on: ubuntu-latest
-    needs: [lint, test]
-    if: ${{ needs.test.result == 'success' }}
+    needs: test
+    if: needs.test.result == 'success'
     services:
       redis:
         image: redis:7-alpine
-        ports:
-          - 6379:6379
+        ports: ['6379:6379']
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s
@@ -229,8 +222,7 @@ jobs:
           POSTGRES_DB: ai_eval_test
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test123
-        ports:
-          - 5432:5432
+        ports: ['5432:5432']
         options: >-
           --health-cmd "pg_isready -U test"
           --health-interval 10s
@@ -240,56 +232,87 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '${{ env.PYTHON_VERSION }}'
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Run integration tests
-        timeout-minutes: 15
+      - name: Install migration tool (if Alembic used)
         run: |
-          pytest tests/integration/ -v --tb=short
+          if [ -f "alembic.ini" ] || grep -q "alembic" requirements.txt 2>/dev/null; then
+            pip install alembic
+          fi
+      - name: Run database migrations
+        run: |
+          if [ -f "alembic.ini" ]; then
+            alembic upgrade head
+          elif [ -f "manage.py" ]; then
+            python manage.py migrate
+          else
+            echo "No migration tool detected, skipping"
+          fi
+        env:
+          DATABASE_URL: postgresql://test:test123@localhost:5432/ai_eval_test
+      - name: Run integration tests
+        run: pytest tests/integration/ -v --tb=short
         env:
           DATABASE_URL: postgresql://test:test123@localhost:5432/ai_eval_test
           REDIS_URL: redis://localhost:6379
 
-  # =====================================================================
-  # Level 5: E2E 测试 (可选，仅 main 分支)
-  # =====================================================================
+  # ------------------------------------------------------------------
+  # E2E 测试 – 仅 main 分支且集成测试通过后执行
+  # ------------------------------------------------------------------
   e2e-test:
     name: E2E Tests
     runs-on: ubuntu-latest
-    needs: [integration-test, docker]
-    if: github.ref == 'refs/heads/main'
+    needs: integration-test
+    if: github.ref == 'refs/heads/main' && needs.integration-test.result == 'success'
     services:
       redis:
         image: redis:7-alpine
-        ports:
-          - 6379:6379
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: ai_eval_test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test123
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '${{ env.PYTHON_VERSION }}'
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
       - name: Install dependencies
         run: pip install -r requirements.txt locust
       - name: Run E2E tests
-        run: pytest tests/e2e/ -v --tb=short || true
+        run: pytest tests/e2e/ -v --tb=short
         env:
           REDIS_URL: redis://localhost:6379
+          DATABASE_URL: postgresql://test:test123@localhost:5432/ai_eval_test
 
-  # =====================================================================
-  # CD: 构建并推送 Docker 镜像 (仅 main 分支)
-  # =====================================================================
+  # ------------------------------------------------------------------
+  # CD: 构建并推送 Docker 镜像 – 仅 main 分支且 E2E 通过
+  # ------------------------------------------------------------------
   build-and-push:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
-    needs: [integration-test, e2e-test, docker]
-    if: github.ref == 'refs/heads/main'
+    needs: [e2e-test, docker-validate]
+    if: github.ref == 'refs/heads/main' && needs.e2e-test.result == 'success'
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-      - name: Login to Docker Hub
+      - name: Login to Docker Registry
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
@@ -298,7 +321,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKER_USERNAME }}/ai-eval-platform
+          images: ${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
@@ -312,7 +335,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Generate manifest
+      - name: Generate deployment manifest
         run: |
           cat <<EOF > manifest.json
           {
@@ -321,19 +344,18 @@ jobs:
             "commit": "${{ github.sha }}",
             "author": "${{ github.actor }}",
             "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-            "docker_image": "${{ secrets.DOCKER_USERNAME }}/ai-eval-platform:${{ github.sha }}",
+            "docker_image": "${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}",
             "workflow_run_id": "${{ github.run_id }}"
           }
           EOF
-      - name: Upload manifest
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: build-manifest
           path: manifest.json
 
-  # =====================================================================
-  # CD: 部署到生产环境 (仅 main 分支)
-  # =====================================================================
+  # ------------------------------------------------------------------
+  # CD: 生产环境部署 + 原子回滚
+  # ------------------------------------------------------------------
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
@@ -342,9 +364,8 @@ jobs:
     environment: production
     timeout-minutes: 15
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Deploy via SSH
+      - uses: actions/checkout@v4
+      - name: Deploy with rollback
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -354,65 +375,100 @@ jobs:
           script: |
             set -e
             cd /opt/ai-eval-platform
-            
-            # 备份
+
+            # 记录当前运行的 app 服务镜像 ID
+            current_image=$(docker compose ps -q app 2>/dev/null | head -1 | xargs docker inspect --format='{{.Image}}' 2>/dev/null || echo "")
             timestamp=$(date +%Y%m%d_%H%M%S)
             cp docker-compose.yml docker-compose.yml.backup.$timestamp
-            
-            # 更新配置（从远程拉取最新）
-            git pull origin main
-            
-            # 拉取镜像
+
+            # 强制同步远程 main 分支，避免冲突
+            git fetch origin main
+            git reset --hard origin/main
+
             docker compose pull
-            
-            # 滚动更新
             docker compose up -d --remove-orphans
-            
-            # 健康检查 (最多 60 秒)
-            timeout=60
+
+            # 健康检查
+            timeout=${{ env.HEALTH_TIMEOUT }}
             interval=5
             elapsed=0
+            healthy=false
             while [ $elapsed -lt $timeout ]; do
-              if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
-                echo "Deployment successful"
-                exit 0
+              if curl -sf ${{ env.HEALTH_ENDPOINT }} > /dev/null 2>&1; then
+                healthy=true
+                break
               fi
-              echo "Waiting... ($elapsed/$timeout)"
+              echo "Waiting for health... ($elapsed/$timeout)"
               sleep $interval
               elapsed=$((elapsed + interval))
             done
-            
-            # 回滚
-            echo "Deployment failed, rolling back"
-            docker compose down
-            cp docker-compose.yml.backup.$timestamp docker-compose.yml
-            docker compose up -d
-            exit 1
 
-  # =====================================================================
-  # Summary: 工作流总结 (始终执行)
-  # =====================================================================
+            if [ "$healthy" = true ]; then
+              echo "Deployment successful"
+              docker image prune -a --filter "until=24h" -f
+              exit 0
+            fi
+
+            # ========== 自动回滚 ==========
+            echo "Deployment failed, initiating rollback"
+            docker compose down
+
+            # 恢复上一个 compose 文件
+            if [ -f docker-compose.yml.backup.$timestamp ]; then
+              cp docker-compose.yml.backup.$timestamp docker-compose.yml
+            fi
+
+            # 精确替换 app 服务的镜像（优先 yq，降级 sed）
+            if [ -n "$current_image" ]; then
+              if command -v yq >/dev/null 2>&1; then
+                yq eval ".services.app.image = \"$current_image\"" -i docker-compose.yml
+              else
+                # 限定 services.app 块内替换 image 行
+                sed -i '/^services:/,/^[^ ]/ { /^  app:/,/^  / { s|image:.*|image: '"$current_image"'| } }' docker-compose.yml
+              fi
+            fi
+
+            docker compose up -d
+
+            sleep 10
+            if curl -sf ${{ env.HEALTH_ENDPOINT }} > /dev/null 2>&1; then
+              echo "Rollback successful, service restored"
+              exit 1
+            else
+              echo "Rollback also failed! Manual intervention required"
+              exit 1
+            fi
+
+  # ------------------------------------------------------------------
+  # 最终摘要 – 聚合所有任务状态，关键任务失败则整体失败
+  # ------------------------------------------------------------------
   summary:
     name: Workflow Summary
     runs-on: ubuntu-latest
-    needs: [detect-changes, lint, test, docker, security, integration-test]
+    needs: [detect-changes, lint, test, docker-validate, security, integration-test, e2e-test, build-and-push, deploy]
     if: always()
     steps:
-      - name: Generate Summary
+      - name: Build status table
         run: |
           echo "## CI/CD Pipeline Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Lint | ${{ needs.lint.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Unit Tests | ${{ needs.test.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Docker Build | ${{ needs.docker.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Security Audit | ${{ needs.security.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Integration Tests | ${{ needs.integration-test.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
-          
-          # 可选的 E2E 和 CD jobs
+          echo "| Lint | ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Unit Tests (3.10 & 3.11) | ${{ needs.test.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Validate | ${{ needs.docker-validate.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Audit | ${{ needs.security.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Integration Tests | ${{ needs.integration-test.result }} |" >> $GITHUB_STEP_SUMMARY
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "| E2E Tests | ${{ needs.e2e-test.result || 'in_progress' }} |" >> $GITHUB_STEP_SUMMARY
-            echo "| Build & Push | ${{ needs.build-and-push.result || 'in_progress' }} |" >> $GITHUB_STEP_SUMMARY
-            echo "| Deploy | ${{ needs.deploy.result || 'in_progress' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| E2E Tests | ${{ needs.e2e-test.result }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Build & Push | ${{ needs.build-and-push.result }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Deploy | ${{ needs.deploy.result }} |" >> $GITHUB_STEP_SUMMARY
           fi
+      - name: Fail workflow if critical jobs failed
+        if: |
+          needs.lint.result != 'success' ||
+          needs.test.result != 'success' ||
+          needs.integration-test.result != 'success'
+        run: |
+          echo "::error::Critical jobs (Lint, Unit Tests, Integration Tests) must pass"
+          exit 1

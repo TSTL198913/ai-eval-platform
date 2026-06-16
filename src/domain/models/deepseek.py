@@ -1,5 +1,5 @@
 import httpx
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import retry, stop_after_attempt
 
 from src.domain.models.base import BaseLLMClient, ModelConfig
 

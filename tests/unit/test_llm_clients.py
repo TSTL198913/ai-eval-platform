@@ -1,4 +1,3 @@
-import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -7,7 +6,6 @@ from src.domain.models.anthropic import AnthropicClient
 from src.domain.models.base import BaseLLMClient, ModelConfig
 from src.domain.models.deepseek import DeepSeekClient
 from src.domain.models.llm_factory import (
-    ModelProvider,
     ModelRegistry,
     create_llm_client,
     load_config,

@@ -1,22 +1,33 @@
 import os
 
+import redis  # noqa: F401
 from celery import Celery
 
-if os.getenv("TESTING") != "1":
-    import redis
+# celery -A src.workers.celery_app worker --loglevel=info
 
-    original_init = redis.Connection.__init__
+# =====================================================================
+# 1. 物理层底层协议与特性拦截补丁 (Ultimate Redis 5 Engine Patch)
+# =====================================================================
+original_init = redis.Connection.__init__
 
-    def safe_connection_init(self, *args, **kwargs):
-        kwargs["protocol"] = 2
 
-        if "redis_services_context" in kwargs:
-            kwargs["redis_services_context"] = None
+def safe_connection_init(self, *args, **kwargs):
+    # A. 强制锁死 RESP2 协议以兼容物理 Redis 5.0.14 数据库
+    kwargs["protocol"] = 2
 
-        original_init(self, *args, **kwargs)
+    # B. 强行关闭新版驱动在老版本协议下会报错的云维护通知特性
+    # 直接清空相关字典，防止其进入底层执行 _configure_maintenance_notifications
+    if "redis_services_context" in kwargs:
+        kwargs["redis_services_context"] = None
 
-    redis.Connection._configure_maintenance_notifications = lambda *args, **kwargs: None
-    redis.Connection.__init__ = safe_connection_init
+    original_init(self, *args, **kwargs)
+
+
+# C. 降维打击：直接空置新版驱动的维护通知配置函数，让它安全通过初始化
+redis.Connection._configure_maintenance_notifications = lambda *args, **kwargs: None
+
+# 注入我们的安全核心构造函数
+redis.Connection.__init__ = safe_connection_init
 
 
 # =====================================================================

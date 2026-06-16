@@ -25,7 +25,13 @@ class TestModelConfig:
         assert config.base_url is None
 
     def test_config_custom_values(self):
-        config = ModelConfig(api_key="test-key", model_name="gpt-4", temperature=0.5, max_tokens=2048, base_url="http://localhost")
+        config = ModelConfig(
+            api_key="test-key",
+            model_name="gpt-4",
+            temperature=0.5,
+            max_tokens=2048,
+            base_url="http://localhost",
+        )
         assert config.temperature == 0.5
         assert config.max_tokens == 2048
         assert config.base_url == "http://localhost"
@@ -35,9 +41,7 @@ class TestOpenAIClient:
     def test_chat_success(self):
         mock_client = MagicMock()
         mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "choices": [{"message": {"content": "test response"}}]
-        }
+        mock_response.json.return_value = {"choices": [{"message": {"content": "test response"}}]}
         mock_response.raise_for_status = MagicMock()
         mock_client.post.return_value = mock_response
 
@@ -51,9 +55,7 @@ class TestOpenAIClient:
     def test_chat_with_system_prompt(self):
         mock_client = MagicMock()
         mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "choices": [{"message": {"content": "system response"}}]
-        }
+        mock_response.json.return_value = {"choices": [{"message": {"content": "system response"}}]}
         mock_response.raise_for_status = MagicMock()
         mock_client.post.return_value = mock_response
 
@@ -131,9 +133,7 @@ class TestAnthropicClient:
     def test_chat_success(self):
         mock_client = MagicMock()
         mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "content": [{"text": "anthropic response"}]
-        }
+        mock_response.json.return_value = {"content": [{"text": "anthropic response"}]}
         mock_response.raise_for_status = MagicMock()
         mock_client.post.return_value = mock_response
 
@@ -146,9 +146,7 @@ class TestAnthropicClient:
     def test_chat_content_with_value(self):
         mock_client = MagicMock()
         mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "content": [{"value": "anthropic value response"}]
-        }
+        mock_response.json.return_value = {"content": [{"value": "anthropic value response"}]}
         mock_response.raise_for_status = MagicMock()
         mock_client.post.return_value = mock_response
 
@@ -161,9 +159,7 @@ class TestAnthropicClient:
     @pytest.mark.asyncio
     async def test_achat_success(self):
         mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "content": [{"text": "async anthropic response"}]
-        }
+        mock_response.json.return_value = {"content": [{"text": "async anthropic response"}]}
         mock_response.raise_for_status = MagicMock()
 
         mock_client = AsyncMock()
@@ -214,13 +210,13 @@ class TestOllamaClient:
     def test_chat_success(self):
         mock_client = MagicMock()
         mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "message": {"content": "ollama response"}
-        }
+        mock_response.json.return_value = {"message": {"content": "ollama response"}}
         mock_response.raise_for_status = MagicMock()
         mock_client.post.return_value = mock_response
 
-        config = ModelConfig(api_key="", model_name="llama3", base_url="http://localhost:11434/api/chat")
+        config = ModelConfig(
+            api_key="", model_name="llama3", base_url="http://localhost:11434/api/chat"
+        )
         client = OllamaClient(config, client=mock_client)
 
         result = client.chat("Hello")
@@ -229,15 +225,15 @@ class TestOllamaClient:
     @pytest.mark.asyncio
     async def test_achat_success(self):
         mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "message": {"content": "async ollama response"}
-        }
+        mock_response.json.return_value = {"message": {"content": "async ollama response"}}
         mock_response.raise_for_status = MagicMock()
 
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_response
 
-        config = ModelConfig(api_key="", model_name="llama3", base_url="http://localhost:11434/api/chat")
+        config = ModelConfig(
+            api_key="", model_name="llama3", base_url="http://localhost:11434/api/chat"
+        )
         client = OllamaClient(config, async_client=mock_client)
 
         result = await client.achat("Hello")

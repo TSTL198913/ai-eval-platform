@@ -171,7 +171,23 @@ class EvaluationBufferService:
             return len(self.buffer)
 
 
-buffer_service = EvaluationBufferService()
+# ============================================================================
+# 持久化策略说明（架构设计决策）
+# ============================================================================
+# 1. 同步接口 (/api/v1/evaluate): 使用 EvaluationRepository 直接持久化
+#    - 优点：立即持久化，数据不丢失
+#    - 适用场景：需要立即返回结果的场景
+#
+# 2. 异步接口 (/api/v1/evaluate/async): 使用 BufferService 缓冲批量持久化
+#    - 优点：批量写入，减少数据库连接次数，提升性能
+#    - 适用场景：可以容忍一定延迟的高并发场景
+#
+# 这种分离设计是**有意为之**，兼顾了数据一致性和性能需求。
+# ============================================================================
+buffer_service = EvaluationBufferService(
+    batch_size=100,  # 降低批次大小，从1000改为100
+    flush_interval_seconds=5.0,  # 降低flush间隔，从30秒改为5秒
+)
 
 
 class WindowsUltimateSoloTask(Task):

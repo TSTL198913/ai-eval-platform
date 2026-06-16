@@ -6,7 +6,11 @@ from src.domain.evaluators import EVALUATOR_REGISTRY
 from src.domain.models.llm_factory import create_llm_client
 from src.engine import EvaluationEngine
 from src.exceptions import BasePlatformError, DomainLogicError
+from src.infra.db.repository import EvaluationRepository
 from src.schemas.evaluation import EvaluationSchema
+
+# 统一使用 Repository 进行持久化
+_repository = EvaluationRepository()
 
 
 def service_exception_handler(func):
@@ -51,6 +55,14 @@ def run_evaluation_service(raw_data: dict[str, Any], client=None) -> dict[str, A
 
     engine = EvaluationEngine(create_llm_client(client=client))
     result = engine.run(case)
+
+    # 统一使用 Repository 持久化评估结果
+    try:
+        db_id = _repository.save(result)
+        logging.info(f"评估结果已持久化: id={db_id}, case_id={result.case_id}, status={result.status.value}")
+    except Exception as e:
+        logging.error(f"评估结果持久化失败: {e}", exc_info=True)
+        # 持久化失败不影响接口返回，但记录错误日志
 
     return {
         "status": "success",

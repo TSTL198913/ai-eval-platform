@@ -219,13 +219,27 @@ print_status "数据库记录正常"
 # ---------------------------------------------------------------------
 print_header "4. Celery Worker 验证"
 
-echo -n "检查 Worker 状态..."
-WORKER_LOG=$(docker compose -f docker-compose.prod.yml logs worker 2>/dev/null | tail -5)
-if echo "$WORKER_LOG" | grep -q "ready"; then
-    echo "$WORKER_LOG"
-    print_status "Celery Worker 运行正常"
+echo "检查 Worker 容器状态..."
+WORKER_CONTAINER=$(docker ps --filter "name=ai-eval-worker" --format "{{.Status}}")
+if [ -n "$WORKER_CONTAINER" ]; then
+    echo "Worker 容器状态: $WORKER_CONTAINER"
+    print_status "Worker 容器运行中"
 else
-    print_warning "Celery Worker 状态需要确认"
+    print_error "Worker 容器未运行"
+    exit 1
+fi
+
+echo ""
+echo "检查 Worker 最近日志..."
+WORKER_LOG=$(docker compose -f docker-compose.prod.yml logs worker 2>/dev/null | tail -10)
+echo "$WORKER_LOG"
+
+if echo "$WORKER_LOG" | grep -qE "(ready|connected|celery.*ready)"; then
+    print_status "Celery Worker 运行正常"
+elif echo "$WORKER_LOG" | grep -qE "(ERROR|Exception|Traceback)"; then
+    print_warning "Celery Worker 日志中发现错误，请检查详细日志"
+else
+    print_warning "Celery Worker 状态需要确认（未找到就绪标识）"
 fi
 
 # ---------------------------------------------------------------------

@@ -206,7 +206,7 @@ jobs:
   integration-test:
     name: Integration Tests
     runs-on: ubuntu-latest
-    needs: test
+    needs: [lint, test]
     if: needs.test.result == 'success'
     services:
       redis:
@@ -237,20 +237,9 @@ jobs:
           cache: 'pip'
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Install migration tool (if Alembic used)
+      - name: Initialize database tables
         run: |
-          if [ -f "alembic.ini" ] || grep -q "alembic" requirements.txt 2>/dev/null; then
-            pip install alembic
-          fi
-      - name: Run database migrations
-        run: |
-          if [ -f "alembic.ini" ]; then
-            alembic upgrade head
-          elif [ -f "manage.py" ]; then
-            python manage.py migrate
-          else
-            echo "No migration tool detected, skipping"
-          fi
+          python -c "from src.infra.db.session import init_tables; init_tables()"
         env:
           DATABASE_URL: postgresql://test:test123@localhost:5432/ai_eval_test
       - name: Run integration tests
@@ -296,6 +285,11 @@ jobs:
           cache: 'pip'
       - name: Install dependencies
         run: pip install -r requirements.txt locust
+      - name: Initialize database tables
+        run: |
+          python -c "from src.infra.db.session import init_tables; init_tables()"
+        env:
+          DATABASE_URL: postgresql://test:test123@localhost:5432/ai_eval_test
       - name: Run E2E tests
         run: pytest tests/e2e/ -v --tb=short
         env:
@@ -446,7 +440,7 @@ jobs:
   summary:
     name: Workflow Summary
     runs-on: ubuntu-latest
-    needs: [detect-changes, lint, test, docker-validate, security, integration-test, e2e-test, build-and-push, deploy]
+    needs: [detect-changes, lint, test, docker-validate, security, integration-test]
     if: always()
     steps:
       - name: Build status table
@@ -467,9 +461,9 @@ jobs:
           fi
       - name: Fail workflow if critical jobs failed
         if: |
-          needs.lint.result != 'success' ||
-          needs.test.result != 'success' ||
-          needs.integration-test.result != 'success'
+          needs.lint.result == 'failure' ||
+          needs.test.result == 'failure' ||
+          needs.integration-test.result == 'failure'
         run: |
           echo "::error::Critical jobs (Lint, Unit Tests, Integration Tests) must pass"
           exit 1

@@ -11,7 +11,9 @@ class QwenClient(BaseLLMClient):
 
     def __init__(self, config: ModelConfig, client=None, async_client=None):
         super().__init__(config)
-        self.api_url = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation"
+        self.api_url = (
+            "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation"
+        )
         self.headers = {
             "Authorization": f"Bearer {config.api_key.get_secret_value()}",
             "Content-Type": "application/json",

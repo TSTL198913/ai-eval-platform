@@ -254,7 +254,7 @@ def eval_case_task(self, case_data: dict):
     except Exception as e:
         # 记录错误指标
         latency = time.time() - start_time
-        case_type = case.type if 'case' in locals() else 'unknown'
-        EVALUATION_LATENCY.labels(domain=case_type, status='error').observe(latency)
+        case_type = case.type if "case" in locals() else "unknown"
+        EVALUATION_LATENCY.labels(domain=case_type, status="error").observe(latency)
         EVALUATION_ERRORS.labels(domain=case_type, error_type=type(e).__name__).inc()
         raise

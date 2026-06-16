@@ -394,19 +394,21 @@ async def metrics_json():
         metrics = []
         for collector in registry._collector_to_names.keys():
             for metric in collector.collect():
-                metrics.append({
-                    "name": metric.name,
-                    "help": metric.documentation,
-                    "type": metric.type,
-                    "samples": [
-                        {
-                            "labels": dict(sample.labels),
-                            "value": float(sample.value),
-                            "timestamp": sample.timestamp,
-                        }
-                        for sample in metric.samples
-                    ],
-                })
+                metrics.append(
+                    {
+                        "name": metric.name,
+                        "help": metric.documentation,
+                        "type": metric.type,
+                        "samples": [
+                            {
+                                "labels": dict(sample.labels),
+                                "value": float(sample.value),
+                                "timestamp": sample.timestamp,
+                            }
+                            for sample in metric.samples
+                        ],
+                    }
+                )
         return metrics
 
     return _collect_metrics(metrics_registry)

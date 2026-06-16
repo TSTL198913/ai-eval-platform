@@ -155,8 +155,10 @@ def create_llm_client(
     config = load_config(provider)
     provider = provider or os.getenv("LLM_PROVIDER", ModelProvider.DEEPSEEK).lower()
 
-    # 如果没有 API Key 且不是 Ollama，使用 Stub
-    if not config.api_key.get_secret_value() and provider != ModelProvider.OLLAMA:
+    # 如果没有 API Key 或 API Key 是占位符且不是 Ollama，使用 Stub
+    api_key_value = config.api_key.get_secret_value() if config.api_key else ""
+    is_placeholder = api_key_value.startswith("your_") and api_key_value.endswith("_here")
+    if (not api_key_value or is_placeholder) and provider != ModelProvider.OLLAMA:
         from src.domain.models.stub import StubLLMClient
 
         return StubLLMClient(ModelConfig(api_key="stub", model_name="stub-model"))

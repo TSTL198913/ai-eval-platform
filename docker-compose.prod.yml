@@ -70,6 +70,9 @@ services:
   # API 服务 (FastAPI) - 生产环境使用预构建镜像
   # ---------------------------------------------------------------------
   api:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: ${DOCKER_REGISTRY:-ghcr.io/tstl198913}/ai-eval-platform:${IMAGE_TAG:-latest}
     container_name: ai-eval-api
     env_file:
@@ -103,6 +106,9 @@ services:
   # Celery Worker (任务处理) - 生产环境使用预构建镜像
   # ---------------------------------------------------------------------
   worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: ${DOCKER_REGISTRY:-ghcr.io/tstl198913}/ai-eval-platform:${IMAGE_TAG:-latest}
     container_name: ai-eval-worker
     command: celery -A src.workers.celery_app worker --loglevel=info --concurrency=4

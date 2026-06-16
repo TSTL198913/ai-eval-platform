@@ -217,6 +217,7 @@ jobs:
   integration-test:
     name: Integration Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [lint, test, detect-changes]
     if: |
       (needs.test.result == 'success' || needs.test.result == 'skipped') &&

@@ -28,6 +28,7 @@ class GeneralEvaluator(BaseEvaluator):
 
         if expected_output:
             from src.domain.evaluators.scoring import score_text_similarity
+
             score = score_text_similarity(llm_output, expected_output)
         else:
             score = 1.0

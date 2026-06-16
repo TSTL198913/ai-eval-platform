@@ -1,7 +1,7 @@
-import pytest
 from unittest.mock import MagicMock
-from src.schemas.evaluation import EvaluationSchema
+
 from src.domain.evaluators.fact_check import FactCheckEvaluator
+from src.schemas.evaluation import EvaluationSchema
 
 
 class TestFactCheckEvaluator:
@@ -12,47 +12,36 @@ class TestFactCheckEvaluator:
 
     def test_evaluate_true_statement(self):
         """测试真实陈述"""
-        self.mock_client.chat.return_value = "true"
+        self.mock_client.chat.return_value = "结果: true\n理由: 地球确实是圆的"
 
         evaluator = FactCheckEvaluator(self.mock_client)
         request = EvaluationSchema(
-            id="test_fact_001",
-            type="fact_check",
-            payload={
-                "user_input": "地球是圆的",
-                "expected_output": "true"
-            }
+            id="test_fact_001", type="fact_check", payload={"user_input": "地球是圆的"}
         )
 
         result = evaluator.evaluate(request)
 
         assert result.is_valid is True
-        assert result.score is not None
+        assert result.score == 1.0
 
     def test_evaluate_false_statement(self):
         """测试虚假陈述"""
-        self.mock_client.chat.return_value = "false"
+        self.mock_client.chat.return_value = "结果: false\n理由: 地球不是平的"
 
         evaluator = FactCheckEvaluator(self.mock_client)
         request = EvaluationSchema(
-            id="test_001",
-            type="fact_check",
-            payload={"user_input": "地球是平的", "expected_output": "false"}
+            id="test_001", type="fact_check", payload={"user_input": "地球是平的"}
         )
 
         result = evaluator.evaluate(request)
 
         assert result.is_valid is True
-        assert result.score is not None
+        assert result.score == 0.0
 
     def test_evaluate_missing_user_input(self):
         """测试缺少输入"""
         evaluator = FactCheckEvaluator(self.mock_client)
-        request = EvaluationSchema(
-            id="test_001",
-            type="fact_check",
-            payload={}
-        )
+        request = EvaluationSchema(id="test_001", type="fact_check", payload={})
 
         result = evaluator.evaluate(request)
 
@@ -62,41 +51,10 @@ class TestFactCheckEvaluator:
         """测试无客户端"""
         evaluator = FactCheckEvaluator(None)
         request = EvaluationSchema(
-            id="test_001",
-            type="fact_check",
-            payload={"user_input": "事实陈述", "expected_output": "true"}
+            id="test_001", type="fact_check", payload={"user_input": "事实陈述"}
         )
 
         result = evaluator.evaluate(request)
 
         assert result.is_valid is True
-
-    def test_evaluate_score_calculation(self):
-        """测试分数计算"""
-        self.mock_client.chat.return_value = "true"
-
-        evaluator = FactCheckEvaluator(self.mock_client)
-        request = EvaluationSchema(
-            id="test_001",
-            type="fact_check",
-            payload={"user_input": "测试事实", "expected_output": "true"}
-        )
-
-        result = evaluator.evaluate(request)
-
-        assert 0 <= result.score <= 1
-
-    def test_evaluate_partial_match(self):
-        """测试部分匹配"""
-        self.mock_client.chat.return_value = "mostly true"
-
-        evaluator = FactCheckEvaluator(self.mock_client)
-        request = EvaluationSchema(
-            id="test_001",
-            type="fact_check",
-            payload={"user_input": "大部分正确的陈述", "expected_output": "true"}
-        )
-
-        result = evaluator.evaluate(request)
-
-        assert result.is_valid is True
+        assert result.score == 1.0

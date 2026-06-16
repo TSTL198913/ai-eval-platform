@@ -1,7 +1,7 @@
-import pytest
 from unittest.mock import MagicMock
-from src.schemas.evaluation import EvaluationSchema
+
 from src.domain.evaluators.qa import QAEvaluator
+from src.schemas.evaluation import EvaluationSchema
 
 
 class TestQAEvaluator:
@@ -10,50 +10,42 @@ class TestQAEvaluator:
     def setup_method(self):
         self.mock_client = MagicMock()
 
-    def test_evaluate_correct_answer(self):
-        """测试正确答案"""
-        self.mock_client.chat.return_value = "巴黎是法国的首都。"
+    def test_evaluate_exact_match(self):
+        """测试完全匹配"""
+        self.mock_client.chat.return_value = "巴黎"
 
         evaluator = QAEvaluator(self.mock_client)
         request = EvaluationSchema(
             id="test_qa_001",
             type="qa",
-            payload={
-                "user_input": "法国的首都是哪里？",
-                "expected_output": "巴黎"
-            }
+            payload={"user_input": "法国的首都是哪里？", "expected_output": "巴黎"},
         )
 
         result = evaluator.evaluate(request)
 
         assert result.is_valid is True
-        assert result.score is not None
-        assert 0 <= result.score <= 1
+        assert result.score >= 0.9
 
-    def test_evaluate_incorrect_answer(self):
-        """测试错误答案"""
-        self.mock_client.chat.return_value = "伦敦是法国的首都。"
+    def test_evaluate_no_match(self):
+        """测试完全不匹配"""
+        self.mock_client.chat.return_value = "伦敦"
 
         evaluator = QAEvaluator(self.mock_client)
         request = EvaluationSchema(
             id="test_001",
             type="qa",
-            payload={"user_input": "法国的首都是哪里？", "expected_output": "巴黎"}
+            payload={"user_input": "法国的首都是哪里？", "expected_output": "巴黎"},
         )
 
         result = evaluator.evaluate(request)
 
         assert result.is_valid is True
-        assert result.score is not None
+        assert result.score < 0.5
 
     def test_evaluate_missing_user_input(self):
         """测试缺少问题"""
         evaluator = QAEvaluator(self.mock_client)
-        request = EvaluationSchema(
-            id="test_001",
-            type="qa",
-            payload={"expected_output": "答案"}
-        )
+        request = EvaluationSchema(id="test_001", type="qa", payload={"expected_output": "答案"})
 
         result = evaluator.evaluate(request)
 
@@ -63,24 +55,7 @@ class TestQAEvaluator:
         """测试无客户端"""
         evaluator = QAEvaluator(None)
         request = EvaluationSchema(
-            id="test_001",
-            type="qa",
-            payload={"user_input": "问题", "expected_output": "答案"}
-        )
-
-        result = evaluator.evaluate(request)
-
-        assert result.is_valid is True
-
-    def test_evaluate_partial_answer(self):
-        """测试部分正确答案"""
-        self.mock_client.chat.return_value = "巴黎是法国的首都。"
-
-        evaluator = QAEvaluator(self.mock_client)
-        request = EvaluationSchema(
-            id="test_001",
-            type="qa",
-            payload={"user_input": "法国的首都", "expected_output": "巴黎"}
+            id="test_001", type="qa", payload={"user_input": "问题", "expected_output": "答案"}
         )
 
         result = evaluator.evaluate(request)
@@ -89,7 +64,7 @@ class TestQAEvaluator:
 
     def test_evaluate_with_context(self):
         """测试带上下文的问答"""
-        self.mock_client.chat.return_value = "根据文章，这是正确的答案。"
+        self.mock_client.chat.return_value = "正确答案"
 
         evaluator = QAEvaluator(self.mock_client)
         request = EvaluationSchema(
@@ -97,25 +72,12 @@ class TestQAEvaluator:
             type="qa",
             payload={
                 "user_input": "基于上下文的问答",
-                "expected_output": "正确答案"
-            }
+                "expected_output": "正确答案",
+                "context": "这是上下文信息",
+            },
         )
 
         result = evaluator.evaluate(request)
 
         assert result.is_valid is True
-
-    def test_evaluate_score_range(self):
-        """测试分数范围"""
-        self.mock_client.chat.return_value = "答案"
-
-        evaluator = QAEvaluator(self.mock_client)
-        request = EvaluationSchema(
-            id="test_001",
-            type="qa",
-            payload={"user_input": "问题", "expected_output": "答案"}
-        )
-
-        result = evaluator.evaluate(request)
-
-        assert 0 <= result.score <= 1
+        assert result.score >= 0.8

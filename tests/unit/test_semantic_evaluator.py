@@ -1,7 +1,7 @@
-import pytest
-from unittest.mock import MagicMock, patch
-from src.schemas.evaluation import EvaluationSchema
+from unittest.mock import MagicMock
+
 from src.domain.evaluators.semantic import SemanticEvaluator
+from src.schemas.evaluation import EvaluationSchema
 
 
 class TestSemanticEvaluator:
@@ -18,7 +18,7 @@ class TestSemanticEvaluator:
         request = EvaluationSchema(
             id="test_semantic_001",
             type="semantic",
-            payload={"user_input": "你好", "expected_output": "你好"}
+            payload={"user_input": "你好", "expected_output": "你好"},
         )
 
         result = evaluator.evaluate(request)
@@ -31,9 +31,7 @@ class TestSemanticEvaluator:
         """测试缺少用户输入"""
         evaluator = SemanticEvaluator(self.mock_client)
         request = EvaluationSchema(
-            id="test_001",
-            type="semantic",
-            payload={"expected_output": "expected"}
+            id="test_001", type="semantic", payload={"expected_output": "expected"}
         )
 
         result = evaluator.evaluate(request)
@@ -44,11 +42,7 @@ class TestSemanticEvaluator:
     def test_evaluate_missing_expected_output(self):
         """测试缺少期望输出"""
         evaluator = SemanticEvaluator(self.mock_client)
-        request = EvaluationSchema(
-            id="test_001",
-            type="semantic",
-            payload={"user_input": "hello"}
-        )
+        request = EvaluationSchema(id="test_001", type="semantic", payload={"user_input": "hello"})
 
         result = evaluator.evaluate(request)
 
@@ -61,7 +55,7 @@ class TestSemanticEvaluator:
         request = EvaluationSchema(
             id="test_001",
             type="semantic",
-            payload={"user_input": "你好", "expected_output": "你好"}
+            payload={"user_input": "你好", "expected_output": "你好"},
         )
 
         result = evaluator.evaluate(request)
@@ -69,49 +63,34 @@ class TestSemanticEvaluator:
         assert result.is_valid is True
         assert result.text == "你好"
 
-    def test_evaluate_high_similarity(self):
-        """测试高相似度"""
+    def test_evaluate_exact_match(self):
+        """测试完全匹配"""
         self.mock_client.chat.return_value = "今天天气很好"
 
         evaluator = SemanticEvaluator(self.mock_client)
         request = EvaluationSchema(
             id="test_001",
             type="semantic",
-            payload={"user_input": "天气如何", "expected_output": "今天天气很好"}
+            payload={"user_input": "天气如何", "expected_output": "今天天气很好"},
         )
 
         result = evaluator.evaluate(request)
 
         assert result.is_valid is True
-        assert result.score >= 0.5
+        assert result.score >= 0.8
 
-    def test_evaluate_low_similarity(self):
-        """测试低相似度"""
+    def test_evaluate_no_match(self):
+        """测试完全不匹配"""
         self.mock_client.chat.return_value = "完全不相关的内容"
 
         evaluator = SemanticEvaluator(self.mock_client)
         request = EvaluationSchema(
             id="test_001",
             type="semantic",
-            payload={"user_input": "你好", "expected_output": "天气很好"}
+            payload={"user_input": "你好", "expected_output": "天气很好"},
         )
 
         result = evaluator.evaluate(request)
 
         assert result.is_valid is True
-        assert result.score < 0.8
-
-    def test_evaluate_score_range(self):
-        """测试分数范围"""
-        self.mock_client.chat.return_value = "回答"
-
-        evaluator = SemanticEvaluator(self.mock_client)
-
-        for expected in ["完全匹配", "完全不匹配"]:
-            request = EvaluationSchema(
-                id="test_001",
-                type="semantic",
-                payload={"user_input": "测试", "expected_output": expected}
-            )
-            result = evaluator.evaluate(request)
-            assert 0 <= result.score <= 1
+        assert result.score < 0.5

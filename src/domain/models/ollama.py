@@ -42,4 +42,4 @@ class OllamaClient(BaseLLMClient):
         }
         response = await self.async_client.post(self.api_url, json=payload)
         response.raise_for_status()
-        return
+        return response.json()["message"]["content"]

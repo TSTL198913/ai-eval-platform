@@ -126,6 +126,8 @@ EVAL_RESPONSE=$(curl -s -X POST http://localhost:8000/api/v1/evaluate \
     }')
 
 if echo "$EVAL_RESPONSE" | grep -q "success"; then
+    SCORE=$(echo "$EVAL_RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('score','N/A'))")
+    echo "分数: $SCORE"
     print_status "通用评估接口测试通过"
 else
     print_error "通用评估接口测试失败: $EVAL_RESPONSE"
@@ -157,16 +159,24 @@ fi
 # ---------------------------------------------------------------------
 print_header "3. 数据库验证"
 
-echo -n "检查数据库表结构..."
-TABLES=$(docker exec ai-eval-postgres psql -U eval -d ai_eval -c "\dt" 2>/dev/null | grep -E "eval_results")
-if [ -n "$TABLES" ]; then
-    echo "$TABLES"
+echo "检查数据库表结构..."
+TABLE_LIST=$(docker exec ai-eval-postgres psql -U eval -d ai_eval -c "\dt" 2>/dev/null)
+if echo "$TABLE_LIST" | grep -q "eval_results"; then
+    echo "$TABLE_LIST" | grep -v "^-" | grep -v "List of relations"
     print_status "数据库表结构正常"
 else
-    print_error "数据库表结构异常"
+    print_error "数据库表结构异常 - 未找到 eval_results 表"
+    echo "当前表列表:"
+    echo "$TABLE_LIST"
     exit 1
 fi
 
+echo ""
+echo "检查表结构详情..."
+TABLE_STRUCT=$(docker exec ai-eval-postgres psql -U eval -d ai_eval -c "\d eval_results" 2>/dev/null)
+echo "$TABLE_STRUCT"
+
+echo ""
 echo -n "查询评估记录数..."
 RECORD_COUNT=$(docker exec ai-eval-postgres psql -U eval -d ai_eval -c "SELECT COUNT(*) FROM eval_results;" -t 2>/dev/null | tr -d ' ')
 echo "$RECORD_COUNT 条记录"

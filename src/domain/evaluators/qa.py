@@ -1,4 +1,3 @@
-
 from src.domain.evaluators.base import BaseEvaluator, EvaluatorFactory
 from src.domain.evaluators.scoring import score_text_similarity
 from src.schemas.evaluation import DomainResponse, EvaluationSchema

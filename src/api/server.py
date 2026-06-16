@@ -285,17 +285,17 @@ async def dashboard():
         <div class="cards">
             <div class="card">
                 <div class="card-icon">📊</div>
-                <div class="card-value">{data.get('total_records', 0)}</div>
+                <div class="card-value">{data.get("total_records", 0)}</div>
                 <div class="card-label">总评估记录</div>
             </div>
             <div class="card">
                 <div class="card-icon">🧠</div>
-                <div class="card-value">{data.get('evaluator_types', 0)}</div>
+                <div class="card-value">{data.get("evaluator_types", 0)}</div>
                 <div class="card-label">评估器类型</div>
             </div>
             <div class="card">
                 <div class="card-icon">✅</div>
-                <div class="card-value">{data.get('status_distribution', {}).get('passed', 0)}</div>
+                <div class="card-value">{data.get("status_distribution", {}).get("passed", 0)}</div>
                 <div class="card-label">通过记录</div>
             </div>
             <div class="card">
@@ -308,14 +308,21 @@ async def dashboard():
         <div class="section">
             <h2>状态分布</h2>
             <div class="chart">
-                {''.join(f'<div class="chart-bar"><div class="chart-bar-value">{count}</div><div class="chart-bar-label">{status}</div></div>' for status, count in data.get('status_distribution', {}).items())}
+                {
+        "".join(
+            f'<div class="chart-bar"><div class="chart-bar-value">{count}</div><div class="chart-bar-label">{status}</div></div>'
+            for status, count in data.get("status_distribution", {}).items()
+        )
+    }
             </div>
         </div>
 
         <div class="section">
             <h2>已注册评估器</h2>
             <div class="evaluator-tags">
-                {''.join(f'<span class="evaluator-tag">{e}</span>' for e in EVALUATOR_REGISTRY.keys())}
+                {
+        "".join(f'<span class="evaluator-tag">{e}</span>' for e in EVALUATOR_REGISTRY.keys())
+    }
             </div>
         </div>
 
@@ -334,7 +341,9 @@ async def dashboard():
                     </tr>
                 </thead>
                 <tbody>
-                    {''.join(f'''
+                    {
+        "".join(
+            f'''
                     <tr>
                         <td>{r.get('id', '-')}</td>
                         <td>{r.get('case_id', '-')}</td>
@@ -344,7 +353,10 @@ async def dashboard():
                         <td>{r.get('latency_ms', '-')}</td>
                         <td>{r.get('created_at', '-')}</td>
                     </tr>
-                    ''' for r in data.get('recent_records', []))}
+                    '''
+            for r in data.get("recent_records", [])
+        )
+    }
                 </tbody>
             </table>
         </div>

@@ -1,4 +1,3 @@
-
 from src.domain.evaluators.base import BaseEvaluator, EvaluatorFactory
 from src.schemas.evaluation import DomainResponse, EvaluationSchema
 

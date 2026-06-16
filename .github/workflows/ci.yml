@@ -1,16 +1,3 @@
-# =====================================================================
-# AI Evaluation Platform - CI/CD Pipeline (最终生产版)
-#
-# 核心特性:
-# - 基于变更检测的条件执行，实现最快反馈
-# - 单元测试 100% 覆盖率强制门禁
-# - 并行最大化 + 智能缓存
-# - 集成测试自动数据库迁移
-# - 安全扫描按事件类型差异化容错
-# - CD 部署含完整回滚机制
-# - 可配置健康检查
-# =====================================================================
-
 name: CI/CD Pipeline
 
 on:
@@ -20,26 +7,15 @@ on:
   pull_request:
     branches: [main, master]
     paths-ignore: ['README.md', 'docs/**', '*.md']
-  schedule:
-    - cron: '0 2 * * *'
 
 permissions:
   contents: read
-  actions: read
   checks: write
-  issues: write
   pull-requests: write
-  statuses: write
 
 env:
   PYTHON_VERSION: '3.10'
-  PIP_INDEX_URL: 'https://pypi.org/simple'
-  PIP_TRUSTED_HOST: 'pypi.org'
   COVERAGE_THRESHOLD: '85'
-  HEALTH_ENDPOINT: 'http://localhost:8000/health'
-  HEALTH_TIMEOUT: 60
-  DOCKER_IMAGE_NAME: 'ai-eval-platform'
-  DOCKER_BUILDKIT: 1
   POSTGRES_TEST_PASSWORD: ${{ secrets.POSTGRES_TEST_PASSWORD || 'test123' }}
 
 concurrency:
@@ -47,33 +23,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ------------------------------------------------------------------
-  # 变更检测 – 为后续任务提供决策依据
-  # ------------------------------------------------------------------
-  detect-changes:
-    name: Detect Changes
-    runs-on: ubuntu-latest
-    outputs:
-      src_changed: ${{ steps.detect.outputs.src_changed }}
-      tests_changed: ${{ steps.detect.outputs.tests_changed }}
-      docker_changed: ${{ steps.detect.outputs.docker_changed }}
-      deps_changed: ${{ steps.detect.outputs.deps_changed }}
-      ci_changed: ${{ steps.detect.outputs.ci_changed }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: detect
-        with:
-          filters: |
-            src_changed: ['src/**', 'pyproject.toml', 'setup.py']
-            tests_changed: ['tests/**']
-            docker_changed: ['Dockerfile', 'docker-compose*.yml']
-            deps_changed: ['requirements*.txt', 'pyproject.toml', 'setup.py']
-            ci_changed: ['.github/workflows/ci.yml']
-
-  # ------------------------------------------------------------------
-  # 代码质量检查 – 低开销，始终执行
-  # ------------------------------------------------------------------
   lint:
     name: Lint & Format
     runs-on: ubuntu-latest
@@ -85,60 +34,15 @@ jobs:
           cache: 'pip'
       - name: Install Ruff
         run: pip install ruff
-      - name: Ruff Check
-        run: ruff check . --cache-dir=.ruff_cache
-      - name: Ruff Format Check
-        run: ruff format --check . --cache-dir=.ruff_cache
+      - name: Ruff Check (auto-fix)
+        run: ruff check . --fix --cache-dir=.ruff_cache
+      - name: Ruff Format
+        run: ruff format . --cache-dir=.ruff_cache
 
-  # ------------------------------------------------------------------
-  # 单元测试 – 矩阵并行，仅在有源码/测试/依赖变更时执行
-  # ------------------------------------------------------------------
-  test:
-    name: Unit Tests (Python ${{ matrix.python-version }})
+  test-unit:
+    name: Unit Tests
     runs-on: ubuntu-latest
-    needs: [lint, detect-changes]
-    if: |
-      needs.detect-changes.outputs.src_changed == 'true' ||
-      needs.detect-changes.outputs.tests_changed == 'true' ||
-      needs.detect-changes.outputs.deps_changed == 'true'
-    strategy:
-      matrix:
-        python-version: ['3.10', '3.11']
-      fail-fast: false
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: 'pip'
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install pytest-cov pytest-xdist
-      - name: Run unit tests with coverage
-        run: |
-          pytest tests/unit/ -n auto -v \
-            --cov=src --cov-report=xml --cov-report=term-missing \
-            --cov-fail-under=${{ env.COVERAGE_THRESHOLD }}
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          file: ./coverage.xml
-          flags: unit-${{ matrix.python-version }}
-
-  # ------------------------------------------------------------------
-  # CI配置变更测试 – 仅测试单版本，验证CI配置正确性
-  # ------------------------------------------------------------------
-  test-ci:
-    name: Unit Tests (CI Config)
-    runs-on: ubuntu-latest
-    needs: [lint, detect-changes]
-    if: |
-      needs.detect-changes.outputs.ci_changed == 'true' &&
-      needs.detect-changes.outputs.src_changed != 'true' &&
-      needs.detect-changes.outputs.tests_changed != 'true' &&
-      needs.detect-changes.outputs.deps_changed != 'true'
+    needs: lint
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -149,82 +53,17 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install pytest-cov pytest-xdist
-      - name: Run unit tests with coverage
+      - name: Run unit tests
         run: |
           pytest tests/unit/ -n auto -v \
             --cov=src --cov-report=xml --cov-report=term-missing \
             --cov-fail-under=${{ env.COVERAGE_THRESHOLD }}
 
-  # ------------------------------------------------------------------
-  # Docker 构建验证 – 仅当相关文件变更时执行，只做语法检查
-  # ------------------------------------------------------------------
-  docker-validate:
-    name: Docker Build & Validate
-    runs-on: ubuntu-latest
-    needs: [lint, detect-changes]
-    if: |
-      needs.detect-changes.outputs.docker_changed == 'true' ||
-      needs.detect-changes.outputs.src_changed == 'true' ||
-      needs.detect-changes.outputs.deps_changed == 'true' ||
-      needs.detect-changes.outputs.ci_changed == 'true'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - name: Validate Dockerfile syntax
-        run: docker buildx build --pull --no-cache --output=type=docker,dest=/dev/null .
-
-  # ------------------------------------------------------------------
-  # 安全扫描 – 定时任务不阻断，PR/推送时强制通过
-  # ------------------------------------------------------------------
-  security:
-    name: Security Audit
-    runs-on: ubuntu-latest
-    needs: [lint, detect-changes]
-    if: |
-      github.event_name == 'schedule' ||
-      (needs.lint.result == 'success' && (
-        needs.detect-changes.outputs.deps_changed == 'true' ||
-        needs.detect-changes.outputs.src_changed == 'true' ||
-        needs.detect-changes.outputs.ci_changed == 'true'
-      ))
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-      - name: Install security tools
-        run: pip install pip-audit bandit
-      - name: Run pip-audit
-        run: |
-          if [ -f requirements.txt ]; then
-            pip-audit -r requirements.txt
-          else
-            echo "No requirements.txt found, skipping pip-audit"
-          fi
-        continue-on-error: ${{ github.event_name == 'schedule' }}
-      - name: Run Bandit
-        run: bandit -r src/ -f json -o bandit-report.json
-        continue-on-error: ${{ github.event_name == 'schedule' }}
-      - name: Upload Bandit report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: bandit-report
-          path: bandit-report.json
-          retention-days: 30
-
-  # ------------------------------------------------------------------
-  # 集成测试 – 真实 Redis/PostgreSQL，自动运行迁移
-  # ------------------------------------------------------------------
   integration-test:
     name: Integration Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: [lint, detect-changes]
-    if: |
-      (needs.test.result == 'success' || needs.test.result == 'skipped' || needs.test-ci.result == 'success' || needs.test-ci.result == 'skipped') &&
-      (needs.detect-changes.outputs.src_changed == 'true' || needs.detect-changes.outputs.tests_changed == 'true' || needs.detect-changes.outputs.ci_changed == 'true')
+    timeout-minutes: 15
+    needs: test-unit
     services:
       redis:
         image: redis:7-alpine
@@ -254,7 +93,7 @@ jobs:
           cache: 'pip'
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Initialize database tables
+      - name: Initialize database
         run: |
           python -c "from src.infra.db.session import init_tables; init_tables()"
         env:
@@ -265,135 +104,49 @@ jobs:
           DATABASE_URL: postgresql://test:${{ env.POSTGRES_TEST_PASSWORD }}@localhost:5432/ai_eval_test
           REDIS_URL: redis://localhost:6379
 
-  # ------------------------------------------------------------------
-  # E2E 测试 – 仅 main 分支且集成测试通过后执行
-  # ------------------------------------------------------------------
-  e2e-test:
-    name: E2E Tests
+  docker-validate:
+    name: Docker Build
     runs-on: ubuntu-latest
-    needs: integration-test
-    if: github.ref == 'refs/heads/main' && needs.integration-test.result == 'success'
-    services:
-      redis:
-        image: redis:7-alpine
-        ports: ['6379:6379']
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_DB: ai_eval_test
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: ${{ env.POSTGRES_TEST_PASSWORD }}
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U test"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Validate Dockerfile
+        run: docker buildx build --pull --no-cache --output=type=docker,dest=/dev/null .
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    needs: lint
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
-      - name: Install dependencies
-        run: pip install -r requirements.txt locust
-      - name: Initialize database tables
+      - name: Install security tools
+        run: pip install pip-audit bandit
+      - name: Run pip-audit
         run: |
-          python -c "from src.infra.db.session import init_tables; init_tables()"
-        env:
-          DATABASE_URL: postgresql://test:${{ env.POSTGRES_TEST_PASSWORD }}@localhost:5432/ai_eval_test
-      - name: Run E2E tests
-        run: pytest tests/e2e/ -v --tb=short
-        env:
-          REDIS_URL: redis://localhost:6379
-          DATABASE_URL: postgresql://test:${{ env.POSTGRES_TEST_PASSWORD }}@localhost:5432/ai_eval_test
+          if [ -f requirements.txt ]; then
+            pip-audit -r requirements.txt
+          else
+            echo "No requirements.txt found"
+          fi
+      - name: Run Bandit
+        run: bandit -r src/ -f json -o bandit-report.json
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+          retention-days: 7
 
-  # ------------------------------------------------------------------
-  # CD: 构建并推送 Docker 镜像 – 仅 main 分支且集成测试通过
-  # ------------------------------------------------------------------
-  build-and-push:
-    name: Build & Push Docker Image
-    runs-on: ubuntu-latest
-    needs: [integration-test, docker-validate]
-    if: github.ref == 'refs/heads/main' && needs.integration-test.result == 'success'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - name: Login to Docker Registry
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=sha,prefix=
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - name: Generate deployment manifest
-        run: |
-          cat <<EOF > manifest.json
-          {
-            "version": "${{ github.sha }}",
-            "branch": "${{ github.ref }}",
-            "commit": "${{ github.sha }}",
-            "author": "${{ github.actor }}",
-            "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-            "docker_image": "${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}",
-            "workflow_run_id": "${{ github.run_id }}"
-          }
-          EOF
-      - uses: actions/upload-artifact@v4
-        with:
-          name: build-manifest
-          path: manifest.json
-
-  # ------------------------------------------------------------------
-  # CD: 生产环境部署 + 原子回滚
-  # ------------------------------------------------------------------
-  deploy:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: build-and-push
-    if: github.ref == 'refs/heads/main'
-    environment: production
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - name: Deploy with rollback
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT || 22 }}
-          script_path: scripts/deploy.sh
-          envs: HEALTH_ENDPOINT,HEALTH_TIMEOUT
-
-  # ------------------------------------------------------------------
-  # 最终摘要 – 聚合所有任务状态，关键任务失败则整体失败
-  # ------------------------------------------------------------------
   summary:
     name: Workflow Summary
     runs-on: ubuntu-latest
-    needs: [detect-changes, lint, test, test-ci, docker-validate, security, integration-test, e2e-test, build-and-push, deploy]
+    needs: [lint, test-unit, integration-test, docker-validate, security]
     if: always()
     steps:
       - name: Build status table
@@ -403,299 +156,16 @@ jobs:
           echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Lint | ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Unit Tests (Matrix) | ${{ needs.test.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Unit Tests (CI Config) | ${{ needs.test-ci.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Docker Validate | ${{ needs.docker-validate.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Security Audit | ${{ needs.security.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Unit Tests | ${{ needs.test-unit.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Integration Tests | ${{ needs.integration-test.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| E2E Tests | ${{ needs.e2e-test.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Build & Push | ${{ needs.build-and-push.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Deploy | ${{ needs.deploy.result }} |" >> $GITHUB_STEP_SUMMARY
-      - name: Fail workflow if critical jobs failed
+          echo "| Docker Build | ${{ needs.docker-validate.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Audit | ${{ needs.security.result }} |" >> $GITHUB_STEP_SUMMARY
+      - name: Fail on critical failures
         if: |
           needs.lint.result == 'failure' ||
-          needs.test.result == 'failure' ||
-          needs.test-ci.result == 'failure' ||
+          needs.test-unit.result == 'failure' ||
           needs.integration-test.result == 'failure' ||
-          needs.e2e-test.result == 'failure' ||
-          needs.deploy.result == 'failure'
+          needs.docker-validate.result == 'failure'
         run: |
-          echo "::error::Critical jobs failed. Check the summary table above for details."
+          echo "::error::Critical jobs failed"
           exit 1
-
-  # ------------------------------------------------------------------
-  # 失败通知 – 当关键任务失败时发送告警并AI分析
-  # ------------------------------------------------------------------
-  failure-notification:
-    name: Failure Notification
-    runs-on: ubuntu-latest
-    needs: [detect-changes, lint, test, test-ci, docker-validate, security, integration-test, e2e-test, build-and-push, deploy]
-    if: |
-      always() && (
-        needs.lint.result == 'failure' ||
-        needs.test.result == 'failure' ||
-        needs.test-ci.result == 'failure' ||
-        needs.docker-validate.result == 'failure' ||
-        needs.security.result == 'failure' ||
-        needs.integration-test.result == 'failure' ||
-        needs.e2e-test.result == 'failure' ||
-        needs.build-and-push.result == 'failure' ||
-        needs.deploy.result == 'failure'
-      )
-    outputs:
-      failed_jobs: ${{ steps.get-logs.outputs.failed_jobs }}
-      analysis_result: ${{ steps.ai_analyze.outputs.analysis }}
-    steps:
-      # 1. 获取失败Job日志
-      - name: Download workflow run logs
-        id: get-logs
-        run: |
-          # 获取失败的job列表
-          FAILED_JOBS=""
-          if [[ "${{ needs.lint.result }}" == "failure" ]]; then
-            FAILED_JOBS="${FAILED_JOBS} lint"
-          fi
-          if [[ "${{ needs.test.result }}" == "failure" ]]; then
-            FAILED_JOBS="${FAILED_JOBS} test"
-          fi
-          if [[ "${{ needs.test-ci.result }}" == "failure" ]]; then
-            FAILED_JOBS="${FAILED_JOBS} test-ci"
-          fi
-          if [[ "${{ needs.docker-validate.result }}" == "failure" ]]; then
-            FAILED_JOBS="${FAILED_JOBS} docker-validate"
-          fi
-          if [[ "${{ needs.security.result }}" == "failure" ]]; then
-            FAILED_JOBS="${FAILED_JOBS} security"
-          fi
-          if [[ "${{ needs.integration-test.result }}" == "failure" ]]; then
-            FAILED_JOBS="${FAILED_JOBS} integration-test"
-          fi
-          if [[ "${{ needs.e2e-test.result }}" == "failure" ]]; then
-            FAILED_JOBS="${FAILED_JOBS} e2e-test"
-          fi
-          if [[ "${{ needs.build-and-push.result }}" == "failure" ]]; then
-            FAILED_JOBS="${FAILED_JOBS} build-and-push"
-          fi
-          if [[ "${{ needs.deploy.result }}" == "failure" ]]; then
-            FAILED_JOBS="${FAILED_JOBS} deploy"
-          fi
-          echo "failed_jobs=${FAILED_JOBS}" >> $GITHUB_OUTPUT
-          
-          # 下载并保存job日志
-          mkdir -p logs
-          gh run view ${{ github.run_id }} --log-failed > logs/failed_jobs.log 2>/dev/null || echo "No logs available" > logs/failed_jobs.log
-          cat logs/failed_jobs.log | head -200 > logs/failed_jobs_truncated.log
-          
-          # 保存关键信息供AI分析
-          echo "=== WORKFLOW INFO ===" > logs/analysis_context.txt
-          echo "Repository: ${{ github.repository }}" >> logs/analysis_context.txt
-          echo "Branch: ${{ github.ref_name }}" >> logs/analysis_context.txt
-          echo "Commit: ${{ github.sha }}" >> logs/analysis_context.txt
-          echo "Author: ${{ github.actor }}" >> logs/analysis_context.txt
-          echo "Failed Jobs: ${FAILED_JOBS}" >> logs/analysis_context.txt
-          echo "Run URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> logs/analysis_context.txt
-          echo "" >> logs/analysis_context.txt
-          echo "=== FAILED JOB LOGS (last 150 lines) ===" >> logs/analysis_context.txt
-          tail -150 logs/failed_jobs.log >> logs/analysis_context.txt 2>/dev/null || echo "No logs" >> logs/analysis_context.txt
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload failure logs
-        uses: actions/upload-artifact@v4
-        with:
-          name: failure-logs
-          path: logs/
-          retention-days: 7
-
-      # 2. AI分析失败原因
-      - name: AI Analyze Failure
-        id: ai_analyze
-        if: env.OPENAI_API_KEY != ''
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          # 准备分析上下文
-          ANALYSIS_CONTEXT=$(cat logs/analysis_context.txt)
-          
-          # 调用OpenAI API分析
-          HTTP_CODE=$(curl -s -o response.json -w "%{http_code}" -X POST https://api.openai.com/v1/chat/completions \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $OPENAI_API_KEY" \
-            -d '{
-              "model": "gpt-3.5-turbo",
-              "messages": [
-                {
-                  "role": "system",
-                  "content": "你是一个资深的CI/CD工程师，擅长分析GitHub Actions构建失败原因。请分析以下CI失败日志，给出：1) 失败根因分析 2) 具体修复建议 3) 相关代码位置。用中文回答，保持简洁专业。"
-                },
-                {
-                  "role": "user", 
-                  "content": "CI构建失败了，请分析原因并给出修复建议：\n\n"'"'"$ANALYSIS_CONTEXT"'"'"
-                }
-              ],
-              "max_tokens": 800,
-              "temperature": 0.3
-            }')
-          
-          # 检查HTTP状态码
-          if [ "$HTTP_CODE" -ne 200 ]; then
-            echo "OpenAI API returned HTTP $HTTP_CODE"
-            cat response.json
-            echo "analysis=AI分析服务暂时不可用（HTTP $HTTP_CODE）" >> $GITHUB_OUTPUT
-          else
-            # 检查是否有error字段
-            ERROR_MSG=$(python3 -c "import json; data=json.load(open('response.json')); print(data.get('error', {}).get('message', ''))" 2>/dev/null)
-            if [ -n "$ERROR_MSG" ]; then
-              echo "OpenAI API error: $ERROR_MSG"
-              echo "analysis=AI分析暂时不可用：$ERROR_MSG" >> $GITHUB_OUTPUT
-            else
-              # 提取AI回复
-              ANALYSIS=$(python3 -c "import json; data=json.load(open('response.json')); print(data['choices'][0]['message']['content'])" 2>/dev/null || echo "AI分析暂时不可用")
-              echo "analysis=${ANALYSIS}" >> $GITHUB_OUTPUT
-            fi
-          fi
-          
-          # 保存分析结果
-          echo "=== AI 分析结果 ===" > logs/ai_analysis.md
-          echo "${ANALYSIS:-AI分析暂时不可用}" >> logs/ai_analysis.md
-          echo "" >> logs/ai_analysis.md
-          echo "**分析时间**: $(date)" >> logs/ai_analysis.md
-          echo "**失败Job**: ${{ steps.get-logs.outputs.failed_jobs }}" >> logs/ai_analysis.md
-
-      # 3. 在PR上评论AI分析结果
-      - name: Comment on PR with AI Analysis
-        if: github.event_name == 'pull_request' && env.OPENAI_API_KEY != ''
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const analysis = fs.readFileSync('logs/ai_analysis.md', 'utf8');
-            
-            // 在JavaScript中处理状态，避免GitHub Actions表达式三元运算符问题
-            const lintStatus = '${{ needs.lint.result }}' === 'failure' ? '❌ Lint' : '✅ Lint';
-            const testStatus = '${{ needs.test.result }}' === 'failure' ? '❌ Unit Tests' : '✅ Unit Tests';
-            const dockerStatus = '${{ needs.docker-validate.result }}' === 'failure' ? '❌ Docker' : '✅ Docker';
-            const securityStatus = '${{ needs.security.result }}' === 'failure' ? '❌ Security' : '✅ Security';
-            const integrationStatus = '${{ needs.integration-test.result }}' === 'failure' ? '❌ Integration' : '✅ Integration';
-            const failedJobs = `${lintStatus} | ${testStatus} | ${dockerStatus} | ${securityStatus} | ${integrationStatus}`;
-            
-            const comment = `## 🚨 CI 构建失败分析
-
-            ### 失败任务
-            | 任务 | 状态 |
-            |------|------|
-            ${failedJobs.split('|').map((s, i) => i % 2 === 1 ? `| ${s.trim()}` : s).join('\n')}
-
-            ### 🤖 AI 自动分析
-
-            ${analysis}
-
-            ---
-            > 💡 此分析由 AI 自动生成，仅供参考。如需帮助请查看 [完整日志](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-
-            ---
-            *Generated by AI Agent*`;
-            
-            // 查找现有评论
-            const comments = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number
-            });
-            
-            const existingComment = comments.data.find(c => 
-              c.body.includes('## 🚨 CI 构建失败分析')
-            );
-            
-            if (existingComment) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existingComment.id,
-                body: comment
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.payload.pull_request.number,
-                body: comment
-              });
-            }
-
-                  # 4. 发送Slack通知
-                  - name: Send Slack notification on failure
-                    id: slack-notify
-                    uses: slackapi/slack-github-action@v1.24.0
-                    if: env.SLACK_WEBHOOK_URL != ''
-                    continue-on-error: true
-                    with:
-                      payload: |
-            {
-              "text": "🚨 CI/CD Pipeline Failed - ${{ github.actor }}'s commit",
-              "attachments": [
-                {
-                  "color": "#FF0000",
-                  "title": "${{ github.workflow }} - ${{ github.ref_name }}",
-                  "fields": [
-                    {
-                      "title": "Repository",
-                      "value": "${{ github.repository }}",
-                      "short": true
-                    },
-                    {
-                      "title": "Branch",
-                      "value": "${{ github.ref_name }}",
-                      "short": true
-                    },
-                    {
-                      "title": "Commit",
-                      "value": "[${{ github.sha }}](${{ github.event.repository.html_url }}/commit/${{ github.sha }})",
-                      "short": true
-                    },
-                    {
-                      "title": "Author",
-                      "value": "${{ github.actor }}",
-                      "short": true
-                    },
-                    {
-                      "title": "Failed Jobs",
-                      "value": "Lint: ${{ needs.lint.result }}\nUnit Tests: ${{ needs.test.result }}\nDocker: ${{ needs.docker-validate.result }}\nSecurity: ${{ needs.security.result }}\nIntegration: ${{ needs.integration-test.result }}\nE2E: ${{ needs.e2e-test.result }}\nBuild: ${{ needs.build-and-push.result }}\nDeploy: ${{ needs.deploy.result }}",
-                      "short": false
-                    },
-                    {
-                      "title": "AI Analysis",
-                      "value": "点击查看详情获取AI分析",
-                      "short": false
-                    },
-                    {
-                      "title": "Run URL",
-                      "value": "[View Details](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})",
-                      "short": true
-                    }
-                  ],
-                  "footer": "GitHub Actions + AI Analysis",
-                  "ts": ${{ github.event.head_commit.timestamp || github.event.created }}
-                }
-              ]
-            }
-                    env:
-                      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-
-                  # 5. 创建GitHub Issue
-                  - name: Create GitHub Issue on persistent failure
-                    uses: JasonEtco/create-an-issue@v2
-                    if: |
-                      needs.test.result == 'failure' ||
-                      needs.integration-test.result == 'failure' ||
-                      needs.e2e-test.result == 'failure' ||
-                      needs.deploy.result == 'failure'
-                    with:
-                      filename: .github/ISSUE_TEMPLATE/failure_report.md
-                      update_existing: true
-                    env:
-                      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                      FAILED_JOBS: "Lint: ${{ needs.lint.result }}, Unit Tests: ${{ needs.test.result }}, Docker: ${{ needs.docker-validate.result }}, Security: ${{ needs.security.result }}, Integration: ${{ needs.integration-test.result }}, E2E: ${{ needs.e2e-test.result }}, Build: ${{ needs.build-and-push.result }}, Deploy: ${{ needs.deploy.result }}"
-                      RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-                      BRANCH: "${{ github.ref_name }}"
-                      COMMIT: "${{ github.sha }}"

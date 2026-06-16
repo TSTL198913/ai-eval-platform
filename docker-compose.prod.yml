@@ -72,13 +72,8 @@ services:
   api:
     image: ${DOCKER_REGISTRY:-ghcr.io/tstl198913}/ai-eval-platform:${IMAGE_TAG:-latest}
     container_name: ai-eval-api
-    environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-eval}:${POSTGRES_PASSWORD:-eval123}@postgres:5432/ai_eval
-      - REDIS_URL=redis://redis:6379
-      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
-      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - ENV=production
+    env_file:
+      - .env.prod
     ports:
       - "8000:8000"
     depends_on:
@@ -111,13 +106,8 @@ services:
     image: ${DOCKER_REGISTRY:-ghcr.io/tstl198913}/ai-eval-platform:${IMAGE_TAG:-latest}
     container_name: ai-eval-worker
     command: celery -A src.workers.celery_app worker --loglevel=info --concurrency=4
-    environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-eval}:${POSTGRES_PASSWORD:-eval123}@postgres:5432/ai_eval
-      - REDIS_URL=redis://redis:6379
-      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
-      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - ENV=production
+    env_file:
+      - .env.prod
     depends_on:
       postgres:
         condition: service_healthy

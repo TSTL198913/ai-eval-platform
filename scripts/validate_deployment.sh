@@ -72,67 +72,83 @@ fi
 # ---------------------------------------------------------------------
 print_header "2. API 接口测试"
 
-echo -n "测试评估接口 (text_similarity)..."
+echo -n "测试评估接口 (text)..."
 EVAL_RESPONSE=$(curl -s -X POST http://localhost:8000/api/v1/evaluate \
     -H "Content-Type: application/json" \
     -d '{
-        "case_id": "test_validation_001",
-        "model_name": "test_model",
-        "input": "What is AI?",
-        "expected_output": "AI stands for Artificial Intelligence",
-        "evaluation_type": "text_similarity"
+        "id": "test_validation_001",
+        "type": "text",
+        "payload": {
+            "user_input": "What is AI?",
+            "expected_output": "AI stands for Artificial Intelligence"
+        }
     }')
 
-if echo "$EVAL_RESPONSE" | grep -q "score"; then
-    echo "分数: $(echo "$EVAL_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('score','N/A'))")"
-    print_status "评估接口测试通过"
+if echo "$EVAL_RESPONSE" | grep -q "success"; then
+    SCORE=$(echo "$EVAL_RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('score','N/A'))")
+    echo "分数: $SCORE"
+    print_status "文本评估接口测试通过"
 else
-    print_error "评估接口测试失败: $EVAL_RESPONSE"
+    print_error "文本评估接口测试失败: $EVAL_RESPONSE"
     exit 1
 fi
 
-echo -n "测试评估接口 (keyword_overlap)..."
+echo -n "测试评估接口 (finance)..."
 EVAL_RESPONSE=$(curl -s -X POST http://localhost:8000/api/v1/evaluate \
     -H "Content-Type: application/json" \
     -d '{
-        "case_id": "test_validation_002",
-        "model_name": "test_model",
-        "input": "Machine learning is a subset of AI",
-        "expected_output": "AI machine learning subset",
-        "evaluation_type": "keyword_overlap"
+        "id": "test_validation_002",
+        "type": "finance",
+        "payload": {
+            "user_input": "1000元贷款3%一年利息",
+            "expected_output": "30"
+        }
     }')
 
-if echo "$EVAL_RESPONSE" | grep -q "score"; then
-    echo "分数: $(echo "$EVAL_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('score','N/A'))")"
-    print_status "关键词重叠测试通过"
+if echo "$EVAL_RESPONSE" | grep -q "success"; then
+    SCORE=$(echo "$EVAL_RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('score','N/A'))")
+    echo "分数: $SCORE"
+    print_status "金融评估接口测试通过"
 else
-    print_error "关键词重叠测试失败: $EVAL_RESPONSE"
+    print_error "金融评估接口测试失败: $EVAL_RESPONSE"
     exit 1
 fi
 
-echo -n "测试评估列表接口..."
-LIST_RESPONSE=$(curl -s http://localhost:8000/api/v1/evaluations)
-if echo "$LIST_RESPONSE" | grep -q "test_validation"; then
-    COUNT=$(echo "$LIST_RESPONSE" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
-    echo "共 $COUNT 条记录"
-    print_status "评估列表接口正常"
-else
-    print_error "评估列表接口异常: $LIST_RESPONSE"
-    exit 1
-fi
-
-echo -n "测试批量评估接口..."
-BATCH_RESPONSE=$(curl -s -X POST http://localhost:8000/api/v1/evaluate/batch \
+echo -n "测试评估接口 (general)..."
+EVAL_RESPONSE=$(curl -s -X POST http://localhost:8000/api/v1/evaluate \
     -H "Content-Type: application/json" \
-    -d '[
-        {"case_id": "batch_test_001", "model_name": "test", "input": "Hello", "expected_output": "Hi", "evaluation_type": "text_similarity"},
-        {"case_id": "batch_test_002", "model_name": "test", "input": "World", "expected_output": "World", "evaluation_type": "text_similarity"}
-    ]')
+    -d '{
+        "id": "test_validation_003",
+        "type": "general",
+        "payload": {
+            "user_input": "Hello World"
+        }
+    }')
 
-if echo "$BATCH_RESPONSE" | grep -q "success"; then
-    print_status "批量评估接口正常"
+if echo "$EVAL_RESPONSE" | grep -q "success"; then
+    print_status "通用评估接口测试通过"
 else
-    print_error "批量评估接口异常: $BATCH_RESPONSE"
+    print_error "通用评估接口测试失败: $EVAL_RESPONSE"
+    exit 1
+fi
+
+echo -n "测试异步评估接口..."
+ASYNC_RESPONSE=$(curl -s -X POST http://localhost:8000/api/v1/evaluate/async \
+    -H "Content-Type: application/json" \
+    -d '{
+        "id": "test_async_001",
+        "type": "general",
+        "payload": {
+            "user_input": "Async test"
+        }
+    }')
+
+if echo "$ASYNC_RESPONSE" | grep -q "queued"; then
+    TASK_ID=$(echo "$ASYNC_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('task_id','N/A'))")
+    echo "任务ID: $TASK_ID"
+    print_status "异步评估接口测试通过"
+else
+    print_error "异步评估接口测试失败: $ASYNC_RESPONSE"
     exit 1
 fi
 
@@ -142,7 +158,7 @@ fi
 print_header "3. 数据库验证"
 
 echo -n "检查数据库表结构..."
-TABLES=$(docker exec ai-eval-postgres psql -U eval -d ai_eval -c "\dt" 2>/dev/null | grep -E "evaluations|test_cases")
+TABLES=$(docker exec ai-eval-postgres psql -U eval -d ai_eval -c "\dt" 2>/dev/null | grep -E "eval_results")
 if [ -n "$TABLES" ]; then
     echo "$TABLES"
     print_status "数据库表结构正常"
@@ -152,7 +168,7 @@ else
 fi
 
 echo -n "查询评估记录数..."
-RECORD_COUNT=$(docker exec ai-eval-postgres psql -U eval -d ai_eval -c "SELECT COUNT(*) FROM evaluations;" -t 2>/dev/null | tr -d ' ')
+RECORD_COUNT=$(docker exec ai-eval-postgres psql -U eval -d ai_eval -c "SELECT COUNT(*) FROM eval_results;" -t 2>/dev/null | tr -d ' ')
 echo "$RECORD_COUNT 条记录"
 print_status "数据库记录正常"
 
@@ -179,11 +195,11 @@ echo "执行 10 个并发请求..."
 for i in {1..10}; do
     curl -s -X POST http://localhost:8000/api/v1/evaluate \
         -H "Content-Type: application/json" \
-        -d "{\"case_id\": \"perf_test_$i\", \"model_name\": \"test\", \"input\": \"Test $i\", \"expected_output\": \"Test $i\", \"evaluation_type\": \"text_similarity\"}" > /dev/null &
+        -d "{\"id\": \"perf_test_$i\", \"type\": \"general\", \"payload\": {\"user_input\": \"Test $i\"}}" > /dev/null &
 done
 wait
 
-FINAL_COUNT=$(docker exec ai-eval-postgres psql -U eval -d ai_eval -c "SELECT COUNT(*) FROM evaluations;" -t 2>/dev/null | tr -d ' ')
+FINAL_COUNT=$(docker exec ai-eval-postgres psql -U eval -d ai_eval -c "SELECT COUNT(*) FROM eval_results;" -t 2>/dev/null | tr -d ' ')
 echo "总记录数: $FINAL_COUNT"
 print_status "并发测试完成"
 

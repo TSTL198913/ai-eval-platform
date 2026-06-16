@@ -36,6 +36,38 @@ class EvaluationRepository(BaseRepository):
             session.commit()  # 显式提交事务
             return db_record.id
 
+    def count(self) -> int:
+        """获取评估记录总数"""
+        with get_db_session() as session:
+            result = session.execute("SELECT COUNT(*) FROM eval_results").fetchone()
+            return result[0] if result else 0
+
+    def get_recent(self, limit: int = 10) -> list[dict]:
+        """获取最近的评估记录"""
+        with get_db_session() as session:
+            results = session.execute(
+                """
+                SELECT id, case_id, model_name, adapter_name, status, latency_ms, created_at
+                FROM eval_results
+                ORDER BY created_at DESC
+                LIMIT :limit
+                """,
+                {"limit": limit},
+            ).fetchall()
+
+            return [
+                {
+                    "id": row[0],
+                    "case_id": row[1],
+                    "model_name": row[2],
+                    "adapter_name": row[3],
+                    "status": row[4],
+                    "latency_ms": row[5],
+                    "created_at": row[6].isoformat() if row[6] else None,
+                }
+                for row in results
+            ]
+
 
 # 3. 如果你的旧测试还需要原 SQLiteRepository，可以暂时保留在这里做兼容
 class SQLiteRepository(BaseRepository):

@@ -2,7 +2,7 @@ from fastapi import FastAPI, Response, status
 from fastapi.responses import PlainTextResponse
 
 from src.infra.db.repository import EvaluationRepository
-from src.infra.db.session import get_db_session, init_tables
+from src.infra.db.session import init_tables
 from src.infra.monitoring.metrics import expose_metrics
 from src.schemas.evaluation import EvaluationSchema
 from src.services.evaluator_svc import _normalize_raw_data, run_evaluation_service
@@ -10,6 +10,9 @@ from src.workers.celery_app import celery_app
 from src.workers.tasks import eval_case_task
 
 app = FastAPI(title="AI Eval Platform")
+
+# 通过 Repository 访问数据库，保持架构一致性
+_repository = EvaluationRepository()
 
 
 @app.on_event("startup")
@@ -90,17 +93,14 @@ async def test_echo():
 
 @app.get("/api/v1/test/db")
 async def test_database():
-    """数据库连接测试"""
+    """数据库连接测试 - 通过 Repository 访问"""
     try:
-        with get_db_session() as session:
-            result = session.execute(
-                "SELECT COUNT(*) as count FROM eval_results"
-            ).fetchone()
-            return {
-                "status": "ok",
-                "message": "数据库连接正常",
-                "record_count": result[0] if result else 0,
-            }
+        count = _repository.count()
+        return {
+            "status": "ok",
+            "message": "数据库连接正常",
+            "record_count": count,
+        }
     except Exception as e:
         return {
             "status": "error",
@@ -110,33 +110,14 @@ async def test_database():
 
 @app.get("/api/v1/records")
 async def get_recent_records(limit: int = 10):
-    """获取最近的评估记录"""
+    """获取最近的评估记录 - 通过 Repository 访问"""
     try:
-        with get_db_session() as session:
-            result = session.execute(
-                f"SELECT id, case_id, model_name, adapter_name, status, "
-                f"latency_ms, created_at FROM eval_results "
-                f"ORDER BY created_at DESC LIMIT {limit}"
-            ).fetchall()
-
-            records = [
-                {
-                    "id": row[0],
-                    "case_id": row[1],
-                    "model_name": row[2],
-                    "adapter_name": row[3],
-                    "status": row[4],
-                    "latency_ms": row[5],
-                    "created_at": row[6].isoformat() if row[6] else None,
-                }
-                for row in result
-            ]
-
-            return {
-                "status": "ok",
-                "count": len(records),
-                "records": records,
-            }
+        records = _repository.get_recent(limit=limit)
+        return {
+            "status": "ok",
+            "count": len(records),
+            "records": records,
+        }
     except Exception as e:
         return {
             "status": "error",

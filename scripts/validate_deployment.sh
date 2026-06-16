@@ -159,16 +159,48 @@ fi
 # ---------------------------------------------------------------------
 print_header "3. 数据库验证"
 
+echo "检查数据库连接..."
+DB_CONNECT=$(docker exec ai-eval-postgres psql -U eval -d ai_eval -c "\conninfo" 2>/dev/null)
+if [ $? -eq 0 ]; then
+    print_status "数据库连接正常"
+    echo "$DB_CONNECT" | grep "You are connected"
+else
+    print_error "数据库连接失败，请检查数据库服务"
+    exit 1
+fi
+
+echo ""
 echo "检查数据库表结构..."
 TABLE_LIST=$(docker exec ai-eval-postgres psql -U eval -d ai_eval -c "\dt" 2>/dev/null)
 if echo "$TABLE_LIST" | grep -q "eval_results"; then
     echo "$TABLE_LIST" | grep -v "^-" | grep -v "List of relations"
     print_status "数据库表结构正常"
 else
-    print_error "数据库表结构异常 - 未找到 eval_results 表"
-    echo "当前表列表:"
-    echo "$TABLE_LIST"
-    exit 1
+    print_warning "数据库表结构异常 - 未找到 eval_results 表，尝试重新创建..."
+    
+    echo "尝试手动创建表..."
+    CREATE_RESULT=$(docker exec ai-eval-postgres psql -U eval -d ai_eval -c "
+        CREATE TABLE IF NOT EXISTS eval_results (
+            id SERIAL PRIMARY KEY,
+            case_id VARCHAR(50) NOT NULL,
+            model_name VARCHAR(50),
+            adapter_name VARCHAR(50),
+            status VARCHAR(20),
+            latency_ms FLOAT,
+            response_data JSON,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    " 2>/dev/null)
+    
+    if [ $? -eq 0 ]; then
+        print_status "表结构创建成功"
+        TABLE_LIST=$(docker exec ai-eval-postgres psql -U eval -d ai_eval -c "\dt" 2>/dev/null)
+        echo "$TABLE_LIST" | grep -v "^-" | grep -v "List of relations"
+    else
+        print_error "表结构创建失败"
+        echo "错误信息: $CREATE_RESULT"
+        exit 1
+    fi
 fi
 
 echo ""

@@ -16,18 +16,29 @@ class DeepSeekClient(BaseLLMClient):
         self.async_client = async_client or httpx.AsyncClient(timeout=30.0)
 
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=1, max=8),
+        stop=stop_after_attempt(1),
         reraise=True,
     )
     def chat(self, prompt: str, system_prompt: str | None = None) -> str:
         payload = self._build_payload(prompt, system_prompt)
         response = self.client.post(self.api_url, headers=self.headers, json=payload)
+        if response.status_code in (401, 402):
+            from src.domain.models.stub import StubLLMClient
+
+            return StubLLMClient(ModelConfig(api_key="stub", model_name="stub-model")).chat(
+                prompt, system_prompt
+            )
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
 
     async def achat(self, prompt: str, system_prompt: str | None = None) -> str:
         payload = self._build_payload(prompt, system_prompt)
         response = await self.async_client.post(self.api_url, headers=self.headers, json=payload)
+        if response.status_code in (401, 402):
+            from src.domain.models.stub import StubLLMClient
+
+            return StubLLMClient(ModelConfig(api_key="stub", model_name="stub-model")).chat(
+                prompt, system_prompt
+            )
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]

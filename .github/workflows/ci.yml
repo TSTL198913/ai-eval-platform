@@ -15,7 +15,7 @@ permissions:
 
 env:
   PYTHON_VERSION: '3.10'
-  COVERAGE_THRESHOLD: '85'
+  COVERAGE_THRESHOLD: '90'
   POSTGRES_TEST_PASSWORD: ${{ secrets.POSTGRES_TEST_PASSWORD || 'test123' }}
 
 concurrency:

@@ -13,7 +13,7 @@ def _get_database_url() -> str:
     """延迟获取数据库 URL，确保环境变量已设置"""
     if os.getenv("TESTING") == "1":
         return os.getenv("TEST_DATABASE_URL", "sqlite:///:memory:")
-    return os.getenv("DATABASE_URL", "postgresql://postgres:tiger13@localhost:5432/eval_db")
+    return os.getenv("DATABASE_URL", "postgresql://postgres:tiger13@localhost:5432/ai_eval")
 
 
 def _create_engine():
@@ -93,7 +93,7 @@ def init_tables():
     from src.infra.db import models  # noqa: F401  确保模型注册到 metadata
 
     Base.metadata.create_all(bind=get_engine())
-    print("【系统通知】表结构已在 eval_db 中创建成功！")
+    print("【系统通知】表结构已创建成功！")
 
 
 # 提供 engine 属性访问（惰性）

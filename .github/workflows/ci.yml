@@ -105,13 +105,19 @@ jobs:
           cache: 'pip'
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
-          pip install pytest-cov pytest-xdist
+          pip install --upgrade pip setuptools wheel
+          pip install -r requirements.txt --timeout=60
+          pip install pytest-cov pytest-xdist pytest-asyncio pytest-mock
+        env:
+          TESTING: 1
       - name: Run unit tests with coverage
         run: |
           pytest tests/unit/ -n auto -v \
             --cov=src --cov-report=xml --cov-report=term-missing \
-            --cov-fail-under=${{ env.COVERAGE_THRESHOLD }}
+            --cov-fail-under=${{ env.COVERAGE_THRESHOLD }} \
+            --timeout=60
+        env:
+          TESTING: 1
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -469,7 +475,7 @@ jobs:
           exit 1
 
   # ------------------------------------------------------------------
-  # 失败通知 – 当关键任务失败时发送告警
+  # 失败通知 – 当关键任务失败时发送告警并AI分析
   # ------------------------------------------------------------------
   failure-notification:
     name: Failure Notification
@@ -482,7 +488,157 @@ jobs:
         needs.docker-validate.result == 'failure' ||
         needs.integration-test.result == 'failure'
       )
+    outputs:
+      failed_jobs: ${{ steps.get-logs.outputs.failed_jobs }}
+      analysis_result: ${{ steps.ai_analyze.outputs.analysis }}
     steps:
+      # 1. 获取失败Job日志
+      - name: Download workflow run logs
+        id: get-logs
+        run: |
+          # 获取失败的job列表
+          FAILED_JOBS=""
+          if [[ "${{ needs.lint.result }}" == "failure" ]]; then
+            FAILED_JOBS="${FAILED_JOBS} lint"
+          fi
+          if [[ "${{ needs.test.result }}" == "failure" ]]; then
+            FAILED_JOBS="${FAILED_JOBS} test"
+          fi
+          if [[ "${{ needs.docker-validate.result }}" == "failure" ]]; then
+            FAILED_JOBS="${FAILED_JOBS} docker-validate"
+          fi
+          if [[ "${{ needs.integration-test.result }}" == "failure" ]]; then
+            FAILED_JOBS="${FAILED_JOBS} integration-test"
+          fi
+          echo "failed_jobs=${FAILED_JOBS}" >> $GITHUB_OUTPUT
+          
+          # 下载并保存job日志
+          mkdir -p logs
+          gh run view ${{ github.run_id }} --log-failed > logs/failed_jobs.log 2>/dev/null || echo "No logs available" > logs/failed_jobs.log
+          cat logs/failed_jobs.log | head -200 > logs/failed_jobs_truncated.log
+          
+          # 保存关键信息供AI分析
+          echo "=== WORKFLOW INFO ===" > logs/analysis_context.txt
+          echo "Repository: ${{ github.repository }}" >> logs/analysis_context.txt
+          echo "Branch: ${{ github.ref_name }}" >> logs/analysis_context.txt
+          echo "Commit: ${{ github.sha }}" >> logs/analysis_context.txt
+          echo "Author: ${{ github.actor }}" >> logs/analysis_context.txt
+          echo "Failed Jobs: ${FAILED_JOBS}" >> logs/analysis_context.txt
+          echo "Run URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> logs/analysis_context.txt
+          echo "" >> logs/analysis_context.txt
+          echo "=== FAILED JOB LOGS (last 150 lines) ===" >> logs/analysis_context.txt
+          tail -150 logs/failed_jobs.log >> logs/analysis_context.txt 2>/dev/null || echo "No logs" >> logs/analysis_context.txt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload failure logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-logs
+          path: logs/
+          retention-days: 7
+
+      # 2. AI分析失败原因
+      - name: AI Analyze Failure
+        id: ai_analyze
+        if: env.OPENAI_API_KEY != ''
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          # 准备分析上下文
+          ANALYSIS_CONTEXT=$(cat logs/analysis_context.txt)
+          
+          # 调用OpenAI API分析
+          RESPONSE=$(curl -s -X POST https://api.openai.com/v1/chat/completions \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $OPENAI_API_KEY" \
+            -d '{
+              "model": "gpt-4",
+              "messages": [
+                {
+                  "role": "system",
+                  "content": "你是一个资深的CI/CD工程师，擅长分析GitHub Actions构建失败原因。请分析以下CI失败日志，给出：1) 失败根因分析 2) 具体修复建议 3) 相关代码位置。用中文回答，保持简洁专业。"
+                },
+                {
+                  "role": "user", 
+                  "content": "CI构建失败了，请分析原因并给出修复建议：\n\n"'"'"$ANALYSIS_CONTEXT"'"'"
+                }
+              ],
+              "max_tokens": 800,
+              "temperature": 0.3
+            }')
+          
+          # 提取AI回复
+          ANALYSIS=$(echo $RESPONSE | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['choices'][0]['message']['content'])" 2>/dev/null || echo "AI分析暂时不可用")
+          
+          echo "analysis=${ANALYSIS}" >> $GITHUB_OUTPUT
+          
+          # 保存分析结果
+          echo "=== AI 分析结果 ===" > logs/ai_analysis.md
+          echo "$ANALYSIS" >> logs/ai_analysis.md
+          echo "" >> logs/ai_analysis.md
+          echo "**分析时间**: $(date)" >> logs/ai_analysis.md
+          echo "**失败Job**: ${{ steps.get-logs.outputs.failed_jobs }}" >> logs/ai_analysis.md
+
+      # 3. 在PR上评论AI分析结果
+      - name: Comment on PR with AI Analysis
+        if: github.event_name == 'pull_request' && env.OPENAI_API_KEY != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const analysis = fs.readFileSync('logs/ai_analysis.md', 'utf8');
+            
+            const failedJobs = `${{ needs.lint.result == 'failure' ? '❌ Lint' : '✅ Lint' }} |
+              ${{ needs.test.result == 'failure' ? '❌ Unit Tests' : '✅ Unit Tests' }} |
+              ${{ needs.docker-validate.result == 'failure' ? '❌ Docker' : '✅ Docker' }} |
+              ${{ needs.integration-test.result == 'failure' ? '❌ Integration' : '✅ Integration' }}`;
+            
+            const comment = `## 🚨 CI 构建失败分析
+
+### 失败任务
+| 任务 | 状态 |
+|------|------|
+${failedJobs.split('|').map((s, i) => i % 2 === 1 ? `| ${s.trim()}` : s).join('\n')}
+
+### 🤖 AI 自动分析
+
+${analysis}
+
+---
+> 💡 此分析由 AI 自动生成，仅供参考。如需帮助请查看 [完整日志](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+---
+*Generated by AI Agent*`;
+            
+            // 查找现有评论
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number
+            });
+            
+            const existingComment = comments.data.find(c => 
+              c.body.includes('## 🚨 CI 构建失败分析')
+            );
+            
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: comment
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: comment
+              });
+            }
+
+      # 4. 发送Slack通知
       - name: Send Slack notification on failure
         id: slack-notify
         uses: slackapi/slack-github-action@v1.24.0
@@ -491,7 +647,7 @@ jobs:
         with:
           payload: |
             {
-              "text": "🚨 CI/CD Pipeline Failed",
+              "text": "🚨 CI/CD Pipeline Failed - ${{ github.actor }}'s commit",
               "attachments": [
                 {
                   "color": "#FF0000",
@@ -523,18 +679,25 @@ jobs:
                       "short": false
                     },
                     {
+                      "title": "AI Analysis",
+                      "value": "点击查看详情获取AI分析",
+                      "short": false
+                    },
+                    {
                       "title": "Run URL",
                       "value": "[View Details](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})",
                       "short": true
                     }
                   ],
-                  "footer": "GitHub Actions",
+                  "footer": "GitHub Actions + AI Analysis",
                   "ts": ${{ github.event.head_commit.timestamp || github.event.created }}
                 }
               ]
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      # 5. 创建GitHub Issue
       - name: Create GitHub Issue on persistent failure
         uses: JasonEtco/create-an-issue@v2
         if: |

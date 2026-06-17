@@ -5,8 +5,15 @@
 import pytest
 
 from src.infra.db.repository import EvaluationRepository, SQLiteRepository
+from src.infra.db.session import init_tables
 from src.schemas.evaluation import DomainResponse
 from src.schemas.schemas import EvaluationResult, EvaluationStatus
+
+
+@pytest.fixture(autouse=True)
+def clean_global_db():
+    init_tables()
+    yield
 
 
 class TestEvaluationRepository:

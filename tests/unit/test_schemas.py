@@ -23,8 +23,12 @@ def test_eval_schema_rejects_missing_required_fields():
         EvaluationSchema(id="only_id")
 
 
-def test_mock_evaluation_schema_fixture(mock_evaluation_schema):
-    model = mock_evaluation_schema(id="999", type="semantic")
-    assert model.id == "999"
-    assert model.type == "semantic"
-    assert model.payload["case_id"] == "999"
+def test_eval_schema_default_metadata():
+    data = {
+        "id": "123",
+        "type": "text",
+        "payload": {"case_id": "TEST_001"},
+    }
+    model = EvaluationSchema(**data)
+
+    assert model.metadata is None

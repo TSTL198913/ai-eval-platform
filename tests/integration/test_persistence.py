@@ -1,6 +1,15 @@
+import pytest
+
 from src.infra.db.repository import EvaluationRepository
+from src.infra.db.session import init_tables
 from src.schemas.evaluation import DomainResponse
 from src.schemas.schemas import EvaluationResult, EvaluationStatus
+
+
+@pytest.fixture(autouse=True)
+def setup_db():
+    init_tables()
+    yield
 
 
 def test_save_evaluation_result_persists_to_db():
@@ -17,9 +26,9 @@ def test_save_evaluation_result_persists_to_db():
     record_id = repo.save(test_result_obj)
 
     from src.infra.db.models import EvaluationResultModel
-    from src.infra.db.session import SessionLocal
+    from src.infra.db.session import get_session_local
 
-    db = SessionLocal()
+    db = get_session_local()()
     try:
         row = db.query(EvaluationResultModel).filter_by(id=record_id).one()
         assert row.case_id == "test_001"

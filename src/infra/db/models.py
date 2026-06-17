@@ -31,3 +31,32 @@ class EvaluationResultModel(Base):
             "status": self.status,
             "response_data": self.response_data,
         }
+
+
+class TrajectoryModel(Base):
+    __tablename__ = "trajectories"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    task_id = Column(String(50), nullable=False)
+    step_index = Column(Integer, nullable=False)
+    step_type = Column(String(30))
+    prompt = Column(String(5000))
+    response = Column(String(5000))
+    tool_name = Column(String(100))
+    tool_params = Column(JSON)
+    is_correct = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "task_id": self.task_id,
+            "step_index": self.step_index,
+            "step_type": self.step_type,
+            "prompt": self.prompt,
+            "response": self.response,
+            "tool_name": self.tool_name,
+            "tool_params": self.tool_params,
+            "is_correct": bool(self.is_correct),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }

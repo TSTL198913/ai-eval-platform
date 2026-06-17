@@ -15,6 +15,9 @@ from prometheus_client import (
 # 创建全局注册器
 registry = CollectorRegistry()
 
+# 导入风险监控指标
+from . import risk_metrics  # noqa: F401
+
 # 评测指标
 EVALUATION_LATENCY = Histogram(
     "evaluation_latency_seconds",

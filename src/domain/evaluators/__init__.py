@@ -1,20 +1,30 @@
-# src/domain/evaluators/__init__.py
 import importlib
+import os
 import pkgutil
+from typing import Any, Dict
 
-from .base import EvaluatorFactory
+from .evaluator_factory import EvaluatorFactory
+
+_EVALUATOR_REGISTRY: Dict[str, Any] | None = None
+
+IS_TESTING = os.environ.get("TESTING", "0") == "1"
 
 
-# 1. 自动发现：扫描并导入所有子模块，触发 @EvaluatorFactory.register
 def auto_discover():
-    for _, name, _is_pkg in pkgutil.iter_modules(__path__):
-        if name not in ["base", "metadata"]:
-            importlib.import_module(f".{name}", package=__name__)
+    """自动发现并注册所有评估器"""
+    global _EVALUATOR_REGISTRY
+    if _EVALUATOR_REGISTRY is None:
+        for _, name, _is_pkg in pkgutil.iter_modules(__path__):
+            if name not in ["base", "metadata", "evaluator_factory"]:
+                importlib.import_module(f".{name}", package=__name__)
+        _EVALUATOR_REGISTRY = EvaluatorFactory._registry
+    return _EVALUATOR_REGISTRY
 
 
-# 执行自动注册
-auto_discover()
+def lazy_discover():
+    """延迟发现评估器，确保在测试环境下也能正常工作"""
+    return auto_discover()
 
-# 2. 兼容性导出：为了满足 evaluator_svc.py 中的导入需求
-# 如果你之前是通过 EVALUATOR_REGISTRY 访问的，这里直接指向工厂的注册表
-EVALUATOR_REGISTRY = EvaluatorFactory._registry
+
+# 始终调用 auto_discover 以确保评估器已注册
+EVALUATOR_REGISTRY = auto_discover()

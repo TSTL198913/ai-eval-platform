@@ -315,8 +315,8 @@ class TestRegression:
         cb._record_failure()
         assert cb._state == CircuitState.OPEN
 
-        # 等待进入半开
-        time.sleep(0.1)
+        # 模拟时间流逝，进入半开
+        cb._last_failure_time = time.time() - 0.1
         assert cb.state == CircuitState.HALF_OPEN
 
         # 成功应该关闭

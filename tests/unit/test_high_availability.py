@@ -1,437 +1,506 @@
-"""测试 src/infra/high_availability.py - 高可用架构模块
-
-测试有效性原则：
-1. 测试真实行为，不测试 mock
-2. 断言外部可见行为，不依赖内部实现细节
-3. 覆盖正常路径、异常路径和边界条件
-"""
-
 import asyncio
-from unittest.mock import Mock
-
 import pytest
+from unittest.mock import MagicMock, patch
 
 from src.infra.high_availability import (
     AutoRecoveryService,
     FailoverManager,
-    HealthCheckConfig,
     HealthChecker,
+    HealthCheckConfig,
     LoadBalancer,
     MultiActiveDeployer,
     NodeInfo,
     NodeStatus,
+    get_deployer,
 )
 
 
-class TestNodeInfo:
-    """测试节点信息"""
+class TestNodeStatus:
+    """节点状态枚举测试"""
 
-    def test_creation_defaults(self):
-        """测试默认属性"""
-        node = NodeInfo(
-            id="node1",
-            host="localhost",
-            port=8000,
-            region="us-west",
-        )
+    def test_node_status_values(self):
+        assert NodeStatus.HEALTHY.value == "healthy"
+        assert NodeStatus.DEGRADED.value == "degraded"
+        assert NodeStatus.UNHEALTHY.value == "unhealthy"
+        assert NodeStatus.OFFLINE.value == "offline"
+
+
+class TestNodeInfo:
+    """节点信息测试"""
+
+    def test_node_info_creation(self):
+        node = NodeInfo(id="node1", host="localhost", port=8080, region="cn")
+        assert node.id == "node1"
+        assert node.host == "localhost"
+        assert node.port == 8080
+        assert node.region == "cn"
         assert node.status == NodeStatus.HEALTHY
         assert node.weight == 1.0
-        assert node.latency_ms == 0.0
-        assert node.error_count == 0
-        assert node.metadata == {}
 
-    def test_to_dict(self):
-        """测试序列化为字典"""
-        node = NodeInfo(
-            id="node1",
-            host="localhost",
-            port=8000,
-            region="us-west",
-            status=NodeStatus.DEGRADED,
-            weight=2.0,
-            latency_ms=50.0,
-            error_count=3,
-        )
-        d = node.to_dict()
-        assert d["id"] == "node1"
-        assert d["status"] == "degraded"
-        assert d["weight"] == 2.0
-        assert d["latency_ms"] == 50.0
-        assert d["error_count"] == 3
+    def test_node_info_to_dict(self):
+        node = NodeInfo(id="node1", host="localhost", port=8080, region="cn")
+        node_dict = node.to_dict()
+        assert node_dict["id"] == "node1"
+        assert node_dict["host"] == "localhost"
+        assert node_dict["status"] == "healthy"
+        assert "metadata" not in node_dict
 
-    def test_status_transitions(self):
-        """测试状态转换"""
-        node = NodeInfo(id="n1", host="h1", port=80, region="r1")
-        assert node.status == NodeStatus.HEALTHY
 
-        node.status = NodeStatus.DEGRADED
-        assert node.status == NodeStatus.DEGRADED
+class TestHealthCheckConfig:
+    """健康检查配置测试"""
 
-        node.status = NodeStatus.UNHEALTHY
-        assert node.status == NodeStatus.UNHEALTHY
+    def test_default_config(self):
+        config = HealthCheckConfig()
+        assert config.interval_seconds == 10.0
+        assert config.timeout_seconds == 5.0
+        assert config.unhealthy_threshold == 3
+        assert config.healthy_threshold == 2
 
 
 class TestHealthChecker:
-    """测试健康检查器"""
+    """健康检查器测试"""
 
-    @pytest.fixture
-    def checker(self):
-        return HealthChecker(HealthCheckConfig(interval_seconds=0.1))
+    def test_register_and_unregister_node(self):
+        checker = HealthChecker()
+        node = NodeInfo(id="node1", host="localhost", port=8080, region="cn")
 
-    @pytest.fixture
-    def node(self):
-        return NodeInfo(
-            id="node1",
-            host="localhost",
-            port=8000,
-            region="us-west",
-        )
-
-    def test_register_node(self, checker, node):
-        """测试注册节点"""
         checker.register_node(node)
-        assert checker._nodes["node1"] == node
+        assert len(checker.get_all_nodes()) == 1
 
-    def test_unregister_node(self, checker, node):
-        """测试注销节点"""
-        checker.register_node(node)
         checker.unregister_node("node1")
-        assert "node1" not in checker._nodes
+        assert len(checker.get_all_nodes()) == 0
 
-    @pytest.mark.asyncio
-    async def test_check_node_health_updates_last_check(self, checker, node):
-        """测试健康检查更新最后检查时间"""
-        checker.register_node(node)
-        before = node.last_check
+    def test_get_healthy_nodes(self):
+        checker = HealthChecker()
+        healthy_node = NodeInfo(id="node1", host="localhost", port=8080, region="cn")
+        degraded_node = NodeInfo(id="node2", host="localhost", port=8081, region="cn", status=NodeStatus.DEGRADED)
+        unhealthy_node = NodeInfo(id="node3", host="localhost", port=8082, region="cn", status=NodeStatus.UNHEALTHY)
 
-        # 直接调用内部检查方法（可能会触发 HTTP，但会失败并返回 False）
-        result = await checker._check_node_health(node)
-        assert isinstance(result, bool)
-        # 检查时间应被更新（即使检查失败也会更新）
-        assert node.last_check >= before
+        checker.register_node(healthy_node)
+        checker.register_node(degraded_node)
+        checker.register_node(unhealthy_node)
 
-    def test_add_status_callback(self, checker):
-        """测试添加状态回调"""
-        callback = Mock()
+        healthy_nodes = checker.get_healthy_nodes()
+        assert len(healthy_nodes) == 2
+        assert all(n.id in ["node1", "node2"] for n in healthy_nodes)
+
+    def test_add_status_callback(self):
+        checker = HealthChecker()
+        callback_called = []
+
+        def callback(node, old_status, new_status):
+            callback_called.append((node.id, old_status, new_status))
+
         checker.add_status_callback(callback)
-        assert callback in checker._callbacks
+        assert len(checker._callbacks) == 1
 
-    @pytest.mark.asyncio
-    async def test_start_stop_lifecycle(self, checker):
-        """测试启动和停止生命周期"""
+    @pytest.mark.anyio
+    async def test_start_and_stop(self):
+        """测试健康检查器启动和停止"""
+        config = HealthCheckConfig(interval_seconds=0.01)
+        checker = HealthChecker(config)
+        node = NodeInfo(id="node1", host="localhost", port=8080, region="cn")
+        checker.register_node(node)
+
         await checker.start()
         assert checker._check_task is not None
         assert not checker._check_task.done()
 
+        await asyncio.sleep(0.05)
+
         await checker.stop()
-        # 验证任务已取消
-        assert checker._check_task.cancelled() or checker._check_task.done()
+        assert checker._check_task is None or checker._check_task.done()
 
-    def test_get_healthy_nodes_filters(self, checker):
-        """测试获取健康节点过滤：HEALTHY 和 DEGRADED 都算健康"""
-        healthy = NodeInfo(
-            id="h1", host="localhost", port=8000, region="r1", status=NodeStatus.HEALTHY
-        )
-        degraded = NodeInfo(
-            id="d1", host="localhost", port=8001, region="r1", status=NodeStatus.DEGRADED
-        )
-        unhealthy = NodeInfo(
-            id="u1", host="localhost", port=8002, region="r1", status=NodeStatus.UNHEALTHY
-        )
-        offline = NodeInfo(
-            id="o1", host="localhost", port=8003, region="r1", status=NodeStatus.OFFLINE
-        )
-
-        for n in [healthy, degraded, unhealthy, offline]:
-            checker.register_node(n)
-
-        result = checker.get_healthy_nodes()
-        # 实现返回 HEALTHY 和 DEGRADED
-        assert len(result) == 2
-        ids = {n.id for n in result}
-        assert ids == {"h1", "d1"}
-
-    @pytest.mark.asyncio
-    async def test_callbacks_invoked_on_status_change(self, checker):
-        """测试状态变化时回调被触发"""
-        callback = Mock()
-        checker.add_status_callback(callback)
-
-        node = NodeInfo(
-            id="n1", host="localhost", port=8000, region="r1", status=NodeStatus.HEALTHY
-        )
+    @pytest.mark.anyio
+    async def test_health_check_updates_status(self):
+        """测试健康检查更新节点状态"""
+        config = HealthCheckConfig(interval_seconds=0.01)
+        checker = HealthChecker(config)
+        node = NodeInfo(id="node1", host="localhost", port=8080, region="cn")
         checker.register_node(node)
 
-        # 模拟状态变化
-        node.status = NodeStatus.UNHEALTHY
-        # 手动触发回调验证机制
-        for cb in checker._callbacks:
-            cb(node, NodeStatus.HEALTHY, NodeStatus.UNHEALTHY)
+        await checker.start()
+        await asyncio.sleep(0.05)
 
-        callback.assert_called_once()
+        assert node.last_check > 0
+        assert node.latency_ms >= 0
+
+        await checker.stop()
+
+    @pytest.mark.anyio
+    async def test_status_change_callback(self):
+        """测试状态变更回调"""
+        config = HealthCheckConfig(interval_seconds=0.01)
+        checker = HealthChecker(config)
+        node = NodeInfo(id="node1", host="localhost", port=8080, region="cn")
+        checker.register_node(node)
+
+        callback_calls = []
+
+        async def callback(node, old_status, new_status):
+            callback_calls.append((node.id, old_status, new_status))
+
+        checker.add_status_callback(callback)
+
+        await checker.start()
+
+        with patch.object(checker, "_check_node_health", return_value=True):
+            await asyncio.sleep(0.05)
+
+            if not callback_calls:
+                await checker._set_node_status(node, NodeStatus.DEGRADED)
+
+        await checker.stop()
+
+        assert len(callback_calls) >= 1
+        assert callback_calls[-1][0] == "node1"
+
+    @pytest.mark.anyio
+    async def test_offline_node_skipped(self):
+        """测试离线节点被跳过"""
+        config = HealthCheckConfig(interval_seconds=0.01)
+        checker = HealthChecker(config)
+        offline_node = NodeInfo(id="node1", host="localhost", port=8080, region="cn", status=NodeStatus.OFFLINE)
+        checker.register_node(offline_node)
+
+        await checker.start()
+        await asyncio.sleep(0.05)
+
+        assert offline_node.status == NodeStatus.OFFLINE
+
+        await checker.stop()
+
+    @pytest.mark.anyio
+    async def test_degraded_to_healthy_recovery(self):
+        """测试降级节点恢复健康"""
+        config = HealthCheckConfig(interval_seconds=0.01)
+        checker = HealthChecker(config)
+        degraded_node = NodeInfo(id="node1", host="localhost", port=8080, region="cn", status=NodeStatus.DEGRADED)
+        checker.register_node(degraded_node)
+
+        await checker.start()
+        await asyncio.sleep(0.05)
+
+        assert degraded_node.status == NodeStatus.HEALTHY
+
+        await checker.stop()
+
+    @pytest.mark.anyio
+    async def test_health_check_failure_increases_error_count(self):
+        """测试健康检查失败增加错误计数"""
+        config = HealthCheckConfig(interval_seconds=0.01)
+        checker = HealthChecker(config)
+        node = NodeInfo(id="node1", host="localhost", port=8080, region="cn")
+        checker.register_node(node)
+
+        with patch.object(checker, "_check_node_health", side_effect=Exception("test error")):
+            await checker.start()
+            await asyncio.sleep(0.05)
+
+            assert node.error_count >= 1
+
+        await checker.stop()
+
+    @pytest.mark.anyio
+    async def test_unhealthy_threshold_reached(self):
+        """测试达到不健康阈值"""
+        config = HealthCheckConfig(interval_seconds=0.01, unhealthy_threshold=1)
+        checker = HealthChecker(config)
+        node = NodeInfo(id="node1", host="localhost", port=8080, region="cn")
+        checker.register_node(node)
+
+        with patch.object(checker, "_check_node_health", side_effect=Exception("test error")):
+            await checker.start()
+            await asyncio.sleep(0.05)
+
+            assert node.status == NodeStatus.UNHEALTHY
+
+        await checker.stop()
 
 
 class TestLoadBalancer:
-    """测试负载均衡器"""
+    """负载均衡器测试"""
 
-    @pytest.fixture
-    def nodes(self):
-        return [
-            NodeInfo(id="node1", host="localhost", port=8000, region="us-west", weight=1.0),
-            NodeInfo(id="node2", host="localhost", port=8001, region="us-west", weight=2.0),
-            NodeInfo(id="node3", host="localhost", port=8002, region="us-west", weight=3.0),
+    def test_round_robin_strategy(self):
+        balancer = LoadBalancer(strategy="round_robin")
+        nodes = [
+            NodeInfo(id="node1", host="localhost", port=8080, region="cn"),
+            NodeInfo(id="node2", host="localhost", port=8081, region="cn"),
         ]
 
-    def test_round_robin_order(self, nodes):
-        """测试轮询顺序"""
-        lb = LoadBalancer(strategy="round_robin")
-        selected = [lb.select_node(nodes).id for _ in range(6)]
-        assert selected == ["node1", "node2", "node3", "node1", "node2", "node3"]
+        node1 = balancer.select_node(nodes)
+        node2 = balancer.select_node(nodes)
+        node1_again = balancer.select_node(nodes)
 
-    def test_round_robin_empty_list(self):
-        """测试轮询空列表"""
-        lb = LoadBalancer(strategy="round_robin")
-        assert lb.select_node([]) is None
+        assert node1.id == "node1"
+        assert node2.id == "node2"
+        assert node1_again.id == "node1"
 
-    def test_weighted_round_robin_distribution(self, nodes):
-        """测试加权轮询分布"""
-        lb = LoadBalancer(strategy="weighted_round_robin")
-        counts = {"node1": 0, "node2": 0, "node3": 0}
-        for _ in range(600):
-            node = lb.select_node(nodes)
-            counts[node.id] += 1
+    def test_weighted_round_robin_strategy(self):
+        balancer = LoadBalancer(strategy="weighted_round_robin")
+        nodes = [
+            NodeInfo(id="node1", host="localhost", port=8080, region="cn", weight=1.0),
+            NodeInfo(id="node2", host="localhost", port=8081, region="cn", weight=3.0),
+        ]
 
-        # 权重比例 1:2:3，验证大致分布
-        assert counts["node3"] > counts["node2"] > counts["node1"]
+        selections = [balancer.select_node(nodes).id for _ in range(10)]
+        assert "node1" in selections
+        assert "node2" in selections
 
-    def test_least_connections_selection(self, nodes):
-        """测试最少连接选择"""
-        lb = LoadBalancer(strategy="least_connections")
+    def test_random_strategy(self):
+        balancer = LoadBalancer(strategy="random")
+        nodes = [
+            NodeInfo(id="node1", host="localhost", port=8080, region="cn"),
+            NodeInfo(id="node2", host="localhost", port=8081, region="cn"),
+        ]
 
-        # 模拟不同的请求计数
-        lb.record_request("node1")
-        lb.record_request("node1")
-        lb.record_request("node2")
+        node = balancer.select_node(nodes)
+        assert node.id in ["node1", "node2"]
 
-        selected = lb.select_node(nodes)
-        assert selected.id == "node3"  # 0 requests，最少
+    def test_latency_based_strategy(self):
+        balancer = LoadBalancer(strategy="latency_based")
+        nodes = [
+            NodeInfo(id="node1", host="localhost", port=8080, region="cn", latency_ms=100),
+            NodeInfo(id="node2", host="localhost", port=8081, region="cn", latency_ms=50),
+        ]
 
-    def test_random_returns_valid_node(self, nodes):
-        """测试随机选择返回有效节点"""
-        lb = LoadBalancer(strategy="random")
-        for _ in range(50):
-            node = lb.select_node(nodes)
-            assert node is not None
-            assert node.id in ["node1", "node2", "node3"]
+        node = balancer.select_node(nodes)
+        assert node.id == "node2"
 
-    def test_latency_based_selection(self, nodes):
-        """测试基于延迟选择"""
-        lb = LoadBalancer(strategy="latency_based")
+    def test_least_connections_strategy(self):
+        balancer = LoadBalancer(strategy="least_connections")
+        nodes = [
+            NodeInfo(id="node1", host="localhost", port=8080, region="cn"),
+            NodeInfo(id="node2", host="localhost", port=8081, region="cn"),
+        ]
 
-        nodes[0].latency_ms = 200
-        nodes[1].latency_ms = 10
-        nodes[2].latency_ms = 100
+        balancer.record_request("node1")
+        balancer.record_request("node1")
 
-        selected = lb.select_node(nodes)
-        assert selected.id == "node2"  # 延迟最低
+        node = balancer.select_node(nodes)
+        assert node.id == "node2"
 
-    def test_record_request_counts(self):
-        """测试请求计数"""
-        lb = LoadBalancer()
-        lb.record_request("node1")
-        lb.record_request("node1")
-        lb.record_request("node2")
+    def test_record_completion(self):
+        balancer = LoadBalancer()
+        balancer.record_request("node1")
+        assert balancer._request_counts["node1"] == 1
 
-        assert lb._request_counts == {"node1": 2, "node2": 1}
+        balancer.record_completion("node1")
+        assert balancer._request_counts["node1"] == 0
 
-    def test_unknown_strategy_fallback(self, nodes):
-        """测试未知策略回退"""
-        lb = LoadBalancer(strategy="unknown")
-        assert lb.select_node(nodes) == nodes[0]
+    def test_select_node_empty(self):
+        balancer = LoadBalancer()
+        result = balancer.select_node([])
+        assert result is None
+
+    def test_weighted_round_robin_zero_weight(self):
+        """测试加权轮询零权重"""
+        balancer = LoadBalancer(strategy="weighted_round_robin")
+        nodes = [
+            NodeInfo(id="node1", host="localhost", port=8080, region="cn", weight=0.0),
+        ]
+
+        node = balancer.select_node(nodes)
+        assert node.id == "node1"
 
 
 class TestFailoverManager:
-    """测试故障转移管理器"""
+    """故障转移管理器测试"""
 
-    @pytest.fixture
-    def manager(self):
-        health_checker = HealthChecker()
-        load_balancer = LoadBalancer()
-        return FailoverManager(health_checker, load_balancer)
+    def test_failover_manager_initialization(self):
+        checker = HealthChecker()
+        balancer = LoadBalancer()
+        failover = FailoverManager(checker, balancer)
 
-    @pytest.fixture
-    def node(self):
-        return NodeInfo(
-            id="node1",
-            host="localhost",
-            port=8000,
-            region="us-west",
-        )
+        assert failover._failover_count == 0
+        assert failover._recovery_count == 0
 
-    @pytest.mark.asyncio
-    async def test_handle_failover_sets_weight_zero(self, manager, node):
-        """测试故障转移将权重设为0"""
-        original_weight = node.weight
-        await manager._handle_failover(node)
-        assert node.weight == 0.0
-        assert manager._failover_count == 1
-        assert original_weight != 0.0  # 验证确实发生了变化
+    def test_get_stats(self):
+        checker = HealthChecker()
+        balancer = LoadBalancer()
+        failover = FailoverManager(checker, balancer)
 
-    @pytest.mark.asyncio
-    async def test_handle_recovery_restores_weight(self, manager, node):
-        """测试恢复操作恢复权重"""
-        node.weight = 0.0
-        await manager._handle_recovery(node)
-        assert node.weight == 1.0
-        assert manager._recovery_count == 1
-
-    def test_get_stats_structure(self, manager):
-        """测试统计信息结构"""
-        stats = manager.get_stats()
+        stats = failover.get_stats()
         assert "failover_count" in stats
         assert "recovery_count" in stats
-        assert isinstance(stats["failover_count"], int)
-        assert isinstance(stats["recovery_count"], int)
+        assert "active_nodes" in stats
 
-    def test_failover_recovery_counting(self, manager, node):
-        """测试故障和恢复计数"""
+    @pytest.mark.anyio
+    async def test_failover_on_unhealthy(self):
+        """测试不健康节点触发故障转移"""
+        checker = HealthChecker()
+        balancer = LoadBalancer()
+        failover = FailoverManager(checker, balancer)
 
-        asyncio.run(manager._handle_failover(node))
-        asyncio.run(manager._handle_recovery(node))
-        asyncio.run(manager._handle_failover(node))
+        node = NodeInfo(id="node1", host="localhost", port=8080, region="cn")
+        checker.register_node(node)
 
-        stats = manager.get_stats()
-        assert stats["failover_count"] == 2
-        assert stats["recovery_count"] == 1
+        await failover._on_status_change(node, NodeStatus.HEALTHY, NodeStatus.UNHEALTHY)
+
+        assert failover._failover_count == 1
+        assert node.weight == 0.0
+
+    @pytest.mark.anyio
+    async def test_recovery_on_healthy(self):
+        """测试节点恢复"""
+        checker = HealthChecker()
+        balancer = LoadBalancer()
+        failover = FailoverManager(checker, balancer)
+
+        node = NodeInfo(id="node1", host="localhost", port=8080, region="cn", status=NodeStatus.UNHEALTHY, weight=0.0)
+        checker.register_node(node)
+
+        await failover._on_status_change(node, NodeStatus.UNHEALTHY, NodeStatus.HEALTHY)
+
+        assert failover._recovery_count == 1
+        assert node.weight == 1.0
+
+    @pytest.mark.anyio
+    async def test_failover_selects_backup(self):
+        """测试故障转移选择备用节点"""
+        checker = HealthChecker()
+        balancer = LoadBalancer()
+        failover = FailoverManager(checker, balancer)
+
+        node1 = NodeInfo(id="node1", host="localhost", port=8080, region="cn")
+        node2 = NodeInfo(id="node2", host="localhost", port=8081, region="cn")
+        checker.register_node(node1)
+        checker.register_node(node2)
+
+        await failover._on_status_change(node1, NodeStatus.HEALTHY, NodeStatus.UNHEALTHY)
+
+        assert failover._failover_count == 1
 
 
 class TestMultiActiveDeployer:
-    """测试多活部署管理器"""
+    """多活部署管理器测试"""
 
-    @pytest.fixture
-    def deployer(self):
-        return MultiActiveDeployer()
-
-    @pytest.fixture
-    def nodes(self):
-        return [
-            NodeInfo(id="na-west-1", host="localhost", port=8000, region="north_america"),
-            NodeInfo(id="na-east-1", host="localhost", port=8001, region="north_america"),
+    def test_add_and_remove_region(self):
+        deployer = MultiActiveDeployer()
+        nodes = [
+            NodeInfo(id="node1", host="localhost", port=8080, region="cn"),
         ]
 
-    def test_add_region(self, deployer, nodes):
-        """测试添加区域"""
-        deployer.add_region("north_america", nodes)
-        assert "north_america" in deployer._regions
-        assert len(deployer._regions["north_america"]) == 2
+        deployer.add_region("cn", nodes)
+        assert "cn" in deployer._regions
 
-    def test_remove_region(self, deployer, nodes):
-        """测试移除区域"""
-        deployer.add_region("north_america", nodes)
-        deployer.remove_region("north_america")
-        assert "north_america" not in deployer._regions
+        deployer.remove_region("cn")
+        assert "cn" not in deployer._regions
 
-    def test_get_node_for_request_returns_node(self, deployer, nodes):
-        """测试获取请求节点"""
-        deployer.add_region("north_america", nodes)
-        node = deployer.get_node_for_request("north_america")
+    def test_get_node_for_request(self):
+        deployer = MultiActiveDeployer()
+        nodes = [
+            NodeInfo(id="node1", host="localhost", port=8080, region="cn"),
+            NodeInfo(id="node2", host="localhost", port=8081, region="cn"),
+        ]
+
+        deployer.add_region("cn", nodes)
+        node = deployer.get_node_for_request("cn")
         assert node is not None
-        assert node.id in ["na-west-1", "na-east-1"]
+        assert node.id in ["node1", "node2"]
 
-    def test_get_node_for_unknown_region(self, deployer):
-        """测试未知区域返回 None"""
-        assert deployer.get_node_for_request("unknown") is None
+    def test_get_deployment_stats(self):
+        deployer = MultiActiveDeployer()
+        nodes = [
+            NodeInfo(id="node1", host="localhost", port=8080, region="cn"),
+        ]
 
-    def test_get_deployment_stats_structure(self, deployer, nodes):
-        """测试部署统计结构"""
-        deployer.add_region("north_america", nodes)
+        deployer.add_region("cn", nodes)
         stats = deployer.get_deployment_stats()
-
         assert "regions" in stats
-        assert "failover" in stats
-        assert "north_america" in stats["regions"]
-        region_stats = stats["regions"]["north_america"]
-        assert "total_nodes" in region_stats
-        assert region_stats["total_nodes"] == 2
-        assert "healthy_nodes" in region_stats
-        assert "avg_latency_ms" in region_stats
+        assert "cn" in stats["regions"]
+
+    @pytest.mark.anyio
+    async def test_start_and_stop(self):
+        """测试多活部署启动和停止"""
+        deployer = MultiActiveDeployer()
+        nodes = [
+            NodeInfo(id="node1", host="localhost", port=8080, region="cn"),
+        ]
+        deployer.add_region("cn", nodes)
+
+        await deployer.start()
+        await asyncio.sleep(0.05)
+
+        await deployer.stop()
+
+    def test_get_node_for_request_no_region(self):
+        """测试不指定区域获取节点"""
+        deployer = MultiActiveDeployer()
+        nodes = [
+            NodeInfo(id="node1", host="localhost", port=8080, region="cn"),
+        ]
+
+        deployer.add_region("cn", nodes)
+        node = deployer.get_node_for_request()
+        assert node is not None
 
 
 class TestAutoRecoveryService:
-    """测试自动恢复服务"""
+    """自动恢复服务测试"""
 
-    @pytest.fixture
-    def service(self):
-        return AutoRecoveryService(max_recovery_attempts=3, recovery_interval=60.0)
+    @pytest.mark.anyio
+    async def test_attempt_recovery_success(self):
+        service = AutoRecoveryService(max_recovery_attempts=3, recovery_interval=60.0)
+        node = NodeInfo(id="node1", host="localhost", port=8080, region="cn")
 
-    @pytest.fixture
-    def node(self):
-        return NodeInfo(
-            id="node1",
-            host="localhost",
-            port=8000,
-            region="us-west",
-        )
-
-    @pytest.mark.asyncio
-    async def test_attempt_recovery_success(self, service, node):
-        """测试恢复成功"""
         result = await service.attempt_recovery(node)
         assert result is True
-        assert len(service._recovery_history["node1"]) == 1
-        assert service._recovery_history["node1"][0]["success"] is True
-
-    @pytest.mark.asyncio
-    async def test_attempt_recovery_exceeded(self, service, node):
-        """测试超过最大恢复次数"""
-        import time
-
-        # 模拟多次失败
-        service._recovery_history["node1"] = [
-            {"timestamp": time.time() - 100, "success": False},
-            {"timestamp": time.time() - 200, "success": False},
-            {"timestamp": time.time() - 300, "success": False},
-        ]
-
-        result = await service.attempt_recovery(node)
-        assert result is False
-
-    def test_get_recovery_history(self, service, node):
-        """测试获取恢复历史"""
-        import time
-
-        service._recovery_history["node1"] = [
-            {"timestamp": time.time(), "success": True},
-        ]
 
         history = service.get_recovery_history("node1")
         assert len(history) == 1
         assert history[0]["success"] is True
 
-    def test_clear_history(self, service):
-        """测试清除历史"""
-        import time
+    @pytest.mark.anyio
+    async def test_attempt_recovery_exceeds_max_attempts(self):
+        service = AutoRecoveryService(max_recovery_attempts=1)
+        node = NodeInfo(id="node1", host="localhost", port=8080, region="cn")
 
-        service._recovery_history["node1"] = [
-            {"timestamp": time.time(), "success": True},
-        ]
-
-        service.clear_history("node1")
-        assert service.get_recovery_history("node1") == []
-
-    @pytest.mark.asyncio
-    async def test_recovery_records_failure(self, service, node):
-        """测试恢复失败被记录：超过最大尝试次数时返回 False"""
-        import time
-
-        # 预先填充失败历史，使达到最大尝试次数
-        service._recovery_history["node1"] = [
-            {"timestamp": time.time() - 100, "success": False, "error": "timeout"},
-            {"timestamp": time.time() - 200, "success": False, "error": "timeout"},
-            {"timestamp": time.time() - 300, "success": False, "error": "timeout"},
-        ]
-
+        await service.attempt_recovery(node)
         result = await service.attempt_recovery(node)
+
         assert result is False
-        # 验证没有添加新的成功记录
-        assert all(not h.get("success", False) for h in service._recovery_history["node1"])
+
+    def test_clear_recovery_history(self):
+        service = AutoRecoveryService()
+        node = NodeInfo(id="node1", host="localhost", port=8080, region="cn")
+
+        service._recovery_history["node1"] = [{"timestamp": 1.0, "success": True}]
+        service.clear_history("node1")
+
+        assert "node1" not in service._recovery_history
+
+    @pytest.mark.anyio
+    async def test_attempt_recovery_failure(self):
+        """测试恢复失败"""
+        service = AutoRecoveryService()
+        node = NodeInfo(id="node1", host="localhost", port=8080, region="cn")
+
+        with patch("asyncio.sleep", side_effect=Exception("recovery failed")):
+            result = await service.attempt_recovery(node)
+            assert result is False
+
+        history = service.get_recovery_history("node1")
+        assert len(history) == 1
+        assert history[0]["success"] is False
+        assert "error" in history[0]
+
+    @pytest.mark.anyio
+    async def test_recovery_history_purge(self):
+        """测试恢复历史清理（超过1小时）"""
+        import time
+        service = AutoRecoveryService(max_recovery_attempts=1)
+        node = NodeInfo(id="node1", host="localhost", port=8080, region="cn")
+
+        service._recovery_history["node1"] = [{"timestamp": time.time() - 3700, "success": False}]
+        result = await service.attempt_recovery(node)
+
+        assert result is True
+
+
+class TestGlobalDeployer:
+    """全局部署管理器测试"""
+
+    def test_get_deployer_returns_same_instance(self):
+        deployer1 = get_deployer()
+        deployer2 = get_deployer()

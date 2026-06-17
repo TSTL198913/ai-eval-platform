@@ -1,52 +1,125 @@
-import os
-import sys
 import time
 from datetime import datetime
 
-# 1. 动态添加路径，确保正确定位到 src
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+import pytest
 
-# 2. 闭环核心：引入系统统一的数据契约
-from src.schemas.evaluation import EvaluationSchema  # noqa: E402
-from src.workers.tasks import eval_case_task  # noqa: E402
+from src.schemas.evaluation import EvaluationSchema
+from src.workers.tasks import eval_case_task, buffer_service
 
 
-def run_stress_test(task_count=100):
-    print(f"[{datetime.now()}] 🚀 开始全链路闭环压测：提交 {task_count} 个标准契约任务...")
-    start_time = time.time()
+@pytest.fixture(autouse=True)
+def clean_buffer():
+    buffer_service.buffer.clear()
+    yield
+
+
+def test_stress_test_single_task(mock_llm):
+    mock_schema_obj = EvaluationSchema(
+        id="STRESS_TEST_001",
+        type="text",
+        payload={
+            "case_id": "c_0",
+            "user_input": "高并发测试输入",
+            "domain": "text",
+        },
+        metadata={"batch": "stress_test"},
+    )
+
+    eval_case_task.delay(mock_schema_obj.model_dump())
+
+    assert len(buffer_service.buffer) == 1
+
+
+def test_stress_test_multiple_tasks(mock_llm):
+    task_count = 10
 
     for i in range(task_count):
-        # 交替测试 text 和 code 等已注册的领域算子
         eval_type = "text" if i % 2 == 0 else "code"
-
-        # 3. 放弃原本盲目造数据的 EvalCaseModel
-        # 4. 直接使用标准 EvaluationSchema 构造强类型对象，确保源头数据 100% 合规
         mock_schema_obj = EvaluationSchema(
-            id=f"STRESS_TEST_{i}_{int(time.time())}",
+            id=f"STRESS_TEST_{i}",
             type=eval_type,
             payload={
                 "case_id": f"c_{i}",
                 "user_input": f"高并发测试输入 - 编号 {i}",
                 "domain": eval_type,
             },
-            metadata={"batch": "stress_2026_06"},
+            metadata={"batch": "stress_test"},
         )
-
-        # 5. 将 Pydantic 对象序列化为 dict 灌入 Celery 异步队列
-        # 这保证了传给 eval_case_task.delay 的每一条数据，都在出厂前通过了安全整形
         eval_case_task.delay(mock_schema_obj.model_dump())
 
-    end_time = time.time()
-    total_duration = end_time - start_time
+    assert len(buffer_service.buffer) == task_count
+
+
+def test_stress_test_task_submit_performance(mock_llm):
+    task_count = 20
+    start_time = time.time()
+
+    for i in range(task_count):
+        mock_schema_obj = EvaluationSchema(
+            id=f"PERF_TEST_{i}_{int(time.time())}",
+            type="general",
+            payload={
+                "case_id": f"c_{i}",
+                "user_input": f"性能测试输入 - 编号 {i}",
+                "domain": "general",
+            },
+            metadata={"batch": "performance_test"},
+        )
+        eval_case_task.delay(mock_schema_obj.model_dump())
+
+    total_duration = time.time() - start_time
     tps = task_count / total_duration
 
-    print(f"[{datetime.now()}] ✅ 强契约任务全部安全提交！")
-    print("--- 压测统计 ---")
-    print(f"总提交任务数: {task_count}")
-    print(f"提交总耗时: {total_duration:.2f} 秒")
-    print(f"提交吞吐量 (TPS): {tps:.2f} 任务/秒")
-    print("建议：请观察 watcher.log 查看 Worker 的消费速度。")
+    assert tps > 0
+    assert total_duration > 0
 
 
-if __name__ == "__main__":
-    run_stress_test(100)
+def test_stress_test_mixed_domain_tasks(mock_llm):
+    domains = ["text", "code", "finance", "general", "qa"]
+    tasks_per_domain = 3
+
+    for domain in domains:
+        for i in range(tasks_per_domain):
+            mock_schema_obj = EvaluationSchema(
+                id=f"MIXED_{domain}_{i}",
+                type=domain,
+                payload={
+                    "case_id": f"mixed_{domain}_{i}",
+                    "user_input": f"{domain} domain test {i}",
+                    "domain": domain,
+                },
+                metadata={"batch": "mixed_domain_test"},
+            )
+            eval_case_task.delay(mock_schema_obj.model_dump())
+
+    assert len(buffer_service.buffer) == len(domains) * tasks_per_domain
+
+
+def test_stress_test_empty_payload(mock_llm):
+    mock_schema_obj = EvaluationSchema(
+        id="EMPTY_PAYLOAD_TEST",
+        type="general",
+        payload={},
+        metadata={"batch": "empty_payload_test"},
+    )
+
+    eval_case_task.delay(mock_schema_obj.model_dump())
+
+    assert len(buffer_service.buffer) == 1
+
+
+def test_stress_test_large_payload(mock_llm):
+    mock_schema_obj = EvaluationSchema(
+        id="LARGE_PAYLOAD_TEST",
+        type="general",
+        payload={
+            "case_id": "large_payload_case",
+            "user_input": "x" * 5000,
+            "domain": "general",
+        },
+        metadata={"batch": "large_payload_test"},
+    )
+
+    eval_case_task.delay(mock_schema_obj.model_dump())
+
+    assert len(buffer_service.buffer) == 1

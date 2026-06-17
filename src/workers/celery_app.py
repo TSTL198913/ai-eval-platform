@@ -1,60 +1,83 @@
 import os
+from typing import Optional
 
-import redis  # noqa: F401
 from celery import Celery
 
 # celery -A src.workers.celery_app worker --loglevel=info
 
-# =====================================================================
-# 1. 物理层底层协议与特性拦截补丁 (Ultimate Redis 5 Engine Patch)
-# =====================================================================
-original_init = redis.Connection.__init__
-
-
-def safe_connection_init(self, *args, **kwargs):
-    # A. 强制锁死 RESP2 协议以兼容物理 Redis 5.0.14 数据库
-    kwargs["protocol"] = 2
-
-    # B. 强行关闭新版驱动在老版本协议下会报错的云维护通知特性
-    # 直接清空相关字典，防止其进入底层执行 _configure_maintenance_notifications
-    if "redis_services_context" in kwargs:
-        kwargs["redis_services_context"] = None
-
-    original_init(self, *args, **kwargs)
-
-
-# C. 降维打击：直接空置新版驱动的维护通知配置函数，让它安全通过初始化
-redis.Connection._configure_maintenance_notifications = lambda *args, **kwargs: None
-
-# 注入我们的安全核心构造函数
-redis.Connection.__init__ = safe_connection_init
-
-
-# =====================================================================
-# 2. 纯净实例化 (Celery Infrastructure)
-# =====================================================================
 BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
 BACKEND_URL = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/1")
 
-celery_app = Celery(
-    "eval_platform",
-    broker=BROKER_URL,
-    backend=BACKEND_URL,
-    include=["src.workers.tasks"],
-)
+# 任务并发数配置
+WORKER_CONCURRENCY = int(os.getenv("CELERY_WORKER_CONCURRENCY", "4"))
+WORKER_PREFETCH_MULTIPLIER = int(os.getenv("CELERY_WORKER_PREFETCH_MULTIPLIER", "1"))
 
-# 集中注入高可用核心参数
-celery_app.conf.update(
-    task_serializer="json",
-    accept_content=["json"],
-    result_serializer="json",
-    task_time_limit=60,  # 60秒强制超时熔断
-    worker_max_tasks_per_child=50,  # 每个子进程执行50次任务自动重建，防内存泄漏
-    task_ignore_result=False,  # 记录结果，确保 task.get() 顺畅无阻
-    # 配置层对接
-    broker_transport_options={"protocol": 2},
-    result_backend_transport_options={"protocol": 2},
-)
+# 任务超时配置
+TASK_TIME_LIMIT = int(os.getenv("CELERY_TASK_TIME_LIMIT", "60"))
+TASK_SOFT_TIME_LIMIT = int(os.getenv("CELERY_TASK_SOFT_TIME_LIMIT", "240"))
+
+# 任务重试策略配置
+TASK_MAX_RETRIES = int(os.getenv("CELERY_TASK_MAX_RETRIES", "3"))
+TASK_RETRY_BACKOFF = bool(os.getenv("CELERY_TASK_RETRY_BACKOFF", "true").lower() == "true")
+TASK_RETRY_BACKOFF_MAX = int(os.getenv("CELERY_TASK_RETRY_BACKOFF_MAX", "600"))
+TASK_RETRY_JITTER = bool(os.getenv("CELERY_TASK_RETRY_JITTER", "true").lower() == "true")
+
+# 任务缓冲配置
+TASK_ACKS_LATE = bool(os.getenv("CELERY_TASK_ACKS_LATE", "true").lower() == "true")
+TASK_REJECT_ON_WORKER_LOST = bool(os.getenv("CELERY_TASK_REJECT_ON_WORKER_LOST", "true").lower() == "true")
+
+# Worker配置
+WORKER_MAX_TASKS_PER_CHILD = int(os.getenv("CELERY_WORKER_MAX_TASKS_PER_CHILD", "50"))
+WORKER_MAX_MEMORY_PER_CHILD = int(os.getenv("CELERY_WORKER_MAX_MEMORY_PER_CHILD", "524288"))  # KB
+
+_celery_app = None
+
+
+def get_celery_app() -> Celery:
+    """延迟获取Celery应用实例"""
+    global _celery_app
+    if _celery_app is None:
+        # 使用broker_transport_options配置RESP2协议，而非全局补丁
+        _celery_app = Celery(
+            "eval_platform",
+            broker=BROKER_URL,
+            backend=BACKEND_URL,
+            include=["src.workers.tasks"],
+        )
+
+        _celery_app.conf.update(
+            # 序列化配置
+            task_serializer="json",
+            accept_content=["json"],
+            result_serializer="json",
+            task_ignore_result=False,
+            # 通过配置而非猴子补丁解决RESP2协议兼容问题
+            broker_transport_options={"protocol": 2, "visibility_timeout": 3600},
+            result_backend_transport_options={"protocol": 2},
+            # 任务超时配置
+            task_time_limit=TASK_TIME_LIMIT,
+            task_soft_time_limit=TASK_SOFT_TIME_LIMIT,
+            # 任务重试策略配置
+            task_acks_late=TASK_ACKS_LATE,
+            task_reject_on_worker_lost=TASK_REJECT_ON_WORKER_LOST,
+            # Worker配置
+            worker_max_tasks_per_child=WORKER_MAX_TASKS_PER_CHILD,
+            worker_max_memory_per_child=WORKER_MAX_MEMORY_PER_CHILD,
+            # 任务缓冲优化：预取倍数
+            worker_prefetch_multiplier=WORKER_PREFETCH_MULTIPLIER,
+            # 兼容性保留
+            task_default_retry_delay=3,
+        )
+    return _celery_app
+
+
+# 仅在非测试环境自动初始化
+IS_TESTING = os.environ.get("TESTING", "0") == "1"
+if not IS_TESTING:
+    celery_app = get_celery_app()
+else:
+    celery_app = None
+
 
 if __name__ == "__main__":
-    celery_app.start()
+    get_celery_app().start()

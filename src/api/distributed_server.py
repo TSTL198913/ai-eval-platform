@@ -54,6 +54,7 @@ def get_redis() -> redis.Redis:
             port=int(os.getenv("REDIS_PORT", "6379")),
             db=int(os.getenv("REDIS_DB", "0")),
             decode_responses=True,
+            protocol=2,
         )
     return _redis_client
 

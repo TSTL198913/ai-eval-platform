@@ -95,3 +95,106 @@ def test_get_input_text_falls_back_to_text():
         metadata={},
     )
     assert evaluator.get_input_text(request) == "from_text"
+
+
+def test_engine_handles_contract_validation_error(mock_llm):
+    from unittest.mock import patch
+    from src.exceptions import ContractValidationError
+
+    with patch("src.domain.evaluators.evaluator_factory.EvaluatorFactory.get") as mock_get:
+        mock_get.side_effect = ContractValidationError("invalid input")
+        engine = EvaluationEngine(mock_llm)
+
+        result = engine.run(
+            EvaluationSchema(
+                id="contract_err",
+                type="finance",
+                payload={"user_input": "test"},
+                metadata={},
+            )
+        )
+
+        assert result.status == EvaluationStatus.ERROR
+        assert result.adapter_name == "contract_validator"
+        assert "契约验证错误" in result.response.error
+
+
+def test_engine_handles_domain_logic_error(mock_llm):
+    from unittest.mock import patch
+    from src.exceptions import DomainLogicError
+
+    with patch("src.domain.evaluators.evaluator_factory.EvaluatorFactory.get") as mock_get:
+        mock_get.side_effect = DomainLogicError("domain error")
+        engine = EvaluationEngine(mock_llm)
+
+        result = engine.run(
+            EvaluationSchema(
+                id="domain_err",
+                type="finance",
+                payload={"user_input": "test"},
+                metadata={},
+            )
+        )
+
+        assert result.status == EvaluationStatus.ERROR
+        assert result.adapter_name == "domain_handler"
+        assert "领域错误" in result.response.error
+
+
+def test_engine_handles_infrastructure_error(mock_llm):
+    from unittest.mock import patch
+    from src.exceptions import InfrastructureError
+
+    with patch("src.domain.evaluators.evaluator_factory.EvaluatorFactory.get") as mock_get:
+        mock_get.side_effect = InfrastructureError("db connection failed")
+        engine = EvaluationEngine(mock_llm)
+
+        result = engine.run(
+            EvaluationSchema(
+                id="infra_err",
+                type="finance",
+                payload={"user_input": "test"},
+                metadata={},
+            )
+        )
+
+        assert result.status == EvaluationStatus.ERROR
+        assert result.adapter_name == "infra_handler"
+        assert "基础设施错误" in result.response.error
+
+
+def test_engine_handles_generic_exception(mock_llm):
+    from unittest.mock import patch
+
+    with patch("src.domain.evaluators.evaluator_factory.EvaluatorFactory.get") as mock_get:
+        mock_get.side_effect = RuntimeError("unexpected error")
+        engine = EvaluationEngine(mock_llm)
+
+        result = engine.run(
+            EvaluationSchema(
+                id="generic_err",
+                type="finance",
+                payload={"user_input": "test"},
+                metadata={},
+            )
+        )
+
+        assert result.status == EvaluationStatus.ERROR
+        assert result.adapter_name == "error_handler"
+
+
+def test_engine_returns_passed_when_valid(mock_llm):
+    mock_llm.chat.return_value = "正确的回答"
+    engine = EvaluationEngine(mock_llm)
+
+    result = engine.run(
+        EvaluationSchema(
+            id="pass_001",
+            type="general",
+            payload={"user_input": "hello"},
+            metadata={},
+        )
+    )
+
+    assert result.status == EvaluationStatus.PASSED
+    assert result.response.is_valid is True

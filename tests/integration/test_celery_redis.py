@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from src.workers.celery_app import celery_app
+from src.workers.celery_app import get_celery_app
 from src.workers.tasks import eval_case_task
 
 pytestmark = [pytest.mark.redis, pytest.mark.integration]
@@ -36,6 +36,7 @@ def celery_real_mode(redis_broker_url, monkeypatch, mock_llm):
     if backend_url == redis_broker_url:
         backend_url = f"{redis_broker_url}/1"
 
+    celery_app = get_celery_app()
     celery_app.conf.update(
         broker_url=redis_broker_url,
         result_backend=backend_url,
@@ -64,6 +65,7 @@ def celery_worker(redis_broker_url, monkeypatch, mock_llm):
     if backend_url == redis_broker_url:
         backend_url = f"{redis_broker_url}/1"
 
+    celery_app = get_celery_app()
     celery_app.conf.update(
         broker_url=redis_broker_url,
         result_backend=backend_url,

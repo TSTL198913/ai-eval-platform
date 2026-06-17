@@ -65,7 +65,7 @@ def test_sync_evaluate_response_contract(client, monkeypatch, mock_llm):
 
 def test_async_evaluate_response_contract(client, monkeypatch, mock_llm):
     monkeypatch.setattr(
-        "src.workers.tasks.create_llm_client",
+        "src.domain.models.llm_factory.create_llm_client",
         lambda client=None: mock_llm,
     )
     mock_llm.chat.return_value = "利息为30元。"

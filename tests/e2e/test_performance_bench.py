@@ -68,13 +68,14 @@ def test_benchmark_report_from_sample_cases(mock_llm, tmp_path):
 @pytest.fixture
 def load_data():
     data_path = Path("tests/prod_simulated_cases.json")
+    if not data_path.exists():
+        pytest.skip("测试数据文件不存在")
     with data_path.open("r", encoding="utf-8") as f:
         return json.load(f)
 
 
 @pytest.mark.slow
 def test_performance_metrics_full_dataset(load_data, tmp_path):
-    """全量 prod 数据集压测，仅本地/CI nightly 执行。"""
     latencies = []
     success_count = 0
     processed = 0
@@ -114,3 +115,78 @@ def test_performance_metrics_full_dataset(load_data, tmp_path):
 
     assert processed > 0
     assert report.success_rate == 1.0, error_summary
+
+
+def test_latency_distribution(mock_llm):
+    latencies = []
+    for _ in range(10):
+        start = time.perf_counter()
+        run_evaluation_service(
+            {
+                "id": f"latency_test_{_}",
+                "type": "general",
+                "payload": {"user_input": "test"},
+            },
+            client=mock_llm,
+        )
+        latencies.append((time.perf_counter() - start) * 1000)
+
+    avg_latency = sum(latencies) / len(latencies)
+    max_latency = max(latencies)
+    min_latency = min(latencies)
+
+    assert avg_latency >= 0
+    assert max_latency >= min_latency
+    assert all(l >= 0 for l in latencies)
+
+
+def test_throughput_measurement(mock_llm):
+    task_count = 20
+    start_time = time.perf_counter()
+
+    for i in range(task_count):
+        run_evaluation_service(
+            {
+                "id": f"throughput_test_{i}",
+                "type": "general",
+                "payload": {"user_input": f"test {i}"},
+            },
+            client=mock_llm,
+        )
+
+    total_time = time.perf_counter() - start_time
+    throughput = task_count / total_time
+
+    assert throughput > 0
+    assert total_time > 0
+
+
+def test_concurrent_evaluation(mock_llm):
+    import threading
+
+    errors = []
+    results = []
+
+    def evaluate_task(task_id):
+        try:
+            result = run_evaluation_service(
+                {
+                    "id": f"concurrent_{task_id}",
+                    "type": "general",
+                    "payload": {"user_input": f"concurrent test {task_id}"},
+                },
+                client=mock_llm,
+            )
+            results.append(result)
+        except Exception as e:
+            errors.append(e)
+
+    threads = [threading.Thread(target=evaluate_task, args=(i,)) for i in range(5)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert len(errors) == 0
+    assert len(results) == 5
+    assert all(r["status"] == "success" for r in results)

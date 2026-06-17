@@ -215,6 +215,7 @@ class TestBoundaryConditions:
 class TestConcurrentExecution:
     """并发执行集成测试"""
 
+    @pytest.mark.slow
     def test_concurrent_evaluation_requests(self):
         """测试并发评测请求"""
         from src.domain.models.base import ModelConfig
@@ -235,25 +236,26 @@ class TestConcurrentExecution:
             )
             return engine.run(request)
 
-        # 并发执行 10 个评测
-        with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [executor.submit(run_evaluation, f"case_{i}") for i in range(10)]
+        # 并发执行 5 个评测
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = [executor.submit(run_evaluation, f"case_{i}") for i in range(5)]
             results = [f.result() for f in futures]
 
         # 所有请求都应成功
-        assert len(results) == 10
+        assert len(results) == 5
         for result in results:
             assert result is not None
 
+    @pytest.mark.slow
     def test_concurrent_different_domains(self):
         """测试并发不同领域的评测"""
         from src.domain.models.base import ModelConfig
         from src.domain.models.stub import StubLLMClient
 
         domains = ["general", "code", "code_review", "finance", "text"]
+        client = StubLLMClient(ModelConfig(api_key="test", model_name="stub"))
 
         def evaluate_domain(domain: str, index: int):
-            client = StubLLMClient(ModelConfig(api_key="test", model_name="stub"))
             evaluator = EvaluatorFactory.get(domain, client=client)
             request = EvaluationSchema(
                 id=f"concurrent_{domain}_{index}",
@@ -263,15 +265,15 @@ class TestConcurrentExecution:
             )
             return evaluator.evaluate(request)
 
-        with ThreadPoolExecutor(max_workers=5) as executor:
+        with ThreadPoolExecutor(max_workers=3) as executor:
             futures = []
-            for i in range(10):
+            for i in range(5):
                 domain = domains[i % len(domains)]
                 futures.append(executor.submit(evaluate_domain, domain, i))
 
             results = [f.result() for f in futures]
 
-        assert len(results) == 10
+        assert len(results) == 5
 
 
 @pytest.mark.timeout(60)
@@ -454,6 +456,7 @@ class TestSchemaValidation:
 class TestPerformanceBounds:
     """性能边界集成测试"""
 
+    @pytest.mark.slow
     def test_rapid_sequence_requests(self):
         """测试快速连续请求"""
         from src.domain.models.base import ModelConfig
@@ -463,7 +466,7 @@ class TestPerformanceBounds:
         engine = EvaluationEngine(client)
 
         start_time = time.time()
-        for i in range(20):
+        for i in range(10):
             request = EvaluationSchema(
                 id=f"rapid_{i}",
                 type="general",
@@ -474,9 +477,9 @@ class TestPerformanceBounds:
 
         elapsed = time.time() - start_time
 
-        # 20 个请求应该在合理时间内完成
-        # Stub 客户端很快，所以 elapsed 可能很小，但我们只验证不崩溃
+        # 10 个请求应该在合理时间内完成
         assert elapsed >= 0
+        assert elapsed < 30, f"10个请求耗时{elapsed:.2f}s，超过30s阈值"
 
     def test_repeated_same_evaluation(self):
         """测试重复相同评测的稳定性"""

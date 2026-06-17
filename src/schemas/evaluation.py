@@ -1,3 +1,4 @@
+import time
 from enum import Enum
 from typing import Any, Literal
 
@@ -32,7 +33,53 @@ class EvaluationSchema(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
-# 覆盖所有潜在的领域类型
+class TrajectoryStep(BaseModel):
+    step_id: str
+    action: str
+    thought: str | None = None
+    observation: str | None = None
+    tool_name: str | None = None
+    tool_args: dict | None = None
+    tool_result: Any | None = None
+    timestamp: float = Field(default_factory=lambda: time.time())
+    token_usage: int = 0
+    latency_ms: float = 0
+
+
+class AgentTrajectory(BaseModel):
+    trajectory_id: str
+    case_id: str
+    model_name: str
+    steps: list[TrajectoryStep] = []
+    total_tokens: int = 0
+    total_latency_ms: float = 0
+    final_output: str | None = None
+    success: bool = False
+
+    def add_step(self, step: TrajectoryStep):
+        self.steps.append(step)
+        self.total_tokens += step.token_usage
+        self.total_latency_ms += step.latency_ms
+
+
+class DriftDetectionResult(BaseModel):
+    case_id: str
+    drift_detected: bool
+    baseline_score: float
+    current_score: float
+    drift_score: float
+    confidence: float
+    warning_threshold: float = 0.2
+
+
+class CostMetrics(BaseModel):
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    cost_usd: float
+    latency_ms: float
+
+
 DomainType = Literal[
     "finance",
     "crm",
@@ -49,4 +96,12 @@ DomainType = Literal[
     "summary",
     "fact_check",
     "qa",
+    "llm_as_judge",
+    "security",
+    "drift",
+    "trajectory",
+    "prompt_regression",
+    "memory",
+    "function_call",
+    "multi_agent",
 ]

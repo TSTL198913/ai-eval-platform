@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Optional
 
+from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
 if TYPE_CHECKING:
@@ -40,22 +41,3 @@ class BaseEvaluator(ABC):
             return response
         except Exception as e:
             return DomainResponse(is_valid=False, error=f"Evaluation execution error: {str(e)}")
-
-
-class EvaluatorFactory:
-    _registry = {}
-
-    @classmethod
-    def register(cls, name):
-        def decorator(func):
-            cls._registry[name] = func
-            return func
-
-        return decorator
-
-    @classmethod
-    def get(cls, case_type: str, client: Optional["BaseLLMClient"] = None) -> Any:
-        if case_type not in cls._registry:
-            available_types = list(cls._registry.keys())
-            raise ValueError(f"领域 '{case_type}' 未找到。当前已注册: {available_types}")
-        return cls._registry[case_type](client=client)

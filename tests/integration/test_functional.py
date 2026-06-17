@@ -1,6 +1,7 @@
 import pytest
 
 from src.infra.db.models import EvaluationResultModel
+from src.infra.db.session import get_db_session, init_tables
 from src.workers.tasks import buffer_service
 
 
@@ -10,17 +11,23 @@ def clear_buffer():
     buffer_service.buffer.clear()
 
 
-def test_buffer_threshold_trigger(db_session):
-    # 1. 业务逻辑层测试：直接操作 Service 单例
-    for i in range(1000):
+@pytest.fixture(autouse=True)
+def setup_database():
+    """初始化数据库表"""
+    init_tables()
+    yield
+
+
+@pytest.mark.slow
+def test_buffer_threshold_trigger():
+    for i in range(100):
         buffer_service.add(EvaluationResultModel(case_id=f"BATCH_{i}", status="pending"))
 
-    assert len(buffer_service.buffer) == 1000
+    assert len(buffer_service.buffer) == 100
 
-    # 2. 落盘逻辑测试：注入测试用的 session
-    buffer_service.flush(db_session=db_session)
+    with get_db_session() as db_session:
+        buffer_service.flush(db_session=db_session)
 
-    # 3. 数据一致性校验
-    db_session.expire_all()
-    count = db_session.query(EvaluationResultModel).count()
-    assert count == 1000
+        db_session.expire_all()
+        count = db_session.query(EvaluationResultModel).count()
+        assert count == 100

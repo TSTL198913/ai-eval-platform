@@ -5,11 +5,29 @@ LLM 客户端工厂 - 智能模型接入
 - 自动检测环境变量配置
 - 内置主流模型支持
 - 简单配置即可切换模型
+- 客户端单例缓存与池化管理
 """
 
 import os
+import threading
+from typing import Dict, Optional
 
 from src.domain.models.base import BaseLLMClient, ModelConfig
+
+
+# ============================================================================
+# 缓存管理 - 减少重复创建和环境变量读取
+# ============================================================================
+
+# 客户端单例缓存：key = "provider:model_name"
+_llm_client_cache: Dict[str, BaseLLMClient] = {}
+
+# 环境变量配置缓存：减少重复读取
+_env_config_cache: Dict[str, ModelConfig] = {}
+
+# 缓存锁：保证并发安全
+_cache_lock = threading.RLock()
+_env_cache_lock = threading.RLock()
 
 
 class ModelProvider:
@@ -50,7 +68,7 @@ class ModelRegistry:
         return list(cls._registry.keys())
 
 
-def load_config(provider: str | None = None) -> ModelConfig:
+def load_config(provider: str | None = None, use_cache: bool = True) -> ModelConfig:
     """
     智能加载模型配置
 
@@ -60,9 +78,23 @@ def load_config(provider: str | None = None) -> ModelConfig:
     - Anthropic: ANTHROPIC_API_KEY, ANTHROPIC_MODEL
     - Ollama: OLLAMA_MODEL, OLLAMA_BASE_URL
     - Qwen/DashScope: DASHSCOPE_API_KEY, DASHSCOPE_MODEL
+
+    Args:
+        provider: 模型提供者，为空则从环境变量 LLM_PROVIDER 读取
+        use_cache: 是否使用缓存，默认 True
+
+    Returns:
+        ModelConfig: 模型配置对象
     """
     # 自动检测提供者
     provider = provider or os.getenv("LLM_PROVIDER", ModelProvider.DEEPSEEK).lower()
+    cache_key = provider
+
+    # 检查缓存
+    if use_cache:
+        with _env_cache_lock:
+            if cache_key in _env_config_cache:
+                return _env_config_cache[cache_key]
 
     # 根据提供者加载配置
     config_map = {
@@ -113,48 +145,38 @@ def load_config(provider: str | None = None) -> ModelConfig:
     model_name = os.getenv(config_info["model_env"], config_info["default_model"])
     base_url = os.getenv(config_info["base_url_env"]) if config_info["base_url_env"] else None
 
-    return ModelConfig(
+    config = ModelConfig(
         api_key=api_key,
         model_name=model_name,
         base_url=base_url,
     )
 
+    # 缓存配置
+    if use_cache:
+        with _env_cache_lock:
+            _env_config_cache[cache_key] = config
 
-def create_llm_client(
-    provider: str | None = None,
-    config: ModelConfig | None = None,
-    client: BaseLLMClient | None = None,
-) -> BaseLLMClient:
+    return config
+
+
+def _generate_cache_key(provider: str, config: ModelConfig | None) -> str:
+    """生成缓存键"""
+    if config:
+        return f"{provider}:{config.model_name}"
+    return f"{provider}:default"
+
+
+def _create_new_client(provider: str, config: ModelConfig) -> BaseLLMClient:
     """
-    一键创建 LLM 客户端
+    创建新的 LLM 客户端实例
 
-    使用方式：
-    1. 最简单：create_llm_client() - 自动从环境变量读取配置
-    2. 指定提供者：create_llm_client(provider="openai")
-    3. 自定义配置：create_llm_client(config=ModelConfig(...))
-    4. 注入客户端：create_llm_client(client=MockClient()) - 用于测试
+    Args:
+        provider: 模型提供者
+        config: 模型配置
 
-    环境变量配置示例：
-    LLM_PROVIDER=openai
-    OPENAI_API_KEY=your-key
-    OPENAI_MODEL=gpt-4o
+    Returns:
+        BaseLLMClient: 新创建的客户端实例
     """
-    # 测试模式：直接注入客户端
-    if client is not None:
-        return client
-
-    # 使用自定义配置
-    if config is not None:
-        provider = provider or os.getenv("LLM_PROVIDER", ModelProvider.DEEPSEEK).lower()
-        client_class = ModelRegistry.get_client_class(provider)
-        if client_class:
-            return client_class(config)
-        raise ValueError(f"未注册的提供者: {provider}")
-
-    # 从环境变量加载配置
-    config = load_config(provider)
-    provider = provider or os.getenv("LLM_PROVIDER", ModelProvider.DEEPSEEK).lower()
-
     # 如果没有 API Key 或 API Key 是占位符且不是 Ollama，使用 Stub
     api_key_value = config.api_key.get_secret_value() if config.api_key else ""
     is_placeholder = api_key_value.startswith("your_") and api_key_value.endswith("_here")
@@ -173,6 +195,73 @@ def create_llm_client(
         )
 
     return client_class(config)
+
+
+def create_llm_client(
+    provider: str | None = None,
+    config: ModelConfig | None = None,
+    client: BaseLLMClient | None = None,
+    use_cache: bool = True,
+) -> BaseLLMClient:
+    """
+    一键创建 LLM 客户端（带缓存）
+
+    使用方式：
+    1. 最简单：create_llm_client() - 自动从环境变量读取配置
+    2. 指定提供者：create_llm_client(provider="openai")
+    3. 自定义配置：create_llm_client(config=ModelConfig(...))
+    4. 注入客户端：create_llm_client(client=MockClient()) - 用于测试
+    5. 禁用缓存：create_llm_client(use_cache=False) - 每次创建新实例
+
+    环境变量配置示例：
+    LLM_PROVIDER=openai
+    OPENAI_API_KEY=your-key
+    OPENAI_MODEL=gpt-4o
+
+    Args:
+        provider: 模型提供者，为空则从环境变量读取
+        config: 自定义模型配置
+        client: 直接注入客户端（测试用）
+        use_cache: 是否使用缓存，默认 True
+
+    Returns:
+        BaseLLMClient: LLM 客户端实例
+    """
+    # 测试模式：直接注入客户端（不缓存）
+    if client is not None:
+        return client
+
+    # 确定提供者
+    provider = provider or os.getenv("LLM_PROVIDER", ModelProvider.DEEPSEEK).lower()
+
+    # 使用自定义配置（不缓存）
+    if config is not None:
+        client_class = ModelRegistry.get_client_class(provider)
+        if client_class:
+            return client_class(config)
+        raise ValueError(f"未注册的提供者: {provider}")
+
+    # 生成缓存键
+    cache_key = _generate_cache_key(provider, config)
+
+    # 使用缓存时的原子操作：检查-创建-缓存
+    if use_cache:
+        with _cache_lock:
+            # 双重检查：先检查缓存
+            if cache_key in _llm_client_cache:
+                return _llm_client_cache[cache_key]
+
+            # 加载配置并创建客户端（在锁内执行）
+            loaded_config = load_config(provider, use_cache=True)
+            new_client = _create_new_client(provider, loaded_config)
+
+            # 缓存客户端
+            _llm_client_cache[cache_key] = new_client
+            return new_client
+
+    # 不使用缓存：直接创建
+    loaded_config = load_config(provider, use_cache=False)
+    return _create_new_client(provider, loaded_config)
 
 
 def validate_config() -> dict:
@@ -219,6 +308,110 @@ def validate_config() -> dict:
         result["valid"] = False
         result["errors"].append(str(e))
         return result
+
+
+# ============================================================================
+# 缓存池管理 API
+# ============================================================================
+
+
+def get_cached_client(provider: str, model_name: str | None = None) -> BaseLLMClient | None:
+    """
+    获取已缓存的客户端（不创建新客户端）
+
+    Args:
+        provider: 模型提供者
+        model_name: 模型名称，为空则使用 default
+
+    Returns:
+        BaseLLMClient | None: 缓存的客户端，不存在则返回 None
+    """
+    cache_key = f"{provider}:{model_name}" if model_name else f"{provider}:default"
+    with _cache_lock:
+        return _llm_client_cache.get(cache_key)
+
+
+def clear_client_cache(provider: str | None = None) -> int:
+    """
+    清除客户端缓存
+
+    Args:
+        provider: 指定提供者则只清除该提供者的缓存，为空则清除所有
+
+    Returns:
+        int: 清除的缓存数量
+    """
+    with _cache_lock:
+        if provider is None:
+            count = len(_llm_client_cache)
+            _llm_client_cache.clear()
+            return count
+        else:
+            keys_to_remove = [k for k in _llm_client_cache if k.startswith(f"{provider}:")]
+            for key in keys_to_remove:
+                del _llm_client_cache[key]
+            return len(keys_to_remove)
+
+
+def clear_env_config_cache(provider: str | None = None) -> int:
+    """
+    清除环境变量配置缓存
+
+    Args:
+        provider: 指定提供者则只清除该提供者的缓存，为空则清除所有
+
+    Returns:
+        int: 清除的缓存数量
+    """
+    with _env_cache_lock:
+        if provider is None:
+            count = len(_env_config_cache)
+            _env_config_cache.clear()
+            return count
+        else:
+            if provider in _env_config_cache:
+                del _env_config_cache[provider]
+                return 1
+            return 0
+
+
+def clear_all_caches() -> dict:
+    """
+    清除所有缓存（客户端和环境变量配置）
+
+    Returns:
+        dict: 清除统计 {"clients": int, "env_configs": int}
+    """
+    with _cache_lock:
+        client_count = len(_llm_client_cache)
+        _llm_client_cache.clear()
+
+    with _env_cache_lock:
+        env_count = len(_env_config_cache)
+        _env_config_cache.clear()
+
+    return {"clients": client_count, "env_configs": env_count}
+
+
+def get_cache_stats() -> dict:
+    """
+    获取缓存统计信息
+
+    Returns:
+        dict: 缓存统计 {"client_count": int, "env_config_count": int, "cached_providers": list}
+    """
+    with _cache_lock:
+        client_count = len(_llm_client_cache)
+        cached_providers = list(set(k.split(":")[0] for k in _llm_client_cache.keys()))
+
+    with _env_cache_lock:
+        env_count = len(_env_config_cache)
+
+    return {
+        "client_count": client_count,
+        "env_config_count": env_count,
+        "cached_providers": cached_providers,
+    }
 
 
 # 自动注册内置客户端

@@ -2,16 +2,19 @@
 性能优化模块
 
 包含：
-1. 智能缓存管理
-2. 连接池优化
-3. 异步批处理
-4. 结果预计算
+1. 智能缓存管理（O(1) LRU实现）
+2. 分段锁减少锁竞争
+3. 连接池优化
+4. 异步批处理
+5. 结果预计算
 """
 
 import asyncio
 import json
 import logging
+import threading
 import time
+from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import wraps
@@ -29,6 +32,7 @@ class CacheConfig:
     max_size: int = 1000  # 最大缓存条目数
     ttl_seconds: float = 300.0  # 默认 TTL（5分钟）
     eviction_policy: str = "lru"  # 淘汰策略：lru, lfu, fifo
+    segment_count: int = 16  # 分段锁数量（用于减少锁竞争）
 
 
 @dataclass
@@ -52,97 +56,135 @@ class CacheEntry:
         self.hits += 1
 
 
+class SegmentLock:
+    """
+    分段锁实现
+
+    通过将锁分成多个段来减少锁竞争，提高并发性能。
+    """
+
+    def __init__(self, segment_count: int = 16):
+        self._segment_count = segment_count
+        self._locks = [threading.RLock() for _ in range(segment_count)]
+
+    def get_lock(self, key: str) -> threading.RLock:
+        """根据键获取对应的锁"""
+        # 使用哈希函数将键映射到锁段
+        segment_index = hash(key) % self._segment_count
+        return self._locks[segment_index]
+
+    def get_all_locks(self) -> list[threading.RLock]:
+        """获取所有锁（用于需要全局锁定的操作）"""
+        return self._locks
+
+
 class LRUCache:
     """
-    LRU 缓存实现
+    LRU 缓存实现（O(1) 时间复杂度）
 
-    使用最近最少使用策略管理缓存条目。
+    使用 OrderedDict 实现真正的 O(1) 操作：
+    - get: O(1)
+    - set: O(1)
+    - 淘汰: O(1)
+
+    支持分段锁以减少锁竞争。
     """
 
     def __init__(self, config: CacheConfig | None = None):
         self._config = config or CacheConfig()
-        self._cache: dict[str, CacheEntry] = {}
-        self._access_order: list[str] = []
-        self._lock = asyncio.Lock()
+        # 使用 OrderedDict 实现 O(1) LRU
+        self._cache: OrderedDict[str, CacheEntry] = OrderedDict()
+        self._segment_locks = SegmentLock(self._config.segment_count)
+        self._global_lock = threading.RLock()  # 用于全局操作
+        self._async_lock = asyncio.Lock()
         self._stats = {"hits": 0, "misses": 0, "evictions": 0}
+        self._stats_lock = threading.Lock()
+
+    def _get_segment_lock(self, key: str) -> threading.RLock:
+        """获取键对应的分段锁"""
+        return self._segment_locks.get_lock(key)
 
     async def get(self, key: str) -> Any | None:
-        """获取缓存值"""
-        async with self._lock:
-            entry = self._cache.get(key)
-            if entry is None or entry.is_expired():
-                self._stats["misses"] += 1
-                return None
+        """获取缓存值（O(1)）"""
+        async with self._async_lock:
+            with self._get_segment_lock(key):
+                entry = self._cache.get(key)
+                if entry is None or entry.is_expired():
+                    with self._stats_lock:
+                        self._stats["misses"] += 1
+                    return None
 
-            entry.increment_hit()
-            self._stats["hits"] += 1
+                entry.increment_hit()
+                with self._stats_lock:
+                    self._stats["hits"] += 1
 
-            # 更新访问顺序（LRU）
-            if key in self._access_order:
-                self._access_order.remove(key)
-            self._access_order.append(key)
+                # 更新访问顺序（O(1)操作）
+                self._cache.move_to_end(key)
 
-            return entry.value
+                return entry.value
 
     async def set(self, key: str, value: Any, ttl: float | None = None) -> bool:
-        """设置缓存值"""
-        async with self._lock:
-            # 如果已存在，先移除
-            if key in self._cache:
-                if key in self._access_order:
-                    self._access_order.remove(key)
+        """设置缓存值（O(1)）"""
+        async with self._async_lock:
+            with self._get_segment_lock(key):
+                # 如果已存在，删除旧条目
+                if key in self._cache:
+                    del self._cache[key]
 
-            # 检查容量，必要时淘汰
-            while len(self._cache) >= self._config.max_size:
-                self._evict()
+                # 检查容量，必要时淘汰（O(1)）
+                while len(self._cache) >= self._config.max_size:
+                    self._evict()
 
-            # 创建新条目
-            expires_at = time.time() + (ttl or self._config.ttl_seconds)
-            entry = CacheEntry(value=value, key=key, expires_at=expires_at)
-            self._cache[key] = entry
-            self._access_order.append(key)
+                # 创建新条目
+                expires_at = time.time() + (ttl or self._config.ttl_seconds)
+                entry = CacheEntry(value=value, key=key, expires_at=expires_at)
+                self._cache[key] = entry
 
-            return True
+                return True
 
     def _evict(self):
-        """淘汰最久未使用的条目"""
-        if not self._access_order:
+        """淘汰最久未使用的条目（O(1)）"""
+        if not self._cache:
             return
 
-        oldest_key = self._access_order.pop(0)
-        if oldest_key in self._cache:
-            del self._cache[oldest_key]
+        # OrderedDict 的 popitem(last=False) 是 O(1) 操作
+        oldest_key, _ = self._cache.popitem(last=False)
+        with self._stats_lock:
             self._stats["evictions"] += 1
-            logger.debug(f"Evicted cache entry: {oldest_key}")
+        logger.debug(f"Evicted cache entry: {oldest_key}")
 
     async def delete(self, key: str) -> bool:
-        """删除缓存条目"""
-        async with self._lock:
-            if key in self._cache:
-                del self._cache[key]
-                if key in self._access_order:
-                    self._access_order.remove(key)
-                return True
-            return False
+        """删除缓存条目（O(1)）"""
+        async with self._async_lock:
+            with self._get_segment_lock(key):
+                if key in self._cache:
+                    del self._cache[key]
+                    return True
+                return False
 
     async def clear(self):
         """清空缓存"""
-        async with self._lock:
-            self._cache.clear()
-            self._access_order.clear()
+        async with self._async_lock:
+            with self._global_lock:
+                self._cache.clear()
 
     def get_stats(self) -> dict:
         """获取缓存统计"""
-        total = self._stats["hits"] + self._stats["misses"]
-        hit_rate = self._stats["hits"] / total if total > 0 else 0
-        return {
-            "size": len(self._cache),
-            "max_size": self._config.max_size,
-            "hits": self._stats["hits"],
-            "misses": self._stats["misses"],
-            "evictions": self._stats["evictions"],
-            "hit_rate": hit_rate,
-        }
+        with self._stats_lock:
+            total = self._stats["hits"] + self._stats["misses"]
+            hit_rate = self._stats["hits"] / total if total > 0 else 0
+            return {
+                "size": len(self._cache),
+                "max_size": self._config.max_size,
+                "hits": self._stats["hits"],
+                "misses": self._stats["misses"],
+                "evictions": self._stats["evictions"],
+                "hit_rate": hit_rate,
+            }
+
+    def size(self) -> int:
+        """获取当前缓存大小"""
+        return len(self._cache)
 
 
 def cached(
@@ -176,8 +218,11 @@ def cached(
                 logger.debug(f"Cache hit for key: {key}")
                 return cached_value
 
-            # 执行函数
-            result = await func(*args, **kwargs)
+            # 执行函数（支持同步和异步）
+            if asyncio.iscoroutinefunction(func):
+                result = await func(*args, **kwargs)
+            else:
+                result = func(*args, **kwargs)
 
             # 存入缓存
             await cache.set(key, result, ttl)

@@ -44,6 +44,13 @@ class Span:
     events: list = field(default_factory=list)
     status: str = "OK"
 
+    @property
+    def duration(self) -> float:
+        """计算 Span 持续时间（秒）"""
+        if self.end_time is None:
+            return 0.0
+        return self.end_time - self.start_time
+
     def set_attribute(self, key: str, value: Any) -> None:
         """设置属性"""
         self.attributes[key] = value

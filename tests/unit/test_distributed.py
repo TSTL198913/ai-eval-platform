@@ -130,8 +130,8 @@ class TestCircuitBreaker:
         cb._record_failure()
         assert cb.state == CircuitState.OPEN
 
-        # 等待超时
-        time.sleep(0.15)
+        # 模拟时间流逝，直接修改_last_failure_time
+        cb._last_failure_time = time.time() - 0.2
         assert cb.state == CircuitState.HALF_OPEN
 
     def test_circuit_breaker_rejects_when_open(self):
@@ -172,8 +172,8 @@ class TestCircuitBreaker:
         cb._record_failure()
         assert cb._state == CircuitState.OPEN, f"Expected OPEN but got {cb._state}"
 
-        # 等待进入半开状态
-        time.sleep(0.1)
+        # 模拟时间流逝，进入半开状态
+        cb._last_failure_time = time.time() - 0.1
         # 在 OPEN 状态下超时后会返回 HALF_OPEN
         assert cb.state == CircuitState.HALF_OPEN
 

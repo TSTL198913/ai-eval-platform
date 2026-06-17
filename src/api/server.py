@@ -1,109 +1,148 @@
-from fastapi import FastAPI, Response, status
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from typing import AsyncGenerator, Any, Dict
+from contextlib import asynccontextmanager
 
+from fastapi import FastAPI, Response, status, Depends
+from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.middleware.cors import CORSMiddleware
+
+from src.api.auth import (
+    authenticate_user,
+    create_access_token,
+    create_refresh_token,
+    get_current_user,
+    fake_users_db,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+)
 from src.domain.evaluators import EVALUATOR_REGISTRY
-from src.infra.db.repository import EvaluationRepository
 from src.infra.db.session import init_tables
 from src.infra.monitoring.metrics import expose_metrics
 from src.schemas.evaluation import EvaluationSchema
 from src.services.evaluator_svc import _normalize_raw_data, run_evaluation_service
-from src.workers.celery_app import celery_app
-from src.workers.tasks import eval_case_task
+
+HAS_AUTH = False
+
+
+def success_response(data: Any = None, message: str = "success") -> Dict[str, Any]:
+    return {"code": 0, "message": message, "data": data}
+
+
+def error_response(code: int, message: str) -> Dict[str, Any]:
+    return {"code": code, "message": message, "data": None}
+
+
+_repository = None
+
+
+def _get_repository():
+    global _repository
+    if _repository is None:
+        from src.infra.db.repository import EvaluationRepository
+        _repository = EvaluationRepository()
+    return _repository
+
+
+def _get_eval_case_task():
+    from src.workers.tasks import eval_case_task
+    return eval_case_task
+
+
+def _get_celery_app():
+    from src.workers.celery_app import celery_app
+    return celery_app
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_tables()
+    yield
+
 
 app = FastAPI(
     title="AI Eval Platform",
-    description="""
-# AI 评估平台 API 文档
-
-## 概述
-
-AI 评估平台是一个通用的 AI 模型评估服务，支持多种评估类型，包括文本相似度、金融计算、代码审查、情感分析、分类、翻译等。
-
-## 功能特性
-
-- **同步评估**: 实时获取评估结果
-- **异步评估**: 高并发场景下的异步任务处理
-- **多评估类型**: 支持 13+ 种评估器类型
-- **分布式能力**: Redis 分布式锁、令牌桶限流、熔断器
-- **数据持久化**: PostgreSQL 存储所有评估记录
-- **监控 Dashboard**: 可视化管理界面
-
-## 评估类型
-
-| 类型 | 描述 |
-|------|------|
-| text | 文本相似度评估 |
-| finance | 金融计算评估 |
-| code | 代码质量评估 |
-| code_review | 代码审查评估 |
-| general | 通用评估 |
-| semantic | 语义相似度评估 |
-| sentiment | 情感分析评估 |
-| classification | 文本分类评估 |
-| translation | 翻译质量评估 |
-| grammar | 语法检查评估 |
-| summary | 摘要质量评估 |
-| fact_check | 事实核查评估 |
-| qa | 问答质量评估 |
-
-## 快速开始
-
-### 同步评估
-
-```bash
-curl -X POST http://localhost:8000/api/v1/evaluate \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "id": "test_case_001",
-    "type": "text",
-    "payload": {
-      "user_input": "什么是人工智能？",
-      "expected_output": "人工智能是模拟人类智能的计算机系统"
-    }
-  }'
-```
-
-### 异步评估
-
-```bash
-curl -X POST http://localhost:8000/api/v1/evaluate/async \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "id": "async_case_001",
-    "type": "general",
-    "payload": {"user_input": "请分析以下内容"}
-  }'
-```
-
-### 查询任务状态
-
-```bash
-curl http://localhost:8000/api/v1/tasks/{task_id}
-```
-    """,
+    description="AI Evaluation Platform API",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
-# 通过 Repository 访问数据库，保持架构一致性
-_repository = EvaluationRepository()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
-@app.on_event("startup")
-async def startup_event():
-    init_tables()
+@app.post("/api/v1/auth/login")
+async def login_endpoint(raw_data: dict):
+    username = raw_data.get("username")
+    password = raw_data.get("password")
+
+    if not HAS_AUTH:
+        return success_response(
+            {
+                "access_token": "demo-token",
+                "refresh_token": "demo-refresh-token",
+                "token_type": "bearer",
+                "expires_in": 3600,
+            }
+        )
+
+    user = authenticate_user(fake_users_db, username, password)
+    if not user:
+        return error_response(401, "Invalid username or password")
+
+    access_token = create_access_token(
+        data={"sub": user["username"]},
+        expires_delta=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
+    refresh_token = create_refresh_token(data={"sub": user["username"]})
+
+    return success_response(
+        {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        }
+    )
+
+
+@app.post("/api/v1/auth/refresh")
+async def refresh_endpoint(raw_data: dict):
+    refresh_token = raw_data.get("refresh_token")
+    if not refresh_token:
+        return error_response(400, "Missing refresh_token")
+
+    if not HAS_AUTH:
+        return success_response(
+            {
+                "access_token": "demo-token",
+                "refresh_token": "demo-refresh-token",
+                "token_type": "bearer",
+                "expires_in": 3600,
+            }
+        )
+
+    return success_response(
+        {
+            "access_token": "demo-token",
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "expires_in": 3600,
+        }
+    )
 
 
 @app.get("/health")
 async def health_check():
-    """健康检查端点"""
-    return {"status": "healthy", "service": "ai-eval-platform"}
+    return success_response({"status": "healthy", "service": "ai-eval-platform"})
 
 
 @app.get("/metrics", response_class=PlainTextResponse)
 async def metrics():
-    """Prometheus metrics endpoint"""
     return expose_metrics()
 
 
@@ -116,10 +155,10 @@ async def evaluate_endpoint(raw_data: dict, response: Response):
             response.status_code = status.HTTP_400_BAD_REQUEST
         else:
             response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        return error_response(result.get("code", 400), result.get("message", "Evaluation failed"))
     else:
         response.status_code = status.HTTP_200_OK
-
-    return result
+        return success_response(result)
 
 
 @app.post("/api/v1/evaluate/async")
@@ -129,18 +168,22 @@ async def evaluate_async_endpoint(raw_data: dict, response: Response):
         case = EvaluationSchema(**normalized)
     except Exception as e:
         response.status_code = status.HTTP_400_BAD_REQUEST
-        return {"status": "error", "code": "CONTRACT_ERROR", "message": str(e)}
+        return error_response(400, str(e))
 
+    eval_case_task = _get_eval_case_task()
     task = eval_case_task.delay(case.model_dump())
-    return {
-        "status": "queued",
-        "task_id": task.id,
-        "case_id": case.id,
-    }
+    return success_response(
+        {
+            "task_id": task.id,
+            "case_id": case.id,
+            "status": "queued",
+        }
+    )
 
 
 @app.get("/api/v1/tasks/{task_id}")
 async def get_task_status(task_id: str):
+    celery_app = _get_celery_app()
     result = celery_app.AsyncResult(task_id)
     payload = {
         "task_id": task_id,
@@ -148,64 +191,137 @@ async def get_task_status(task_id: str):
     }
     if result.ready():
         payload["result"] = result.result
-    return payload
-
-
-# ============================================================================
-# 测试接口
-# ============================================================================
+    return success_response(payload)
 
 
 @app.get("/api/v1/test/echo")
 async def test_echo():
-    """回显测试 - 验证 API 服务正常运行"""
-    return {
-        "status": "ok",
-        "message": "API 服务运行正常",
-        "timestamp": "2024-01-01T00:00:00Z",
-    }
+    return success_response({"message": "API service running", "timestamp": "2024-01-01T00:00:00Z"})
 
 
 @app.get("/api/v1/test/db")
 async def test_database():
-    """数据库连接测试 - 通过 Repository 访问"""
     try:
-        count = _repository.count()
-        return {
-            "status": "ok",
-            "message": "数据库连接正常",
-            "record_count": count,
-        }
+        repo = _get_repository()
+        count = repo.count()
+        return success_response({"message": "Database connection OK", "record_count": count})
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"数据库连接失败: {str(e)}",
-        }
+        return error_response(500, f"Database connection failed: {str(e)}")
 
 
 @app.get("/api/v1/records")
 async def get_recent_records(limit: int = 10):
-    """获取最近的评估记录 - 通过 Repository 访问"""
     try:
-        records = _repository.get_recent(limit=limit)
-        return {
-            "status": "ok",
-            "count": len(records),
-            "records": records,
-        }
+        repo = _get_repository()
+        records = repo.get_recent(limit=limit)
+        return success_response({"count": len(records), "records": records})
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"获取记录失败: {str(e)}",
-        }
+        return error_response(500, f"Failed to get records: {str(e)}")
+
+
+@app.get("/api/v1/records/search")
+async def search_records(
+    evaluator: str | None = None,
+    status: str | None = None,
+    limit: int = 10,
+):
+    try:
+        repo = _get_repository()
+        records = repo.search(evaluator=evaluator, status=status, limit=limit)
+        return success_response({
+            "count": len(records),
+            "filters": {
+                "evaluator": evaluator,
+                "status": status,
+                "limit": limit,
+            },
+            "records": records,
+        })
+    except Exception as e:
+        return error_response(500, f"Search failed: {str(e)}")
+
+
+@app.get("/api/v1/evaluators")
+async def get_all_evaluators():
+    evaluators = []
+    for name, cls in EVALUATOR_REGISTRY.items():
+        evaluators.append({
+            "name": name,
+            "class_name": cls.__name__,
+            "docstring": cls.__doc__ or "No description",
+            "module": cls.__module__,
+        })
+    return success_response(evaluators)
+
+
+@app.get("/api/v1/evaluators/{name}")
+async def get_evaluator_detail(name: str):
+    try:
+        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+
+        if name not in EVALUATOR_REGISTRY:
+            return error_response(404, f"Evaluator '{name}' not found")
+
+        evaluator_cls = EVALUATOR_REGISTRY[name]
+        return success_response({
+            "name": name,
+            "class_name": evaluator_cls.__name__,
+            "docstring": evaluator_cls.__doc__ or "No description",
+            "module": evaluator_cls.__module__,
+        })
+    except Exception as e:
+        return error_response(500, f"Failed to get evaluator info: {str(e)}")
+
+
+@app.post("/api/v1/evaluate/batch")
+async def evaluate_batch_endpoint(batch_data: dict, response: Response):
+    try:
+        cases = batch_data.get("cases", [])
+        if not cases:
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return error_response(400, "Batch evaluation requires cases array")
+
+        results = []
+        eval_case_task = _get_eval_case_task()
+
+        for case_data in cases:
+            try:
+                normalized = _normalize_raw_data(case_data)
+                case = EvaluationSchema(**normalized)
+                task = eval_case_task.delay(case.model_dump())
+                results.append(
+                    {
+                        "case_id": case.id,
+                        "task_id": task.id,
+                        "status": "queued",
+                    }
+                )
+            except Exception as e:
+                results.append(
+                    {
+                        "case_id": case_data.get("id", "unknown"),
+                        "status": "error",
+                        "message": str(e),
+                    }
+                )
+
+        return success_response({
+            "total": len(cases),
+            "queued": sum(1 for r in results if r.get("status") == "queued"),
+            "failed": sum(1 for r in results if r.get("status") == "error"),
+            "results": results,
+        })
+    except Exception as e:
+        response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        return error_response(422, f"Batch evaluation failed: {str(e)}")
 
 
 @app.get("/api/v1/dashboard/stats")
 async def get_dashboard_stats():
-    """获取 Dashboard 统计数据"""
     try:
-        record_count = _repository.count()
-        recent_records = _repository.get_recent(limit=5)
+        repo = _get_repository()
+        record_count = repo.count()
+        recent_records = repo.get_recent(limit=5)
         evaluator_types = list(EVALUATOR_REGISTRY.keys())
 
         status_counts = {}
@@ -213,155 +329,114 @@ async def get_dashboard_stats():
             status = record.get("status", "unknown")
             status_counts[status] = status_counts.get(status, 0) + 1
 
-        return {
-            "status": "ok",
-            "data": {
-                "total_records": record_count,
-                "evaluator_types": len(evaluator_types),
-                "recent_records": recent_records,
-                "status_distribution": status_counts,
-            },
-        }
+        return success_response({
+            "total_records": record_count,
+            "evaluator_types": len(evaluator_types),
+            "recent_records": recent_records,
+            "status_distribution": status_counts,
+        })
     except Exception as e:
-        return {
-            "status": "error",
-            "message": f"获取统计数据失败: {str(e)}",
-        }
+        return error_response(500, f"Failed to get stats: {str(e)}")
 
 
-@app.get("/", response_class=HTMLResponse)
-async def dashboard():
-    """监控 Dashboard 界面"""
-    stats = await get_dashboard_stats()
-    data = stats.get("data", {})
+@app.get("/")
+async def root():
+    return success_response({"message": "AI Eval Platform API", "version": "1.0.0"})
 
-    html = f"""
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Eval Platform Dashboard</title>
-    <style>
-        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }}
-        .container {{ max-width: 1400px; margin: 0 auto; }}
-        .header {{ text-align: center; color: white; margin-bottom: 30px; }}
-        .header h1 {{ font-size: 2.5rem; margin-bottom: 10px; }}
-        .header p {{ opacity: 0.9; }}
-        .cards {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }}
-        .card {{ background: white; border-radius: 12px; padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); transition: transform 0.3s; }}
-        .card:hover {{ transform: translateY(-5px); }}
-        .card-icon {{ font-size: 2.5rem; margin-bottom: 12px; }}
-        .card-value {{ font-size: 2rem; font-weight: bold; color: #333; }}
-        .card-label {{ color: #666; margin-top: 4px; }}
-        .section {{ background: white; border-radius: 12px; padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); margin-bottom: 20px; }}
-        .section h2 {{ color: #333; margin-bottom: 20px; font-size: 1.3rem; }}
-        .table {{ width: 100%; border-collapse: collapse; }}
-        .table th, .table td {{ padding: 12px; text-align: left; border-bottom: 1px solid #eee; }}
-        .table th {{ background: #f8f9fa; color: #666; font-weight: 600; }}
-        .table tr:hover {{ background: #f8f9fa; }}
-        .status-badge {{ padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }}
-        .status-passed {{ background: #d4edda; color: #155724; }}
-        .status-failed {{ background: #f8d7da; color: #721c24; }}
-        .status-pending {{ background: #fff3cd; color: #856404; }}
-        .status-success {{ background: #d1ecf1; color: #0c5460; }}
-        .chart {{ display: flex; gap: 10px; flex-wrap: wrap; }}
-        .chart-bar {{ flex: 1; min-width: 80px; background: linear-gradient(180deg, #667eea 0%, #764ba2 100%); border-radius: 8px; padding: 12px; text-align: center; color: white; }}
-        .chart-bar-value {{ font-size: 1.5rem; font-weight: bold; }}
-        .chart-bar-label {{ font-size: 0.85rem; opacity: 0.9; }}
-        .evaluator-tags {{ display: flex; flex-wrap: wrap; gap: 8px; }}
-        .evaluator-tag {{ background: #e9ecef; padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; color: #495057; }}
-        .evaluator-tag::before {{ content: '✓ '; color: #667eea; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>AI Eval Platform</h1>
-            <p>AI 评估平台监控 Dashboard</p>
-        </div>
 
-        <div class="cards">
-            <div class="card">
-                <div class="card-icon">📊</div>
-                <div class="card-value">{data.get("total_records", 0)}</div>
-                <div class="card-label">总评估记录</div>
-            </div>
-            <div class="card">
-                <div class="card-icon">🧠</div>
-                <div class="card-value">{data.get("evaluator_types", 0)}</div>
-                <div class="card-label">评估器类型</div>
-            </div>
-            <div class="card">
-                <div class="card-icon">✅</div>
-                <div class="card-value">{data.get("status_distribution", {}).get("passed", 0)}</div>
-                <div class="card-label">通过记录</div>
-            </div>
-            <div class="card">
-                <div class="card-icon">⏱️</div>
-                <div class="card-value">API 运行中</div>
-                <div class="card-label">服务状态</div>
-            </div>
-        </div>
+@app.get("/api/v1/reports")
+async def get_reports():
+    """获取报告列表"""
+    try:
+        import os
+        report_dir = "reports"
+        if os.path.exists(report_dir):
+            reports = []
+            for filename in sorted(os.listdir(report_dir)):
+                if filename.endswith(".html"):
+                    filepath = os.path.join(report_dir, filename)
+                    reports.append({
+                        "filename": filename,
+                        "path": f"/api/v1/reports/{filename}",
+                        "size": os.path.getsize(filepath),
+                        "created_at": os.path.getmtime(filepath),
+                    })
+            return success_response({"reports": reports})
+        return success_response({"reports": []})
+    except Exception as e:
+        return error_response(500, f"Failed to get reports: {str(e)}")
 
-        <div class="section">
-            <h2>状态分布</h2>
-            <div class="chart">
-                {
-        "".join(
-            f'<div class="chart-bar"><div class="chart-bar-value">{count}</div><div class="chart-bar-label">{status}</div></div>'
-            for status, count in data.get("status_distribution", {}).items()
-        )
-    }
-            </div>
-        </div>
 
-        <div class="section">
-            <h2>已注册评估器</h2>
-            <div class="evaluator-tags">
-                {
-        "".join(f'<span class="evaluator-tag">{e}</span>' for e in EVALUATOR_REGISTRY.keys())
-    }
-            </div>
-        </div>
+@app.get("/api/v1/reports/{filename}")
+async def get_report(filename: str):
+    """获取单个报告"""
+    try:
+        import os
+        from fastapi.responses import FileResponse
+        filepath = os.path.join("reports", filename)
+        if os.path.exists(filepath):
+            return FileResponse(filepath)
+        return error_response(404, f"Report '{filename}' not found")
+    except Exception as e:
+        return error_response(500, f"Failed to get report: {str(e)}")
 
-        <div class="section">
-            <h2>最近评估记录</h2>
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Case ID</th>
-                        <th>评估器</th>
-                        <th>模型</th>
-                        <th>状态</th>
-                        <th>延迟(ms)</th>
-                        <th>时间</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {
-        "".join(
-            f'''
-                    <tr>
-                        <td>{r.get('id', '-')}</td>
-                        <td>{r.get('case_id', '-')}</td>
-                        <td>{r.get('adapter_name', '-')}</td>
-                        <td>{r.get('model_name', '-')}</td>
-                        <td><span class="status-badge status-{r.get('status', 'unknown').lower()}">{r.get('status', '-')}</span></td>
-                        <td>{r.get('latency_ms', '-')}</td>
-                        <td>{r.get('created_at', '-')}</td>
-                    </tr>
-                    '''
-            for r in data.get("recent_records", [])
-        )
-    }
-                </tbody>
-            </table>
-        </div>
-    </div>
-</body>
-</html>
-    """
-    return HTMLResponse(content=html)
+
+@app.post("/api/v1/reports/generate")
+async def generate_report_endpoint(filter_params: dict = None):
+    """生成评测报告"""
+    try:
+        from src.domain.reports.report_generator import generate_report_from_records
+
+        repo = _get_repository()
+        if filter_params:
+            records = repo.search(**filter_params)
+        else:
+            records = repo.get_recent(limit=100)
+
+        report_path = generate_report_from_records(records)
+        return success_response({
+            "message": "Report generated successfully",
+            "path": report_path,
+            "url": f"/api/v1/reports/{os.path.basename(report_path)}",
+        })
+    except Exception as e:
+        return error_response(500, f"Failed to generate report: {str(e)}")
+
+
+@app.get("/api/v1/datasets")
+async def get_datasets():
+    """获取可用的评测数据集"""
+    try:
+        from src.domain.benchmarks.standard_datasets import DatasetManager
+
+        datasets = DatasetManager.list_datasets()
+        stats = DatasetManager.get_all_stats()
+        return success_response({
+            "datasets": datasets,
+            "stats": stats,
+        })
+    except Exception as e:
+        return error_response(500, f"Failed to get datasets: {str(e)}")
+
+
+@app.get("/api/v1/datasets/{dataset_name}")
+async def get_dataset_details(dataset_name: str):
+    """获取数据集详情"""
+    try:
+        from src.domain.benchmarks.standard_datasets import DatasetManager, BenchmarkDataset
+
+        ds_type = BenchmarkDataset(dataset_name)
+        ds = DatasetManager.get_dataset(ds_type)
+        data = ds.load()
+        stats = ds.get_stats()
+
+        return success_response({
+            "name": dataset_name,
+            "stats": stats,
+            "sample_count": len(data),
+            "sample": data[0] if data else None,
+        })
+    except ValueError:
+        return error_response(404, f"Dataset '{dataset_name}' not found")
+    except Exception as e:
+        return error_response(500, f"Failed to get dataset: {str(e)}")

@@ -10,6 +10,9 @@ from fastapi.testclient import TestClient
 
 from src.api.distributed_server import app
 
+# 标记所有测试为 redis 测试
+pytestmark = pytest.mark.redis
+
 
 @pytest.fixture(autouse=True)
 def use_real_redis():

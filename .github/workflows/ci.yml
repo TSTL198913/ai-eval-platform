@@ -53,6 +53,12 @@ jobs:
           sleep 10
           curl -f http://localhost:8000/health || (echo "Backend health check failed" && cat backend.log && exit 1)
 
+      - name: Start frontend dev server
+        run: |
+          nohup npm run dev > frontend.log 2>&1 &
+          sleep 15
+          curl -f http://localhost:5173 || (echo "Frontend health check failed" && cat frontend.log && exit 1)
+
       - name: Install Playwright browsers
         run: |
           playwright install --with-deps chromium
@@ -69,84 +75,110 @@ jobs:
           from playwright.sync_api import sync_playwright
           from datetime import datetime
 
+          os.makedirs("test-results", exist_ok=True)
           results = []
           start_time = datetime.now()
           frontend_url = "http://localhost:5173"
           backend_url = "http://localhost:8000"
+          page = None
+          browser = None
 
-          with sync_playwright() as p:
-              browser = p.chromium.launch(headless=True)
-              context = browser.new_context(viewport={"width": 1920, "height": 1080})
-              page = context.new_page()
+          try:
+              with sync_playwright() as p:
+                  browser = p.chromium.launch(headless=True)
+                  context = browser.new_context(viewport={"width": 1920, "height": 1080})
+                  page = context.new_page()
+                  page.set_default_timeout(30000)
 
-              page.set_default_timeout(30000)
+                  try:
+                      print("[1/8] Testing frontend homepage...")
+                      response = page.goto(frontend_url, wait_until="networkidle")
+                      assert response.status == 200, f"Frontend homepage failed: {response.status}"
+                      results.append({"name": "Frontend Homepage", "status": "PASSED", "url": frontend_url})
+                  except Exception as e:
+                      results.append({"name": "Frontend Homepage", "status": "FAILED", "error": str(e)[:200]})
 
-              try:
-                  # 1. 测试主页加载
-                  print("[1/8] Testing frontend homepage...")
-                  response = page.goto(frontend_url, wait_until="networkidle")
-                  assert response.status == 200, f"Frontend homepage failed: {response.status}"
-                  results.append({"name": "Frontend Homepage", "status": "PASSED", "url": frontend_url})
+                  try:
+                      print("[2/8] Testing login page...")
+                      page.goto(f"{frontend_url}/login", wait_until="networkidle")
+                      page.wait_for_selector("input[placeholder='Please input username']", timeout=10000)
+                      results.append({"name": "Login Page Load", "status": "PASSED"})
+                  except Exception as e:
+                      results.append({"name": "Login Page Load", "status": "FAILED", "error": str(e)[:200]})
 
-                  # 2. 测试登录页
-                  print("[2/8] Testing login page...")
-                  page.goto(f"{frontend_url}/login", wait_until="networkidle")
-                  page.wait_for_selector("input[placeholder='Please input username']", timeout=10000)
-                  results.append({"name": "Login Page Load", "status": "PASSED"})
+                  try:
+                      print("[3/8] Testing login functionality...")
+                      page.fill("input[placeholder='Please input username']", "admin")
+                      page.fill("input[type='password']", "password")
+                      page.click("button[type='submit']")
+                      page.wait_for_url(f"{frontend_url}/", timeout=15000)
+                      results.append({"name": "Login Functionality", "status": "PASSED"})
+                  except Exception as e:
+                      results.append({"name": "Login Functionality", "status": "FAILED", "error": str(e)[:200]})
 
-                  # 3. 测试登录功能
-                  print("[3/8] Testing login functionality...")
-                  page.fill("input[placeholder='Please input username']", "admin")
-                  page.fill("input[type='password']", "password")
-                  page.click("button[type='submit']")
-                  page.wait_for_url(f"{frontend_url}/", timeout=15000)
-                  results.append({"name": "Login Functionality", "status": "PASSED"})
+                  try:
+                      print("[4/8] Testing dashboard...")
+                      page.wait_for_selector(".ant-card", timeout=10000)
+                      cards = page.query_selector_all(".ant-card")
+                      assert len(cards) > 0, "No dashboard cards found"
+                      results.append({"name": "Dashboard Render", "status": "PASSED", "cards": len(cards)})
+                  except Exception as e:
+                      results.append({"name": "Dashboard Render", "status": "FAILED", "error": str(e)[:200]})
 
-                  # 4. 测试仪表盘
-                  print("[4/8] Testing dashboard...")
-                  page.wait_for_selector(".ant-card", timeout=10000)
-                  cards = page.query_selector_all(".ant-card")
-                  assert len(cards) > 0, "No dashboard cards found"
-                  results.append({"name": "Dashboard Render", "status": "PASSED", "cards": len(cards)})
+                  try:
+                      print("[5/8] Testing evaluators page...")
+                      page.click("text=Evaluator Management")
+                      page.wait_for_url(f"{frontend_url}/evaluators", timeout=10000)
+                      page.wait_for_selector(".ant-card", timeout=10000)
+                      results.append({"name": "Evaluators Page", "status": "PASSED"})
+                  except Exception as e:
+                      results.append({"name": "Evaluators Page", "status": "FAILED", "error": str(e)[:200]})
 
-                  # 5. 测试评估器页面
-                  print("[5/8] Testing evaluators page...")
-                  page.click("text=Evaluator Management")
-                  page.wait_for_url(f"{frontend_url}/evaluators", timeout=10000)
-                  page.wait_for_selector(".ant-card", timeout=10000)
-                  results.append({"name": "Evaluators Page", "status": "PASSED"})
+                  try:
+                      print("[6/8] Testing models page...")
+                      page.click("text=Model Comparison")
+                      page.wait_for_url(f"{frontend_url}/models", timeout=10000)
+                      page.wait_for_selector(".ant-card", timeout=10000)
+                      results.append({"name": "Models Page", "status": "PASSED"})
+                  except Exception as e:
+                      results.append({"name": "Models Page", "status": "FAILED", "error": str(e)[:200]})
 
-                  # 6. 测试模型对比页面
-                  print("[6/8] Testing models page...")
-                  page.click("text=Model Comparison")
-                  page.wait_for_url(f"{frontend_url}/models", timeout=10000)
-                  page.wait_for_selector(".ant-card", timeout=10000)
-                  results.append({"name": "Models Page", "status": "PASSED"})
+                  try:
+                      print("[7/8] Testing backend API...")
+                      api_response = page.request.get(f"{backend_url}/api/v1/evaluators")
+                      assert api_response.status == 200, f"API failed: {api_response.status}"
+                      api_data = api_response.json()
+                      assert api_data.get("code") == 0, f"API returned error: {api_data}"
+                      results.append({"name": "Backend API", "status": "PASSED", "evaluators": len(api_data.get("data", []))})
+                  except Exception as e:
+                      results.append({"name": "Backend API", "status": "FAILED", "error": str(e)[:200]})
 
-                  # 7. 测试后端API
-                  print("[7/8] Testing backend API...")
-                  api_response = page.request.get(f"{backend_url}/api/v1/evaluators")
-                  assert api_response.status == 200, f"API failed: {api_response.status}"
-                  api_data = api_response.json()
-                  assert api_data.get("code") == 0, f"API returned error: {api_data}"
-                  results.append({"name": "Backend API", "status": "PASSED", "evaluators": len(api_data.get("data", []))})
+                  try:
+                      print("[8/8] Testing records page...")
+                      page.goto(f"{frontend_url}/records", wait_until="networkidle")
+                      page.wait_for_selector(".ant-card", timeout=10000)
+                      results.append({"name": "Records Page", "status": "PASSED"})
+                  except Exception as e:
+                      results.append({"name": "Records Page", "status": "FAILED", "error": str(e)[:200]})
 
-                  # 8. 测试评估记录页面
-                  print("[8/8] Testing records page...")
-                  page.goto(f"{frontend_url}/records", wait_until="networkidle")
-                  page.wait_for_selector(".ant-card", timeout=10000)
-                  results.append({"name": "Records Page", "status": "PASSED"})
+                  try:
+                      page.screenshot(path="test-results/final-screenshot.png", full_page=True)
+                  except:
+                      pass
 
-                  page.screenshot(path="test-results/final-screenshot.png", full_page=True)
+                  try:
+                      if any(r["status"] == "FAILED" for r in results):
+                          page.screenshot(path="test-results/error-screenshot.png", full_page=True)
+                  except:
+                      pass
 
-              except Exception as e:
-                  results.append({"name": "Test Execution", "status": "FAILED", "error": str(e)})
-                  page.screenshot(path="test-results/error-screenshot.png", full_page=True)
-              finally:
+              if browser:
                   browser.close()
+          except Exception as main_e:
+              results.append({"name": "Test Execution", "status": "FAILED", "error": str(main_e)[:200]})
 
-          # 写入测试结果
-          with open("test-results/summary.md", "a") as f:
+          with open("test-results/summary.md", "w", encoding="utf-8") as f:
+              f.write(f"## E2E Page Test Results\n\n")
               f.write(f"**Test Time:** {start_time}\n\n")
               f.write(f"**Frontend URL:** {frontend_url}\n\n")
               f.write(f"**Backend URL:** {backend_url}\n\n")
@@ -158,11 +190,11 @@ jobs:
                       if k not in ("name", "status"):
                           details += f"{k}={v} "
                   f.write(f"| {i} | {r['name']} | {r['status']} | {details} |\n")
+              passed = sum(1 for r in results if r["status"] == "PASSED")
+              failed = sum(1 for r in results if r["status"] == "FAILED")
+              f.write(f"\n**Total:** {len(results)} | **Passed:** {passed} | **Failed:** {failed}\n")
 
-          passed = sum(1 for r in results if r["status"] == "PASSED")
-          failed = sum(1 for r in results if r["status"] == "FAILED")
-          f.write(f"\n**Total:** {len(results)} | **Passed:** {passed} | **Failed:** {failed}\n")
-
+          print(f"E2E Test Results: {passed} passed, {failed} failed")
           if failed > 0:
               sys.exit(1)
           PYEOF

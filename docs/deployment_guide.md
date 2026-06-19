@@ -1,400 +1,378 @@
-# AI 评测平台部署指南
+# AI Eval Platform - 部署上线指南
 
-## 概述
+## 一、部署前准备
 
-本文档提供 AI 评测平台的完整部署指南，涵盖开发环境、生产环境、Kubernetes 部署等多种场景。
+### 1.1 系统要求
 
-## 环境要求
+| 项目 | 要求 |
+|------|------|
+| 操作系统 | Ubuntu 20.04+ / CentOS 7+ |
+| Docker | 20.10+ |
+| Docker Compose | 2.0+ |
+| 内存 | 最低4GB，推荐8GB |
+| CPU | 最低2核，推荐4核 |
+| 存储 | 最低20GB，推荐50GB |
+| 网络 | 能访问LLM API（DeepSeek/OpenAI） |
 
-### 硬件要求
+### 1.2 环境变量配置
 
-| 环境 | CPU | 内存 | 磁盘 | 说明 |
-|------|-----|------|------|------|
-| 开发 | 2 核 | 4 GB | 20 GB | 单机部署 |
-| 测试 | 4 核 | 8 GB | 50 GB | 含 Redis/DB |
-| 生产 | 8+ 核 | 16+ GB | 100+ GB | 多节点部署 |
-
-### 软件要求
-
-- Python 3.10+
-- Redis 6.0+
-- PostgreSQL 14+ (可选)
-- RabbitMQ 3.9+ (可选)
-- Kubernetes 1.24+ (生产环境)
-
-## 开发环境部署
-
-### 1. 克隆代码
+创建 `.env.prod` 文件：
 
 ```bash
-git clone https://github.com/ai-eval/platform.git
-cd platform
+# 复制示例文件
+cp .env.prod.example .env.prod
+
+# 编辑配置
+vim .env.prod
 ```
 
-### 2. 创建虚拟环境
+**必须配置的环境变量**：
 
 ```bash
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# 或
-.\venv\Scripts\activate  # Windows
-```
-
-### 3. 安装依赖
-
-```bash
-pip install -r requirements.txt
-pip install -e .
-```
-
-### 4. 配置环境变量
-
-```bash
-cp .env.example .env
-```
-
-编辑 `.env` 文件：
-
-```env
-# AI Eval 配置
-AI_EVAL_API_KEY=your-api-key
-AI_EVAL_SECRET_KEY=your-secret-key
-
-# Redis 配置
-REDIS_URL=redis://localhost:6379/0
+# LLM API Keys（必须）
+DEEPSEEK_API_KEY=sk-your-deepseek-key
+OPENAI_API_KEY=sk-your-openai-key  # 可选
 
 # 数据库配置
-DATABASE_URL=postgresql://user:pass@localhost:5432/ai_eval
+POSTGRES_USER=eval
+POSTGRES_PASSWORD=eval123_secure  # 生产环境请修改
+POSTGRES_DB=ai_eval
 
-# 日志配置
-LOG_LEVEL=INFO
+# Redis配置
+REDIS_URL=redis://redis:6379
+
+# RabbitMQ配置
+RABBITMQ_USER=guest
+RABBITMQ_PASSWORD=guest_secure  # 生产环境请修改
+
+# 监控配置
+PROMETHEUS_ENABLED=true
+GRAFANA_ADMIN_PASSWORD=admin_secure  # 生产环境请修改
+
+# 安全配置
+ENCRYPTION_KEY=your-32-byte-encryption-key  # 用于敏感信息加密
 ```
 
-### 5. 启动服务
+### 1.3 检查清单
+
+- [ ] Docker已安装并运行
+- [ ] Docker Compose已安装
+- [ ] `.env.prod`已配置
+- [ ] LLM API Key已获取
+- [ ] 网络端口已开放（8000, 3000, 9090, 5432, 6379, 5672）
+- [ ] 服务器防火墙已配置
+
+---
+
+## 二、部署步骤
+
+### 2.1 方式一：一键部署（推荐）
 
 ```bash
-# 启动 API 服务
-uvicorn src.api.server:app --host 0.0.0.0 --port 8000 --reload
+# 1. 克隆代码
+git clone https://github.com/your-org/ai-eval-platform.git
+cd ai-eval-platform
 
-# 或启动分布式服务
-uvicorn src.api.distributed_server:app --host 0.0.0.0 --port 8001 --workers 4
+# 2. 配置环境变量
+cp .env.prod.example .env.prod
+vim .env.prod  # 填写API Keys
+
+# 3. 一键启动
+chmod +x start-all.sh
+./start-all.sh
 ```
 
-### 6. 验证部署
+### 2.2 方式二：分步部署
 
 ```bash
+# 1. 启动基础设施（数据库、缓存、消息队列）
+docker-compose up -d postgres redis rabbitmq
+
+# 2. 等待基础设施就绪
+sleep 30
+
+# 3. 启动API服务
+docker-compose up -d api
+
+# 4. 启动Celery Worker
+docker-compose up -d worker
+
+# 5. 启动监控栈（可选）
+docker-compose --profile monitoring up -d prometheus grafana pushgateway alertmanager
+```
+
+### 2.3 方式三：生产环境部署
+
+```bash
+# 使用生产配置
+docker-compose -f docker-compose.prod.yml up -d
+
+# 或使用部署脚本
+./deploy-prod.sh
+```
+
+---
+
+## 三、验证部署
+
+### 3.1 服务健康检查
+
+```bash
+# 检查所有容器状态
+docker ps
+
+# 检查API健康
 curl http://localhost:8000/health
+
+# 检查Prometheus
+curl http://localhost:9090/-/healthy
+
+# 检查Grafana
+curl http://localhost:3000/api/health
 ```
 
-## Docker 部署
-
-### 1. 构建镜像
+### 3.2 功能验证
 
 ```bash
-docker build -t ai-eval-platform:latest .
+# 运行自测脚本
+python scripts/self_test.py
+
+# 运行单元测试
+pytest tests/unit/ -v
+
+# 测试API接口
+curl http://localhost:8000/api/v1/evaluators
 ```
 
-### 2. 运行容器
+### 3.3 监控验证
+
+访问以下地址验证监控：
+
+| 服务 | 地址 | 说明 |
+|------|------|------|
+| API | http://your-ip:8000 | FastAPI服务 |
+| Prometheus | http://your-ip:9090 | 指标查询 |
+| Grafana | http://your-ip:3000 | 可视化仪表盘 |
+| RabbitMQ | http://your-ip:15672 | 消息队列管理 |
+
+---
+
+## 四、监控配置
+
+### 4.1 导入Grafana Dashboard
+
+1. 登录Grafana（http://your-ip:3000，admin/admin）
+2. 添加Prometheus数据源：
+   - Configuration → Data Sources → Add data source
+   - 选择Prometheus
+   - URL: http://prometheus:9090
+   - Save & Test
+3. 导入Dashboard：
+   - Dashboards → Import
+   - 上传 `grafana/dashboards/ai_eval_platform_ops.json`
+   - 上传 `grafana/dashboards/ai_eval_platform_insights.json`
+
+### 4.2 配置告警
+
+告警规则已配置在 `deploy/prometheus/alerts.yml`：
+
+| 告警 | 条件 | 严重度 |
+|------|------|--------|
+| API可用性低 | <99% | critical |
+| API错误率高 | >5% | warning |
+| API延迟高 | P99>5s | warning |
+| LLM失败率高 | >10% | warning |
+| 日成本超预算 | >$50 | warning |
+| 队列堆积 | >500 | warning |
+
+---
+
+## 五、回滚方案
+
+### 5.1 快速回滚
 
 ```bash
-# 单机部署
-docker run -d \
-  --name ai-eval \
-  -p 8000:8000 \
-  -e REDIS_URL=redis://host.docker.internal:6379/0 \
-  ai-eval-platform:latest
+# 停止当前服务
+docker-compose down
 
-# 带数据库部署
-docker-compose up -f docker-compose.yml -d
+# 回滚到上一版本
+docker-compose -f deploy_backups/docker-compose.backup.TIMESTAMP.yml up -d
 ```
 
-### 3. Docker Compose 配置
-
-```yaml
-# docker-compose.yml
-version: '3.8'
-
-services:
-  api:
-    build: .
-    ports:
-      - "8000:8000"
-    environment:
-      - REDIS_URL=redis://redis:6379/0
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ai_eval
-    depends_on:
-      - redis
-      - db
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-
-  db:
-    image: postgres:14-alpine
-    environment:
-      - POSTGRES_DB=ai_eval
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-
-  worker:
-    build: .
-    command: celery -A src.workers.celery_app worker --loglevel=info
-    environment:
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      - redis
-      - db
-
-volumes:
-  pgdata:
-```
-
-## Kubernetes 部署
-
-### 1. 前置要求
-
-- Kubernetes 1.24+
-- Helm 3.8+
-- kubectl 配置完成
-
-### 2. 创建 Namespace
+### 5.2 数据备份
 
 ```bash
-kubectl create namespace ai-eval
+# 备份PostgreSQL
+docker exec ai-eval-postgres pg_dump -U eval ai_eval > backup.sql
+
+# 备份Redis
+docker exec ai-eval-redis redis-cli BGSAVE
+docker cp ai-eval-redis:/data/dump.rdb ./backup_redis.rdb
 ```
 
-### 3. 部署配置
+---
 
+## 六、常见问题
+
+### 6.1 API启动失败
+
+**症状**：API容器无法启动或健康检查失败
+
+**排查步骤**：
 ```bash
-# 应用配置
-kubectl apply -f docker/k8s/configmap.yaml -n ai-eval
-kubectl apply -f docker/k8s/deployment.yaml -n ai-eval
-kubectl apply -f docker/k8s/service.yaml -n ai-eval
-kubectl apply -f docker/k8s/hpa.yaml -n ai-eval
+# 查看日志
+docker logs ai-eval-api
 
-# 检查部署状态
-kubectl get pods -n ai-eval
-kubectl get services -n ai-eval
+# 检查依赖服务
+docker ps | grep postgres
+docker ps | grep redis
+
+# 检查环境变量
+docker exec ai-eval-api env | grep API_KEY
 ```
 
-### 4. Ingress 配置
+### 6.2 LLM调用失败
 
-```yaml
-# docker/k8s/ingress.yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: ai-eval-ingress
-  annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-spec:
-  rules:
-    - host: api.ai-eval.com
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: ai-eval-api
-                port:
-                  number: 8000
-```
+**症状**：评估请求返回LLM错误
 
-### 5. 水平自动扩缩容
-
-```yaml
-# HPA 配置
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: ai-eval-api-hpa
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: ai-eval-api
-  minReplicas: 2
-  maxReplicas: 20
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 60
-```
-
-## 生产环境配置
-
-### 1. Nginx 反向代理
-
-```nginx
-# /etc/nginx/conf.d/ai-eval.conf
-upstream ai_eval_backend {
-    server 127.0.0.1:8000;
-    keepalive 32;
-}
-
-server {
-    listen 80;
-    server_name api.ai-eval.com;
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name api.ai-eval.com;
-
-    ssl_certificate /etc/ssl/certs/ai-eval.crt;
-    ssl_certificate_key /etc/ssl/private/ai-eval.key;
-
-    location / {
-        proxy_pass http://ai_eval_backend;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Connection "";
-
-        proxy_connect_timeout 60s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
-    }
-
-    location /health {
-        proxy_pass http://ai_eval_backend/health;
-        proxy_http_version 1.1;
-    }
-}
-```
-
-### 2. SSL 证书配置
-
+**排查步骤**：
 ```bash
-# 使用 Let's Encrypt
-certbot --nginx -d api.ai-eval.com
+# 检查API Key配置
+curl http://localhost:8000/api/v1/config
 
-# 或手动配置
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-  -keyout /etc/ssl/private/ai-eval.key \
-  -out /etc/ssl/certs/ai-eval.crt
-```
-
-### 3. 系统服务配置
-
-```ini
-# /etc/systemd/system/ai-eval.service
-[Unit]
-Description=AI Evaluation Platform
-After=network.target redis.service
-
-[Service]
-Type=simple
-User=ai_eval
-Group=ai_eval
-WorkingDirectory=/opt/ai-eval
-Environment="PATH=/opt/ai-eval/venv/bin"
-Environment="REDIS_URL=redis://localhost:6379/0"
-ExecStart=/opt/ai-eval/venv/bin/uvicorn src.api.server:app --host 0.0.0.0 --port 8000
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-```bash
-# 启用服务
-sudo systemctl enable ai-eval
-sudo systemctl start ai-eval
-sudo systemctl status ai-eval
-```
-
-## 监控配置
-
-### 1. Prometheus 配置
-
-```yaml
-# prometheus.yml
-global:
-  scrape_interval: 15s
-
-scrape_configs:
-  - job_name: 'ai-eval'
-    static_configs:
-      - targets: ['localhost:8000']
-    metrics_path: '/metrics'
-```
-
-### 2. Grafana 仪表盘
-
-```bash
-# 导入仪表盘
-curl -X POST http://localhost:3000/api/dashboards/import \
+# 测试LLM连接
+curl -X POST http://localhost:8000/api/v1/evaluate \
   -H "Content-Type: application/json" \
-  -d @docker/grafana/dashboards/ai-eval.json
+  -d '{"type":"general","user_input":"test","actual_output":"test"}'
 ```
 
-## 备份配置
+### 6.3 监控无数据
 
-### 1. Redis 备份
+**症状**：Grafana面板无数据
+
+**排查步骤**：
+```bash
+# 检查Prometheus targets
+curl http://localhost:9090/api/v1/targets
+
+# 检查指标端点
+curl http://localhost:8000/metrics
+
+# 检查Pushgateway
+curl http://localhost:9091/metrics
+```
+
+### 6.4 队列堆积
+
+**症状**：Celery任务堆积，评估延迟高
+
+**排查步骤**：
+```bash
+# 检查Worker状态
+docker logs ai-eval-worker
+
+# 检查RabbitMQ队列
+curl http://localhost:15672/api/queues
+
+# 增加Worker并发
+docker-compose up -d --scale worker=3
+```
+
+---
+
+## 七、运维命令
+
+### 7.1 常用命令
 
 ```bash
-# crontab 备份
-0 2 * * * redis-cli BGSAVE && cp /var/lib/redis/dump.rdb /backup/redis-$(date +%Y%m%d).rdb
+# 查看所有服务状态
+docker-compose ps
+
+# 查看API日志
+docker logs -f ai-eval-api
+
+# 重启API服务
+docker restart ai-eval-api
+
+# 查看资源使用
+docker stats
+
+# 清理无用容器和镜像
+docker system prune -f
 ```
 
-### 2. 数据库备份
+### 7.2 更新部署
 
 ```bash
-# 每日备份脚本
-#!/bin/bash
-DATE=$(date +%Y%m%d)
-pg_dump -U postgres ai_eval > /backup/db-$DATE.sql
+# 拉取最新代码
+git pull
+
+# 重新构建并启动
+docker-compose up -d --build
+
+# 或使用部署脚本
+./deploy-prod.sh
 ```
 
-## 部署检查清单
+---
 
-- [ ] 环境变量配置完成
-- [ ] 依赖服务（Redis/DB）可用
-- [ ] SSL 证书配置
-- [ ] 监控告警配置
-- [ ] 日志收集配置
-- [ ] 备份策略配置
-- [ ] 健康检查通过
-- [ ] 性能基线验证
+## 八、安全建议
 
-## 常见问题
+### 8.1 生产环境安全
 
-### 1. 服务启动失败
+1. **修改默认密码**：
+   - PostgreSQL密码
+   - RabbitMQ密码
+   - Grafana密码
+
+2. **API Key加密存储**：
+   ```python
+   from src.infra.security import encrypt_api_key, save_key
+   
+   # 生成加密密钥
+   key = generate_key("your-password")
+   save_key(key, "data/.key")
+   
+   # 加密API Key
+   encrypted = encrypt_api_key("sk-your-key", key)
+   ```
+
+3. **启用HTTPS**：
+   - 配置反向代理（Nginx/Traefik）
+   - 使用SSL证书
+
+4. **限制网络访问**：
+   - 仅开放必要端口
+   - 配置防火墙规则
+
+---
+
+## 九、性能优化
+
+### 9.1 建议配置
+
+| 服务 | 配置建议 |
+|------|----------|
+| API | 2-4实例，负载均衡 |
+| Worker | 4-8并发，根据队列调整 |
+| PostgreSQL | 连接池50-100 |
+| Redis | 内存2GB+ |
+| Prometheus | 保留15天数据 |
+
+### 9.2 扩容方案
 
 ```bash
-# 检查日志
-journalctl -u ai-eval -n 100
+# 增加API实例
+docker-compose up -d --scale api=3
 
-# 检查端口占用
-netstat -tlnp | grep 8000
+# 增加Worker实例
+docker-compose up -d --scale worker=5
 ```
 
-### 2. Redis 连接失败
+---
 
-```bash
-# 检查 Redis 状态
-redis-cli ping
-redis-cli info clients
-```
+## 十、联系支持
 
-### 3. 性能问题
-
-```bash
-# 检查资源使用
-top -u ai_eval
-free -h
-df -h
-```
+- **项目地址**：https://github.com/your-org/ai-eval-platform
+- **问题反馈**：GitHub Issues
+- **文档更新**：docs/目录

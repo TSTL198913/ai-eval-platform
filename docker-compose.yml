@@ -137,13 +137,26 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      - ./docker/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./deploy/prometheus/alerts.yml:/etc/prometheus/alert_rules.yml
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.enable-lifecycle'
+    networks:
+      - ai-eval-network
+    profiles:
+      - monitoring
+
+  # ---------------------------------------------------------------------
+  # Pushgateway (Celery指标推送)
+  # ---------------------------------------------------------------------
+  pushgateway:
+    image: prom/pushgateway:latest
+    container_name: ai-eval-pushgateway
+    ports:
+      - "9091:9091"
     networks:
       - ai-eval-network
     profiles:
@@ -158,7 +171,7 @@ services:
     ports:
       - "9093:9093"
     volumes:
-      - ./docker/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - ./deploy/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
       - alertmanager_data:/alertmanager
     networks:
       - ai-eval-network
@@ -179,8 +192,8 @@ services:
       - GF_INSTALL_PLUGINS=grafana-clock-panel
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./docker/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
-      - ./docker/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
     depends_on:
       - prometheus
     networks:

@@ -10,10 +10,11 @@ import {
   Activity, 
   LogOut,
   User,
-  ChevronDown
+  ChevronDown,
+  Shield
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import useAuthStore from '../stores/authStore';
+import useAuthStore from '@/stores/authStore';
 
 const { Header, Sider, Content } = Layout;
 const { Title } = Typography;
@@ -23,7 +24,9 @@ const menuItems = [
   { key: '/evaluators', icon: <Settings2 className='w-5 h-5' />, label: '评估器管理' },
   { key: '/models', icon: <BarChart3 className='w-5 h-5' />, label: '模型对比' },
   { key: '/records', icon: <FileText className='w-5 h-5' />, label: '评估记录' },
+  { key: '/reports', icon: <FileText className='w-5 h-5' />, label: '报告管理' },
   { key: '/cost', icon: <DollarSign className='w-5 h-5' />, label: '成本监控' },
+  { key: '/security', icon: <Shield className='w-5 h-5' />, label: '安全测试' },
   { key: '/health', icon: <Activity className='w-5 h-5' />, label: '系统健康' },
 ];
 
@@ -95,7 +98,7 @@ const AppLayout: React.FC<LayoutProps> = ({ children }) => {
             <span className='text-lg font-semibold text-gray-800'>{menuItems.find(item => item.key === location.pathname)?.label || '仪表盘'}</span>
           </div>
           <div className='flex items-center gap-4'>
-            <Dropdown overlay={userMenu} trigger={['click']}>
+            <Dropdown menu={{ items: [] }} trigger={['click']}>
               <Button 
                 type='text' 
                 icon={<Avatar size={32} icon={<User className='w-5 h-5' />} />}

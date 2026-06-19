@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Spin, Tag, Statistic } from 'antd';
-import { Server, Database, Rabbit, Activity, AlertCircle, CheckCircle } from 'lucide-react';
+import { Card, Row, Col, Spin, Tag, Statistic, message } from 'antd';
+import { Server, Database, RabbitIcon, Activity, AlertCircle, CheckCircle } from 'lucide-react';
 import { healthApi } from '../services/api';
 import { HealthInfo, PerformanceMetrics } from '../types';
 
@@ -19,8 +19,11 @@ const Health: React.FC = () => {
         ]);
         setHealth(healthData);
         setMetrics(metricsData);
-      } catch (error) {
-        console.error('Failed to fetch health data:', error);
+      } catch (err: any) {
+        // 架构规范：健康检查失败必须抛出
+        console.error('Failed to fetch health data:', err);
+        message.error('健康检查数据加载失败');
+        throw err;
       } finally {
         setLoading(false);
       }
@@ -49,7 +52,7 @@ const Health: React.FC = () => {
     return status === 'healthy' ? 'green' : status === 'unhealthy' ? 'red' : 'orange';
   };
 
-  const components = health?.components || {};
+  const components = health?.components || { redis: {}, database: {}, rabbitmq: {} };
 
   return (
     <div>
@@ -112,8 +115,8 @@ const Health: React.FC = () => {
         <Row gutter={[16, 16]}>
           <Col xs={24} sm={6}>
             <div className='text-center'>
-              <p className='text-gray-500 text-sm mb-1'>请求/分钟</p>
-              <Statistic value={metrics?.requests_per_minute || 0} />
+              <p className='text-gray-500 text-sm mb-1'>总请求数</p>
+              <Statistic value={metrics?.requests_total || 0} />
             </div>
           </Col>
           <Col xs={24} sm={6}>

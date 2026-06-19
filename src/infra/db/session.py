@@ -124,17 +124,23 @@ class ConnectionLeakDetector:
             conn_id = self._next_connection_id
             self._next_connection_id += 1
 
-            stack = traceback.extract_stack()
-            # 过滤掉框架内部的栈帧
-            relevant_frames = [
-                frame for frame in stack
-                if "session.py" not in frame.filename
-            ]
-            stack_trace = "".join(traceback.format_list(relevant_frames[-5:]))
+            # 性能优化：仅在检测到潜在泄漏时才采集stack trace，
+            # 避免每次checkout都执行昂贵的 traceback.extract_stack
+            checkout_time = time.time()
+            stack_trace = ""
+            if checkout_time - getattr(self, "_last_leak_check_time", 0) > 30:
+                # 周期性（每30s）采样一次用于调试
+                self._last_leak_check_time = checkout_time
+                stack = traceback.extract_stack()
+                relevant_frames = [
+                    frame for frame in stack
+                    if "session.py" not in frame.filename
+                ]
+                stack_trace = "".join(traceback.format_list(relevant_frames[-5:]))
 
             self._connections[conn_id] = ConnectionLeakInfo(
                 connection_id=conn_id,
-                checkout_time=time.time(),
+                checkout_time=checkout_time,
                 thread_id=threading.get_ident(),
                 stack_trace=stack_trace,
             )
@@ -259,7 +265,7 @@ def _get_database_url() -> str:
         from src.config import settings
         return settings.database_url
     except Exception:
-        return os.getenv("DATABASE_URL", "sqlite:///./eval_platform.db")
+        return os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/eval_platform")
 
 
 def _create_engine() -> Engine:

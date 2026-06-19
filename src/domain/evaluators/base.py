@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Optional
 
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+from src.exceptions import BasePlatformError
 from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
 if TYPE_CHECKING:
@@ -37,7 +38,11 @@ class BaseEvaluator(ABC):
         try:
             response = self.evaluate(request)
             if response is None:
-                return DomainResponse(is_valid=False, error="Evaluator returned None unexpectedly.")
+                return DomainResponse(is_valid=False, error="EVALUATION_ERROR: Evaluator returned None unexpectedly.")
             return response
+        except BasePlatformError:
+            raise
         except Exception as e:
-            return DomainResponse(is_valid=False, error=f"Evaluation execution error: {str(e)}")
+            logger = __import__('logging').getLogger(__name__)
+            logger.error(f"Evaluation execution error for {request.type}: {e}", exc_info=True)
+            return DomainResponse(is_valid=False, error=f"EVALUATION_ERROR: {str(e)}")

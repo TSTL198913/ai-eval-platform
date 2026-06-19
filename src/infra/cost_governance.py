@@ -48,9 +48,11 @@ class CostGovernance:
         "default": {"prompt": 0.000002, "completion": 0.000002},
     }
 
-    def __init__(self):
+    def __init__(self, daily_cost_limit=None, weekly_cost_limit=None, monthly_cost_limit=None):
         self.records: List[CostRecord] = []
-        self.daily_cost_limit = settings.__dict__.get("daily_cost_limit", 100.0)
+        self.daily_cost_limit = daily_cost_limit if daily_cost_limit is not None else settings.__dict__.get("daily_cost_limit", 100.0)
+        self.weekly_cost_limit = weekly_cost_limit if weekly_cost_limit is not None else settings.__dict__.get("weekly_cost_limit", 500.0)
+        self.monthly_cost_limit = monthly_cost_limit if monthly_cost_limit is not None else settings.__dict__.get("monthly_cost_limit", 2000.0)
         self.hourly_request_limit = settings.__dict__.get("hourly_request_limit", 10000)
 
     def calculate_cost(self, model_name: str, prompt_tokens: int, completion_tokens: int) -> float:
@@ -86,7 +88,9 @@ class CostGovernance:
         return record
 
     def get_metrics(self, hours: Optional[int] = None) -> CostMetrics:
-        if hours:
+        if hours is not None:
+            if hours <= 0:
+                return CostMetrics()
             cutoff_time = time.time() - (hours * 3600)
             filtered_records = [r for r in self.records if r.timestamp > cutoff_time]
         else:
@@ -121,12 +125,33 @@ class CostGovernance:
             avg_tokens_per_request=total_tokens / len(filtered_records),
         )
 
-    def check_budget(self) -> Dict[str, bool]:
+    def check_budget(self) -> Dict[str, bool | float]:
         metrics = self.get_metrics()
+        if self.daily_cost_limit <= 0:
+            return {
+                "daily_budget_ok": False,
+                "daily_usage_percent": 100.0 if metrics.daily_cost_usd > 0 else 0.0,
+            }
         return {
             "daily_budget_ok": metrics.daily_cost_usd < self.daily_cost_limit,
             "daily_usage_percent": (metrics.daily_cost_usd / self.daily_cost_limit) * 100,
         }
+
+    def record_request(self, prompt_tokens: int, completion_tokens: int, cost_usd: float, model_name: str = "default", latency_ms: float = 0) -> CostRecord:
+        """简化版记录请求（兼容测试接口）"""
+        record = CostRecord(
+            record_id=f"req_{len(self.records)}",
+            model_name=model_name,
+            usage=TokenUsage(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=prompt_tokens + completion_tokens,
+            ),
+            cost_usd=cost_usd,
+            latency_ms=latency_ms,
+        )
+        self.records.append(record)
+        return record
 
     def get_top_models_by_cost(self, limit: int = 5) -> List[Dict[str, float]]:
         model_costs: Dict[str, float] = {}

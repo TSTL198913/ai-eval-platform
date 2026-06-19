@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+
+from sqlalchemy import text
 
 from src.infra.db.models import EvaluationResultModel, TrajectoryModel
 from src.infra.db.session import get_db_session
-from src.schemas.schemas import EvaluationResult  # 确保引入你的强类型契约
+from src.schemas.schemas import EvaluationResult
 
 
 # 1. 统一的仓储基类（规范接口）
@@ -40,19 +41,21 @@ class EvaluationRepository(BaseRepository):
     def count(self) -> int:
         """获取评估记录总数"""
         with get_db_session() as session:
-            result = session.execute("SELECT COUNT(*) FROM eval_results").fetchone()
+            result = session.execute(text("SELECT COUNT(*) FROM eval_results")).fetchone()
             return result[0] if result else 0
 
     def get_recent(self, limit: int = 10) -> list[dict]:
         """获取最近的评估记录"""
         with get_db_session() as session:
             results = session.execute(
-                """
-                SELECT id, case_id, model_name, adapter_name, status, latency_ms, created_at
-                FROM eval_results
-                ORDER BY created_at DESC
-                LIMIT :limit
-                """,
+                text(
+                    """
+                    SELECT id, case_id, model_name, adapter_name, status, latency_ms, created_at
+                    FROM eval_results
+                    ORDER BY created_at DESC
+                    LIMIT :limit
+                    """
+                ),
                 {"limit": limit},
             ).fetchall()
 
@@ -64,7 +67,7 @@ class EvaluationRepository(BaseRepository):
                     "adapter_name": row[3],
                     "status": row[4],
                     "latency_ms": row[5],
-                    "created_at": row[6].isoformat() if row[6] else None,
+                    "created_at": row[6].isoformat() if row[6] and hasattr(row[6], 'isoformat') else row[6],
                 }
                 for row in results
             ]
@@ -74,28 +77,45 @@ class EvaluationRepository(BaseRepository):
         evaluator: str | None = None,
         status: str | None = None,
         limit: int = 10,
+        type: str | None = None,
+        offset: int = 0,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
     ) -> list[dict]:
         """搜索评估记录，支持按评估器类型和状态过滤"""
         with get_db_session() as session:
-            query = """
-                SELECT id, case_id, model_name, adapter_name, status, latency_ms, created_at
-                FROM eval_results
-                WHERE 1=1
-            """
+            query_parts = [
+                "SELECT id, case_id, model_name, adapter_name, status, latency_ms, created_at",
+                "FROM eval_results",
+                "WHERE 1=1",
+            ]
             params = {}
 
             if evaluator:
-                query += " AND adapter_name = :evaluator"
+                query_parts.append("AND adapter_name = :evaluator")
                 params["evaluator"] = evaluator
+            elif type:
+                query_parts.append("AND adapter_name = :type")
+                params["type"] = type
 
             if status:
-                query += " AND status = :status"
+                query_parts.append("AND status = :status")
                 params["status"] = status
 
-            query += " ORDER BY created_at DESC LIMIT :limit"
-            params["limit"] = limit
+            allowed_sort_fields = ["id", "case_id", "model_name", "adapter_name", "status", "latency_ms", "created_at"]
+            if sort_by not in allowed_sort_fields:
+                sort_by = "created_at"
 
-            results = session.execute(query, params).fetchall()
+            sort_order = sort_order.upper()
+            if sort_order not in ["ASC", "DESC"]:
+                sort_order = "DESC"
+
+            query_parts.append(f"ORDER BY {sort_by} {sort_order}")
+            query_parts.append("LIMIT :limit OFFSET :offset")
+            params["limit"] = limit
+            params["offset"] = offset
+
+            results = session.execute(text(" ".join(query_parts)), params).fetchall()
 
             return [
                 {
@@ -105,7 +125,188 @@ class EvaluationRepository(BaseRepository):
                     "adapter_name": row[3],
                     "status": row[4],
                     "latency_ms": row[5],
-                    "created_at": row[6].isoformat() if row[6] else None,
+                    "created_at": row[6].isoformat() if row[6] and hasattr(row[6], 'isoformat') else row[6],
+                }
+                for row in results
+            ]
+
+    def get_by_id(self, record_id: int) -> dict | None:
+        """根据ID获取评估记录详情"""
+        with get_db_session() as session:
+            result = session.execute(
+                text(
+                    """
+                    SELECT id, case_id, model_name, adapter_name, status, latency_ms, response_data, created_at
+                    FROM eval_results
+                    WHERE id = :id
+                    """
+                ),
+                {"id": record_id},
+            ).fetchone()
+
+            if result:
+                return {
+                    "id": result[0],
+                    "case_id": result[1],
+                    "model_name": result[2],
+                    "adapter_name": result[3],
+                    "status": result[4],
+                    "latency_ms": result[5],
+                    "response_data": result[6],
+                    "created_at": result[7].isoformat() if result[7] and hasattr(result[7], 'isoformat') else result[7],
+                }
+            return None
+
+    def update(self, record_id: int, update_data: dict) -> bool:
+        """更新评估记录"""
+        with get_db_session() as session:
+            allowed_fields = ["model_name", "adapter_name", "status"]
+            set_parts = []
+            params = {"id": record_id}
+
+            for field in allowed_fields:
+                if field in update_data:
+                    set_parts.append(f"{field} = :{field}")
+                    params[field] = update_data[field]
+
+            if not set_parts:
+                return False
+
+            query = f"UPDATE eval_results SET {', '.join(set_parts)} WHERE id = :id"
+            result = session.execute(text(query), params)
+            session.commit()
+            return result.rowcount > 0
+
+    def delete(self, record_id: int) -> bool:
+        """删除评估记录"""
+        with get_db_session() as session:
+            result = session.execute(
+                text("DELETE FROM eval_results WHERE id = :id"),
+                {"id": record_id},
+            )
+            session.commit()
+            return result.rowcount > 0
+
+    def batch_delete(self, record_ids: list[int]) -> int:
+        """批量删除评估记录"""
+        if not record_ids:
+            return 0
+        with get_db_session() as session:
+            placeholders = ",".join(str(id) for id in record_ids)
+            result = session.execute(
+                text(f"DELETE FROM eval_results WHERE id IN ({placeholders})")
+            )
+            session.commit()
+            return result.rowcount
+
+    def batch_update(self, record_ids: list[int], update_data: dict) -> int:
+        """批量更新评估记录"""
+        if not record_ids or not update_data:
+            return 0
+        with get_db_session() as session:
+            allowed_fields = ["model_name", "adapter_name", "status"]
+            set_parts = []
+            params = {}
+
+            for field in allowed_fields:
+                if field in update_data:
+                    set_parts.append(f"{field} = :{field}")
+                    params[field] = update_data[field]
+
+            if not set_parts:
+                return 0
+
+            placeholders = ",".join(str(id) for id in record_ids)
+            query = f"UPDATE eval_results SET {', '.join(set_parts)} WHERE id IN ({placeholders})"
+            result = session.execute(text(query), params)
+            session.commit()
+            return result.rowcount
+
+    def create(self, data: dict) -> int:
+        """创建评估记录（用于配置管理等场景）"""
+        import json
+        with get_db_session() as session:
+            response_data = data.get("response_data", {})
+            # 确保response_data是字典或可JSON序列化的
+            if not isinstance(response_data, dict):
+                try:
+                    response_data = json.loads(str(response_data))
+                except:
+                    response_data = {}
+            
+            record = EvaluationResultModel(
+                case_id=data.get("case_id", ""),
+                model_name=data.get("model_name", "default"),
+                adapter_name=data.get("adapter_name", "default"),
+                status=data.get("status", "unknown"),
+                latency_ms=float(data.get("latency_ms", 0.0)),
+                response_data=response_data,
+            )
+            session.add(record)
+            session.flush()
+            session.commit()
+            return record.id
+
+    def get_all(self, limit: int = 100) -> list[dict]:
+        """获取所有评估记录"""
+        import json
+        with get_db_session() as session:
+            results = session.execute(
+                text(
+                    """
+                    SELECT id, case_id, model_name, adapter_name, status, latency_ms, response_data, created_at
+                    FROM eval_results
+                    ORDER BY created_at DESC
+                    LIMIT :limit
+                    """
+                ),
+                {"limit": limit},
+            ).fetchall()
+
+            records = []
+            for row in results:
+                response_data = row[6]
+                # 如果是字符串，尝试解析为JSON
+                if isinstance(response_data, str):
+                    try:
+                        response_data = json.loads(response_data)
+                    except:
+                        pass
+                records.append({
+                    "id": row[0],
+                    "case_id": row[1],
+                    "model_name": row[2],
+                    "adapter_name": row[3],
+                    "status": row[4],
+                    "latency_ms": row[5],
+                    "response_data": response_data,
+                    "created_at": row[7].isoformat() if row[7] and hasattr(row[7], 'isoformat') else row[7],
+                })
+            return records
+
+    def get_all_for_export(self) -> list[dict]:
+        """获取所有评估记录用于导出"""
+        with get_db_session() as session:
+            results = session.execute(
+                text(
+                    """
+                    SELECT id, case_id, model_name, adapter_name, status, latency_ms, response_data, created_at
+                    FROM eval_results
+                    ORDER BY created_at DESC
+                    """
+                )
+            ).fetchall()
+
+            return [
+                {
+                    "id": row[0],
+                    "case_id": row[1],
+                    "model_name": row[2],
+                    "adapter_name": row[3],
+                    "status": row[4],
+                    "latency_ms": row[5],
+                    "response_data": row[6],
+                    "created_at": row[7].isoformat() if row[7] and hasattr(row[7], 'isoformat') else row[7],
                 }
                 for row in results
             ]
@@ -129,8 +330,8 @@ class TrajectoryRepository:
         step_type: str,
         prompt: str,
         response: str,
-        tool_name: Optional[str] = None,
-        tool_params: Optional[Dict[str, Any]] = None,
+        tool_name: str | None = None,
+        tool_params: dict[str, object] | None = None,
         is_correct: bool = False,
     ) -> int:
         if not task_id or not task_id.strip():
@@ -153,7 +354,7 @@ class TrajectoryRepository:
             session.commit()
             return db_record.id
 
-    def save_steps(self, steps: List[Dict[str, Any]]) -> List[int]:
+    def save_steps(self, steps: list[dict[str, object]]) -> list[int]:
         ids = []
         for step in steps:
             step_id = self.save_step(
@@ -169,7 +370,7 @@ class TrajectoryRepository:
             ids.append(step_id)
         return ids
 
-    def get_trajectory(self, task_id: str) -> List[Dict[str, Any]]:
+    def get_trajectory(self, task_id: str) -> list[dict[str, object]]:
         with get_db_session() as session:
             results = session.query(TrajectoryModel)\
                 .filter(TrajectoryModel.task_id == task_id)\
@@ -177,7 +378,7 @@ class TrajectoryRepository:
                 .all()
             return [result.to_dict() for result in results]
 
-    def get_recent_trajectories(self, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_recent_trajectories(self, limit: int = 10) -> list[dict[str, object]]:
         with get_db_session() as session:
             results = session.query(TrajectoryModel)\
                 .order_by(TrajectoryModel.created_at.desc())\
@@ -195,5 +396,5 @@ class TrajectoryRepository:
 
     def count(self) -> int:
         with get_db_session() as session:
-            result = session.execute("SELECT COUNT(*) FROM trajectories").fetchone()
+            result = session.execute(text("SELECT COUNT(*) FROM trajectories")).fetchone()
             return result[0] if result else 0

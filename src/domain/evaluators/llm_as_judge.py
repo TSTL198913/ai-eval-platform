@@ -27,6 +27,8 @@ class LLMAJudgeEvaluator(BaseEvaluator):
 
         dimensions = self.get_payload_data(request, "dimensions", ["correctness", "relevance"])
         criteria = self.get_payload_data(request, "criteria", "")
+        golden_dataset_id = self.get_payload_data(request, "golden_dataset_id")
+        few_shot_limit = self.get_payload_data(request, "few_shot_limit", 3)
 
         prompt = self._build_judge_prompt(
             user_input=user_input,
@@ -34,6 +36,8 @@ class LLMAJudgeEvaluator(BaseEvaluator):
             expected_output=expected_output,
             dimensions=dimensions,
             criteria=criteria,
+            golden_dataset_id=golden_dataset_id,
+            few_shot_limit=few_shot_limit,
         )
 
         llm_output = self.client.chat(prompt) if self.client else self._mock_judge_result()
@@ -46,6 +50,8 @@ class LLMAJudgeEvaluator(BaseEvaluator):
         expected_output: str | None = None,
         dimensions: list[str] = None,
         criteria: str = "",
+        golden_dataset_id: str | None = None,
+        few_shot_limit: int = 3,
     ) -> str:
         if dimensions is None:
             dimensions = ["correctness"]
@@ -61,12 +67,60 @@ class LLMAJudgeEvaluator(BaseEvaluator):
 
         dimension_str = "\n".join([f"- {dim_desc.get(d, d)}" for d in dimensions])
 
-        json_format = "{\\n  \"scores\": {\\n    \"<维度名>\": {\\n      \"score\": <分数>,\\n      \"reason\": \"<理由>\"\\n    }\\n  },\\n  \"total_score\": <总分>,\\n  \"confidence\": <置信度0-1>\\n}"
+        json_format = """{
+  "scores": {
+    "<维度名>": {
+      "score": <分数>,
+      "reason": "<评分理由，必须引用具体内容作为证据>",
+      "evidence": ["<引用1：原文中支持该评分的关键语句>", "<引用2>"],
+      "citation": "<参考来源编号，如[KB-001]，如无则填'无'>"
+    }
+  },
+  "total_score": <总分>,
+  "confidence": <置信度0-1>,
+  "conflict_detected": <true/false，是否存在评分冲突>
+}"""
 
         expected_section = f"【期望输出】\n{expected_output}\n" if expected_output else ""
         criteria_section = f"【额外评估标准】\n{criteria}\n" if criteria else ""
 
-        prompt = "你是一个专业的 AI 评测专家。请根据以下维度对模型的输出进行评分。\n\n【用户问题】\n{user_input}\n\n【模型输出】\n{actual_output}\n\n{expected_section}\n{criteria_section}\n【评估维度】\n{dimension_str}\n\n【评分规则】\n- 每个维度评分范围：0-100分\n- 请提供简洁的评分理由\n- 最终输出为 JSON 格式，包含各维度得分和总分\n\n【输出格式】\n{json_format}".format(
+        few_shot_section = ""
+        if golden_dataset_id:
+            try:
+                from src.domain.golden_dataset import golden_dataset_manager
+                examples = golden_dataset_manager.get_few_shot_examples(
+                    golden_dataset_id, limit=few_shot_limit, dimensions=dimensions
+                )
+                if examples:
+                    few_shot_section = "【评分示例参考】\n" + "\n".join(examples)
+            except Exception:
+                pass
+
+        prompt = """你是一个专业的 AI 评测专家。请根据以下维度对模型的输出进行评分。
+
+【重要要求】
+1. 每个维度的评分必须有具体的文本引用作为证据支撑
+2. 在"evidence"字段中，引用原文中的关键语句
+3. 如果发现评分存在矛盾（如高分但证据不支持），设置conflict_detected=true
+
+{few_shot_section}【用户问题】
+{user_input}
+
+【模型输出】
+{actual_output}
+
+{expected_section}
+{criteria_section}【评估维度】
+{dimension_str}
+
+【评分规则】
+- 每个维度评分范围：0-100分
+- reason必须引用原文中的具体语句作为证据
+- 最终输出为 JSON 格式，包含各维度得分、总分和置信度
+
+【输出格式】
+{json_format}""".format(
+            few_shot_section=few_shot_section,
             user_input=user_input,
             actual_output=actual_output,
             expected_section=expected_section,
@@ -89,6 +143,16 @@ class LLMAJudgeEvaluator(BaseEvaluator):
 
             total_score = result.get("total_score", 0)
             scores = result.get("scores", {})
+            conflict_detected = result.get("conflict_detected", False)
+
+            # 提取证据归因信息
+            attribution_data = {}
+            for dim, score_data in scores.items():
+                if isinstance(score_data, dict):
+                    attribution_data[dim] = {
+                        "evidence": score_data.get("evidence", []),
+                        "citation": score_data.get("citation", "无"),
+                    }
 
             return DomainResponse(
                 is_valid=True,
@@ -98,6 +162,8 @@ class LLMAJudgeEvaluator(BaseEvaluator):
                     "llm_judge_scores": scores,
                     "total_score": total_score,
                     "confidence": result.get("confidence", 0.8),
+                    "conflict_detected": conflict_detected,
+                    "attribution": attribution_data,
                 },
             )
         except json.JSONDecodeError:
@@ -144,9 +210,20 @@ class LLMAJudgeEvaluator(BaseEvaluator):
     def _mock_judge_result(self) -> str:
         return json.dumps({
             "scores": {
-                "correctness": {"score": 85, "reason": "回答基本正确"},
-                "relevance": {"score": 90, "reason": "与问题高度相关"},
+                "correctness": {
+                    "score": 85,
+                    "reason": "回答内容基本正确，体现了道歉和解决问题的态度",
+                    "evidence": ["您好，非常抱歉给您带来不便", "预计3天内可以发出"],
+                    "citation": "无"
+                },
+                "relevance": {
+                    "score": 90,
+                    "reason": "回答完全针对用户提出的发货和退款问题",
+                    "evidence": ["联系物流催促发货", "退款将在1-3个工作日内到账"],
+                    "citation": "无"
+                },
             },
             "total_score": 87,
             "confidence": 0.85,
+            "conflict_detected": False,
         })

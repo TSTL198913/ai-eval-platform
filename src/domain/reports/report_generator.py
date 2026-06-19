@@ -201,7 +201,7 @@ class ReportGenerator:
     @classmethod
     def generate(cls, results: List[Dict], format: ReportFormat = ReportFormat.HTML) -> str:
         """从评测结果生成报告"""
-        report = EvaluationReport(title="AI全链路评测报告")
+        report = EvaluationReport(title="AI Evaluation Report")
 
         total = len(results)
         passed = sum(1 for r in results if r.get("score", 0) >= 0.7)
@@ -235,7 +235,7 @@ class ReportGenerator:
     @classmethod
     def generate_and_save(cls, results: List[Dict], file_path: str, format: ReportFormat = ReportFormat.HTML):
         """生成并保存报告"""
-        report = EvaluationReport(title="AI全链路评测报告")
+        report = EvaluationReport(title="AI Evaluation Report")
 
         total = len(results)
         passed = sum(1 for r in results if r.get("score", 0) >= 0.7)
@@ -252,16 +252,32 @@ class ReportGenerator:
         report.save(file_path, format)
 
 
+def _get_score_from_record(record: Dict) -> float:
+    """从记录中获取分数，处理response_data嵌套情况"""
+    score = record.get("score")
+    if score is not None:
+        return score
+    response_data = record.get("response_data", {})
+    if isinstance(response_data, dict):
+        return response_data.get("score", 0.0)
+    try:
+        import json
+        response_data = json.loads(response_data)
+        return response_data.get("score", 0.0)
+    except:
+        return 0.0
+
+
 def generate_report_from_records(records: List[Dict], output_path: str = "reports/") -> str:
     """从数据库记录生成报告"""
     os.makedirs(output_path, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    report = EvaluationReport(title="AI全链路评测报告")
+    report = EvaluationReport(title="AI Evaluation Report")
 
     total = len(records)
-    passed = sum(1 for r in records if r.get("score", 0) >= 0.7)
-    avg_score = sum(r.get("score", 0) for r in records) / max(total, 1)
+    passed = sum(1 for r in records if _get_score_from_record(r) >= 0.7)
+    avg_score = sum(_get_score_from_record(r) for r in records) / max(total, 1)
 
     report.add_summary("评测总数", total)
     report.add_summary("通过数", passed)
@@ -273,7 +289,7 @@ def generate_report_from_records(records: List[Dict], output_path: str = "report
             "id": record.get("case_id", record.get("id", "")),
             "type": record.get("evaluator_type", record.get("type", "")),
             "status": record.get("status", ""),
-            "score": record.get("score", 0),
+            "score": _get_score_from_record(record),
             "latency_ms": record.get("latency_ms", 0),
         })
 

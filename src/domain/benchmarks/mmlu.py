@@ -62,11 +62,41 @@ class MMLUBenchmark:
                                 continue
 
         if not dataset:
-            dataset = self._generate_synthetic_data()
+            dataset = self._load_real_data() or self._generate_synthetic_data()
 
         random.seed(42)
         self._dataset = random.sample(dataset, min(self.num_samples, len(dataset)))
         return self._dataset
+
+    def _load_real_data(self) -> List[Dict[str, Any]]:
+        """加载真实MMLU数据（从JSONL）"""
+        try:
+            from src.domain.benchmarks.dataset_loader import DatasetLoader
+            real_samples = DatasetLoader.load_mmlu(limit=self.num_samples * 2)
+            if real_samples:
+                # 转换为MMLU标准格式
+                converted = []
+                for s in real_samples:
+                    # 转换choices格式: "A) xxx" -> "A. xxx"
+                    raw_choices = s.get("choices", [])
+                    formatted_choices = []
+                    for c in raw_choices:
+                        if ")" in c:
+                            parts = c.split(")", 1)
+                            formatted_choices.append(f"{parts[0]}. {parts[1].strip()}")
+                        else:
+                            formatted_choices.append(c)
+                    converted.append({
+                        "id": len(converted),
+                        "subject": s.get("subject", "general"),
+                        "question": s["question"],
+                        "choices": formatted_choices,
+                        "answer": s["answer"],
+                    })
+                return converted
+        except Exception:
+            pass
+        return []
 
     def _generate_synthetic_data(self) -> List[Dict[str, Any]]:
         synthetic = []

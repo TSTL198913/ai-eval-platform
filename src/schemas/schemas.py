@@ -19,9 +19,9 @@ class EvaluationStatus(str, Enum):
 class EvaluationResult(BaseModel):
     case_id: str
     status: EvaluationStatus
-    model_name: str
+    model_name: str | None = None
     adapter_name: str
-    response: DomainResponse
+    response: DomainResponse | None = None
     latency_ms: float
     error_message: str | None = None
 

@@ -485,12 +485,13 @@ def _register_task(**kwargs):
     # 任务追踪
     track_started=True,
 )
-def eval_case_task(self, case_data: dict, priority: bool = False) -> Dict[str, Any]:
+def eval_case_task(self, case_data: dict, priority: bool = False, llm_client=None) -> Dict[str, Any]:
     """评测任务
 
     Args:
         case_data: 评测用例数据
         priority: 是否为高优先级任务
+        llm_client: 可选的LLM客户端，用于测试模式
 
     超时控制：
         - time_limit: 硬超时，超过后任务被强制终止
@@ -508,7 +509,7 @@ def eval_case_task(self, case_data: dict, priority: bool = False) -> Dict[str, A
     try:
         case = EvaluationSchema(**case_data)
         case_type = case.type
-        engine = _get_evaluation_engine()
+        engine = _get_evaluation_engine(llm_client=llm_client)
         result = engine.run(case)
 
         if metrics:

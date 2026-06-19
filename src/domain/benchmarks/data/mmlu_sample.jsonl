@@ -1,0 +1,30 @@
+{"question": "What is the capital of France?", "choices": ["A) London", "B) Paris", "C) Berlin", "D) Madrid"], "answer": "B", "subject": "geography"}
+{"question": "Which planet is known as the Red Planet?", "choices": ["A) Venus", "B) Mars", "C) Jupiter", "D) Saturn"], "answer": "B", "subject": "astronomy"}
+{"question": "What is 2 + 2?", "choices": ["A) 3", "B) 4", "C) 5", "D) 6"], "answer": "B", "subject": "mathematics"}
+{"question": "Who wrote 'Romeo and Juliet'?", "choices": ["A) Dickens", "B) Twain", "C) Shakespeare", "D) Hemingway"], "answer": "C", "subject": "literature"}
+{"question": "What is the chemical symbol for water?", "choices": ["A) CO2", "B) H2O", "C) O2", "D) N2"], "answer": "B", "subject": "chemistry"}
+{"question": "In what year did World War II end?", "choices": ["A) 1943", "B) 1944", "C) 1945", "D) 1946"], "answer": "C", "subject": "history"}
+{"question": "What is the largest ocean on Earth?", "choices": ["A) Atlantic", "B) Indian", "C) Arctic", "D) Pacific"], "answer": "D", "subject": "geography"}
+{"question": "Which gas do plants absorb from the atmosphere?", "choices": ["A) Oxygen", "B) Nitrogen", "C) Carbon Dioxide", "D) Hydrogen"], "answer": "C", "subject": "biology"}
+{"question": "What is the speed of light approximately?", "choices": ["A) 3x10^8 m/s", "B) 3x10^6 m/s", "C) 3x10^5 m/s", "D) 3x10^10 m/s"], "answer": "A", "subject": "physics"}
+{"question": "Who painted the Mona Lisa?", "choices": ["A) Van Gogh", "B) Picasso", "C) Da Vinci", "D) Monet"], "answer": "C", "subject": "art"}
+{"question": "What is the smallest unit of life?", "choices": ["A) Atom", "B) Molecule", "C) Cell", "D) Organ"], "answer": "C", "subject": "biology"}
+{"question": "Which language is used for web styling?", "choices": ["A) HTML", "B) Python", "C) CSS", "D) Java"], "answer": "C", "subject": "computer science"}
+{"question": "What is H2SO4 commonly known as?", "choices": ["A) Salt", "B) Sulfuric Acid", "C) Vinegar", "D) Ammonia"], "answer": "B", "subject": "chemistry"}
+{"question": "Who proposed the theory of relativity?", "choices": ["A) Newton", "B) Einstein", "C) Galileo", "D) Hawking"], "answer": "B", "subject": "physics"}
+{"question": "What is the capital of Japan?", "choices": ["A) Beijing", "B) Seoul", "C) Tokyo", "D) Bangkok"], "answer": "C", "subject": "geography"}
+{"question": "Which is the largest mammal?", "choices": ["A) Elephant", "B) Blue Whale", "C) Giraffe", "D) Hippopotamus"], "answer": "B", "subject": "biology"}
+{"question": "What does DNA stand for?", "choices": ["A) Deoxyribonucleic Acid", "B) Dinitrogen Acid", "C) Diribonucleic Acid", "D) Diribonitric Acid"], "answer": "A", "subject": "biology"}
+{"question": "Which is a prime number?", "choices": ["A) 4", "B) 6", "C) 7", "D) 9"], "answer": "C", "subject": "mathematics"}
+{"question": "What is the boiling point of water in Celsius?", "choices": ["A) 50", "B) 100", "C) 150", "D) 200"], "answer": "B", "subject": "chemistry"}
+{"question": "Who developed the theory of evolution?", "choices": ["A) Mendel", "B) Darwin", "C) Watson", "D) Crick"], "answer": "B", "subject": "biology"}
+{"question": "What is the largest planet in our solar system?", "choices": ["A) Earth", "B) Mars", "C) Jupiter", "D) Saturn"], "answer": "C", "subject": "astronomy"}
+{"question": "Which element has the chemical symbol 'Au'?", "choices": ["A) Silver", "B) Gold", "C) Aluminum", "D) Argon"], "answer": "B", "subject": "chemistry"}
+{"question": "What is the square root of 144?", "choices": ["A) 10", "B) 11", "C) 12", "D) 13"], "answer": "C", "subject": "mathematics"}
+{"question": "Which continent is Egypt in?", "choices": ["A) Asia", "B) Africa", "C) Europe", "D) South America"], "answer": "B", "subject": "geography"}
+{"question": "What is the powerhouse of the cell?", "choices": ["A) Nucleus", "B) Ribosome", "C) Mitochondria", "D) Golgi"], "answer": "C", "subject": "biology"}
+{"question": "Who wrote '1984'?", "choices": ["A) Huxley", "B) Orwell", "C) Bradbury", "D) Tolkien"], "answer": "B", "subject": "literature"}
+{"question": "What is pi approximately?", "choices": ["A) 2.14", "B) 3.14", "C) 4.14", "D) 5.14"], "answer": "B", "subject": "mathematics"}
+{"question": "Which gas is most abundant in Earth's atmosphere?", "choices": ["A) Oxygen", "B) Carbon Dioxide", "C) Nitrogen", "D) Argon"], "answer": "C", "subject": "chemistry"}
+{"question": "What is the largest desert in the world?", "choices": ["A) Sahara", "B) Gobi", "C) Antarctica", "D) Arabian"], "answer": "C", "subject": "geography"}
+{"question": "What is the chemical formula for glucose?", "choices": ["A) C6H12O6", "B) C12H22O11", "C) CH4", "D) C2H5OH"], "answer": "A", "subject": "chemistry"}

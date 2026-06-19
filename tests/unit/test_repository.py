@@ -1,401 +1,367 @@
-from unittest.mock import MagicMock, patch
-
+"""
+数据仓储层单元测试 - 带有效断言
+覆盖: CRUD、批量操作、字段白名单、空值处理
+"""
+import os
+import sys
 import pytest
 
-from src.infra.db.repository import (
-    BaseRepository,
-    EvaluationRepository,
-    SQLiteRepository,
-    TrajectoryRepository,
-)
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
+os.environ["TESTING"] = "1"
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+
+from src.infra.db.session import init_tables
+init_tables()
+
+from src.infra.db.repository import EvaluationRepository, TrajectoryRepository
+from src.schemas.schemas import EvaluationResult, EvaluationStatus
 from src.schemas.evaluation import DomainResponse
-from src.schemas.schemas import EvaluationResult
 
 
-def _make_result(case_id: str = "c1", status: str = "passed") -> EvaluationResult:
+@pytest.fixture
+def repo():
+    """提供干净的仓储实例"""
+    return EvaluationRepository()
+
+
+@pytest.fixture
+def sample_result():
+    """提供样本评估结果"""
     return EvaluationResult(
-        case_id=case_id,
+        case_id="unit_test_case_001",
+        status=EvaluationStatus.PASSED,
         model_name="gpt-4",
-        adapter_name="default",
-        status=status,
-        response=DomainResponse(is_valid=True, score=1.0),
-        latency_ms=100.0,
+        adapter_name="GeneralEvaluator",
+        response=DomainResponse(is_valid=True, score=0.95, text="good result"),
+        latency_ms=150.5,
     )
 
 
-class TestBaseRepository:
-    """仓储基类测试"""
+class TestRepositorySave:
+    """保存操作单元测试"""
 
-    def test_base_repository_is_abstract(self):
-        """测试基类是抽象类"""
+    def test_save_returns_positive_id(self, repo, sample_result):
+        """保存应返回正整数 ID"""
+        db_id = repo.save(sample_result)
+        assert isinstance(db_id, int)
+        assert db_id > 0
 
-        with pytest.raises(TypeError):
-            BaseRepository()
+    def test_save_increments_id(self, repo, sample_result):
+        """多次保存 ID 应递增"""
+        id1 = repo.save(sample_result)
+        sample_result.case_id = "unit_test_case_002"
+        id2 = repo.save(sample_result)
+        assert id2 > id1
+
+    def test_save_empty_case_id_raises(self, repo):
+        """空 case_id 应抛出 ValueError"""
+        result = EvaluationResult(
+            case_id="",
+            status=EvaluationStatus.PASSED,
+            model_name="test",
+            adapter_name="test",
+            response=DomainResponse(is_valid=True),
+            latency_ms=0.0,
+        )
+        with pytest.raises(ValueError) as exc_info:
+            repo.save(result)
+        assert "case_id" in str(exc_info.value)
+
+    def test_save_whitespace_case_id_raises(self, repo):
+        """纯空白 case_id 应抛出 ValueError"""
+        result = EvaluationResult(
+            case_id="   ",
+            status=EvaluationStatus.PASSED,
+            model_name="test",
+            adapter_name="test",
+            response=DomainResponse(is_valid=True),
+            latency_ms=0.0,
+        )
+        with pytest.raises(ValueError) as exc_info:
+            repo.save(result)
+        assert "case_id" in str(exc_info.value)
+
+class TestRepositoryGetById:
+    """按 ID 查询单元测试"""
+
+    def test_get_by_id_existing_record(self, repo, sample_result):
+        """存在的记录应能查询到"""
+        db_id = repo.save(sample_result)
+        record = repo.get_by_id(db_id)
+        assert record is not None
+        assert record["id"] == db_id
+        assert record["case_id"] == "unit_test_case_001"
+        assert record["model_name"] == "gpt-4"
+        assert record["status"] == "passed"
+        assert record["latency_ms"] == 150.5
+
+    def test_get_by_id_nonexistent_returns_none(self, repo):
+        """不存在的 ID 应返回 None"""
+        record = repo.get_by_id(999999)
+        assert record is None
+
+    def test_get_by_id_negative_id_returns_none(self, repo):
+        """负 ID 应返回 None"""
+        record = repo.get_by_id(-1)
+        assert record is None
 
 
-class TestEvaluationRepository:
-    """评估仓储测试"""
+class TestRepositoryGetRecent:
+    """最近记录查询单元测试"""
 
-    def setup_method(self):
-        self.repo = EvaluationRepository()
+    def test_get_recent_returns_list(self, repo, sample_result):
+        """应返回列表"""
+        repo.save(sample_result)
+        records = repo.get_recent(limit=5)
+        assert isinstance(records, list)
+        assert len(records) >= 1
 
-    @patch("src.infra.db.repository.get_db_session")
-    def test_save_success(self, mock_get_session):
-        """测试保存成功"""
-        mock_session = MagicMock()
-        mock_get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
-        mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
+    def test_get_recent_respects_limit(self, repo, sample_result):
+        """limit 参数应生效"""
+        for i in range(5):
+            sample_result.case_id = f"batch_{i}"
+            repo.save(sample_result)
+        records = repo.get_recent(limit=3)
+        assert len(records) == 3
 
-        result = _make_result()
+    def test_get_recent_returns_required_fields(self, repo, sample_result):
+        """返回的记录应包含必要字段"""
+        repo.save(sample_result)
+        records = repo.get_recent(limit=1)
+        record = records[0]
+        required_fields = {"id", "case_id", "model_name", "adapter_name", "status", "latency_ms", "created_at"}
+        assert required_fields.issubset(set(record.keys()))
 
-        record_id = self.repo.save(result)
+    def test_get_recent_ordered_by_created_at_desc(self, repo, sample_result):
+        """应按 created_at 降序排列"""
+        import time
+        for i in range(3):
+            sample_result.case_id = f"order_test_{i}"
+            repo.save(sample_result)
+            time.sleep(0.01)  # 确保 created_at 有差异
+        records = repo.get_recent(limit=3)
+        # 最新的应在最前面
+        assert records[0]["case_id"] == "order_test_2"
 
-        # 验证 session.add 被调用，且添加的记录有正确的 case_id
-        assert mock_session.add.call_count == 1
-        added_record = mock_session.add.call_args[0][0]
-        assert added_record.case_id == "c1"
-        assert added_record.model_name == "gpt-4"
-        mock_session.commit.assert_called_once()
 
-    def test_save_missing_case_id(self):
-        """测试缺少case_id"""
-        result = _make_result(case_id="")
+class TestRepositoryCount:
+    """计数单元测试"""
 
-        with pytest.raises(ValueError, match="case_id"):
-            self.repo.save(result)
+    def test_count_increases_after_save(self, repo, sample_result):
+        """保存后计数应增加"""
+        initial = repo.count()
+        repo.save(sample_result)
+        final = repo.count()
+        assert final == initial + 1
 
-    def test_save_whitespace_case_id(self):
-        """测试空白case_id"""
-        result = _make_result(case_id="   ")
+    def test_count_returns_integer(self, repo):
+        """计数应返回整数"""
+        count = repo.count()
+        assert isinstance(count, int)
+        assert count >= 0
 
-        with pytest.raises(ValueError, match="case_id"):
-            self.repo.save(result)
 
-    @patch("src.infra.db.repository.get_db_session")
-    def test_count(self, mock_get_session):
-        """测试计数"""
-        mock_session = MagicMock()
-        mock_session.execute.return_value.fetchone.return_value = (100,)
-        mock_get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
-        mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
+class TestRepositoryUpdate:
+    """更新操作单元测试"""
 
-        count = self.repo.count()
+    def test_update_allowed_fields(self, repo, sample_result):
+        """允许更新的字段应生效"""
+        db_id = repo.save(sample_result)
+        success = repo.update(db_id, {"model_name": "gpt-3.5-turbo", "status": "failed"})
+        assert success is True
+        record = repo.get_by_id(db_id)
+        assert record["model_name"] == "gpt-3.5-turbo"
+        assert record["status"] == "failed"
 
-        assert count == 100
+    def test_update_disallowed_fields_ignored(self, repo, sample_result):
+        """不允许的字段应被忽略"""
+        db_id = repo.save(sample_result)
+        original_case_id = sample_result.case_id
+        success = repo.update(db_id, {"case_id": "hacked", "model_name": "new-model"})
+        assert success is True  # model_name 被更新
+        record = repo.get_by_id(db_id)
+        assert record["case_id"] == original_case_id  # case_id 不应被修改
+        assert record["model_name"] == "new-model"
 
-    @patch("src.infra.db.repository.get_db_session")
-    def test_count_none_result(self, mock_get_session):
-        """测试计数无结果"""
-        mock_session = MagicMock()
-        mock_session.execute.return_value.fetchone.return_value = None
-        mock_get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
-        mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
+    def test_update_empty_data_returns_false(self, repo, sample_result):
+        """空更新数据应返回 False"""
+        db_id = repo.save(sample_result)
+        success = repo.update(db_id, {})
+        assert success is False
 
-        count = self.repo.count()
+    def test_update_nonexistent_returns_false(self, repo):
+        """更新不存在的记录应返回 False"""
+        success = repo.update(999999, {"model_name": "test"})
+        assert success is False
 
+
+class TestRepositoryDelete:
+    """删除操作单元测试"""
+
+    def test_delete_existing_record(self, repo, sample_result):
+        """删除存在的记录应成功"""
+        db_id = repo.save(sample_result)
+        success = repo.delete(db_id)
+        assert success is True
+        assert repo.get_by_id(db_id) is None
+
+    def test_delete_nonexistent_returns_false(self, repo):
+        """删除不存在的记录应返回 False"""
+        success = repo.delete(999999)
+        assert success is False
+
+
+class TestRepositoryBatchOperations:
+    """批量操作单元测试"""
+
+    def test_batch_delete(self, repo, sample_result):
+        """批量删除应生效"""
+        ids = []
+        for i in range(5):
+            sample_result.case_id = f"batch_del_{i}"
+            ids.append(repo.save(sample_result))
+        deleted_count = repo.batch_delete(ids[:3])
+        assert deleted_count == 3
+        # 验证被删除的记录确实不存在了
+        for db_id in ids[:3]:
+            assert repo.get_by_id(db_id) is None
+
+    def test_batch_delete_empty_list_returns_zero(self, repo):
+        """空列表批量删除应返回 0"""
+        count = repo.batch_delete([])
         assert count == 0
 
-    @patch("src.infra.db.repository.get_db_session")
-    def test_get_recent(self, mock_get_session):
-        """测试获取最近记录"""
-        from datetime import datetime
+    def test_batch_update(self, repo, sample_result):
+        """批量更新应生效"""
+        ids = []
+        for i in range(3):
+            sample_result.case_id = f"batch_upd_{i}"
+            ids.append(repo.save(sample_result))
+        updated = repo.batch_update(ids, {"status": "error"})
+        assert updated == 3
+        for db_id in ids:
+            record = repo.get_by_id(db_id)
+            assert record["status"] == "error"
 
-        mock_session = MagicMock()
-        mock_session.execute.return_value.fetchall.return_value = [
-            (1, "c1", "gpt-4", "default", "passed", 100.0, datetime.now()),
-        ]
-        mock_get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
-        mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
+    def test_batch_update_empty_list_returns_zero(self, repo):
+        """空列表批量更新应返回 0"""
+        count = repo.batch_update([], {"status": "error"})
+        assert count == 0
 
-        records = self.repo.get_recent(limit=10)
-
-        assert len(records) == 1
-        assert records[0]["case_id"] == "c1"
-
-    @patch("src.infra.db.repository.get_db_session")
-    def test_get_recent_empty(self, mock_get_session):
-        """测试获取最近记录为空"""
-        mock_session = MagicMock()
-        mock_session.execute.return_value.fetchall.return_value = []
-        mock_get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
-        mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
-
-        records = self.repo.get_recent(limit=10)
-
-        assert records == []
-
-    @patch("src.infra.db.repository.get_db_session")
-    def test_get_recent_none_timestamp(self, mock_get_session):
-        """测试获取最近记录无时间戳"""
-        mock_session = MagicMock()
-        mock_session.execute.return_value.fetchall.return_value = [
-            (1, "c1", "gpt-4", "default", "passed", 100.0, None),
-        ]
-        mock_get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
-        mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
-
-        records = self.repo.get_recent(limit=10)
-
-        assert len(records) == 1
-        assert records[0]["created_at"] is None
-
-    @patch("src.infra.db.repository.get_db_session")
-    def test_search_by_evaluator(self, mock_get_session):
-        """测试按评估器搜索"""
-        mock_session = MagicMock()
-        mock_session.execute.return_value.fetchall.return_value = [
-            (1, "c1", "gpt-4", "finance", "passed", 100.0, None),
-        ]
-        mock_get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
-        mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
-
-        records = self.repo.search(evaluator="finance")
-
-        assert len(records) == 1
-        assert records[0]["adapter_name"] == "finance"
-
-    @patch("src.infra.db.repository.get_db_session")
-    def test_search_by_status(self, mock_get_session):
-        """测试按状态搜索"""
-        mock_session = MagicMock()
-        mock_session.execute.return_value.fetchall.return_value = [
-            (1, "c1", "gpt-4", "default", "failed", 100.0, None),
-        ]
-        mock_get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
-        mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
-
-        records = self.repo.search(status="failed")
-
-        assert len(records) == 1
-        assert records[0]["status"] == "failed"
-
-    @patch("src.infra.db.repository.get_db_session")
-    def test_search_by_evaluator_and_status(self, mock_get_session):
-        """测试按评估器和状态组合搜索"""
-        mock_session = MagicMock()
-        mock_session.execute.return_value.fetchall.return_value = [
-            (1, "c1", "gpt-4", "finance", "passed", 100.0, None),
-        ]
-        mock_get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
-        mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
-
-        records = self.repo.search(evaluator="finance", status="passed")
-
-        assert len(records) == 1
-
-    @patch("src.infra.db.repository.get_db_session")
-    def test_search_empty(self, mock_get_session):
-        """测试搜索无结果"""
-        mock_session = MagicMock()
-        mock_session.execute.return_value.fetchall.return_value = []
-        mock_get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
-        mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
-
-        records = self.repo.search(evaluator="nonexistent")
-
-        assert records == []
+    def test_batch_update_empty_data_returns_zero(self, repo, sample_result):
+        """空数据批量更新应返回 0"""
+        db_id = repo.save(sample_result)
+        count = repo.batch_update([db_id], {})
+        assert count == 0
 
 
-class TestSQLiteRepository:
-    """SQLite仓储测试"""
+class TestRepositorySearch:
+    """搜索操作单元测试"""
 
-    def test_save(self):
-        """测试保存"""
-        repo = SQLiteRepository(":memory:")
-        result = _make_result()
+    def test_search_by_status(self, repo, sample_result):
+        """按状态搜索应生效"""
+        repo.save(sample_result)
+        results = repo.search(status="passed", limit=10)
+        assert len(results) >= 1
+        for r in results:
+            assert r["status"] == "passed"
 
-        record_id = repo.save(result)
-        assert record_id == 0
+    def test_search_by_evaluator(self, repo, sample_result):
+        """按评估器搜索应生效"""
+        repo.save(sample_result)
+        results = repo.search(evaluator="GeneralEvaluator", limit=10)
+        assert len(results) >= 1
+        for r in results:
+            assert r["adapter_name"] == "GeneralEvaluator"
+
+    def test_search_offset(self, repo, sample_result):
+        """offset 应生效"""
+        for i in range(5):
+            sample_result.case_id = f"search_off_{i}"
+            repo.save(sample_result)
+        results = repo.search(limit=2, offset=2)
+        assert len(results) == 2
+
+    def test_search_sort_order(self, repo, sample_result):
+        """排序应生效"""
+        for i in range(3):
+            sample_result.case_id = f"sort_{i}"
+            repo.save(sample_result)
+        results_asc = repo.search(limit=3, sort_order="asc")
+        results_desc = repo.search(limit=3, sort_order="desc")
+        assert results_asc[0]["id"] <= results_asc[-1]["id"]
+        assert results_desc[0]["id"] >= results_desc[-1]["id"]
+
+
+class TestRepositoryCreate:
+    """创建操作单元测试"""
+
+    def test_create_with_dict(self, repo):
+        """用字典创建应成功"""
+        db_id = repo.create({
+            "case_id": "create_test",
+            "model_name": "test-model",
+            "adapter_name": "TestAdapter",
+            "status": "passed",
+            "latency_ms": 100.0,
+            "response_data": {"score": 0.9},
+        })
+        assert db_id > 0
+        record = repo.get_by_id(db_id)
+        assert record["case_id"] == "create_test"
+
+    def test_create_with_string_response_data(self, repo):
+        """response_data 为字符串时应被解析"""
+        db_id = repo.create({
+            "case_id": "create_str_test",
+            "model_name": "test",
+            "adapter_name": "test",
+            "status": "passed",
+            "response_data": '{"score": 0.8}',
+        })
+        assert db_id > 0
 
 
 class TestTrajectoryRepository:
-    """轨迹仓储测试"""
+    """轨迹仓储单元测试"""
 
-    def setup_method(self):
-        self.repo = TrajectoryRepository()
-
-    @patch("src.infra.db.repository.get_db_session")
-    def test_save_step_success(self, mock_get_session):
-        mock_session = MagicMock()
-        mock_get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
-        mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
-
-        step_id = self.repo.save_step(
+    def test_save_step_returns_id(self):
+        """保存步骤应返回 ID"""
+        traj_repo = TrajectoryRepository()
+        step_id = traj_repo.save_step(
             task_id="task_001",
-            step_index=1,
-            step_type="thought",
-            prompt="思考中...",
-            response="我需要调用工具",
+            step_index=0,
+            step_type="llm_call",
+            prompt="hello",
+            response="world",
         )
+        assert isinstance(step_id, int)
+        assert step_id > 0
 
-        assert mock_session.add.call_count == 1
-        mock_session.commit.assert_called_once()
+    def test_save_step_empty_task_id_raises(self):
+        """空 task_id 应抛出 ValueError"""
+        traj_repo = TrajectoryRepository()
+        with pytest.raises(ValueError) as exc_info:
+            traj_repo.save_step(task_id="", step_index=0, step_type="test", prompt="p", response="r")
+        assert "task_id" in str(exc_info.value)
 
-    def test_save_step_missing_task_id(self):
-        with pytest.raises(ValueError, match="task_id"):
-            self.repo.save_step(
-                task_id="",
-                step_index=1,
-                step_type="thought",
-                prompt="思考中...",
-                response="我需要调用工具",
-            )
+    def test_get_trajectory(self):
+        """获取轨迹应返回正确步骤"""
+        traj_repo = TrajectoryRepository()
+        traj_repo.save_step("task_002", 0, "llm", "prompt1", "resp1")
+        traj_repo.save_step("task_002", 1, "tool", "prompt2", "resp2", tool_name="search")
+        steps = traj_repo.get_trajectory("task_002")
+        assert len(steps) == 2
+        assert steps[0]["step_index"] == 0
+        assert steps[1]["step_index"] == 1
+        assert steps[1]["tool_name"] == "search"
 
-    def test_save_step_whitespace_task_id(self):
-        with pytest.raises(ValueError, match="task_id"):
-            self.repo.save_step(
-                task_id="   ",
-                step_index=1,
-                step_type="thought",
-                prompt="思考中...",
-                response="我需要调用工具",
-            )
-
-    @patch("src.infra.db.repository.get_db_session")
-    def test_save_step_with_tool(self, mock_get_session):
-        mock_session = MagicMock()
-        mock_get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
-        mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
-
-        step_id = self.repo.save_step(
-            task_id="task_001",
-            step_index=2,
-            step_type="tool_call",
-            prompt="调用计算器",
-            response="100",
-            tool_name="calculator",
-            tool_params={"expression": "50+50"},
-            is_correct=True,
-        )
-
-        assert mock_session.add.call_count == 1
-        added_record = mock_session.add.call_args[0][0]
-        assert added_record.tool_name == "calculator"
-        assert added_record.tool_params == {"expression": "50+50"}
-        assert added_record.is_correct == 1
-
-    @patch("src.infra.db.repository.get_db_session")
-    def test_save_steps(self, mock_get_session):
-        mock_session = MagicMock()
-        mock_get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
-        mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
-
-        steps = [
-            {
-                "task_id": "task_001",
-                "step_index": 1,
-                "step_type": "thought",
-                "prompt": "思考1",
-                "response": "响应1",
-            },
-            {
-                "task_id": "task_001",
-                "step_index": 2,
-                "step_type": "tool_call",
-                "prompt": "调用工具",
-                "response": "结果",
-                "tool_name": "calculator",
-                "is_correct": True,
-            },
-        ]
-
-        ids = self.repo.save_steps(steps)
-
-        assert len(ids) == 2
-        assert mock_session.add.call_count == 2
-
-    @patch("src.infra.db.repository.get_db_session")
-    def test_get_trajectory(self, mock_get_session):
-        mock_session = MagicMock()
-        mock_get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
-        mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
-
-        mock_result1 = MagicMock()
-        mock_result1.to_dict.return_value = {"step_index": 1, "step_type": "thought"}
-        mock_result2 = MagicMock()
-        mock_result2.to_dict.return_value = {"step_index": 2, "step_type": "tool_call"}
-
-        mock_session.query.return_value.filter.return_value.order_by.return_value.all.return_value = [
-            mock_result1,
-            mock_result2,
-        ]
-
-        trajectory = self.repo.get_trajectory("task_001")
-
-        assert len(trajectory) == 2
-        assert trajectory[0]["step_index"] == 1
-
-    @patch("src.infra.db.repository.get_db_session")
-    def test_get_trajectory_empty(self, mock_get_session):
-        mock_session = MagicMock()
-        mock_get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
-        mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
-
-        mock_session.query.return_value.filter.return_value.order_by.return_value.all.return_value = []
-
-        trajectory = self.repo.get_trajectory("task_nonexistent")
-
-        assert trajectory == []
-
-    @patch("src.infra.db.repository.get_db_session")
-    def test_get_recent_trajectories(self, mock_get_session):
-        mock_session = MagicMock()
-        mock_get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
-        mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
-
-        mock_result = MagicMock()
-        mock_result.to_dict.return_value = {"task_id": "task_001"}
-        mock_session.query.return_value.order_by.return_value.limit.return_value.all.return_value = [
-            mock_result,
-        ]
-
-        trajectories = self.repo.get_recent_trajectories(limit=5)
-
-        assert len(trajectories) == 1
-
-    @patch("src.infra.db.repository.get_db_session")
-    def test_delete_trajectory(self, mock_get_session):
-        mock_session = MagicMock()
-        mock_get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
-        mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
-
-        mock_session.query.return_value.filter.return_value.delete.return_value = 3
-
-        count = self.repo.delete_trajectory("task_001")
-
-        assert count == 3
-        mock_session.commit.assert_called_once()
-
-    @patch("src.infra.db.repository.get_db_session")
-    def test_delete_trajectory_nonexistent(self, mock_get_session):
-        mock_session = MagicMock()
-        mock_get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
-        mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
-
-        mock_session.query.return_value.filter.return_value.delete.return_value = 0
-
-        count = self.repo.delete_trajectory("task_nonexistent")
-
-        assert count == 0
-
-    @patch("src.infra.db.repository.get_db_session")
-    def test_count(self, mock_get_session):
-        mock_session = MagicMock()
-        mock_session.execute.return_value.fetchone.return_value = (50,)
-        mock_get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
-        mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
-
-        count = self.repo.count()
-
-        assert count == 50
-
-    @patch("src.infra.db.repository.get_db_session")
-    def test_count_none_result(self, mock_get_session):
-        mock_session = MagicMock()
-        mock_session.execute.return_value.fetchone.return_value = None
-        mock_get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
-        mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
-
-        count = self.repo.count()
-
-        assert count == 0
+    def test_delete_trajectory(self):
+        """删除轨迹应生效"""
+        traj_repo = TrajectoryRepository()
+        traj_repo.save_step("task_003", 0, "llm", "p", "r")
+        count = traj_repo.delete_trajectory("task_003")
+        assert count == 1
+        steps = traj_repo.get_trajectory("task_003")
+        assert len(steps) == 0

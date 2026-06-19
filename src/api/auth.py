@@ -1,36 +1,64 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
+import hashlib
+import secrets
+import os
 
 from fastapi import HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
-SECRET_KEY = "your-secret-key-change-in-production-2025"
+SECRET_KEY = os.environ.get(
+    "JWT_SECRET_KEY",
+    secrets.token_urlsafe(32)
+)
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-REFRESH_TOKEN_EXPIRE_DAYS = 7
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.environ.get("REFRESH_TOKEN_EXPIRE_DAYS", 7))
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
-fake_users_db = {
-    "admin": {
-        "username": "admin",
-        "full_name": "Admin User",
-        "email": "admin@example.com",
-        "hashed_password": "$2b$12$EixZaYbB.rK4fl8x2q7Meu6Q6D2V6fF5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q",
-        "disabled": False,
-    }
-}
+
+def _hash_password(password: str) -> str:
+    salt = os.environ.get("PASSWORD_SALT", "ai-eval-platform-default-salt-v1")
+    return hashlib.sha256(f"{salt}:{password}".encode()).hexdigest()
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    return secrets.compare_digest(_hash_password(plain_password), hashed_password)
 
 
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    return _hash_password(password)
+
+
+def _init_users_db():
+    return {
+        "admin": {
+            "username": "admin",
+            "full_name": "Admin User",
+            "email": "admin@example.com",
+            "hashed_password": _hash_password(os.environ.get("ADMIN_PASSWORD", "admin")),
+            "disabled": False,
+        },
+        "user": {
+            "username": "user",
+            "full_name": "Regular User",
+            "email": "user@example.com",
+            "hashed_password": _hash_password(os.environ.get("USER_PASSWORD", "user123")),
+            "disabled": False,
+        },
+        "demo": {
+            "username": "demo",
+            "full_name": "Demo User",
+            "email": "demo@example.com",
+            "hashed_password": _hash_password("password"),
+            "disabled": False,
+        },
+    }
+
+
+fake_users_db = _init_users_db()
 
 
 def authenticate_user(fake_db: dict, username: str, password: str) -> Optional[dict]:
@@ -45,20 +73,28 @@ def authenticate_user(fake_db: dict, username: str, password: str) -> Optional[d
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
 
 def create_refresh_token(data: dict) -> str:
-    expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode = data.copy()
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+
+def decode_token(token: str) -> Optional[dict]:
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except JWTError:
+        return None
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> Optional[dict]:

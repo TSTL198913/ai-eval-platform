@@ -52,41 +52,54 @@ export interface Model {
   id: string;
   name: string;
   provider: string;
+  provider_name: string;
   status: string;
-  evaluations: number;
-  avg_accuracy: number;
-  avg_latency_ms: number;
 }
 
 export interface ModelCompareRequest {
-  models: string[];
-  dataset: string;
+  models: { provider: string; name: string }[];
+  datasets: string[];
+  sample_count?: number;
 }
 
 export interface ModelCompareResult {
   model: string;
-  accuracy: number;
-  latency_ms: number;
-  cost: number;
+  provider: string;
+  datasets: Record<string, { accuracy: number; samples: number; latency_ms: number }>;
+  avg_accuracy: number;
+  avg_latency_ms: number;
+  total_cost_usd: number;
 }
 
 export interface ModelCompareResponse {
-  report_id: string;
-  results: ModelCompareResult[];
+  models: ModelCompareResult[];
+  datasets: string[];
+  summary: {
+    best_accuracy: string;
+    fastest: string;
+  };
 }
 
 export interface CostMetrics {
   daily_cost_usd: number;
   weekly_cost_usd: number;
   monthly_cost_usd: number;
-  top_models: any[];
+  avg_latency_ms: number;
+  p50_latency_ms: number;
+  p95_latency_ms: number;
+  p99_latency_ms: number;
+  total_requests: number;
+  avg_tokens_per_request: number;
+  top_models_by_cost: { model_name: string; total_cost: number }[];
   budget_status: {
+    daily_budget_ok: boolean;
     daily_usage_percent: number;
+    daily_limit: number;
   };
 }
 
 export interface ComponentStatus {
-  status: string;
+  status?: string;
   version?: string;
   error?: string;
 }
@@ -95,28 +108,31 @@ export interface HealthInfo {
   service: {
     name: string;
     version: string;
-    debug: boolean;
+    timestamp: number;
   };
   components: {
     redis: ComponentStatus;
     database: ComponentStatus;
     rabbitmq: ComponentStatus;
-    circuit_breakers?: {
-      count: number;
-      breakers: Record<string, string>;
-    };
+  };
+  metrics: {
+    requests_total: number;
+    avg_latency_ms: number;
+    error_rate: number;
+    cache_hit_rate: number;
   };
 }
 
 export interface PerformanceMetrics {
-  requests_per_minute: number;
+  requests_total: number;
+  avg_latency_ms: number;
   p50_latency_ms: number;
   p95_latency_ms: number;
   p99_latency_ms: number;
   error_rate: number;
   cache_hit_rate: number;
-  avg_tokens_per_request: number;
-  daily_cost_usd: number;
+  avg_tokens_per_request?: number;
+  daily_cost_usd?: number;
 }
 
 export interface EvaluateRequest {
@@ -130,6 +146,10 @@ export interface EvaluateResponse {
   score: number;
   is_valid: boolean;
   status: string;
+  latency_ms?: number;
+  data?: {
+    score?: number;
+  };
 }
 
 export interface AsyncEvaluateResponse {
@@ -142,4 +162,11 @@ export interface TaskStatus {
   task_id: string;
   state: string;
   result?: any;
+}
+
+export interface Report {
+  filename: string;
+  path: string;
+  size: number;
+  created_at: number;
 }

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, Input, Select, Button, Table, Tag, Spin, Checkbox } from 'antd';
-import { Search, Refresh, Download, Play } from 'lucide-react';
+import { Card, Input, Select, Button, Table, Tag, Spin, Checkbox, message } from 'antd';
+import { Search, RefreshCw, Download, Play } from 'lucide-react';
 import { evaluationApi, evaluatorApi } from '../services/api';
 import { EvaluationRecord, Evaluator } from '../types';
 
@@ -23,8 +23,11 @@ const Records: React.FC = () => {
         ]);
         setRecords(recordsData.records);
         setEvaluators(evaluatorsData);
-      } catch (error) {
-        console.error('Failed to fetch data:', error);
+      } catch (err: any) {
+        // 架构规范：核心数据加载失败必须抛出
+        console.error('Failed to fetch data:', err);
+        message.error('数据加载失败');
+        throw err;
       } finally {
         setLoading(false);
       }
@@ -41,8 +44,11 @@ const Records: React.FC = () => {
         limit: 50,
       });
       setRecords(data.records);
-    } catch (error) {
-      console.error('Search failed:', error);
+    } catch (err: any) {
+      // 架构规范：搜索失败必须抛出让用户感知
+      console.error('Search failed:', err);
+      message.error(`搜索失败: ${err?.message || '未知错误'}`);
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -57,10 +63,9 @@ const Records: React.FC = () => {
       ? records.filter(r => selectedRecords.includes(r.id))
       : records;
     const csv = [['ID', 'Case ID', '评估器', '模型', '状态', '分数', '延迟(ms)', '时间']]
-      .concat(data.map(r => [r.id, r.case_id, r.adapter_name, r.model_name, r.status, r.score, r.latency_ms, r.created_at]))
+      .concat(data.map(r => [String(r.id), r.case_id, r.adapter_name, r.model_name, r.status, String(r.score), String(r.latency_ms), r.created_at]))
       .map(row => row.join(','))
-      .join('
-');
+      .join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -70,8 +75,8 @@ const Records: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleSelectAll = (checked: boolean) => {
-    setSelectedRecords(checked ? records.map(r => r.id) : []);
+  const handleSelectAll = (e: { target: { checked: boolean } }) => {
+    setSelectedRecords(e.target.checked ? records.map(r => r.id) : []);
   };
 
   const handleSelectRecord = (id: number, checked: boolean) => {
@@ -143,10 +148,10 @@ const Records: React.FC = () => {
               <Option value='pending'>待处理</Option>
             </Select>
             <Button type='primary' onClick={handleSearch}>搜索</Button>
-            <Button onClick={handleRefresh} icon={<Refresh className='w-4 h-4' />}>刷新</Button>
+            <Button onClick={handleRefresh} icon={<RefreshCw className='w-4 h-4' />}>刷新</Button>
           </div>
           <Button icon={<Download className='w-4 h-4' />} onClick={handleExport}>
-            导出{selectedRecords.length > 0 ?  () : ''}
+            导出{selectedRecords.length > 0 ? `(${selectedRecords.length})` : ''}
           </Button>
         </div>
       </Card>

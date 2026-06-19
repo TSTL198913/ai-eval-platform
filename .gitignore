@@ -22,3 +22,30 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Test results and reports
+reports/
+test-results/
+eval_results.db
+*.html
+!src/**/*.html
+!tests/**/*.html
+
+# Test artifacts
+business_logic_test.py
+integration_test.py
+test_e2e_full.py
+test_results_report.md
+system_self_test.py
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Coverage
+.coverage
+coverage/
+htmlcov/

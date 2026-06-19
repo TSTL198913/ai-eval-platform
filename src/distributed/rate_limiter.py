@@ -124,8 +124,10 @@ class TokenBucket:
         remaining = int(result[1])
 
         if not allowed:
-            # 计算需要等待多久才能获取一个令牌
-            retry_after_ms = int(1000 / self.config.refill_rate)
+            if self.config.refill_rate > 0:
+                retry_after_ms = int(1000 / self.config.refill_rate)
+            else:
+                retry_after_ms = None
         else:
             retry_after_ms = None
 

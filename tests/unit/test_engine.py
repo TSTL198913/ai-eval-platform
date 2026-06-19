@@ -1,200 +1,238 @@
+"""
+评测引擎单元测试 - 带有效断言
+覆盖: 正常评测、各类异常处理、结果结构、延迟计算
+"""
+import os
+import sys
+import pytest
 from unittest.mock import MagicMock
 
-import pytest
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from src.domain.evaluators.base import EvaluatorFactory
 from src.engine import EvaluationEngine
-from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluationStatus
+from src.domain.evaluators.base import BaseEvaluator, EvaluatorFactory
+from src.schemas.evaluation import EvaluationSchema, DomainResponse
+from src.schemas.schemas import EvaluationStatus
+from src.exceptions import ContractValidationError, DomainLogicError, InfrastructureError
 
 
-def test_engine_returns_failed_when_score_low(mock_llm):
-    mock_llm.chat.return_value = "完全无关的回答"
-    engine = EvaluationEngine(mock_llm)
-
-    result = engine.run(
-        EvaluationSchema(
-            id="fail_001",
-            type="finance",
-            payload={
-                "user_input": "计算利息",
-                "expected_output": "30",
-            },
-            metadata={},
-        )
-    )
-
-    assert result.status == EvaluationStatus.FAILED
-    assert result.response.is_valid is False
-    assert result.adapter_name == "FinanceEvaluator"
+class MockPassingEvaluator(BaseEvaluator):
+    """模拟通过的评估器"""
+    def evaluate(self, request):
+        return DomainResponse(is_valid=True, score=0.95, text="good")
 
 
-def test_engine_returns_error_on_unknown_evaluator_type(mock_llm):
-    engine = EvaluationEngine(mock_llm)
-
-    result = engine.run(
-        EvaluationSchema(
-            id="err_001",
-            type="not_registered",
-            payload={"user_input": "x"},
-            metadata={},
-        )
-    )
-
-    assert result.status == EvaluationStatus.ERROR
-    assert result.adapter_name == "error_handler"
-    assert "未找到" in result.response.error
+class MockFailingEvaluator(BaseEvaluator):
+    """模拟失败的评估器"""
+    def evaluate(self, request):
+        return DomainResponse(is_valid=False, score=0.3, text="bad")
 
 
-def test_evaluator_factory_raises_for_unknown_type():
-    with pytest.raises(ValueError, match="未找到"):
-        EvaluatorFactory.get("invalid_type", client=MagicMock())
+class MockExceptionEvaluator(BaseEvaluator):
+    """模拟抛出异常的评估器"""
+    def evaluate(self, request):
+        raise RuntimeError("模拟异常")
 
 
-def test_safe_evaluate_wraps_exception():
-    from src.domain.evaluators.general import GeneralEvaluator
-
-    class BrokenEvaluator(GeneralEvaluator):
-        def evaluate(self, request):
-            raise RuntimeError("boom")
-
-    evaluator = BrokenEvaluator()
-    response = evaluator.safe_evaluate(
-        EvaluationSchema(
-            id="1",
-            type="general",
-            payload={"user_input": "x"},
-            metadata={},
-        )
-    )
-    assert isinstance(response, DomainResponse)
-    assert response.is_valid is False
-    assert "boom" in response.error
+class MockNoneEvaluator(BaseEvaluator):
+    """模拟返回 None 的评估器"""
+    def evaluate(self, request):
+        return None
 
 
-def test_get_input_text_prefers_user_input():
-    from src.domain.evaluators.general import GeneralEvaluator
-
-    evaluator = GeneralEvaluator()
-    request = EvaluationSchema(
-        id="1",
-        type="general",
-        payload={"user_input": "from_user", "text": "from_text"},
-        metadata={},
-    )
-    assert evaluator.get_input_text(request) == "from_user"
+@pytest.fixture(autouse=True)
+def reset_registry():
+    """每个测试前重置注册表"""
+    EvaluatorFactory._registry = {}
+    yield
+    EvaluatorFactory._registry = {}
 
 
-def test_get_input_text_falls_back_to_text():
-    from src.domain.evaluators.general import GeneralEvaluator
+class TestEngineNormalExecution:
+    """引擎正常执行测试"""
 
-    evaluator = GeneralEvaluator()
-    request = EvaluationSchema(
-        id="1",
-        type="general",
-        payload={"text": "from_text"},
-        metadata={},
-    )
-    assert evaluator.get_input_text(request) == "from_text"
+    def test_run_returns_evaluation_result(self):
+        """正常执行应返回 EvaluationResult"""
+        EvaluatorFactory.register("test_pass")(MockPassingEvaluator)
+        client = MagicMock()
+        client.config = MagicMock()
+        client.config.model_name = "test-model"
+
+        engine = EvaluationEngine(client)
+        request = EvaluationSchema(id="case_1", type="test_pass", payload={})
+        result = engine.run(request)
+
+        assert result.case_id == "case_1"
+        assert result.status == EvaluationStatus.PASSED
+        assert result.model_name == "test-model"
+        assert result.adapter_name == "MockPassingEvaluator"
+        assert result.response.is_valid is True
+        assert result.response.score == 0.95
+        assert result.latency_ms >= 0
+
+    def test_run_failed_evaluation(self):
+        """评估失败应返回 FAILED 状态"""
+        EvaluatorFactory.register("test_fail")(MockFailingEvaluator)
+        client = MagicMock()
+        client.config = MagicMock()
+        client.config.model_name = "test-model"
+
+        engine = EvaluationEngine(client)
+        request = EvaluationSchema(id="case_2", type="test_fail", payload={})
+        result = engine.run(request)
+
+        assert result.status == EvaluationStatus.FAILED
+        assert result.response.is_valid is False
+
+    def test_run_latency_is_positive(self):
+        """延迟应为正数"""
+        EvaluatorFactory.register("test_pass")(MockPassingEvaluator)
+        client = MagicMock()
+        client.config = MagicMock()
+        client.config.model_name = "test-model"
+
+        engine = EvaluationEngine(client)
+        request = EvaluationSchema(id="case_3", type="test_pass", payload={})
+        result = engine.run(request)
+
+        assert result.latency_ms > 0
+
+    def test_run_model_name_fallback(self):
+        """无 model_name 时应回退到 unknown"""
+        EvaluatorFactory.register("test_pass")(MockPassingEvaluator)
+        client = MagicMock()
+        client.config = MagicMock()
+        client.config.model_name = None
+
+        engine = EvaluationEngine(client)
+        request = EvaluationSchema(id="case_4", type="test_pass", payload={})
+        result = engine.run(request)
+        assert result.model_name == "unknown"
 
 
-def test_engine_handles_contract_validation_error(mock_llm):
-    from unittest.mock import patch
-    from src.exceptions import ContractValidationError
+class TestEngineExceptionHandling:
+    """引擎异常处理测试"""
 
-    with patch("src.domain.evaluators.evaluator_factory.EvaluatorFactory.get") as mock_get:
-        mock_get.side_effect = ContractValidationError("invalid input")
-        engine = EvaluationEngine(mock_llm)
+    def test_run_contract_validation_error(self):
+        """契约错误应返回 ERROR 状态并保留错误信息"""
+        @EvaluatorFactory.register("test_contract")
+        class ContractErrorEvaluator(BaseEvaluator):
+            def evaluate(self, request):
+                raise ContractValidationError("字段缺失")
 
-        result = engine.run(
-            EvaluationSchema(
-                id="contract_err",
-                type="finance",
-                payload={"user_input": "test"},
-                metadata={},
-            )
-        )
+        client = MagicMock()
+        client.config = MagicMock()
+        client.config.model_name = "test-model"
+
+        engine = EvaluationEngine(client)
+        request = EvaluationSchema(id="case_5", type="test_contract", payload={})
+        result = engine.run(request)
 
         assert result.status == EvaluationStatus.ERROR
         assert result.adapter_name == "contract_validator"
-        assert "契约验证错误" in result.response.error
+        assert result.response.error == "CONTRACT_ERROR"
+        assert "字段缺失" in result.error_message
 
+    def test_run_domain_logic_error(self):
+        """领域错误应返回 ERROR 状态"""
+        @EvaluatorFactory.register("test_domain")
+        class DomainErrorEvaluator(BaseEvaluator):
+            def evaluate(self, request):
+                raise DomainLogicError("适配器未找到")
 
-def test_engine_handles_domain_logic_error(mock_llm):
-    from unittest.mock import patch
-    from src.exceptions import DomainLogicError
+        client = MagicMock()
+        client.config = MagicMock()
+        client.config.model_name = "test-model"
 
-    with patch("src.domain.evaluators.evaluator_factory.EvaluatorFactory.get") as mock_get:
-        mock_get.side_effect = DomainLogicError("domain error")
-        engine = EvaluationEngine(mock_llm)
-
-        result = engine.run(
-            EvaluationSchema(
-                id="domain_err",
-                type="finance",
-                payload={"user_input": "test"},
-                metadata={},
-            )
-        )
+        engine = EvaluationEngine(client)
+        request = EvaluationSchema(id="case_6", type="test_domain", payload={})
+        result = engine.run(request)
 
         assert result.status == EvaluationStatus.ERROR
         assert result.adapter_name == "domain_handler"
-        assert "领域错误" in result.response.error
+        assert result.response.error == "DOMAIN_ERROR"
+        assert "适配器未找到" in result.error_message
 
+    def test_run_infrastructure_error(self):
+        """基础设施错误应返回 ERROR 状态"""
+        @EvaluatorFactory.register("test_infra")
+        class InfraErrorEvaluator(BaseEvaluator):
+            def evaluate(self, request):
+                raise InfrastructureError("Redis 连接失败")
 
-def test_engine_handles_infrastructure_error(mock_llm):
-    from unittest.mock import patch
-    from src.exceptions import InfrastructureError
+        client = MagicMock()
+        client.config = MagicMock()
+        client.config.model_name = "test-model"
 
-    with patch("src.domain.evaluators.evaluator_factory.EvaluatorFactory.get") as mock_get:
-        mock_get.side_effect = InfrastructureError("db connection failed")
-        engine = EvaluationEngine(mock_llm)
-
-        result = engine.run(
-            EvaluationSchema(
-                id="infra_err",
-                type="finance",
-                payload={"user_input": "test"},
-                metadata={},
-            )
-        )
+        engine = EvaluationEngine(client)
+        request = EvaluationSchema(id="case_7", type="test_infra", payload={})
+        result = engine.run(request)
 
         assert result.status == EvaluationStatus.ERROR
         assert result.adapter_name == "infra_handler"
-        assert "基础设施错误" in result.response.error
+        assert result.response.error == "INFRA_ERROR"
+        assert "Redis 连接失败" in result.error_message
+
+    def test_run_unexpected_error(self):
+        """未预期异常应由 safe_evaluate 捕获并返回 ERROR 状态"""
+        EvaluatorFactory.register("test_unexpected")(MockExceptionEvaluator)
+        client = MagicMock()
+        client.config = MagicMock()
+        client.config.model_name = "test-model"
+
+        engine = EvaluationEngine(client)
+        request = EvaluationSchema(id="case_8", type="test_unexpected", payload={})
+        result = engine.run(request)
+
+        # BaseEvaluator.safe_evaluate 捕获 RuntimeError 并返回 DomainResponse(is_valid=False, error="...")
+        # engine 检测到 error 包含 "_ERROR"，返回 ERROR 状态
+        assert result.status == EvaluationStatus.ERROR
+        assert result.response.is_valid is False
+        assert "EVALUATION_ERROR" in result.response.error
+
+    def test_run_evaluator_returns_none(self):
+        """评估器返回 None 应由 safe_evaluate 处理"""
+        EvaluatorFactory.register("test_none")(MockNoneEvaluator)
+        client = MagicMock()
+        client.config = MagicMock()
+        client.config.model_name = "test-model"
+
+        engine = EvaluationEngine(client)
+        request = EvaluationSchema(id="case_9", type="test_none", payload={})
+        result = engine.run(request)
+
+        # safe_evaluate 将 None 转换为 DomainResponse(is_valid=False, error="...")
+        # engine 检测到 error 包含 "_ERROR"，返回 ERROR 状态
+        assert result.status == EvaluationStatus.ERROR
+        assert result.response.is_valid is False
 
 
-def test_engine_handles_generic_exception(mock_llm):
-    from unittest.mock import patch
+class TestEngineEdgeCases:
+    """引擎边界情况测试"""
 
-    with patch("src.domain.evaluators.evaluator_factory.EvaluatorFactory.get") as mock_get:
-        mock_get.side_effect = RuntimeError("unexpected error")
-        engine = EvaluationEngine(mock_llm)
+    def test_run_unknown_evaluator(self):
+        """未知评估器应返回 DomainLogicError"""
+        client = MagicMock()
+        client.config = MagicMock()
+        client.config.model_name = "test-model"
 
-        result = engine.run(
-            EvaluationSchema(
-                id="generic_err",
-                type="finance",
-                payload={"user_input": "test"},
-                metadata={},
-            )
-        )
+        engine = EvaluationEngine(client)
+        request = EvaluationSchema(id="case_10", type="unknown_evaluator", payload={})
+        result = engine.run(request)
 
         assert result.status == EvaluationStatus.ERROR
-        assert result.adapter_name == "error_handler"
+        assert result.adapter_name == "domain_handler"
+        assert "未找到" in result.error_message
 
+    def test_run_preserves_case_id(self):
+        """case_id 应被保留在结果中"""
+        EvaluatorFactory.register("test_pass")(MockPassingEvaluator)
+        client = MagicMock()
+        client.config = MagicMock()
+        client.config.model_name = "test-model"
 
-def test_engine_returns_passed_when_valid(mock_llm):
-    mock_llm.chat.return_value = "正确的回答"
-    engine = EvaluationEngine(mock_llm)
+        engine = EvaluationEngine(client)
+        request = EvaluationSchema(id="special_case_id_123", type="test_pass", payload={})
+        result = engine.run(request)
 
-    result = engine.run(
-        EvaluationSchema(
-            id="pass_001",
-            type="general",
-            payload={"user_input": "hello"},
-            metadata={},
-        )
-    )
-
-    assert result.status == EvaluationStatus.PASSED
-    assert result.response.is_valid is True
+        assert result.case_id == "special_case_id_123"

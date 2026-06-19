@@ -106,7 +106,10 @@ class DriftDetectionEvaluator(BaseEvaluator):
                     "message": "历史数据不足",
                 }
 
-            scores = [r["latency_ms"] for r in recent_results if r.get("latency_ms")]
+            # 修复Bug：原代码使用latency_ms，应使用score字段
+            # 优先从baseline_snapshot中读取基线
+            baseline = self._get_or_create_baseline(case_id, recent_results)
+            scores = [r.get("score", 0) for r in recent_results if r.get("score") is not None]
             if not scores:
                 return {
                     "method": "score_history",
@@ -116,7 +119,12 @@ class DriftDetectionEvaluator(BaseEvaluator):
                     "message": "无可用分数数据",
                 }
 
-            baseline_score = sum(scores[:10]) / len(scores[:10])
+            # 使用基线（如果存在）或前10条记录的平均分
+            if baseline is not None:
+                baseline_score = baseline
+            else:
+                baseline_score = sum(scores[:10]) / len(scores[:10])
+
             current_score = sum(scores[-5:]) / len(scores[-5:])
 
             if baseline_score == 0:
@@ -130,7 +138,7 @@ class DriftDetectionEvaluator(BaseEvaluator):
                 "current_score": current_score,
                 "drift_score": min(drift_score, 1.0),
                 "detected": drift_score > 0.2,
-                "confidence": 0.8,
+                "confidence": 0.85 if baseline is not None else 0.7,
             }
         except Exception:
             return {
@@ -407,3 +415,53 @@ class DriftDetectionEvaluator(BaseEvaluator):
         total += 0.3
 
         return score / total if total > 0 else 0.0
+
+    # ------------------- 基线持久化管理 -------------------
+    _BASELINE_STORE: Dict[str, float] = {}
+
+    def _get_or_create_baseline(self, case_id: str, recent_results: list) -> Optional[float]:
+        """获取或创建基线分数（持久化到内存，支持导出到文件）"""
+        if case_id in self._BASELINE_STORE:
+            return self._BASELINE_STORE[case_id]
+
+        # 自动从历史记录创建基线（使用前10条记录）
+        valid_scores = [r.get("score", 0) for r in recent_results[:10] if r.get("score") is not None]
+        if len(valid_scores) >= 3:
+            baseline = sum(valid_scores) / len(valid_scores)
+            self._BASELINE_STORE[case_id] = baseline
+            return baseline
+        return None
+
+    def save_baseline(self, case_id: str, baseline_score: float) -> None:
+        """保存基线分数到持久化存储"""
+        self._BASELINE_STORE[case_id] = baseline_score
+        # 异步持久化到磁盘
+        try:
+            import json
+            from pathlib import Path
+            baseline_file = Path("data/baselines.json")
+            baseline_file.parent.mkdir(parents=True, exist_ok=True)
+            existing = {}
+            if baseline_file.exists():
+                existing = json.loads(baseline_file.read_text(encoding="utf-8"))
+            existing[case_id] = {
+                "score": baseline_score,
+                "updated_at": time.time() if "time" in dir() else 0,
+            }
+            baseline_file.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+
+    def load_baselines(self) -> Dict[str, float]:
+        """从持久化存储加载基线"""
+        try:
+            import json
+            from pathlib import Path
+            baseline_file = Path("data/baselines.json")
+            if baseline_file.exists():
+                data = json.loads(baseline_file.read_text(encoding="utf-8"))
+                self._BASELINE_STORE = {k: v["score"] for k, v in data.items()}
+                return self._BASELINE_STORE
+        except Exception:
+            pass
+        return {}

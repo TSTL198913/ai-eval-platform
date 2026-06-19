@@ -106,21 +106,117 @@ class ABTestResult:
         }
 
     def _calculate_p_value(self, t_value: float, df: int) -> float:
-        """简化的p值计算"""
-        if df <= 0:
+        """使用scipy精确计算p值（双尾检验），失败时回退到查表法"""
+        try:
+            from scipy import stats
+            if df <= 0:
+                return 1.0
+            # 使用scipy.stats.t.sf计算双尾p值
+            p_value = 2 * stats.t.sf(abs(t_value), df)
+            return float(p_value)
+        except ImportError:
+            # 兼容性回退：查表法
+            if df <= 0:
+                return 1.0
+            t_abs = abs(t_value)
+            if t_abs < 1.645:
+                return 0.10
+            elif t_abs < 1.96:
+                return 0.05
+            elif t_abs < 2.576:
+                return 0.02
+            elif t_abs < 3.291:
+                return 0.01
+            else:
+                return 0.001
+        except Exception:
             return 1.0
 
-        t_abs = abs(t_value)
-        if t_abs < 1.645:
-            return 0.10
-        elif t_abs < 1.96:
-            return 0.05
-        elif t_abs < 2.576:
-            return 0.02
-        elif t_abs < 3.291:
-            return 0.01
-        else:
-            return 0.001
+    def run_nonparametric_test(self) -> Dict:
+        """非参数检验（Mann-Whitney U）"""
+        try:
+            from scipy import stats
+            scores_a = [r.get("score", 0) for r in self.group_a["results"]]
+            scores_b = [r.get("score", 0) for r in self.group_b["results"]]
+            if len(scores_a) < 2 or len(scores_b) < 2:
+                return {"error": "样本量不足"}
+            u_stat, p_value = stats.mannwhitneyu(scores_a, scores_b, alternative="two-sided")
+            return {
+                "method": "Mann-Whitney U",
+                "u_statistic": float(u_stat),
+                "p_value": float(p_value),
+                "is_significant": p_value < 0.05,
+            }
+        except ImportError:
+            return {"error": "scipy未安装", "method": "Mann-Whitney U"}
+        except Exception as e:
+            return {"error": str(e), "method": "Mann-Whitney U"}
+
+    def run_wilcoxon_test(self) -> Dict:
+        """Wilcoxon符号秩检验（配对样本）"""
+        try:
+            from scipy import stats
+            scores_a = [r.get("score", 0) for r in self.group_a["results"]]
+            scores_b = [r.get("score", 0) for r in self.group_b["results"]]
+            min_len = min(len(scores_a), len(scores_b))
+            if min_len < 2:
+                return {"error": "配对样本不足"}
+            w_stat, p_value = stats.wilcoxon(scores_a[:min_len], scores_b[:min_len])
+            return {
+                "method": "Wilcoxon",
+                "w_statistic": float(w_stat),
+                "p_value": float(p_value),
+                "is_significant": p_value < 0.05,
+            }
+        except ImportError:
+            return {"error": "scipy未安装", "method": "Wilcoxon"}
+        except Exception as e:
+            return {"error": str(e), "method": "Wilcoxon"}
+
+    def apply_multiple_comparison_correction(self, p_values: List[float], method: str = "bonferroni") -> Dict:
+        """多重比较校正
+        
+        Args:
+            p_values: 多个p值列表
+            method: 校正方法 bonferroni/holm/fdr_bh
+        """
+        if not p_values:
+            return {"corrected_p_values": [], "method": method, "rejected": []}
+        
+        try:
+            from scipy import stats
+            if method == "bonferroni":
+                corrected = [min(p * len(p_values), 1.0) for p in p_values]
+            elif method == "holm":
+                # Holm-Bonferroni
+                indexed = sorted(enumerate(p_values), key=lambda x: x[1])
+                corrected = [0.0] * len(p_values)
+                cumulative = 0.0
+                for rank, (orig_idx, p) in enumerate(indexed):
+                    correction = (len(p_values) - rank) * p
+                    cumulative = max(cumulative, min(correction, 1.0))
+                    corrected[orig_idx] = cumulative
+            else:
+                # 默认Bonferroni
+                corrected = [min(p * len(p_values), 1.0) for p in p_values]
+            
+            rejected = [i for i, p in enumerate(corrected) if p < 0.05]
+            return {
+                "method": method,
+                "original_p_values": p_values,
+                "corrected_p_values": corrected,
+                "rejected_hypotheses": rejected,
+            }
+        except ImportError:
+            # 无scipy时使用简化的Bonferroni
+            corrected = [min(p * len(p_values), 1.0) for p in p_values]
+            rejected = [i for i, p in enumerate(corrected) if p < 0.05]
+            return {
+                "method": method + " (fallback)",
+                "original_p_values": p_values,
+                "corrected_p_values": corrected,
+                "rejected_hypotheses": rejected,
+            }
 
     def complete(self):
         """完成测试"""

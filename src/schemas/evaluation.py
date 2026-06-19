@@ -30,6 +30,9 @@ class EvaluationSchema(BaseModel):
 
     metadata: dict[str, Any] | None = Field(None, description="可选的元数据配置")
 
+    model_provider: str | None = Field(None, description="评估器使用的LLM提供者（deepseek/openai/anthropic/ollama/qwen）")
+    model_name: str | None = Field(None, description="评估器使用的LLM模型名称")
+
     model_config = ConfigDict(frozen=True)
 
 

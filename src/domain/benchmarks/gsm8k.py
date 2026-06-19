@@ -42,11 +42,30 @@ class GSM8KBenchmark:
                             continue
 
         if not dataset:
-            dataset = self._generate_synthetic_data()
+            dataset = self._load_real_data() or self._generate_synthetic_data()
 
         random.seed(42)
         self._dataset = random.sample(dataset, min(self.num_samples, len(dataset)))
         return self._dataset
+
+    def _load_real_data(self) -> List[Dict[str, Any]]:
+        """加载真实GSM8K数据（从JSONL）"""
+        try:
+            from src.domain.benchmarks.dataset_loader import DatasetLoader
+            real_samples = DatasetLoader.load_gsm8k(limit=self.num_samples * 2)
+            if real_samples:
+                converted = []
+                for s in real_samples:
+                    converted.append({
+                        "id": len(converted),
+                        "question": s["question"],
+                        "answer": str(s["answer"]),
+                        "solution": s.get("solution", ""),
+                    })
+                return converted
+        except Exception:
+            pass
+        return []
 
     def _generate_synthetic_data(self) -> List[Dict[str, Any]]:
         synthetic = [

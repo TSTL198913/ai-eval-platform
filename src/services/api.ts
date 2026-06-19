@@ -1,8 +1,7 @@
-
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
-import { ApiResponse, LoginRequest, LoginResponse, DashboardStats, Evaluator, Model, ModelCompareRequest, ModelCompareResponse, CostMetrics, HealthInfo, PerformanceMetrics, EvaluationRecord, EvaluateRequest, EvaluateResponse, AsyncEvaluateResponse, TaskStatus } from '../types';
+import { ApiResponse, LoginRequest, LoginResponse, DashboardStats, Evaluator, Model, ModelCompareRequest, ModelCompareResponse, CostMetrics, HealthInfo, PerformanceMetrics, EvaluationRecord, EvaluateRequest, EvaluateResponse, AsyncEvaluateResponse, TaskStatus, Report } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
 
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -113,6 +112,66 @@ export const healthApi = {
   },
   getMetrics: async (): Promise<PerformanceMetrics> => {
     const response = await api.get<ApiResponse<PerformanceMetrics>>('/api/v1/metrics');
+    return handleResponse(response);
+  },
+};
+
+export const reportApi = {
+  getReports: async (): Promise<{ reports: Report[] }> => {
+    const response = await api.get<ApiResponse<{ reports: Report[] }>>('/api/v1/reports');
+    return handleResponse(response);
+  },
+  generateReport: async (): Promise<void> => {
+    const response = await api.post<ApiResponse<void>>('/api/v1/reports/generate');
+    return handleResponse(response);
+  },
+};
+
+// 评估配置API
+export interface EvalConfig {
+  id?: string;
+  name: string;
+  evaluator_type: string;
+  config: Record<string, any>;
+  enabled: boolean;
+}
+
+export const evalConfigApi = {
+  getAll: async (): Promise<EvalConfig[]> => {
+    const response = await api.get<ApiResponse<EvalConfig[]>>('/api/v1/eval-configs');
+    return handleResponse(response);
+  },
+  save: async (config: Partial<EvalConfig>): Promise<EvalConfig> => {
+    const response = await api.post<ApiResponse<EvalConfig>>('/api/v1/eval-configs', config);
+    return handleResponse(response);
+  },
+  delete: async (configId: string): Promise<void> => {
+    const response = await api.delete<ApiResponse<void>>(`/api/v1/eval-configs/${configId}`);
+    return handleResponse(response);
+  },
+};
+
+// 批量评估API
+export interface BatchEvaluateRequest {
+  cases: EvaluateRequest[];
+}
+
+export interface BatchEvaluateResult {
+  total: number;
+  passed: number;
+  failed: number;
+  results: Array<{
+    case_id: string;
+    status: string;
+    score?: number;
+    latency_ms?: number;
+    message?: string;
+  }>;
+}
+
+export const batchEvaluateApi = {
+  syncBatch: async (data: BatchEvaluateRequest): Promise<BatchEvaluateResult> => {
+    const response = await api.post<ApiResponse<BatchEvaluateResult>>('/api/v1/evaluate/sync-batch', data);
     return handleResponse(response);
   },
 };

@@ -227,6 +227,27 @@ class HumanEvalDataset(BaseDataset):
         self.data: List[Dict] = []
 
     def load(self) -> List[Dict]:
+        # 优先尝试从真实数据集加载
+        try:
+            from src.domain.benchmarks.dataset_loader import DatasetLoader
+            real_samples = DatasetLoader.load_humaneval()
+            if real_samples:
+                # 转换为标准格式
+                self.data = []
+                for s in real_samples:
+                    self.data.append({
+                        "id": s.get("task_id", f"humaneval_{len(self.data)}"),
+                        "task_id": s.get("task_id"),
+                        "prompt": s.get("prompt", ""),
+                        "canonical_solution": s.get("canonical_solution", ""),
+                        "test": s.get("test", ""),
+                        "entry_point": s.get("entry_point", ""),
+                        "reference": s.get("reference", ""),
+                    })
+                return self.data
+        except Exception:
+            pass
+
         file_path = os.path.join(self.data_dir, "humaneval.json")
         if os.path.exists(file_path):
             with open(file_path, "r", encoding="utf-8") as f:

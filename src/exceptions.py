@@ -9,6 +9,9 @@ class BasePlatformError(Exception):
         self.code = code
         super().__init__(self.message)
 
+    def __str__(self):
+        return f"[{self.code}] {self.message}"
+
 
 class ContractValidationError(BasePlatformError):
     """契约层错误：当输入数据不符合 Pydantic 模型时触发"""

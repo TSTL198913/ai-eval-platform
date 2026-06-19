@@ -1,9 +1,13 @@
 """Anthropic Claude API 客户端"""
 
 import httpx
+import logging
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from src.domain.models.base import BaseLLMClient, ModelConfig
+from src.exceptions import InfrastructureError
+
+logger = logging.getLogger(__name__)
 
 
 class AnthropicClient(BaseLLMClient):
@@ -26,31 +30,51 @@ class AnthropicClient(BaseLLMClient):
         reraise=True,
     )
     def chat(self, prompt: str, system_prompt: str | None = None) -> str:
-        messages = [{"role": "user", "content": prompt}]
-        payload = {
-            "model": self.config.model_name,
-            "messages": messages,
-            "system": system_prompt or "",
-            "temperature": self.config.temperature,
-            "max_tokens": self.config.max_tokens,
-        }
-        response = self.client.post(self.api_url, headers=self.headers, json=payload)
-        response.raise_for_status()
-        result = response.json()
-        content = result["content"][0]
-        return content.get("text", content.get("value", ""))
+        try:
+            messages = [{"role": "user", "content": prompt}]
+            payload = {
+                "model": self.config.model_name,
+                "messages": messages,
+                "system": system_prompt or "",
+                "temperature": self.config.temperature,
+                "max_tokens": self.config.max_tokens,
+            }
+            response = self.client.post(self.api_url, headers=self.headers, json=payload)
+            response.raise_for_status()
+            result = response.json()
+            content = result["content"][0]
+            return content.get("text", content.get("value", ""))
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Anthropic API HTTP error: {e.response.status_code}")
+            raise InfrastructureError(f"LLM服务请求失败: HTTP {e.response.status_code}") from e
+        except httpx.RequestError as e:
+            logger.error(f"Anthropic API request error: {e}")
+            raise InfrastructureError(f"LLM服务连接失败: {str(e)}") from e
+        except Exception as e:
+            logger.error(f"Anthropic API unknown error: {e}")
+            raise InfrastructureError(f"LLM服务异常: {str(e)}") from e
 
     async def achat(self, prompt: str, system_prompt: str | None = None) -> str:
-        messages = [{"role": "user", "content": prompt}]
-        payload = {
-            "model": self.config.model_name,
-            "messages": messages,
-            "system": system_prompt or "",
-            "temperature": self.config.temperature,
-            "max_tokens": self.config.max_tokens,
-        }
-        response = await self.async_client.post(self.api_url, headers=self.headers, json=payload)
-        response.raise_for_status()
-        result = response.json()
-        content = result["content"][0]
-        return content.get("text", content.get("value", ""))
+        try:
+            messages = [{"role": "user", "content": prompt}]
+            payload = {
+                "model": self.config.model_name,
+                "messages": messages,
+                "system": system_prompt or "",
+                "temperature": self.config.temperature,
+                "max_tokens": self.config.max_tokens,
+            }
+            response = await self.async_client.post(self.api_url, headers=self.headers, json=payload)
+            response.raise_for_status()
+            result = response.json()
+            content = result["content"][0]
+            return content.get("text", content.get("value", ""))
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Anthropic API HTTP error (async): {e.response.status_code}")
+            raise InfrastructureError(f"LLM服务请求失败: HTTP {e.response.status_code}") from e
+        except httpx.RequestError as e:
+            logger.error(f"Anthropic API request error (async): {e}")
+            raise InfrastructureError(f"LLM服务连接失败: {str(e)}") from e
+        except Exception as e:
+            logger.error(f"Anthropic API unknown error (async): {e}")
+            raise InfrastructureError(f"LLM服务异常: {str(e)}") from e

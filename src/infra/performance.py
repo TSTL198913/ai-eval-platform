@@ -1,433 +1,274 @@
-"""
-性能优化模块
-
-包含：
-1. 智能缓存管理（O(1) LRU实现）
-2. 分段锁减少锁竞争
-3. 连接池优化
-4. 异步批处理
-5. 结果预计算
-"""
-
-import asyncio
+import hashlib
 import json
-import logging
-import threading
+import os
 import time
-from collections import OrderedDict
-from collections.abc import Callable
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional, Callable
 from dataclasses import dataclass, field
-from functools import wraps
-from typing import Any, TypeVar
-
-logger = logging.getLogger(__name__)
-
-T = TypeVar("T")
-
-
-@dataclass
-class CacheConfig:
-    """缓存配置"""
-
-    max_size: int = 1000  # 最大缓存条目数
-    ttl_seconds: float = 300.0  # 默认 TTL（5分钟）
-    eviction_policy: str = "lru"  # 淘汰策略：lru, lfu, fifo
-    segment_count: int = 16  # 分段锁数量（用于减少锁竞争）
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 @dataclass
 class CacheEntry:
-    """缓存条目"""
-
-    value: Any
-    created_at: float = field(default_factory=time.time)
-    expires_at: float = 0
-    hits: int = 0
-    key: str = ""
-
-    def __post_init__(self):
-        if self.expires_at == 0:
-            self.expires_at = self.created_at + 300.0
-
-    def is_expired(self) -> bool:
-        return time.time() > self.expires_at
-
-    def increment_hit(self):
-        self.hits += 1
+    key: str
+    result: Dict[str, Any]
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    hit_count: int = 0
+    avg_latency_ms: float = 0.0
 
 
-class SegmentLock:
-    """
-    分段锁实现
+class EvaluationCache:
+    def __init__(self, cache_dir: str = "data/cache", ttl_seconds: int = 3600):
+        self._cache: Dict[str, CacheEntry] = {}
+        self._cache_dir = cache_dir
+        self._ttl_seconds = ttl_seconds
+        self._load_cache()
 
-    通过将锁分成多个段来减少锁竞争，提高并发性能。
-    """
-
-    def __init__(self, segment_count: int = 16):
-        self._segment_count = segment_count
-        self._locks = [threading.RLock() for _ in range(segment_count)]
-
-    def get_lock(self, key: str) -> threading.RLock:
-        """根据键获取对应的锁"""
-        # 使用哈希函数将键映射到锁段
-        segment_index = hash(key) % self._segment_count
-        return self._locks[segment_index]
-
-    def get_all_locks(self) -> list[threading.RLock]:
-        """获取所有锁（用于需要全局锁定的操作）"""
-        return self._locks
-
-
-class LRUCache:
-    """
-    LRU 缓存实现（O(1) 时间复杂度）
-
-    使用 OrderedDict 实现真正的 O(1) 操作：
-    - get: O(1)
-    - set: O(1)
-    - 淘汰: O(1)
-
-    支持分段锁以减少锁竞争。
-    """
-
-    def __init__(self, config: CacheConfig | None = None):
-        self._config = config or CacheConfig()
-        # 使用 OrderedDict 实现 O(1) LRU
-        self._cache: OrderedDict[str, CacheEntry] = OrderedDict()
-        self._segment_locks = SegmentLock(self._config.segment_count)
-        self._global_lock = threading.RLock()  # 用于全局操作
-        self._async_lock = asyncio.Lock()
-        self._stats = {"hits": 0, "misses": 0, "evictions": 0}
-        self._stats_lock = threading.Lock()
-
-    def _get_segment_lock(self, key: str) -> threading.RLock:
-        """获取键对应的分段锁"""
-        return self._segment_locks.get_lock(key)
-
-    async def get(self, key: str) -> Any | None:
-        """获取缓存值（O(1)）"""
-        async with self._async_lock:
-            with self._get_segment_lock(key):
-                entry = self._cache.get(key)
-                if entry is None or entry.is_expired():
-                    with self._stats_lock:
-                        self._stats["misses"] += 1
-                    return None
-
-                entry.increment_hit()
-                with self._stats_lock:
-                    self._stats["hits"] += 1
-
-                # 更新访问顺序（O(1)操作）
-                self._cache.move_to_end(key)
-
-                return entry.value
-
-    async def set(self, key: str, value: Any, ttl: float | None = None) -> bool:
-        """设置缓存值（O(1)）"""
-        async with self._async_lock:
-            with self._get_segment_lock(key):
-                # 如果已存在，删除旧条目
-                if key in self._cache:
-                    del self._cache[key]
-
-                # 检查容量，必要时淘汰（O(1)）
-                while len(self._cache) >= self._config.max_size:
-                    self._evict()
-
-                # 创建新条目
-                expires_at = time.time() + (ttl or self._config.ttl_seconds)
-                entry = CacheEntry(value=value, key=key, expires_at=expires_at)
-                self._cache[key] = entry
-
-                return True
-
-    def _evict(self):
-        """淘汰最久未使用的条目（O(1)）"""
-        if not self._cache:
-            return
-
-        # OrderedDict 的 popitem(last=False) 是 O(1) 操作
-        oldest_key, _ = self._cache.popitem(last=False)
-        with self._stats_lock:
-            self._stats["evictions"] += 1
-        logger.debug(f"Evicted cache entry: {oldest_key}")
-
-    async def delete(self, key: str) -> bool:
-        """删除缓存条目（O(1)）"""
-        async with self._async_lock:
-            with self._get_segment_lock(key):
-                if key in self._cache:
-                    del self._cache[key]
-                    return True
-                return False
-
-    async def clear(self):
-        """清空缓存"""
-        async with self._async_lock:
-            with self._global_lock:
-                self._cache.clear()
-
-    def get_stats(self) -> dict:
-        """获取缓存统计"""
-        with self._stats_lock:
-            total = self._stats["hits"] + self._stats["misses"]
-            hit_rate = self._stats["hits"] / total if total > 0 else 0
-            return {
-                "size": len(self._cache),
-                "max_size": self._config.max_size,
-                "hits": self._stats["hits"],
-                "misses": self._stats["misses"],
-                "evictions": self._stats["evictions"],
-                "hit_rate": hit_rate,
-            }
-
-    def size(self) -> int:
-        """获取当前缓存大小"""
-        return len(self._cache)
-
-
-def cached(
-    cache: LRUCache,
-    key_generator: Callable[..., str] | None = None,
-    ttl: float | None = None,
-):
-    """
-    缓存装饰器
-
-    使用示例:
-        cache = LRUCache()
-
-        @cached(cache, key_generator=lambda x: f"result:{x}")
-        async def compute(x):
-            return expensive_computation(x)
-    """
-
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
-        @wraps(func)
-        async def wrapper(*args, **kwargs) -> T:
-            # 生成缓存键
-            if key_generator:
-                key = key_generator(*args, **kwargs)
-            else:
-                key = f"{func.__name__}:{json.dumps(args)}:{json.dumps(kwargs)}"
-
-            # 尝试从缓存获取
-            cached_value = await cache.get(key)
-            if cached_value is not None:
-                logger.debug(f"Cache hit for key: {key}")
-                return cached_value
-
-            # 执行函数（支持同步和异步）
-            if asyncio.iscoroutinefunction(func):
-                result = await func(*args, **kwargs)
-            else:
-                result = func(*args, **kwargs)
-
-            # 存入缓存
-            await cache.set(key, result, ttl)
-            logger.debug(f"Cache set for key: {key}")
-
-            return result
-
-        return wrapper
-
-    return decorator
-
-
-class BatchProcessor:
-    """
-    批处理器
-
-    将多个请求合并为批量处理，减少 I/O 操作次数。
-    """
-
-    def __init__(
-        self,
-        batch_size: int = 100,
-        batch_timeout: float = 0.1,  # 100ms
-    ):
-        self._batch_size = batch_size
-        self._batch_timeout = batch_timeout
-        self._pending: list[tuple[Any, asyncio.Future]] = []
-        self._lock = asyncio.Lock()
-        self._processor_task: asyncio.Task | None = None
-
-    async def add(self, item: Any) -> Any:
-        """添加待处理项"""
-        future = asyncio.Future()
-
-        async with self._lock:
-            self._pending.append((item, future))
-
-            # 达到批量大小，立即处理
-            if len(self._pending) >= self._batch_size:
-                await self._process_batch()
-
-        return await future
-
-    async def _process_batch(self):
-        """处理批量请求"""
-        if not self._pending:
-            return
-
-        batch = self._pending.copy()
-        self._pending.clear()
-
-        # 执行批量处理
-        try:
-            results = await self._execute_batch([item for item, _ in batch])
-            for (_, future), result in zip(batch, results, strict=False):
-                future.set_result(result)
-        except Exception as e:
-            for _, future in batch:
-                future.set_exception(e)
-
-    async def _execute_batch(self, items: list[Any]) -> list[Any]:
-        """执行批量操作（需子类实现）"""
-        return items
-
-    async def start(self):
-        """启动批处理器"""
-        self._processor_task = asyncio.create_task(self._run_periodically())
-
-    async def stop(self):
-        """停止批处理器"""
-        if self._processor_task:
-            self._processor_task.cancel()
+    def _load_cache(self):
+        cache_file = os.path.join(self._cache_dir, "evaluation_cache.json")
+        if os.path.exists(cache_file):
             try:
-                await self._processor_task
-            except asyncio.CancelledError:
+                with open(cache_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    for key, entry in data.items():
+                        entry_obj = CacheEntry(
+                            key=key,
+                            result=entry["result"],
+                            created_at=datetime.fromisoformat(entry["created_at"]),
+                            hit_count=entry.get("hit_count", 0),
+                            avg_latency_ms=entry.get("avg_latency_ms", 0.0)
+                        )
+                        if not self._is_expired(entry_obj):
+                            self._cache[key] = entry_obj
+            except Exception:
                 pass
 
-    async def _run_periodically(self):
-        """定期处理待处理项"""
-        while True:
-            await asyncio.sleep(self._batch_timeout)
-            async with self._lock:
-                if self._pending:
-                    await self._process_batch()
-
-
-class ConnectionPoolMonitor:
-    """
-    连接池监控器
-
-    监控和优化数据库、Redis 连接池使用。
-    """
-
-    def __init__(self):
-        self._metrics: dict[str, dict] = {}
-
-    def register_pool(self, name: str, pool: Any):
-        """注册连接池"""
-        self._metrics[name] = {
-            "pool": pool,
-            "total_connections": 0,
-            "active_connections": 0,
-            "idle_connections": 0,
-            "wait_count": 0,
-            "wait_time_ms": 0,
-        }
-
-    def update_metrics(self, name: str, metrics: dict):
-        """更新连接池指标"""
-        if name in self._metrics:
-            self._metrics[name].update(metrics)
-
-    def get_pool_stats(self, name: str) -> dict | None:
-        """获取连接池统计"""
-        return self._metrics.get(name)
-
-    def get_all_stats(self) -> dict:
-        """获取所有连接池统计"""
-        return {
-            name: {
-                "total": data.get("total_connections", 0),
-                "active": data.get("active_connections", 0),
-                "idle": data.get("idle_connections", 0),
-                "wait_count": data.get("wait_count", 0),
-                "wait_time_ms": data.get("wait_time_ms", 0),
+    def _save_cache(self):
+        cache_file = os.path.join(self._cache_dir, "evaluation_cache.json")
+        os.makedirs(self._cache_dir, exist_ok=True)
+        data = {
+            key: {
+                "result": entry.result,
+                "created_at": entry.created_at.isoformat(),
+                "hit_count": entry.hit_count,
+                "avg_latency_ms": entry.avg_latency_ms
             }
-            for name, data in self._metrics.items()
+            for key, entry in self._cache.items()
         }
+        with open(cache_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
 
-    def get_health_status(self) -> dict:
-        """获取健康状态"""
-        issues = []
-        for name, data in self._metrics.items():
-            active_ratio = data.get("active_connections", 0) / max(
-                data.get("total_connections", 1), 1
-            )
-            if active_ratio > 0.9:
-                issues.append(f"{name}: 连接池接近耗尽 ({active_ratio:.1%})")
+    def _is_expired(self, entry: CacheEntry) -> bool:
+        age = (datetime.utcnow() - entry.created_at).total_seconds()
+        return age > self._ttl_seconds
 
-            wait_time = data.get("wait_time_ms", 0)
-            if wait_time > 100:
-                issues.append(f"{name}: 等待时间过长 ({wait_time}ms)")
+    def _generate_key(self, request_data: Dict[str, Any]) -> str:
+        content = json.dumps(request_data, sort_keys=True, ensure_ascii=False)
+        return hashlib.sha256(content.encode()).hexdigest()[:16]
+
+    def get(self, request_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        key = self._generate_key(request_data)
+        entry = self._cache.get(key)
+
+        if entry and not self._is_expired(entry):
+            entry.hit_count += 1
+            self._save_cache()
+            return entry.result
+
+        return None
+
+    def set(self, request_data: Dict[str, Any], result: Dict[str, Any], latency_ms: float = 0.0):
+        key = self._generate_key(request_data)
+        entry = CacheEntry(
+            key=key,
+            result=result,
+            avg_latency_ms=latency_ms
+        )
+        self._cache[key] = entry
+        self._save_cache()
+
+    def invalidate(self, request_data: Dict[str, Any]):
+        key = self._generate_key(request_data)
+        if key in self._cache:
+            del self._cache[key]
+            self._save_cache()
+
+    def clear(self):
+        self._cache.clear()
+        self._save_cache()
+
+    def get_stats(self) -> Dict[str, Any]:
+        total_hits = sum(e.hit_count for e in self._cache.values())
+        total_entries = len(self._cache)
+        avg_latency = sum(e.avg_latency_ms for e in self._cache.values()) / max(total_entries, 1)
 
         return {
-            "healthy": len(issues) == 0,
-            "issues": issues,
+            "total_entries": total_entries,
+            "total_hits": total_hits,
+            "hit_rate": total_hits / max(total_entries, 1),
+            "avg_latency_ms": round(avg_latency, 2),
+            "cache_size_kb": self._get_cache_size(),
+        }
+
+    def _get_cache_size(self) -> float:
+        cache_file = os.path.join(self._cache_dir, "evaluation_cache.json")
+        if os.path.exists(cache_file):
+            return os.path.getsize(cache_file) / 1024
+        return 0.0
+
+
+class AsyncEvaluationProcessor:
+    def __init__(self, max_workers: int = 4):
+        self._executor = ThreadPoolExecutor(max_workers=max_workers)
+        self._pending_tasks: Dict[str, Any] = {}
+
+    def submit(self, task_id: str, func: Callable, *args, **kwargs) -> Any:
+        future = self._executor.submit(func, *args, **kwargs)
+        self._pending_tasks[task_id] = {
+            "future": future,
+            "submitted_at": datetime.utcnow(),
+            "status": "running"
+        }
+        return future
+
+    def get_result(self, task_id: str, timeout: float = None) -> Optional[Any]:
+        task = self._pending_tasks.get(task_id)
+        if not task:
+            return None
+
+        future = task["future"]
+        if future.done():
+            task["status"] = "completed"
+            task["completed_at"] = datetime.utcnow()
+            return future.result(timeout=timeout)
+
+        return None
+
+    def get_task_status(self, task_id: str) -> str:
+        task = self._pending_tasks.get(task_id)
+        if not task:
+            return "not_found"
+
+        future = task["future"]
+        if future.done():
+            return "completed"
+        elif future.cancelled():
+            return "cancelled"
+        else:
+            return "running"
+
+    def cancel_task(self, task_id: str) -> bool:
+        task = self._pending_tasks.get(task_id)
+        if task:
+            cancelled = task["future"].cancel()
+            if cancelled:
+                task["status"] = "cancelled"
+            return cancelled
+        return False
+
+    def cleanup_completed(self):
+        self._pending_tasks = {
+            k: v for k, v in self._pending_tasks.items()
+            if v["status"] == "running"
         }
 
 
 class PerformanceOptimizer:
-    """
-    性能优化器
-
-    综合管理缓存、批处理、连接池等优化组件。
-    """
-
     def __init__(self):
-        self._cache = LRUCache(CacheConfig(max_size=2000, ttl_seconds=600.0))
-        self._batch_processor = BatchProcessor(batch_size=50, batch_timeout=0.05)
-        self._pool_monitor = ConnectionPoolMonitor()
-        self._initialized = False
+        self._cache = EvaluationCache()
+        self._async_processor = AsyncEvaluationProcessor(max_workers=4)
+        self._metrics: List[Dict[str, Any]] = []
+        self._max_metrics = 1000
 
-    async def initialize(self):
-        """初始化优化器"""
-        if not self._initialized:
-            await self._batch_processor.start()
-            self._initialized = True
-            logger.info("Performance optimizer initialized")
+    def cached_evaluate(self, request_data: Dict[str, Any], evaluate_func: Callable) -> Dict[str, Any]:
+        cached_result = self._cache.get(request_data)
+        if cached_result:
+            return {
+                **cached_result,
+                "from_cache": True,
+                "latency_ms": 0
+            }
 
-    async def shutdown(self):
-        """关闭优化器"""
-        if self._initialized:
-            await self._batch_processor.stop()
-            await self._cache.clear()
-            self._initialized = False
-            logger.info("Performance optimizer shutdown")
+        start_time = time.time()
+        result = evaluate_func(request_data)
+        latency_ms = (time.time() - start_time) * 1000
 
-    def get_cache(self) -> LRUCache:
-        """获取缓存实例"""
-        return self._cache
+        result["from_cache"] = False
+        result["latency_ms"] = latency_ms
 
-    def get_batch_processor(self) -> BatchProcessor:
-        """获取批处理器"""
-        return self._batch_processor
+        self._cache.set(request_data, result, latency_ms)
+        self._record_metric(latency_ms, result.get("from_cache", False))
 
-    def get_pool_monitor(self) -> ConnectionPoolMonitor:
-        """获取连接池监控"""
-        return self._pool_monitor
+        return result
 
-    def get_all_stats(self) -> dict:
-        """获取所有优化组件统计"""
+    def async_batch_evaluate(self, requests: List[Dict[str, Any]], evaluate_func: Callable) -> List[Dict[str, Any]]:
+        results = []
+
+        futures = {}
+        for i, req in enumerate(requests):
+            task_id = f"eval_{i}_{int(time.time())}"
+            future = self._async_processor.submit(task_id, evaluate_func, req)
+            futures[task_id] = (i, future)
+
+        for task_id, (idx, future) in futures.items():
+            try:
+                result = future.result(timeout=30)
+                results.append((idx, result))
+            except Exception as e:
+                results.append((idx, {"error": str(e)}))
+
+        results.sort(key=lambda x: x[0])
+        return [r[1] for r in results]
+
+    def _record_metric(self, latency_ms: float, from_cache: bool):
+        metric = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "latency_ms": latency_ms,
+            "from_cache": from_cache
+        }
+        self._metrics.append(metric)
+        if len(self._metrics) > self._max_metrics:
+            self._metrics = self._metrics[-self._max_metrics:]
+
+    def get_performance_report(self) -> Dict[str, Any]:
+        if not self._metrics:
+            return {
+                "total_requests": 0,
+                "avg_latency_ms": 0,
+                "p50_latency_ms": 0,
+                "p95_latency_ms": 0,
+                "p99_latency_ms": 0,
+                "cache_hit_rate": 0,
+                "recommendations": ["暂无数据"]
+            }
+
+        non_cached = [m for m in self._metrics if not m["from_cache"]]
+        latencies = sorted([m["latency_ms"] for m in non_cached])
+
+        total = len(self._metrics)
+        cache_hits = sum(1 for m in self._metrics if m["from_cache"])
+
+        p50_idx = int(len(latencies) * 0.5)
+        p95_idx = int(len(latencies) * 0.95)
+        p99_idx = int(len(latencies) * 0.99)
+
+        recommendations = []
+        avg_latency = sum(latencies) / max(len(latencies), 1)
+        if avg_latency > 2000:
+            recommendations.append("P0: 平均延迟超过2秒，建议启用缓存或降级到本地模型")
+        if cache_hits / total < 0.3:
+            recommendations.append("缓存命中率过低，考虑增加缓存TTL或优化缓存策略")
+
         return {
-            "cache": self._cache.get_stats(),
-            "pools": self._pool_monitor.get_all_stats(),
-            "pools_health": self._pool_monitor.get_health_status(),
+            "total_requests": total,
+            "avg_latency_ms": round(avg_latency, 2),
+            "p50_latency_ms": round(latencies[p50_idx] if latencies else 0, 2),
+            "p95_latency_ms": round(latencies[p95_idx] if latencies else 0, 2),
+            "p99_latency_ms": round(latencies[p99_idx] if latencies else 0, 2),
+            "cache_hit_rate": round(cache_hits / total, 3),
+            "recommendations": recommendations if recommendations else ["性能表现良好"]
         }
 
 
-# 全局性能优化器实例
-_global_optimizer: PerformanceOptimizer | None = None
-
-
-def get_optimizer() -> PerformanceOptimizer:
-    """获取全局性能优化器"""
-    global _global_optimizer
-    if _global_optimizer is None:
-        _global_optimizer = PerformanceOptimizer()
-    return _global_optimizer
+evaluation_cache = EvaluationCache()
+performance_optimizer = PerformanceOptimizer()

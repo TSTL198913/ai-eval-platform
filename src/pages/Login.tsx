@@ -4,7 +4,7 @@ import { Form, Input, Button, Card, Typography, Alert, Spin } from 'antd';
 import { Lock, User, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../services/api';
-import useAuthStore from '../stores/authStore';
+import useAuthStore from '@/stores/authStore';
 
 const { Title } = Typography;
 
@@ -94,7 +94,7 @@ const Login: React.FC = () => {
         </Form>
 
         <div className='text-center mt-6 text-white/40 text-sm'>
-          <p>测试账号: admin / password</p>
+          <p>测试账号: admin / admin</p>
         </div>
       </Card>
     </div>

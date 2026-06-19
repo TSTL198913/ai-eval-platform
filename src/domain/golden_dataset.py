@@ -72,13 +72,16 @@ class GoldenDatasetManager:
         return sample
 
     def correct_sample(self, sample_id: str, corrected_scores: Dict[str, float], corrected_by: str) -> Optional[GoldenSample]:
+        """校正样本评分 - 合并而非覆盖，避免数据丢失"""
         sample = self._sample_index.get(sample_id)
         if not sample:
             return None
-        sample.scores = corrected_scores
+        # 合并校正分数，只更新指定维度，保留其他维度
+        sample.scores.update(corrected_scores)
         sample.human_corrected = True
         sample.corrected_by = corrected_by
         sample.corrected_at = datetime.utcnow()
+        sample.updated_at = datetime.utcnow()
         return sample
 
     def get_few_shot_examples(self, dataset_id: str, limit: int = 5) -> List[str]:

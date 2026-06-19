@@ -8,6 +8,7 @@
 """
 
 import time
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
@@ -15,6 +16,33 @@ from typing import Any, Optional
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.schemas.evaluation import DomainResponse, EvaluationSchema
+
+
+def sanitize_input(text: str, max_length: int = 1000) -> str:
+    """
+    清理用户输入，防止XSS和注入攻击
+    
+    Args:
+        text: 用户输入文本
+        max_length: 最大允许长度
+    
+    Returns:
+        清理后的安全文本
+    """
+    if not text:
+        return ""
+    
+    # 限制长度
+    text = text[:max_length]
+    
+    # 移除潜在危险的HTML标签和脚本
+    text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r'<[^>]+>', '', text)  # 移除所有HTML标签
+    
+    # 移除潜在危险的字符
+    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)  # 控制字符
+    
+    return text.strip()
 
 
 class MessageType(str, Enum):
@@ -179,7 +207,7 @@ class MultiAgentEvaluator(BaseEvaluator):
         sender_id = self.get_payload_data(request, "sender_id")
         receiver_id = self.get_payload_data(request, "receiver_id")
         message_type = self.get_payload_data(request, "message_type", "request")
-        content = self.get_payload_data(request, "content", "")
+        content = sanitize_input(self.get_payload_data(request, "content", ""))
         latency_ms = self.get_payload_data(request, "latency_ms", 0.0)
         is_delivered = self.get_payload_data(request, "is_delivered", True)
         is_acknowledged = self.get_payload_data(request, "is_acknowledged", False)
@@ -191,11 +219,20 @@ class MultiAgentEvaluator(BaseEvaluator):
                 error="sender_id 和 receiver_id 不能为空"
             )
         
+        # 安全处理枚举值
+        try:
+            msg_type = MessageType(message_type)
+        except ValueError:
+            return DomainResponse(
+                is_valid=False,
+                error=f"无效的message_type: {message_type}"
+            )
+        
         message = AgentMessage(
             message_id=message_id or f"msg-{len(self.messages)}",
             sender_id=sender_id,
             receiver_id=receiver_id,
-            message_type=MessageType(message_type),
+            message_type=msg_type,
             content=content,
             timestamp=time.time(),
             latency_ms=latency_ms,
@@ -225,7 +262,7 @@ class MultiAgentEvaluator(BaseEvaluator):
         """分配任务给Agent"""
         task_id = self.get_payload_data(request, "task_id")
         agent_id = self.get_payload_data(request, "agent_id")
-        description = self.get_payload_data(request, "description", "")
+        description = sanitize_input(self.get_payload_data(request, "description", ""))
         priority = self.get_payload_data(request, "priority", 1)
         dependencies = self.get_payload_data(request, "dependencies", [])
         
@@ -269,7 +306,7 @@ class MultiAgentEvaluator(BaseEvaluator):
         task_id = self.get_payload_data(request, "task_id")
         status = self.get_payload_data(request, "status")
         result = self.get_payload_data(request, "result")
-        error = self.get_payload_data(request, "error")
+        error = sanitize_input(self.get_payload_data(request, "error", ""))
         
         if task_id not in self.tasks:
             return DomainResponse(
@@ -277,9 +314,18 @@ class MultiAgentEvaluator(BaseEvaluator):
                 error=f"任务 {task_id} 不存在"
             )
         
+        # 安全处理枚举值
+        try:
+            new_status = TaskStatus(status)
+        except ValueError:
+            return DomainResponse(
+                is_valid=False,
+                error=f"无效的status: {status}"
+            )
+        
         task = self.tasks[task_id]
         old_status = task.status
-        task.status = TaskStatus(status)
+        task.status = new_status
         
         if task.status == TaskStatus.COMPLETED:
             task.completed_at = time.time()
@@ -311,7 +357,7 @@ class MultiAgentEvaluator(BaseEvaluator):
         conflict_id = self.get_payload_data(request, "conflict_id")
         conflict_type = self.get_payload_data(request, "conflict_type")
         agent_ids = self.get_payload_data(request, "agent_ids", [])
-        description = self.get_payload_data(request, "description", "")
+        description = sanitize_input(self.get_payload_data(request, "description", ""))
         
         if not agent_ids:
             return DomainResponse(
@@ -319,9 +365,18 @@ class MultiAgentEvaluator(BaseEvaluator):
                 error="agent_ids 不能为空"
             )
         
+        # 安全处理枚举值
+        try:
+            conflict_type_enum = ConflictType(conflict_type)
+        except ValueError:
+            return DomainResponse(
+                is_valid=False,
+                error=f"无效的conflict_type: {conflict_type}"
+            )
+        
         conflict = Conflict(
             conflict_id=conflict_id or f"conflict-{len(self.conflicts)}",
-            conflict_type=ConflictType(conflict_type),
+            conflict_type=conflict_type_enum,
             agent_ids=agent_ids,
             description=description,
             timestamp=time.time(),
@@ -342,7 +397,7 @@ class MultiAgentEvaluator(BaseEvaluator):
     def _resolve_conflict(self, request: EvaluationSchema) -> DomainResponse:
         """解决冲突"""
         conflict_id = self.get_payload_data(request, "conflict_id")
-        resolution = self.get_payload_data(request, "resolution", "")
+        resolution = sanitize_input(self.get_payload_data(request, "resolution", ""))
         
         conflict = None
         for c in self.conflicts:

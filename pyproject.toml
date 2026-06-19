@@ -25,10 +25,23 @@ directory = "htmlcov"
 [tool.coverage.json]
 output = "coverage.json"
 
+# 覆盖率历史追踪配置
+[tool.coverage.tracker]
+save = true
+source = ["src"]
+
 # 增量覆盖率配置
 [tool.coverage.incremental]
 mode = "append"
 history = ".coverage_history"
+
+# 覆盖率历史报告
+[tool.coverage.report_history]
+enabled = true
+history_file = ".coverage_history/trends.json"
+trends_file = "coverage_trends.json"
+generate_html = true
+html_dir = "htmlcov_history"
 
 [tool.black]
 line-length = 100

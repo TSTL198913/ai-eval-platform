@@ -1,0 +1,198 @@
+# Prometheus 告警规则
+# AI Eval Platform
+
+groups:
+  - name: ai_eval_platform_alerts
+    interval: 30s
+    rules:
+      # =====================================================================
+      # API层告警
+      # =====================================================================
+
+      # API可用性低于99%
+      - alert: APIAvailabilityLow
+        expr: |
+          (
+            sum(rate(evaluator_calls_total{status!="error"}[5m]))
+            /
+            sum(rate(evaluator_calls_total[5m]))
+          ) < 0.99
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API可用性低于99%"
+          description: "API可用性: {{ $value | humanizePercentage }}"
+
+      # API错误率高于5%
+      - alert: APIHighErrorRate
+        expr: |
+          sum(rate(evaluation_errors_total[5m]))
+          /
+          sum(rate(evaluation_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API错误率高于5%"
+          description: "错误率: {{ $value | humanizePercentage }}"
+
+      # P99延迟超过5秒
+      - alert: APILatencyHigh
+        expr: |
+          histogram_quantile(0.99, sum(rate(evaluation_latency_seconds_bucket[5m])) by (le))
+          > 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API P99延迟过高"
+          description: "P99延迟: {{ $value | humanizeDuration }}"
+
+      # =====================================================================
+      # LLM层告警
+      # =====================================================================
+
+      # LLM调用失败
+      - alert: LLMCallFailures
+        expr: |
+          sum(rate(llm_errors_total[5m])) by (model)
+          /
+          sum(rate(llm_calls_total[5m])) by (model) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "LLM调用失败率超过10%"
+          description: "模型 {{ $labels.model }} 失败率: {{ $value | humanizePercentage }}"
+
+      # LLM延迟过高
+      - alert: LLMLatencyHigh
+        expr: |
+          histogram_quantile(0.95, sum(rate(llm_latency_seconds_bucket[5m])) by (le, model))
+          > 30
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "LLM延迟过高"
+          description: "模型 {{ $labels.model }} P95延迟: {{ $value | humanizeDuration }}"
+
+      # Token消耗异常（单次请求超过10000 tokens）
+      - alert: HighTokenConsumption
+        expr: |
+          sum(rate(llm_tokens_total[5m])) by (model)
+          > 100000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Token消耗异常"
+          description: "Token消耗速率: {{ $value }} tokens/s"
+
+      # =====================================================================
+      # 成本告警
+      # =====================================================================
+
+      # 日成本超过预算50美元
+      - alert: DailyCostOverBudget
+        expr: |
+          sum(increase(llm_cost_usd[1d])) > 50
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "日成本超过预算"
+          description: "日成本: ${{ $value | humanize }}"
+
+      # 周成本超过预算200美元
+      - alert: WeeklyCostOverBudget
+        expr: |
+          sum(increase(llm_cost_usd[7d])) > 200
+        for: 1h
+        labels:
+          severity: critical
+        annotations:
+          summary: "周成本超过预算"
+          description: "周成本: ${{ $value | humanize }}"
+
+      # =====================================================================
+      # Celery队列告警
+      # =====================================================================
+
+      # 队列堆积超过500
+      - alert: CeleryQueueBacklog
+        expr: celery_queue_depth > 500
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Celery队列堆积过多"
+          description: "队列 {{ $labels.queue_name }} 堆积: {{ $value }}"
+
+      # Worker数量为0
+      - alert: CeleryNoWorkers
+        expr: celery_worker_count == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "没有活跃的Celery Worker"
+          description: "所有Worker已离线，任务无法执行"
+
+      # 任务执行失败
+      - alert: CeleryTaskFailures
+        expr: |
+          sum(rate(celery_task_failures_total[5m])) by (task_name)
+          > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Celery任务失败"
+          description: "任务 {{ $labels.task_name }} 失败率: {{ $value | humanizePercentage }}"
+
+      # =====================================================================
+      # 评估器告警
+      # =====================================================================
+
+      # 评估通过率低于70%
+      - alert: EvaluatorPassRateLow
+        expr: |
+          (
+            sum(rate(evaluator_calls_total{status="pass"}[5m])) by (evaluator_type)
+            /
+            sum(rate(evaluator_calls_total[5m])) by (evaluator_type)
+          ) < 0.7
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "评估器通过率过低"
+          description: "评估器 {{ $labels.evaluator_type }} 通过率: {{ $value | humanizePercentage }}"
+
+      # =====================================================================
+      # 系统健康告警
+      # =====================================================================
+
+      # 数据库连接数过高
+      - alert: DatabaseConnectionsHigh
+        expr: |
+          (db_connections{status="active"} / db_connections{status="total"}) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "数据库连接池使用率过高"
+          description: "连接池使用率: {{ $value | humanizePercentage }}"
+
+      # 内存使用超过80%
+      - alert: MemoryUsageHigh
+        expr: |
+          process_resident_memory_bytes / on(instance) node_memory_MemTotal_bytes:bytes > 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "内存使用率过高"
+          description: "内存使用率: {{ $value | humanizePercentage }}"

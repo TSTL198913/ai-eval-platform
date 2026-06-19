@@ -1,0 +1,56 @@
+# AlertManager 配置
+# AI Eval Platform 告警规则
+
+global:
+  smtp_smarthost: 'smtp.example.com:587'
+  smtp_from: 'alertmanager@ai-eval-platform.com'
+  smtp_auth_username: 'alertmanager'
+  smtp_auth_password: 'changeme'
+
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: 'default'
+  routes:
+    # API延迟告警
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      continue: true
+
+    # 错误率告警
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+
+# 接收者配置
+receivers:
+  - name: 'default'
+    webhook_configs:
+      - url: 'http://localhost:5001/webhook'
+        send_resolved: true
+
+  - name: 'critical-alerts'
+    webhook_configs:
+      - url: 'http://localhost:5001/webhook/critical'
+        send_resolved: true
+    # 邮件配置（生产环境需要配置真实的SMTP服务器）
+    # email_configs:
+    #   - to: 'oncall@example.com'
+    #     send_resolved: true
+
+  - name: 'warning-alerts'
+    webhook_configs:
+      - url: 'http://localhost:5001/webhook/warning'
+        send_resolved: true
+
+# 抑制规则
+inhibit_rules:
+  # 当critical告警触发时，抑制同类的warning告警
+  - source_match:
+      severity: critical
+    target_match:
+      severity: warning
+    equal: ['alertname', 'service']

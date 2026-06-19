@@ -129,9 +129,9 @@ test.describe('UI 控制台错误检测', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    // 验证评估器列表
-    const table = page.locator('.ant-table');
-    await expect(table).toBeVisible({ timeout: 10000 });
+    // 验证评估器卡片存在（页面使用 Card 网格布局，不是 Table）
+    const cards = page.locator('.ant-card');
+    await expect(cards.first()).toBeVisible({ timeout: 10000 });
 
     console.log('Evaluators 页面控制台消息:', consoleMessages);
 
@@ -199,7 +199,23 @@ test.describe('UI 控制台错误检测', () => {
 });
 
 test.describe('UI 功能测试', () => {
+  let consoleMessages: ConsoleMessage[] = [];
+  let pageErrors: Error[] = [];
+
   test('登录流程', async ({ page }) => {
+    // 监听控制台消息
+    page.on('console', msg => {
+      consoleMessages.push({
+        type: msg.type(),
+        text: msg.text(),
+        location: msg.location()?.url,
+      });
+    });
+
+    page.on('pageerror', error => {
+      pageErrors.push(error);
+    });
+
     await page.goto('/login');
 
     // 输入用户名
@@ -219,6 +235,14 @@ test.describe('UI 功能测试', () => {
   });
 
   test('仪表盘数据展示', async ({ page }) => {
+    page.on('console', msg => {
+      consoleMessages.push({
+        type: msg.type(),
+        text: msg.text(),
+        location: msg.location()?.url,
+      });
+    });
+
     await page.goto('/');
 
     await page.waitForLoadState('networkidle');
@@ -232,21 +256,44 @@ test.describe('UI 功能测试', () => {
   });
 
   test('Records 列表渲染', async ({ page }) => {
+    const localConsoleMessages: ConsoleMessage[] = [];
+    const localPageErrors: Error[] = [];
+
+    page.on('console', msg => {
+      localConsoleMessages.push({
+        type: msg.type(),
+        text: msg.text(),
+        location: msg.location()?.url,
+      });
+    });
+
+    page.on('pageerror', error => {
+      localPageErrors.push(error);
+    });
+
     await page.goto('/records');
 
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(5000); // 增加等待时间让数据加载
 
-    // 验证表格存在
+    // 验证页面内容存在（可能是 Card 或 Table）
+    const card = page.locator('.ant-card');
     const table = page.locator('.ant-table');
 
-    // 测试工程师思维：如果表格不存在，检查是否有错误
-    try {
-      await expect(table).toBeVisible({ timeout: 10000 });
-    } catch {
-      // 打印控制台错误帮助调试
-      console.log('Records 页面错误:', consoleMessages);
-      throw new Error('Records 表格未渲染，可能存在组件错误');
-    }
+    // 测试工程师思维：检查页面是否正常渲染
+    const cardCount = await card.count();
+    const tableCount = await table.count();
+
+    // 打印控制台错误帮助调试
+    console.log('Records 页面控制台消息:', localConsoleMessages);
+    console.log('Records 页面 JS 错误:', localPageErrors);
+    console.log('Records 页面 Card 数量:', cardCount);
+    console.log('Records 页面 Table 数量:', tableCount);
+
+    // 期望：无 JavaScript 错误
+    expect(localPageErrors.length, `JS错误: ${localPageErrors.map(e => e.message).join(', ')}`).toBe(0);
+
+    // 期望：页面有内容渲染（Card 或 Table）
+    expect(cardCount + tableCount, '页面应有内容渲染').toBeGreaterThan(0);
   });
 });

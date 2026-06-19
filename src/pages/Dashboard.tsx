@@ -235,7 +235,7 @@ const Dashboard: React.FC = () => {
             ))}
           </Row>
 
-          <Card className='mb-6 shadow-lg' bordered={false}>
+          <Card className='mb-6 shadow-lg' variant='borderless'>
             <div className='flex items-center gap-3 mb-4'>
               <Target className='w-6 h-6 text-blue-600' />
               <h3 className='text-lg font-bold'>质量-成本基线看板</h3>

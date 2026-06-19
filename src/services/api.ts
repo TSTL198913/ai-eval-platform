@@ -85,12 +85,14 @@ export const evaluationApi = {
     return handleResponse(response);
   },
   getRecords: async (params?: { evaluator?: string; status?: string; limit?: number }): Promise<{ count: number; records: EvaluationRecord[] }> => {
-    const response = await api.get<ApiResponse<{ count: number; records: EvaluationRecord[] }>>('/api/v1/records', { params });
-    return handleResponse(response);
+    const response = await api.get<ApiResponse<{ count: number; items: EvaluationRecord[] }>>('/api/v1/records', { params });
+    const data = await handleResponse(response);
+    return { count: data.count, records: data.items || [] };
   },
   searchRecords: async (params: { evaluator?: string; status?: string; limit?: number }): Promise<{ count: number; records: EvaluationRecord[] }> => {
-    const response = await api.get<ApiResponse<{ count: number; records: EvaluationRecord[] }>>('/api/v1/records/search', { params });
-    return handleResponse(response);
+    const response = await api.get<ApiResponse<{ count: number; items: EvaluationRecord[] }>>('/api/v1/records/search', { params });
+    const data = await handleResponse(response);
+    return { count: data.count, records: data.items || [] };
   },
   getTaskStatus: async (taskId: string): Promise<TaskStatus> => {
     const response = await api.get<ApiResponse<TaskStatus>>(`/api/v1/tasks/${taskId}`);

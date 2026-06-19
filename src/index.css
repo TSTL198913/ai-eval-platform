@@ -102,3 +102,36 @@ body {
 .ant-modal-close-icon {
   color: white;
 }
+
+/* 登录页面输入框样式 - 确保输入文字实时可见 */
+.login-input .ant-input,
+.login-input input {
+  color: white !important;
+  background: transparent !important;
+}
+
+.login-input .ant-input:focus,
+.login-input input:focus {
+  color: white !important;
+}
+
+.login-input .ant-input::placeholder,
+.login-input input::placeholder {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* 密码输入框样式 */
+.ant-input-password .ant-input {
+  color: white !important;
+}
+
+.ant-input-affix-wrapper {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.ant-input-affix-wrapper:focus,
+.ant-input-affix-wrapper-focused {
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1) !important;
+}

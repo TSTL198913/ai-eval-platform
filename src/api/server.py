@@ -172,6 +172,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Prometheus 指标收集中间件
+from src.infra.monitoring.prometheus_middleware import register_metrics_middleware
+register_metrics_middleware(app)
+
 from src.api.security_middleware import SecurityMiddleware
 app.add_middleware(SecurityMiddleware)
 
@@ -436,6 +440,18 @@ async def evaluate_endpoint(raw_data: EvaluationSchema, response: Response):
     """
     normalized = _normalize_raw_data(raw_data.model_dump())
     result = run_evaluation_service(normalized)
+
+    # 记录评估指标
+    evaluator_type = raw_data.type or "unknown"
+    try:
+        from src.infra.monitoring.metrics import EVALUATION_COUNTER, EVALUATION_ERRORS
+        if result["status"] == "error":
+            error_type = result.get("code", "UNKNOWN")
+            EVALUATION_ERRORS.labels(domain=evaluator_type, error_type=error_type).inc()
+        else:
+            EVALUATION_COUNTER.labels(domain=evaluator_type, status="success").inc()
+    except Exception:
+        pass  # 指标记录失败不影响主流程
 
     if result["status"] == "error":
         if result["code"] == "CONTRACT_ERROR":
@@ -1894,3 +1910,410 @@ async def get_fine_tune_guide():
         }
     }
     return success_response(guide)
+
+
+# ============================================================
+# 评估器版本控制 API
+# ============================================================
+
+@app.get("/api/v1/evaluator-versions")
+async def list_evaluator_versions(evaluator_name: str = None):
+    """列出评估器版本"""
+    try:
+        from src.domain.evaluator_version import evaluator_version_manager
+
+        versions = evaluator_version_manager.get_all_versions(evaluator_name)
+
+        return success_response({
+            "versions": [v.to_dict() for v in versions],
+            "total": len(versions)
+        })
+    except Exception as e:
+        logger.error(f"Failed to list versions: {e}")
+        return error_response(500, "获取版本列表失败")
+
+
+@app.post("/api/v1/evaluator-versions")
+async def register_evaluator_version(data: dict):
+    """注册新的评估器版本"""
+    try:
+        from src.domain.evaluator_version import evaluator_version_manager
+
+        evaluator_name = data.get("evaluator_name")
+        version = data.get("version")
+        code_hash = data.get("code_hash")
+        config = data.get("config", {})
+        changelog = data.get("changelog", "")
+
+        if not all([evaluator_name, version, code_hash]):
+            return error_response(400, "evaluator_name, version, code_hash 必填")
+
+        v = evaluator_version_manager.register_version(
+            evaluator_name=evaluator_name,
+            version=version,
+            code_hash=code_hash,
+            config=config,
+            changelog=changelog
+        )
+
+        return success_response({"message": "版本注册成功", "version": v.to_dict()})
+    except ValueError as e:
+        return error_response(400, str(e))
+    except Exception as e:
+        logger.error(f"Failed to register version: {e}")
+        return error_response(500, "注册版本失败")
+
+
+@app.get("/api/v1/evaluator-versions/current")
+async def get_current_version(evaluator_name: str):
+    """获取评估器当前版本"""
+    try:
+        from src.domain.evaluator_version import evaluator_version_manager
+
+        version = evaluator_version_manager.get_current_version(evaluator_name)
+
+        if not version:
+            return error_response(404, f"未找到 {evaluator_name} 的版本信息")
+
+        return success_response(version.to_dict())
+    except Exception as e:
+        logger.error(f"Failed to get current version: {e}")
+        return error_response(500, "获取当前版本失败")
+
+
+@app.get("/api/v1/evaluator-versions/history")
+async def get_version_history(evaluator_name: str, limit: int = 10):
+    """获取评估器版本历史"""
+    try:
+        from src.domain.evaluator_version import evaluator_version_manager
+
+        history = evaluator_version_manager.get_version_history(evaluator_name, limit)
+
+        return success_response({
+            "evaluator_name": evaluator_name,
+            "history": history
+        })
+    except Exception as e:
+        logger.error(f"Failed to get version history: {e}")
+        return error_response(500, "获取版本历史失败")
+
+
+# ============================================================
+# 统计显著性验证 API
+# ============================================================
+
+@app.post("/api/v1/statistics/ab-test")
+async def run_ab_test(data: dict):
+    """运行 A/B 测试"""
+    try:
+        from src.domain.statistical_analysis import statistical_analyzer
+
+        scores_a = data.get("scores_a", [])
+        scores_b = data.get("scores_b", [])
+        model_a_name = data.get("model_a_name", "Model A")
+        model_b_name = data.get("model_b_name", "Model B")
+        significance_level = data.get("significance_level", 0.05)
+        test_type = data.get("test_type", "auto")
+
+        if len(scores_a) < 3 or len(scores_b) < 3:
+            return error_response(400, "每组至少需要3个样本")
+
+        result = statistical_analyzer.run_ab_test(
+            scores_a=scores_a,
+            scores_b=scores_b,
+            model_a_name=model_a_name,
+            model_b_name=model_b_name,
+            significance_level=significance_level,
+            test_type=test_type
+        )
+
+        return success_response(result.to_dict())
+    except ValueError as e:
+        return error_response(400, str(e))
+    except Exception as e:
+        logger.error(f"Failed to run AB test: {e}")
+        return error_response(500, "A/B测试失败")
+
+
+@app.post("/api/v1/statistics/confidence-interval")
+async def calculate_confidence_interval(data: dict):
+    """计算置信区间"""
+    try:
+        from src.domain.statistical_analysis import statistical_analyzer
+
+        scores = data.get("scores", [])
+        confidence = data.get("confidence", 0.95)
+        method = data.get("method", "t-distribution")
+
+        if len(scores) < 2:
+            return error_response(400, "至少需要2个样本")
+
+        ci = statistical_analyzer.calculate_confidence_interval(
+            scores=scores,
+            confidence=confidence,
+            method=method
+        )
+
+        return success_response(ci.to_dict())
+    except ValueError as e:
+        return error_response(400, str(e))
+    except Exception as e:
+        logger.error(f"Failed to calculate CI: {e}")
+        return error_response(500, "置信区间计算失败")
+
+
+@app.post("/api/v1/statistics/compare-models")
+async def compare_models(data: dict):
+    """多模型比较"""
+    try:
+        from src.domain.statistical_analysis import statistical_analyzer
+
+        model_scores = data.get("model_scores", {})
+        baseline_model = data.get("baseline_model")
+        significance_level = data.get("significance_level", 0.05)
+
+        if not model_scores:
+            return error_response(400, "model_scores 不能为空")
+
+        result = statistical_analyzer.compare_multiple_models(
+            model_scores=model_scores,
+            baseline_model=baseline_model,
+            significance_level=significance_level
+        )
+
+        return success_response(result)
+    except Exception as e:
+        logger.error(f"Failed to compare models: {e}")
+        return error_response(500, "模型比较失败")
+
+
+@app.get("/api/v1/statistics/power-analysis")
+async def get_power_analysis(
+    effect_size: float = 0.5,
+    significance_level: float = 0.05,
+    power: float = 0.8
+):
+    """统计功效分析 - 计算所需样本量"""
+    try:
+        from src.domain.statistical_analysis import statistical_analyzer
+
+        result = statistical_analyzer.power_analysis(
+            effect_size=effect_size,
+            significance_level=significance_level,
+            power=power
+        )
+
+        return success_response(result)
+    except Exception as e:
+        logger.error(f"Failed to calculate power: {e}")
+        return error_response(500, "功效分析失败")
+
+
+# ============================================================
+# 自适应校准 API
+# ============================================================
+
+@app.get("/api/v1/calibration/check")
+async def calibration_pre_check(evaluator_name: str, dataset_id: str = None):
+    """评估器执行前校准检查"""
+    try:
+        from src.domain.adaptive_calibration import adaptive_calibrator
+
+        result = adaptive_calibrator.pre_execution_check(evaluator_name, dataset_id)
+
+        return success_response(result.to_dict())
+    except Exception as e:
+        logger.error(f"Failed to check calibration: {e}")
+        return error_response(500, "校准检查失败")
+
+
+@app.post("/api/v1/calibration/run")
+async def run_calibration(data: dict):
+    """在黄金数据集上运行校准"""
+    try:
+        from src.domain.adaptive_calibration import adaptive_calibrator
+
+        evaluator_name = data.get("evaluator_name")
+        dataset_id = data.get("dataset_id")
+        threshold = data.get("threshold")
+
+        if not evaluator_name or not dataset_id:
+            return error_response(400, "evaluator_name 和 dataset_id 必填")
+
+        # 注意：实际执行需要提供 evaluator_func
+        # 这里返回配置信息，实际校准需要通过后台任务执行
+        return success_response({
+            "message": "校准任务已创建",
+            "evaluator_name": evaluator_name,
+            "dataset_id": dataset_id,
+            "threshold": threshold,
+            "note": "请使用 POST /api/v1/calibration/run-async 执行实际校准"
+        })
+    except ValueError as e:
+        return error_response(400, str(e))
+    except Exception as e:
+        logger.error(f"Failed to run calibration: {e}")
+        return error_response(500, "校准执行失败")
+
+
+@app.get("/api/v1/calibration/report")
+async def get_calibration_report(evaluator_name: str):
+    """获取校准报告"""
+    try:
+        from src.domain.adaptive_calibration import adaptive_calibrator
+
+        report = adaptive_calibrator.get_calibration_report(evaluator_name)
+
+        return success_response(report)
+    except Exception as e:
+        logger.error(f"Failed to get calibration report: {e}")
+        return error_response(500, "获取校准报告失败")
+
+
+@app.get("/api/v1/calibration/status")
+async def get_calibration_status(evaluator_name: str):
+    """获取评估器校准状态"""
+    try:
+        from src.domain.evaluator_version import evaluator_version_manager
+
+        status = evaluator_version_manager.check_calibration_status(evaluator_name)
+
+        return success_response(status)
+    except Exception as e:
+        logger.error(f"Failed to get calibration status: {e}")
+        return error_response(500, "获取校准状态失败")
+
+
+# ============================================================
+# 综合仪表盘 API
+# ============================================================
+
+@app.get("/api/v1/dashboard/trust")
+async def get_trust_dashboard():
+    """获取可信度仪表盘"""
+    try:
+        from src.domain.evaluator_version import evaluator_version_manager
+        from src.domain.golden_dataset import golden_dataset_manager
+        from src.infra.db.repository import EvaluationRepository
+
+        repo = EvaluationRepository()
+
+        # 收集所有评估器的校准状态
+        evaluators = set()
+        records = repo.search(limit=1000)
+        for record in records:
+            if record.get("adapter_name"):
+                evaluators.add(record["adapter_name"])
+
+        calibration_status = []
+        for evaluator in evaluators:
+            status = evaluator_version_manager.check_calibration_status(evaluator)
+            calibration_status.append({
+                "evaluator_name": evaluator,
+                **status
+            })
+
+        # 黄金数据集统计
+        datasets = golden_dataset_manager.list_datasets()
+        dataset_stats = [
+            {
+                "id": d.id,
+                "name": d.name,
+                "samples_count": len(d.samples),
+                "corrected_count": d.corrected_count
+            }
+            for d in datasets
+        ]
+
+        return success_response({
+            "calibration_status": calibration_status,
+            "total_evaluators": len(calibration_status),
+            "calibrated_count": sum(1 for s in calibration_status if s.get("can_proceed")),
+            "golden_datasets": dataset_stats,
+            "system_trust_score": _calculate_trust_score(calibration_status)
+        })
+    except Exception as e:
+        logger.error(f"Failed to get trust dashboard: {e}")
+        return error_response(500, "获取可信度仪表盘失败")
+
+
+def _calculate_trust_score(calibration_status: list) -> float:
+    """计算系统信任分数"""
+    if not calibration_status:
+        return 0.0
+
+    scores = []
+    for status in calibration_status:
+        if status.get("can_proceed"):
+            if status.get("status") == "calibrated":
+                scores.append(100)
+            elif status.get("status") == "not_calibrated":
+                scores.append(50)
+            else:
+                scores.append(30)
+        else:
+            scores.append(0)
+
+    return round(sum(scores) / len(scores), 1)
+
+
+# ============================================================
+# 健康检查端点
+# ============================================================
+
+@app.get("/health")
+async def health_check():
+    """健康检查"""
+    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+
+
+@app.get("/ready")
+async def readiness_check():
+    """就绪检查"""
+    checks = {
+        "database": _check_database(),
+        "evaluators": _check_evaluators()
+    }
+
+    all_ready = all(checks.values())
+    status_code = 200 if all_ready else 503
+
+    return JSONResponse(
+        content={
+            "ready": all_ready,
+            "checks": checks,
+            "timestamp": datetime.utcnow().isoformat()
+        },
+        status_code=status_code
+    )
+
+
+def _check_database() -> bool:
+    """检查数据库连接"""
+    try:
+        from src.infra.db.repository import EvaluationRepository
+        repo = EvaluationRepository()
+        repo.search(limit=1)
+        return True
+    except Exception:
+        return False
+
+
+def _check_evaluators() -> bool:
+    """检查评估器加载"""
+    try:
+        from src.domain.evaluators import list_evaluators
+        list_evaluators()
+        return True
+    except Exception:
+        return False
+
+
+# ============================================================
+# 启动日志
+# ============================================================
+
+logger.info("=" * 60)
+logger.info("AI Evaluation Platform API Started")
+logger.info(f"Version: 2.0.0 (Trust & Statistics Enhancement)")
+logger.info("=" * 60)

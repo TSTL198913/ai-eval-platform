@@ -1,0 +1,16 @@
+{
+  "36836382": {
+    "version_id": "36836382",
+    "evaluator_name": "llm_as_judge",
+    "version": "1.0.0",
+    "changelog": "",
+    "code_hash": "hash123",
+    "config_snapshot": {},
+    "calibration_score": 72.5,
+    "calibration_threshold": 5.0,
+    "status": "active",
+    "created_at": "2026-06-19T03:14:37.384568",
+    "updated_at": "2026-06-19T03:14:37.385672",
+    "created_by": "system"
+  }
+}

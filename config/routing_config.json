@@ -1,0 +1,71 @@
+{
+  "strategies": {
+    "security": {
+      "preference": "quality",
+      "providers": [
+        "openai",
+        "anthropic"
+      ]
+    },
+    "code": {
+      "preference": "quality",
+      "providers": [
+        "deepseek",
+        "openai"
+      ]
+    },
+    "finance": {
+      "preference": "quality",
+      "providers": [
+        "openai",
+        "qwen"
+      ]
+    },
+    "text": {
+      "preference": "balanced",
+      "providers": [
+        "deepseek",
+        "qwen"
+      ]
+    },
+    "general": {
+      "preference": "balanced",
+      "providers": [
+        "deepseek",
+        "qwen",
+        "ollama"
+      ]
+    },
+    "sentiment": {
+      "preference": "speed",
+      "providers": [
+        "qwen",
+        "ollama"
+      ]
+    },
+    "classification": {
+      "preference": "speed",
+      "providers": [
+        "ollama",
+        "qwen"
+      ]
+    },
+    "translation": {
+      "preference": "balanced",
+      "providers": [
+        "deepseek",
+        "qwen"
+      ]
+    },
+    "llm_as_judge": {
+      "preference": "quality",
+      "providers": [
+        "openai",
+        "anthropic"
+      ]
+    }
+  },
+  "fallback_provider": "deepseek",
+  "confidence_threshold": 0.7,
+  "rules": []
+}

@@ -41,7 +41,7 @@ const Login: React.FC = () => {
         <div className='absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse' style={{ animationDelay: '1s' }} />
       </div>
       
-      <Card className='w-full max-w-md shadow-2xl bg-white/10 backdrop-blur-lg border-white/20' bodyStyle={{ padding: '32px' }}>
+      <Card className='w-full max-w-md shadow-2xl bg-white/10 backdrop-blur-lg border-white/20' styles={{ body: { padding: '32px' } }}>
         <div className='text-center mb-8'>
           <div className='w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center'>
             <Lock className='w-8 h-8 text-white' />
@@ -61,7 +61,8 @@ const Login: React.FC = () => {
             <Input
               prefix={<User className='w-5 h-5 text-white/60' />}
               placeholder='请输入用户名'
-              className='bg-white/10 border-white/20 text-white placeholder-white/40'
+              className='login-input bg-white/10 border-white/20 text-white placeholder-white/40'
+              style={{ color: 'white' }}
             />
           </Form.Item>
 
@@ -73,7 +74,8 @@ const Login: React.FC = () => {
             <Input.Password
               prefix={<Lock className='w-5 h-5 text-white/60' />}
               placeholder='请输入密码'
-              className='bg-white/10 border-white/20 text-white placeholder-white/40'
+              className='login-input bg-white/10 border-white/20 text-white placeholder-white/40'
+              style={{ color: 'white' }}
               iconRender={(visible) => (visible ? <EyeOff className='w-5 h-5 text-white/60' /> : <Eye className='w-5 h-5 text-white/60' />)}
             />
           </Form.Item>

@@ -36,6 +36,13 @@ echo "=============================================="
 echo "  健康检查"
 echo "=============================================="
 
+# Frontend健康检查
+if curl -s -f http://localhost/health > /dev/null 2>&1; then
+    echo "✅ Frontend: 健康"
+else
+    echo "⚠️ Frontend: 未就绪（可能需要更多时间启动）"
+fi
+
 # API健康检查
 if curl -s -f http://localhost:8000/health > /dev/null 2>&1; then
     echo "✅ API: 健康"
@@ -61,7 +68,9 @@ echo ""
 echo "=============================================="
 echo "  访问地址"
 echo "=============================================="
+echo "  前端:        http://192.168.30.134"
 echo "  API:         http://192.168.30.134:8000"
+echo "  RabbitMQ:    http://192.168.30.134:15672"
 echo "  Prometheus:  http://192.168.30.134:9090"
 echo "  Grafana:     http://192.168.30.134:3000"
 echo "  Pushgateway: http://192.168.30.134:9091"

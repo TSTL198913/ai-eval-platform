@@ -70,9 +70,6 @@ services:
   # API 服务 (FastAPI) - 生产环境使用预构建镜像
   # ---------------------------------------------------------------------
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile
     image: ${DOCKER_REGISTRY:-ghcr.io/tstl198913}/ai-eval-platform:${IMAGE_TAG:-latest}
     container_name: ai-eval-api
     env_file:
@@ -99,6 +96,55 @@ services:
       restart_policy:
         condition: on-failure
         max_attempts: 3
+      resources:
+        limits:
+          memory: 1G
+          cpus: '2'
+        reservations:
+          memory: 512M
+          cpus: '1'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+    networks:
+      - ai-eval-network
+
+  # ---------------------------------------------------------------------
+  # Frontend 前端服务 (React + Nginx)
+  # ---------------------------------------------------------------------
+  frontend:
+    image: ${DOCKER_REGISTRY:-ghcr.io/tstl198913}/ai-eval-platform:${IMAGE_TAG:-latest}-frontend
+    container_name: ai-eval-frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/health || exit 0"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
     networks:
       - ai-eval-network
 
@@ -106,9 +152,6 @@ services:
   # Celery Worker (任务处理) - 生产环境使用预构建镜像
   # ---------------------------------------------------------------------
   worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
     image: ${DOCKER_REGISTRY:-ghcr.io/tstl198913}/ai-eval-platform:${IMAGE_TAG:-latest}
     container_name: ai-eval-worker
     command: celery -A src.workers.celery_app worker --loglevel=info --concurrency=4
@@ -129,6 +172,18 @@ services:
       restart_policy:
         condition: on-failure
         max_attempts: 3
+      resources:
+        limits:
+          memory: 1G
+          cpus: '2'
+        reservations:
+          memory: 512M
+          cpus: '1'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
     networks:
       - ai-eval-network
 

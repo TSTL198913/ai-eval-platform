@@ -3,6 +3,7 @@
 测试目标：验证FinanceEvaluator的LLM调用流程、评分逻辑、错误处理
 关键发现：FinanceEvaluator依赖LLM客户端，使用score_numeric_match评分
 """
+
 import os
 import sys
 from unittest.mock import MagicMock

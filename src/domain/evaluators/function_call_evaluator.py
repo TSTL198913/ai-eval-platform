@@ -72,9 +72,7 @@ class FunctionCallEvaluator(BaseEvaluator):
             )
 
         # 工具选择评估
-        tool_score, tool_details = self._evaluate_tool_selection(
-            expected_tools, actual_tools
-        )
+        tool_score, tool_details = self._evaluate_tool_selection(expected_tools, actual_tools)
 
         # 参数验证评估
         param_score, param_details = self._evaluate_params(
@@ -82,9 +80,7 @@ class FunctionCallEvaluator(BaseEvaluator):
         )
 
         # 执行结果验证
-        result_score, result_details = self._evaluate_results(
-            expected_results, actual_results
-        )
+        result_score, result_details = self._evaluate_results(expected_results, actual_results)
 
         # 综合评分
         overall_score = tool_score * 0.4 + param_score * 0.35 + result_score * 0.25
@@ -140,9 +136,7 @@ class FunctionCallEvaluator(BaseEvaluator):
         actual_params = self.get_payload_data(request, "actual_params", {})
         tool_definitions = self.get_payload_data(request, "tool_definitions", [])
 
-        score, details = self._evaluate_params(
-            expected_params, actual_params, tool_definitions
-        )
+        score, details = self._evaluate_params(expected_params, actual_params, tool_definitions)
 
         return DomainResponse(
             is_valid=True,
@@ -204,9 +198,7 @@ class FunctionCallEvaluator(BaseEvaluator):
         recall = len(correct_selections) / len(expected_set) if expected_set else 0.0
         # F1 分数
         f1_score = (
-            2 * precision * recall / (precision + recall)
-            if (precision + recall) > 0
-            else 0.0
+            2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
         )
 
         # 惩罚错误选择
@@ -305,9 +297,7 @@ class FunctionCallEvaluator(BaseEvaluator):
                 if tool_def:
                     param_schema = self._get_param_schema(param_name, tool_def)
                     if param_schema:
-                        type_valid = self._validate_param_type(
-                            actual_value, param_schema
-                        )
+                        type_valid = self._validate_param_type(actual_value, param_schema)
                         if type_valid:
                             correct_params += 0.5  # 类型正确但值不正确，给一半分
                             param_results[param_name] = {
@@ -326,9 +316,7 @@ class FunctionCallEvaluator(BaseEvaluator):
         score = correct_params / total_params if total_params > 0 else 1.0
         return score, param_results
 
-    def _evaluate_results(
-        self, expected_results: dict, actual_results: dict
-    ) -> tuple[float, dict]:
+    def _evaluate_results(self, expected_results: dict, actual_results: dict) -> tuple[float, dict]:
         """评估执行结果
 
         Args:
@@ -428,17 +416,13 @@ class FunctionCallEvaluator(BaseEvaluator):
         if isinstance(expected, dict) and isinstance(actual, dict):
             if set(expected.keys()) != set(actual.keys()):
                 return False
-            return all(
-                self._compare_values(expected[k], actual[k]) for k in expected.keys()
-            )
+            return all(self._compare_values(expected[k], actual[k]) for k in expected.keys())
 
         # 处理列表比较
         if isinstance(expected, list) and isinstance(actual, list):
             if len(expected) != len(actual):
                 return False
-            return all(
-                self._compare_values(e, a) for e, a in zip(expected, actual, strict=False)
-            )
+            return all(self._compare_values(e, a) for e, a in zip(expected, actual, strict=False))
 
         # 字符串比较（忽略大小写和首尾空格）
         if isinstance(expected, str) and isinstance(actual, str):

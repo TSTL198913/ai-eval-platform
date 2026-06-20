@@ -6,6 +6,7 @@
 3. 验证持续请求稳定性
 4. 验证内存和资源消耗
 """
+
 import concurrent.futures
 import os
 import statistics
@@ -59,7 +60,7 @@ class TestHighConcurrencyStress:
                     json={
                         "id": f"stress_test_{i}",
                         "type": "general",
-                        "payload": {"user_input": f"stress test input {i}"}
+                        "payload": {"user_input": f"stress test input {i}"},
                     },
                 )
                 latency = (time.perf_counter() - start_time) * 1000
@@ -91,8 +92,10 @@ class TestHighConcurrencyStress:
             p95_latency = statistics.quantiles(results["latencies"], n=100)[94]
             assert p95_latency <= 5000, f"P95响应时间过高: {p95_latency:.2f}ms"
 
-        print(f"压力测试结果: 成功 {results['success']}, 失败 {results['error']}, "
-              f"平均延迟 {avg_latency:.2f}ms, P95 {p95_latency:.2f}ms")
+        print(
+            f"压力测试结果: 成功 {results['success']}, 失败 {results['error']}, "
+            f"平均延迟 {avg_latency:.2f}ms, P95 {p95_latency:.2f}ms"
+        )
 
     def test_200_concurrent_repository_operations(self):
         """200并发仓储操作测试"""
@@ -131,8 +134,9 @@ class TestHighConcurrencyStress:
             concurrent.futures.wait(futures)
 
         # 验证：所有操作成功
-        assert results["save_success"] == num_operations, \
-            f"保存失败: 成功 {results['save_success']}, 失败 {results['save_error']}"
+        assert (
+            results["save_success"] == num_operations
+        ), f"保存失败: 成功 {results['save_success']}, 失败 {results['save_error']}"
 
         # 验证：平均延迟 ≤ 500ms
         avg_latency = statistics.mean(results["latencies"])
@@ -309,8 +313,7 @@ class TestSustainedLoadStress:
             t.join()
 
         # 验证：总请求量 ≥ 100
-        assert results["total_requests"] >= 100, \
-            f"请求量过低: {results['total_requests']}"
+        assert results["total_requests"] >= 100, f"请求量过低: {results['total_requests']}"
 
         # 验证：成功率 ≥ 99%
         success_rate = results["success"] / results["total_requests"]
@@ -320,9 +323,11 @@ class TestSustainedLoadStress:
         avg_latency = statistics.mean(results["latencies"])
         assert avg_latency <= 200, f"平均延迟过高: {avg_latency:.2f}ms"
 
-        print(f"持续负载测试结果: 总请求 {results['total_requests']}, "
-              f"成功 {results['success']}, 失败 {results['error']}, "
-              f"平均延迟 {avg_latency:.2f}ms")
+        print(
+            f"持续负载测试结果: 总请求 {results['total_requests']}, "
+            f"成功 {results['success']}, 失败 {results['error']}, "
+            f"平均延迟 {avg_latency:.2f}ms"
+        )
 
     def test_sustained_repository_operations_30_seconds(self):
         """30秒持续仓储操作测试"""
@@ -372,8 +377,7 @@ class TestSustainedLoadStress:
             t.join()
 
         # 验证：总操作量 ≥ 50
-        assert results["total_operations"] >= 50, \
-            f"操作量过低: {results['total_operations']}"
+        assert results["total_operations"] >= 50, f"操作量过低: {results['total_operations']}"
 
         # 验证：成功率 ≥ 99%
         success_rate = results["success"] / results["total_operations"]
@@ -488,9 +492,11 @@ class TestBurstLoadStress:
         success_rate = results["success"] / num_requests
         assert success_rate >= 0.95, f"成功率过低: {success_rate:.2%}"
 
-        print(f"突发负载测试结果: 总请求 {num_requests}, "
-              f"成功 {results['success']}, 失败 {results['error']}, "
-              f"耗时 {elapsed_time:.2f}秒")
+        print(
+            f"突发负载测试结果: 总请求 {num_requests}, "
+            f"成功 {results['success']}, 失败 {results['error']}, "
+            f"耗时 {elapsed_time:.2f}秒"
+        )
 
 
 if __name__ == "__main__":

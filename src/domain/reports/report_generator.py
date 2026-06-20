@@ -48,11 +48,13 @@ class EvaluationReport:
         self.metrics[name] = {"value": value, "unit": unit}
 
     def add_chart(self, chart_type: str, title: str, data: Dict):
-        self.charts.append({
-            "type": chart_type,
-            "title": title,
-            "data": data,
-        })
+        self.charts.append(
+            {
+                "type": chart_type,
+                "title": title,
+                "data": data,
+            }
+        )
 
     def generate_html(self, theme: ReportTheme = ReportTheme.LIGHT) -> str:
         """生成HTML报告"""
@@ -217,23 +219,33 @@ class ReportGenerator:
         report.add_summary("平均耗时", f"{avg_latency:.2f}ms")
 
         for result in results:
-            report.add_result({
-                "id": result.get("id", ""),
-                "type": result.get("type", ""),
-                "status": "passed" if result.get("score", 0) >= 0.7 else "failed",
-                "score": result.get("score", 0),
-                "latency_ms": result.get("latency_ms", 0),
-            })
+            report.add_result(
+                {
+                    "id": result.get("id", ""),
+                    "type": result.get("type", ""),
+                    "status": "passed" if result.get("score", 0) >= 0.7 else "failed",
+                    "score": result.get("score", 0),
+                    "latency_ms": result.get("latency_ms", 0),
+                }
+            )
 
         report.add_metric("准确率", passed / max(total, 1) * 100, "%")
         report.add_metric("平均分数", avg_score * 100, "%")
 
-        return report.generate_html() if format == ReportFormat.HTML else \
-               report.generate_markdown() if format == ReportFormat.MARKDOWN else \
-               report.generate_json()
+        return (
+            report.generate_html()
+            if format == ReportFormat.HTML
+            else (
+                report.generate_markdown()
+                if format == ReportFormat.MARKDOWN
+                else report.generate_json()
+            )
+        )
 
     @classmethod
-    def generate_and_save(cls, results: List[Dict], file_path: str, format: ReportFormat = ReportFormat.HTML):
+    def generate_and_save(
+        cls, results: List[Dict], file_path: str, format: ReportFormat = ReportFormat.HTML
+    ):
         """生成并保存报告"""
         report = EvaluationReport(title="AI Evaluation Report")
 
@@ -262,6 +274,7 @@ def _get_score_from_record(record: Dict) -> float:
         return response_data.get("score", 0.0)
     try:
         import json
+
         response_data = json.loads(response_data)
         return response_data.get("score", 0.0)
     except:
@@ -285,13 +298,15 @@ def generate_report_from_records(records: List[Dict], output_path: str = "report
     report.add_summary("平均分数", f"{avg_score:.2f}")
 
     for record in records:
-        report.add_result({
-            "id": record.get("case_id", record.get("id", "")),
-            "type": record.get("evaluator_type", record.get("type", "")),
-            "status": record.get("status", ""),
-            "score": _get_score_from_record(record),
-            "latency_ms": record.get("latency_ms", 0),
-        })
+        report.add_result(
+            {
+                "id": record.get("case_id", record.get("id", "")),
+                "type": record.get("evaluator_type", record.get("type", "")),
+                "status": record.get("status", ""),
+                "score": _get_score_from_record(record),
+                "latency_ms": record.get("latency_ms", 0),
+            }
+        )
 
     html_path = os.path.join(output_path, f"report_{timestamp}.html")
     report.save(html_path, ReportFormat.HTML)

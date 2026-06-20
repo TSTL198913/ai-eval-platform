@@ -3,6 +3,7 @@
 覆盖: 登录 → 评测 → 查看记录 → 生成报告
 按照测试评审报告要求补充 P0/P1 级测试用例
 """
+
 import os
 import sys
 from unittest.mock import MagicMock
@@ -137,9 +138,7 @@ class TestBusinessLogicIntegration:
                 assert hasattr(evaluator, "evaluate")
                 assert hasattr(evaluator, "safe_evaluate")
             except Exception as e:
-                pytest.fail(
-                    f"评估器 {evaluator_name} 实例化失败: {e}"
-                )
+                pytest.fail(f"评估器 {evaluator_name} 实例化失败: {e}")
 
     def test_record_uniqueness_same_case_id(self):
         """P1 - 记录唯一性验证：相同case_id不应重复插入导致数据混乱"""
@@ -252,8 +251,7 @@ class TestDatabaseTransactionRollback:
         final_count = repo.count()
 
         assert final_count == initial_count, (
-            "评测失败时记录应回滚，"
-            f"但数据库记录数从 {initial_count} 增加到了 {final_count}"
+            "评测失败时记录应回滚，" f"但数据库记录数从 {initial_count} 增加到了 {final_count}"
         )
 
 
@@ -350,8 +348,7 @@ class TestSecurityMiddleware:
                 },
             )
             assert response.status_code == 403, (
-                f"安全中间件应拦截Prompt Injection，"
-                f"实际返回 {response.status_code}"
+                f"安全中间件应拦截Prompt Injection，" f"实际返回 {response.status_code}"
             )
 
     def test_security_middleware_allows_normal_requests(self):
@@ -386,11 +383,13 @@ class TestBatchEvaluation:
 
         cases = []
         for i in range(100):
-            cases.append({
-                "id": f"batch_test_{i:03d}",
-                "type": "general",
-                "payload": {"user_input": f"测试问题 {i}"},
-            })
+            cases.append(
+                {
+                    "id": f"batch_test_{i:03d}",
+                    "type": "general",
+                    "payload": {"user_input": f"测试问题 {i}"},
+                }
+            )
 
         response = client.post(
             "/api/v1/evaluate/sync-batch",

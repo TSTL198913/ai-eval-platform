@@ -8,6 +8,7 @@ Runtime Agent Framework - 运行时Agent调度框架
 - 记忆管理：短期+长期记忆
 - 轨迹记录：完整执行轨迹
 """
+
 import time
 import uuid
 from collections.abc import Callable
@@ -20,14 +21,15 @@ from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
 
 class AgentMode(Enum):
-    REACT = "react"               # 思考-行动-观察
-    PLAN_EXECUTE = "plan_execute" # 先规划后执行
-    AUTO = "auto"                 # 自动选择
+    REACT = "react"  # 思考-行动-观察
+    PLAN_EXECUTE = "plan_execute"  # 先规划后执行
+    AUTO = "auto"  # 自动选择
 
 
 @dataclass
 class AgentState:
     """Agent运行时状态"""
+
     task: str
     plan: list[str] = field(default_factory=list)
     history: list[dict[str, Any]] = field(default_factory=list)
@@ -45,6 +47,7 @@ class AgentState:
 @dataclass
 class ToolSpec:
     """工具规格定义"""
+
     name: str
     description: str
     parameters: dict[str, Any]
@@ -53,11 +56,13 @@ class ToolSpec:
 
 class ToolRegistry:
     """工具注册中心（运行时）"""
+
     _tools: dict[str, ToolSpec] = {}
 
     @classmethod
     def register(cls, name: str, description: str, parameters: dict[str, Any]):
         """工具注册装饰器"""
+
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             cls._tools[name] = ToolSpec(
                 name=name,
@@ -66,6 +71,7 @@ class ToolRegistry:
                 handler=func,
             )
             return func
+
         return decorator
 
     @classmethod
@@ -161,12 +167,14 @@ class RuntimeAgentEvaluator:
             # Observation
             observation = self._execute_action(action, state)
             # 记录历史
-            state.history.append({
-                "step": state.current_step,
-                "thought": thought,
-                "action": action,
-                "observation": observation,
-            })
+            state.history.append(
+                {
+                    "step": state.current_step,
+                    "thought": thought,
+                    "action": action,
+                    "observation": observation,
+                }
+            )
             # 检查是否完成
             if action.get("type") == "finish":
                 state.completed = True
@@ -207,11 +215,13 @@ class RuntimeAgentEvaluator:
 
         # Step 1: 生成计划
         state.plan = self._generate_plan(task, available_tools)
-        state.history.append({
-            "step": 0,
-            "phase": "planning",
-            "plan": state.plan,
-        })
+        state.history.append(
+            {
+                "step": 0,
+                "phase": "planning",
+                "plan": state.plan,
+            }
+        )
 
         # Step 2: 执行计划
         for i, plan_step in enumerate(state.plan):
@@ -220,22 +230,30 @@ class RuntimeAgentEvaluator:
                 state.error = "达到最大步数限制"
                 break
             # 执行每个计划步骤
-            action = {"type": "execute_step", "description": plan_step, "tool": self._infer_tool(plan_step)}
+            action = {
+                "type": "execute_step",
+                "description": plan_step,
+                "tool": self._infer_tool(plan_step),
+            }
             observation = self._execute_action(action, state)
-            state.history.append({
-                "step": state.current_step,
-                "phase": "execution",
-                "plan_step": plan_step,
-                "action": action,
-                "observation": observation,
-            })
+            state.history.append(
+                {
+                    "step": state.current_step,
+                    "phase": "execution",
+                    "plan_step": plan_step,
+                    "action": action,
+                    "observation": observation,
+                }
+            )
             if not observation.get("success", True):
                 # 重试或调整计划
-                state.history.append({
-                    "step": state.current_step,
-                    "phase": "recovery",
-                    "action": "retry",
-                })
+                state.history.append(
+                    {
+                        "step": state.current_step,
+                        "phase": "recovery",
+                        "action": "retry",
+                    }
+                )
 
         state.completed = True
         state.success = state.error is None
@@ -270,11 +288,13 @@ class RuntimeAgentEvaluator:
         """列出所有注册工具"""
         tools = []
         for _name, spec in ToolRegistry._tools.items():
-            tools.append({
-                "name": spec.name,
-                "description": spec.description,
-                "parameters": spec.parameters,
-            })
+            tools.append(
+                {
+                    "name": spec.name,
+                    "description": spec.description,
+                    "parameters": spec.parameters,
+                }
+            )
         return DomainResponse(
             data={"is_valid": True, "tools": tools, "count": len(tools)},
             status_code=200,
@@ -357,7 +377,9 @@ class RuntimeAgentEvaluator:
             "total_tokens": state.total_tokens,
             "started_at": state.started_at,
             "finished_at": state.finished_at,
-            "duration_ms": (state.finished_at - state.started_at) * 1000 if state.finished_at else None,
+            "duration_ms": (
+                (state.finished_at - state.started_at) * 1000 if state.finished_at else None
+            ),
             "history_length": len(state.history),
         }
 
@@ -379,6 +401,7 @@ def calculator(input: str) -> str:
     try:
         # 安全的eval（只允许数字和基本运算符）
         import re
+
         if re.match(r"^[\d\s\+\-\*\/\.\(\)]+$", input):
             return str(eval(input))
         return "Invalid expression"

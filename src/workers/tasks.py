@@ -16,7 +16,9 @@ def _get_evaluation_engine(llm_client=None):
     """延迟获取EvaluationEngine"""
     from src.domain.models.llm_factory import create_llm_client
     from src.engine import EvaluationEngine
+
     return EvaluationEngine(create_llm_client(client=llm_client))
+
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +28,9 @@ IS_TESTING = os.environ.get("TESTING", "0") == "1"
 BUFFER_BATCH_SIZE = int(os.environ.get("BUFFER_BATCH_SIZE", "100"))
 BUFFER_FLUSH_INTERVAL = float(os.environ.get("BUFFER_FLUSH_INTERVAL", "5.0"))
 # 缓冲优化：自适应批量大小配置
-BUFFER_ADAPTIVE_BATCH_SIZE = bool(os.environ.get("BUFFER_ADAPTIVE_BATCH_SIZE", "true").lower() == "true")
+BUFFER_ADAPTIVE_BATCH_SIZE = bool(
+    os.environ.get("BUFFER_ADAPTIVE_BATCH_SIZE", "true").lower() == "true"
+)
 BUFFER_MIN_BATCH_SIZE = int(os.environ.get("BUFFER_MIN_BATCH_SIZE", "10"))
 BUFFER_MAX_BATCH_SIZE = int(os.environ.get("BUFFER_MAX_BATCH_SIZE", "500"))
 # 优先级缓冲配置
@@ -58,6 +62,7 @@ def _get_metrics() -> dict[str, Any]:
             EVALUATION_ERRORS,
             EVALUATION_LATENCY,
         )
+
         _METRICS = {
             "BUFFER_FLUSH_LATENCY": BUFFER_FLUSH_LATENCY,
             "BUFFER_SIZE": BUFFER_SIZE,
@@ -72,6 +77,7 @@ def _get_Task():
     global _TASK
     if _TASK is None:
         from celery import Task
+
         _TASK = Task
     return _TASK
 
@@ -80,6 +86,7 @@ def _get_celery_app():
     global _CELERY_APP
     if _CELERY_APP is None:
         from src.workers.celery_app import get_celery_app
+
         _CELERY_APP = get_celery_app()
     return _CELERY_APP
 
@@ -259,7 +266,9 @@ class EvaluationBufferService:
 
             adaptive_batch_size = self._get_adaptive_batch_size()
             should_flush = len(self.buffer) >= adaptive_batch_size or (
-                priority and self.priority_enabled and len(self.priority_buffer) >= adaptive_batch_size
+                priority
+                and self.priority_enabled
+                and len(self.priority_buffer) >= adaptive_batch_size
             )
 
             if should_flush:
@@ -359,7 +368,11 @@ class EvaluationBufferService:
     def get_flush_stats(self) -> dict[str, Any]:
         """获取flush统计信息"""
         with self._lock:
-            avg_latency = self._total_flush_latency / self._total_flush_count if self._total_flush_count > 0 else 0.0
+            avg_latency = (
+                self._total_flush_latency / self._total_flush_count
+                if self._total_flush_count > 0
+                else 0.0
+            )
             return {
                 "total_flush_count": self._total_flush_count,
                 "avg_flush_latency": avg_latency,
@@ -406,7 +419,7 @@ class _TaskBase:
 def _create_task_base():
     """创建生产环境Task基类"""
     Task = _get_Task()
-    return type('WindowsUltimateSoloTask', (Task, _TaskBase), {})
+    return type("WindowsUltimateSoloTask", (Task, _TaskBase), {})
 
 
 WindowsUltimateSoloTask = _create_task_base() if not IS_TESTING else _TaskBase
@@ -426,6 +439,7 @@ def _result_to_model(result: EvaluationResult) -> EvaluationResultModel:
 def _register_task(**kwargs):
     """注册Celery任务"""
     if IS_TESTING:
+
         def mock_task_decorator(func):
             class MockAsyncResult:
                 def __init__(self, task_id, result):
@@ -485,7 +499,9 @@ def _register_task(**kwargs):
     # 任务追踪
     track_started=True,
 )
-def eval_case_task(self, case_data: dict, priority: bool = False, llm_client=None) -> dict[str, Any]:
+def eval_case_task(
+    self, case_data: dict, priority: bool = False, llm_client=None
+) -> dict[str, Any]:
     """评测任务
 
     Args:
@@ -514,7 +530,9 @@ def eval_case_task(self, case_data: dict, priority: bool = False, llm_client=Non
 
         if metrics:
             latency = time.time() - start_time
-            metrics["EVALUATION_LATENCY"].labels(domain=case_type, status=result.status.value).observe(latency)
+            metrics["EVALUATION_LATENCY"].labels(
+                domain=case_type, status=result.status.value
+            ).observe(latency)
             metrics["EVALUATION_COUNTER"].labels(domain=case_type, status=result.status.value).inc()
 
         db_record = _result_to_model(result)

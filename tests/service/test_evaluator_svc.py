@@ -2,6 +2,7 @@
 Service 层综合测试 - 真实业务场景
 重点：业务编排、跨层数据流转、异常分类、副作用隔离
 """
+
 import os
 import sys
 from unittest.mock import MagicMock, patch
@@ -17,6 +18,7 @@ def reset_evaluator_registry():
     """确保每个测试前评估器注册表干净"""
     from src.domain.evaluators import auto_discover
     from src.domain.evaluators.evaluator_factory import EvaluatorFactory as EF
+
     EF._registry = {}
     auto_discover(force=True)
     yield
@@ -119,6 +121,7 @@ class TestServiceExceptionHandlerBusinessScenarios:
 
     def test_handles_contract_validation_error(self):
         """场景：用户提交非法数据"""
+
         @service_exception_handler
         def fail_with_contract():
             raise ContractValidationError("字段缺失")
@@ -130,6 +133,7 @@ class TestServiceExceptionHandlerBusinessScenarios:
 
     def test_handles_domain_logic_error(self):
         """场景：业务规则触发（如不支持的模型）"""
+
         @service_exception_handler
         def fail_with_domain():
             raise DomainLogicError("模型不支持")
@@ -140,6 +144,7 @@ class TestServiceExceptionHandlerBusinessScenarios:
 
     def test_handles_infrastructure_error(self):
         """场景：Redis/DB 不可用"""
+
         @service_exception_handler
         def fail_with_infra():
             raise InfrastructureError("连接超时")
@@ -166,6 +171,7 @@ class TestServiceExceptionHandlerBusinessScenarios:
 
     def test_handles_unexpected_error_as_internal(self):
         """场景：未预期的 RuntimeError"""
+
         @service_exception_handler
         def fail_unexpected():
             raise RuntimeError("Null pointer")
@@ -178,6 +184,7 @@ class TestServiceExceptionHandlerBusinessScenarios:
 
     def test_normal_return_passes_through(self):
         """场景：正常返回不应被包装"""
+
         @service_exception_handler
         def returns_data():
             return {"score": 0.9, "data": "test"}
@@ -286,6 +293,7 @@ class TestServiceLayerSideEffectsBusinessScenarios:
         """
         # 检查 _repository 是否在 import 时就创建
         from src.services import evaluator_svc
+
         # 注意：单例已存在
         assert hasattr(evaluator_svc, "_repository")
         # 这是已知的设计问题（导入时副作用）

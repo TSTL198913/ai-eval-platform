@@ -26,11 +26,14 @@ class TestEvaluatorWithCircuitBreaker:
 
     @pytest.fixture
     def breaker(self):
-        return CircuitBreaker("evaluator-breaker", config=CircuitBreakerConfig(
-            failure_threshold=3,
-            success_threshold=2,
-            timeout_seconds=10.0,
-        ))
+        return CircuitBreaker(
+            "evaluator-breaker",
+            config=CircuitBreakerConfig(
+                failure_threshold=3,
+                success_threshold=2,
+                timeout_seconds=10.0,
+            ),
+        )
 
     @pytest.mark.asyncio
     async def test_evaluator_with_circuit_breaker(self, evaluator, breaker):
@@ -262,11 +265,14 @@ class TestFullIntegration:
     @pytest.mark.asyncio
     async def test_full_pipeline(self, evaluator, mock_redis):
         """完整评估管道"""
-        breaker = CircuitBreaker("full-pipeline", config=CircuitBreakerConfig(
-            failure_threshold=5,
-            success_threshold=2,
-            timeout_seconds=30.0,
-        ))
+        breaker = CircuitBreaker(
+            "full-pipeline",
+            config=CircuitBreakerConfig(
+                failure_threshold=5,
+                success_threshold=2,
+                timeout_seconds=30.0,
+            ),
+        )
         checker = IdempotencyChecker(mock_redis)
         lock = DistributedLock(mock_redis, "full-pipeline-lock")
         limiter = RateLimiter(mock_redis)
@@ -299,11 +305,14 @@ class TestFullIntegration:
         failing_evaluator = MagicMock()
         failing_evaluator.evaluate = MagicMock(side_effect=Exception("Temporary failure"))
 
-        breaker = CircuitBreaker("recovery-test", config=CircuitBreakerConfig(
-            failure_threshold=2,
-            success_threshold=1,
-            timeout_seconds=10.0,
-        ))
+        breaker = CircuitBreaker(
+            "recovery-test",
+            config=CircuitBreakerConfig(
+                failure_threshold=2,
+                success_threshold=1,
+                timeout_seconds=10.0,
+            ),
+        )
         checker = IdempotencyChecker(mock_redis)
         lock = DistributedLock(mock_redis, "recovery-lock")
         limiter = RateLimiter(mock_redis)
@@ -326,7 +335,9 @@ class TestFullIntegration:
 
                 assert breaker.state == CircuitState.OPEN
 
-                failing_evaluator.evaluate = MagicMock(return_value=MagicMock(is_valid=True, score=0.8))
+                failing_evaluator.evaluate = MagicMock(
+                    return_value=MagicMock(is_valid=True, score=0.8)
+                )
 
                 breaker.reset()
                 result = await breaker.call(lambda: failing_evaluator.evaluate(request))

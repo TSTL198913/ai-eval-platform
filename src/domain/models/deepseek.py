@@ -49,7 +49,9 @@ class DeepSeekClient(BaseLLMClient):
     async def achat(self, prompt: str, system_prompt: str | None = None) -> str:
         try:
             payload = self._build_payload(prompt, system_prompt)
-            response = await self.async_client.post(self.api_url, headers=self.headers, json=payload)
+            response = await self.async_client.post(
+                self.api_url, headers=self.headers, json=payload
+            )
             if response.status_code in (401, 402):
                 from src.domain.models.stub import StubLLMClient
 

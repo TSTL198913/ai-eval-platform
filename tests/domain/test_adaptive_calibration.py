@@ -9,6 +9,7 @@
 
 关键发现：（测试过程中记录）
 """
+
 import os
 import shutil
 import sys
@@ -42,9 +43,7 @@ class TestAdaptiveCalibratorInitialization:
     def test_initialization_with_custom_values(self):
         """使用自定义值初始化"""
         calibrator = AdaptiveCalibrator(
-            default_threshold=10.0,
-            min_calibration_samples=10,
-            calibration_interval=48
+            default_threshold=10.0, min_calibration_samples=10, calibration_interval=48
         )
 
         assert calibrator._default_threshold == 10.0
@@ -76,7 +75,7 @@ class TestAdaptiveCalibratorRunCalibration:
             sample.id = f"sample_{i:03d}"
             sample.scores = {
                 "correctness": 90 + i * 2,  # 90, 92, 94, 96, 98
-                "completeness": 85 + i       # 85, 86, 87, 88, 89
+                "completeness": 85 + i,  # 85, 86, 87, 88, 89
             }
             samples.append(sample)
 
@@ -86,7 +85,7 @@ class TestAdaptiveCalibratorRunCalibration:
 
     def test_run_calibration_calculates_deviation(self, calibrator, mock_golden_dataset):
         """校准应计算偏差"""
-        with patch('src.domain.adaptive_calibration.golden_dataset_manager') as mock_manager:
+        with patch("src.domain.adaptive_calibration.golden_dataset_manager") as mock_manager:
             mock_manager.get_dataset.return_value = mock_golden_dataset
 
             def mock_evaluate_fn(sample):
@@ -96,7 +95,7 @@ class TestAdaptiveCalibratorRunCalibration:
             result = calibrator.run_calibration(
                 evaluator_name="test_evaluator",
                 evaluator_func=mock_evaluate_fn,
-                dataset_id="test_dataset_id"
+                dataset_id="test_dataset_id",
             )
 
             assert isinstance(result, CalibrationResult)
@@ -105,7 +104,7 @@ class TestAdaptiveCalibratorRunCalibration:
 
     def test_run_calibration_detects_calibration_pass(self, calibrator, mock_golden_dataset):
         """校准应检测校准通过（偏差<阈值）"""
-        with patch('src.domain.adaptive_calibration.golden_dataset_manager') as mock_manager:
+        with patch("src.domain.adaptive_calibration.golden_dataset_manager") as mock_manager:
             mock_manager.get_dataset.return_value = mock_golden_dataset
 
             def mock_evaluate_fn(sample):
@@ -116,7 +115,7 @@ class TestAdaptiveCalibratorRunCalibration:
                 evaluator_name="test_evaluator",
                 evaluator_func=mock_evaluate_fn,
                 dataset_id="test_dataset_id",
-                threshold=5.0
+                threshold=5.0,
             )
 
             # 当评估器与专家完全一致时，mean_deviation=0
@@ -125,7 +124,7 @@ class TestAdaptiveCalibratorRunCalibration:
 
     def test_run_calibration_detects_drift(self, calibrator, mock_golden_dataset):
         """校准应检测到漂移（偏差>阈值）"""
-        with patch('src.domain.adaptive_calibration.golden_dataset_manager') as mock_manager:
+        with patch("src.domain.adaptive_calibration.golden_dataset_manager") as mock_manager:
             mock_manager.get_dataset.return_value = mock_golden_dataset
 
             def mock_evaluate_fn(sample):
@@ -136,7 +135,7 @@ class TestAdaptiveCalibratorRunCalibration:
                 evaluator_name="test_evaluator",
                 evaluator_func=mock_evaluate_fn,
                 dataset_id="test_dataset_id",
-                threshold=5.0
+                threshold=5.0,
             )
 
             assert result.mean_deviation > 5.0
@@ -145,7 +144,7 @@ class TestAdaptiveCalibratorRunCalibration:
 
     def test_run_calibration_calculates_rmse(self, calibrator, mock_golden_dataset):
         """校准应计算均方根误差"""
-        with patch('src.domain.adaptive_calibration.golden_dataset_manager') as mock_manager:
+        with patch("src.domain.adaptive_calibration.golden_dataset_manager") as mock_manager:
             mock_manager.get_dataset.return_value = mock_golden_dataset
 
             def mock_evaluate_fn(sample):
@@ -154,7 +153,7 @@ class TestAdaptiveCalibratorRunCalibration:
             result = calibrator.run_calibration(
                 evaluator_name="test_evaluator",
                 evaluator_func=mock_evaluate_fn,
-                dataset_id="test_dataset_id"
+                dataset_id="test_dataset_id",
             )
 
             assert result.rmse > 0  # RMSE应该大于0
@@ -162,7 +161,7 @@ class TestAdaptiveCalibratorRunCalibration:
 
     def test_run_calibration_calculates_correlation(self, calibrator, mock_golden_dataset):
         """校准应计算与专家评分的相关性"""
-        with patch('src.domain.adaptive_calibration.golden_dataset_manager') as mock_manager:
+        with patch("src.domain.adaptive_calibration.golden_dataset_manager") as mock_manager:
             mock_manager.get_dataset.return_value = mock_golden_dataset
 
             def mock_evaluate_fn(sample):
@@ -172,7 +171,7 @@ class TestAdaptiveCalibratorRunCalibration:
             result = calibrator.run_calibration(
                 evaluator_name="test_evaluator",
                 evaluator_func=mock_evaluate_fn,
-                dataset_id="test_dataset_id"
+                dataset_id="test_dataset_id",
             )
 
             assert result.correlation == 1.0  # 完全相关
@@ -182,26 +181,26 @@ class TestAdaptiveCalibratorRunCalibration:
         # 只保留2个样本（少于min_calibration_samples=5）
         mock_golden_dataset.samples = mock_golden_dataset.samples[:2]
 
-        with patch('src.domain.adaptive_calibration.golden_dataset_manager') as mock_manager:
+        with patch("src.domain.adaptive_calibration.golden_dataset_manager") as mock_manager:
             mock_manager.get_dataset.return_value = mock_golden_dataset
 
             with pytest.raises(ValueError, match="至少需要"):
                 calibrator.run_calibration(
                     evaluator_name="test_evaluator",
                     evaluator_func=lambda x: {"score": 80},
-                    dataset_id="test_dataset_id"
+                    dataset_id="test_dataset_id",
                 )
 
     def test_run_calibration_dataset_not_found_raises(self, calibrator):
         """数据集不存在应抛出异常"""
-        with patch('src.domain.adaptive_calibration.golden_dataset_manager') as mock_manager:
+        with patch("src.domain.adaptive_calibration.golden_dataset_manager") as mock_manager:
             mock_manager.get_dataset.return_value = None
 
             with pytest.raises(ValueError, match="Dataset.*not found"):
                 calibrator.run_calibration(
                     evaluator_name="test_evaluator",
                     evaluator_func=lambda x: {"score": 80},
-                    dataset_id="nonexistent_id"
+                    dataset_id="nonexistent_id",
                 )
 
 
@@ -219,7 +218,7 @@ class TestAdaptiveCalibratorPreExecutionCheck:
 
     def test_pre_execution_check_no_version_warns(self, calibrator):
         """无版本注册应警告"""
-        with patch('src.domain.adaptive_calibration.evaluator_version_manager') as mock_version_mgr:
+        with patch("src.domain.adaptive_calibration.evaluator_version_manager") as mock_version_mgr:
             mock_version_mgr.get_current_version.return_value = None
 
             check = calibrator.pre_execution_check("test_evaluator")
@@ -235,17 +234,14 @@ class TestAdaptiveCalibratorPreExecutionCheck:
             "test_evaluator:test_dataset": {
                 "is_calibrated": True,
                 "mean_deviation": 3.0,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
             }
         }
 
-        with patch('src.domain.adaptive_calibration.evaluator_version_manager') as mock_version_mgr:
+        with patch("src.domain.adaptive_calibration.evaluator_version_manager") as mock_version_mgr:
             mock_version_mgr.get_current_version.return_value = MagicMock(version="1.0.0")
 
-            check = calibrator.pre_execution_check(
-                "test_evaluator",
-                dataset_id="test_dataset"
-            )
+            check = calibrator.pre_execution_check("test_evaluator", dataset_id="test_dataset")
 
             assert check.can_proceed is True
             assert check.status == CalibrationStatus.CALIBRATED
@@ -256,17 +252,14 @@ class TestAdaptiveCalibratorPreExecutionCheck:
             "test_evaluator:test_dataset": {
                 "is_calibrated": False,
                 "mean_deviation": 8.0,  # 超过阈值
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
             }
         }
 
-        with patch('src.domain.adaptive_calibration.evaluator_version_manager') as mock_version_mgr:
+        with patch("src.domain.adaptive_calibration.evaluator_version_manager") as mock_version_mgr:
             mock_version_mgr.get_current_version.return_value = MagicMock(version="1.0.0")
 
-            check = calibrator.pre_execution_check(
-                "test_evaluator",
-                dataset_id="test_dataset"
-            )
+            check = calibrator.pre_execution_check("test_evaluator", dataset_id="test_dataset")
 
             assert check.can_proceed is False
             assert check.status == CalibrationStatus.DRIFTED
@@ -280,17 +273,14 @@ class TestAdaptiveCalibratorPreExecutionCheck:
             "test_evaluator:test_dataset": {
                 "is_calibrated": True,
                 "mean_deviation": 3.0,
-                "timestamp": past_time
+                "timestamp": past_time,
             }
         }
 
-        with patch('src.domain.adaptive_calibration.evaluator_version_manager') as mock_version_mgr:
+        with patch("src.domain.adaptive_calibration.evaluator_version_manager") as mock_version_mgr:
             mock_version_mgr.get_current_version.return_value = MagicMock(version="1.0.0")
 
-            check = calibrator.pre_execution_check(
-                "test_evaluator",
-                dataset_id="test_dataset"
-            )
+            check = calibrator.pre_execution_check("test_evaluator", dataset_id="test_dataset")
 
             assert check.can_proceed is False
             assert check.status == CalibrationStatus.NOT_CALIBRATED
@@ -318,7 +308,7 @@ class TestCalibrationResult:
             is_calibrated=True,
             deviation_threshold=5.0,
             confidence_interval=(1.0, 3.0),
-            suggestions=["校准通过"]
+            suggestions=["校准通过"],
         )
 
         result_dict = result.to_dict()
@@ -340,7 +330,7 @@ class TestPreExecutionCheck:
             can_proceed=True,
             status=CalibrationStatus.CALIBRATED,
             message="校准检查通过",
-            warnings=["warning1"]
+            warnings=["warning1"],
         )
 
         check_dict = check.to_dict()
@@ -381,9 +371,7 @@ class TestAdaptiveCalibratorCacheManagement:
     def test_is_cache_valid_true(self, calibrator):
         """有效缓存应返回True"""
         calibrator._calibration_cache = {
-            "evaluator_name:dataset_id": {
-                "timestamp": datetime.utcnow().isoformat()
-            }
+            "evaluator_name:dataset_id": {"timestamp": datetime.utcnow().isoformat()}
         }
 
         result = calibrator._is_cache_valid("evaluator_name", "dataset_id")
@@ -393,11 +381,7 @@ class TestAdaptiveCalibratorCacheManagement:
     def test_is_cache_valid_false_expired(self, calibrator):
         """过期缓存应返回False"""
         past_time = (datetime.utcnow() - timedelta(hours=25)).isoformat()
-        calibrator._calibration_cache = {
-            "evaluator_name:dataset_id": {
-                "timestamp": past_time
-            }
-        }
+        calibrator._calibration_cache = {"evaluator_name:dataset_id": {"timestamp": past_time}}
 
         result = calibrator._is_cache_valid("evaluator_name", "dataset_id")
 
@@ -421,7 +405,7 @@ class TestAdaptiveCalibratorRecommendations:
 
     def test_generate_recommendations_drifted(self, calibrator):
         """漂移状态应生成立即重新校准建议"""
-        with patch('src.domain.adaptive_calibration.evaluator_version_manager') as mock_version_mgr:
+        with patch("src.domain.adaptive_calibration.evaluator_version_manager") as mock_version_mgr:
             mock_version_mgr.check_calibration_status.return_value = {"status": "drifted"}
 
             recommendations = calibrator._generate_recommendations("test_evaluator")
@@ -430,7 +414,7 @@ class TestAdaptiveCalibratorRecommendations:
 
     def test_generate_recommendations_not_calibrated(self, calibrator):
         """未校准状态应生成校准建议"""
-        with patch('src.domain.adaptive_calibration.evaluator_version_manager') as mock_version_mgr:
+        with patch("src.domain.adaptive_calibration.evaluator_version_manager") as mock_version_mgr:
             mock_version_mgr.check_calibration_status.return_value = {"status": "not_calibrated"}
 
             recommendations = calibrator._generate_recommendations("test_evaluator")

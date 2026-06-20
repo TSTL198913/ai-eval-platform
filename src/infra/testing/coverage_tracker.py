@@ -21,6 +21,7 @@ from pathlib import Path
 
 try:
     import coverage  # noqa: F401
+
     HAS_COV = True
 except ImportError:
     HAS_COV = False
@@ -42,6 +43,7 @@ DEFAULT_LINE_COVERAGE = 80
 # =====================================================================
 # 覆盖率历史管理
 # =====================================================================
+
 
 class CoverageTracker:
     """覆盖率追踪器"""
@@ -136,7 +138,8 @@ class CoverageTracker:
                 "line_diff": current.get("line_coverage", 0) - baseline.get("line_coverage", 0),
                 "baseline_branch": baseline.get("branch_coverage", 0),
                 "current_branch": current.get("branch_coverage", 0),
-                "branch_diff": current.get("branch_coverage", 0) - baseline.get("branch_coverage", 0),
+                "branch_diff": current.get("branch_coverage", 0)
+                - baseline.get("branch_coverage", 0),
             }
 
             return diff
@@ -155,7 +158,9 @@ class CoverageTracker:
         try:
             with open(BASELINE_FILE, "w") as f:
                 json.dump(current, f, indent=2)
-            print(f"基准已设置: line={current['line_coverage']:.2%}, branch={current['branch_coverage']:.2%}")
+            print(
+                f"基准已设置: line={current['line_coverage']:.2%}, branch={current['branch_coverage']:.2%}"
+            )
         except Exception as e:
             print(f"基准保存失败: {e}")
 
@@ -220,7 +225,9 @@ class CoverageTracker:
             timestamp = record.get("timestamp", "")[:19]
             report += f"{timestamp[-8:]} | {bar} {line:5.1f}%\n"
 
-        report += "--------------------------------------------------------------------------------\n"
+        report += (
+            "--------------------------------------------------------------------------------\n"
+        )
 
         return report
 
@@ -239,35 +246,49 @@ class CoverageTracker:
         branch_coverage = current.get("branch_coverage", 0) * 100
 
         if line_coverage < thresholds.get("line_coverage_min", 0):
-            alerts.append({
-                "severity": "critical" if line_coverage < thresholds["line_coverage_min"] - 10 else "warning",
-                "type": "line_coverage",
-                "message": f"行覆盖率 {line_coverage:.1f}% 低于最低要求 {thresholds['line_coverage_min']}%",
-                "value": line_coverage,
-                "threshold": thresholds["line_coverage_min"],
-            })
+            alerts.append(
+                {
+                    "severity": (
+                        "critical"
+                        if line_coverage < thresholds["line_coverage_min"] - 10
+                        else "warning"
+                    ),
+                    "type": "line_coverage",
+                    "message": f"行覆盖率 {line_coverage:.1f}% 低于最低要求 {thresholds['line_coverage_min']}%",
+                    "value": line_coverage,
+                    "threshold": thresholds["line_coverage_min"],
+                }
+            )
 
         if branch_coverage < thresholds.get("branch_coverage_min", 0):
-            alerts.append({
-                "severity": "critical" if branch_coverage < thresholds["branch_coverage_min"] - 10 else "warning",
-                "type": "branch_coverage",
-                "message": f"分支覆盖率 {branch_coverage:.1f}% 低于最低要求 {thresholds['branch_coverage_min']}%",
-                "value": branch_coverage,
-                "threshold": thresholds["branch_coverage_min"],
-            })
+            alerts.append(
+                {
+                    "severity": (
+                        "critical"
+                        if branch_coverage < thresholds["branch_coverage_min"] - 10
+                        else "warning"
+                    ),
+                    "type": "branch_coverage",
+                    "message": f"分支覆盖率 {branch_coverage:.1f}% 低于最低要求 {thresholds['branch_coverage_min']}%",
+                    "value": branch_coverage,
+                    "threshold": thresholds["branch_coverage_min"],
+                }
+            )
 
         # 检查与历史对比
         diff = self.compare_baseline(current)
         if diff.get("has_baseline"):
             if diff["line_diff"] < -5:
-                alerts.append({
-                    "severity": "warning",
-                    "type": "line_coverage_regression",
-                    "message": f"行覆盖率下降 {abs(diff['line_diff']):.1f}%",
-                    "value": diff["current_line"] * 100,
-                    "baseline": diff["baseline_line"] * 100,
-                    "diff": diff["line_diff"] * 100,
-                })
+                alerts.append(
+                    {
+                        "severity": "warning",
+                        "type": "line_coverage_regression",
+                        "message": f"行覆盖率下降 {abs(diff['line_diff']):.1f}%",
+                        "value": diff["current_line"] * 100,
+                        "baseline": diff["baseline_line"] * 100,
+                        "diff": diff["line_diff"] * 100,
+                    }
+                )
 
         return alerts
 
@@ -275,6 +296,7 @@ class CoverageTracker:
 # =====================================================================
 # 主入口
 # =====================================================================
+
 
 def main():
     parser = argparse.ArgumentParser(description="覆盖率趋势追踪")
@@ -326,7 +348,9 @@ def main():
         if history:
             print(f"共 {len(history)} 条历史记录")
             for record in history[-10:]:
-                print(f"  {record.get('timestamp', '')[:19]}: line={record.get('line_coverage', 0)*100:.1f}%")
+                print(
+                    f"  {record.get('timestamp', '')[:19]}: line={record.get('line_coverage', 0)*100:.1f}%"
+                )
         else:
             print("无历史记录")
 

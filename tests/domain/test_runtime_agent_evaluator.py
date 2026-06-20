@@ -35,6 +35,7 @@ def reset_evaluator_factory():
     """每个测试前重置评估器工厂"""
     from src.domain.evaluators import auto_discover
     from src.domain.evaluators.evaluator_factory import EvaluatorFactory as EF
+
     EF._registry = {}
     auto_discover(force=True)
     yield
@@ -169,6 +170,7 @@ class TestRuntimeAgentEvaluatorPositiveCases:
 
     def test_list_tools_with_registered_tools(self, evaluator):
         """列出已注册的工具"""
+
         # 注册测试工具
         @ToolRegistry.register(
             name="test_tool",
@@ -192,6 +194,7 @@ class TestRuntimeAgentEvaluatorPositiveCases:
 
     def test_react_with_tool_call(self, evaluator):
         """ReAct模式调用工具"""
+
         # 注册工具
         @ToolRegistry.register(
             name="echo",
@@ -216,7 +219,9 @@ class TestRuntimeAgentEvaluatorPositiveCases:
         assert result.data["is_valid"] is True
         trajectory = result.data["trajectory"]
         # 验证轨迹中包含工具调用
-        tool_calls = [step for step in trajectory if step.get("action", {}).get("type") == "tool_call"]
+        tool_calls = [
+            step for step in trajectory if step.get("action", {}).get("type") == "tool_call"
+        ]
         # 第3步会调用工具
         assert len(tool_calls) >= 1
 
@@ -331,7 +336,9 @@ class TestRuntimeAgentEvaluatorNegativeCases:
         assert result.data["is_valid"] is True
         trajectory = result.data["trajectory"]
         # 检查是否有工具调用失败的记录
-        tool_calls = [step for step in trajectory if step.get("action", {}).get("type") == "tool_call"]
+        tool_calls = [
+            step for step in trajectory if step.get("action", {}).get("type") == "tool_call"
+        ]
         if tool_calls:
             # 工具调用失败时observation应包含错误信息
             for step in tool_calls:
@@ -456,6 +463,7 @@ class TestRuntimeAgentEvaluatorExceptionCases:
 
     def test_tool_execution_exception(self, evaluator):
         """工具执行异常测试"""
+
         # 注册一个会抛出异常的工具
         @ToolRegistry.register(
             name="error_tool",
@@ -480,7 +488,9 @@ class TestRuntimeAgentEvaluatorExceptionCases:
         # Agent应正常完成，但工具调用失败
         assert result.data["is_valid"] is True
         trajectory = result.data["trajectory"]
-        tool_calls = [step for step in trajectory if step.get("action", {}).get("type") == "tool_call"]
+        tool_calls = [
+            step for step in trajectory if step.get("action", {}).get("type") == "tool_call"
+        ]
         if tool_calls:
             # 检查observation中是否包含错误信息
             for step in tool_calls:
@@ -490,6 +500,7 @@ class TestRuntimeAgentEvaluatorExceptionCases:
 
     def test_plan_execute_step_failure_recovery(self, evaluator):
         """Plan-Execute模式步骤失败后的重试"""
+
         # 注册一个会失败的工具
         @ToolRegistry.register(
             name="fail_tool",
@@ -585,6 +596,7 @@ class TestRuntimeAgentEvaluatorDependencyHandling:
 
     def test_tool_registry_register_decorator(self):
         """工具注册装饰器测试"""
+
         @ToolRegistry.register(
             name="custom_tool",
             description="自定义工具",
@@ -633,18 +645,21 @@ class TestBuiltInTools:
         """计算器有效表达式"""
         # 注册计算器
         from src.domain.evaluators.runtime_agent_evaluator import calculator
+
         result = calculator("2 + 3 * 4")
         assert result == "14"
 
     def test_calculator_invalid_expression(self):
         """计算器无效表达式"""
         from src.domain.evaluators.runtime_agent_evaluator import calculator
+
         result = calculator("abc + 123")
         assert result == "Invalid expression"
 
     def test_calculator_division_by_zero(self):
         """计算器除零错误"""
         from src.domain.evaluators.runtime_agent_evaluator import calculator
+
         result = calculator("1 / 0")
         # Python会抛出异常，被捕获
         assert "Error" in result or "Infinity" in result or "inf" in result
@@ -652,12 +667,14 @@ class TestBuiltInTools:
     def test_search_tool(self):
         """搜索工具测试"""
         from src.domain.evaluators.runtime_agent_evaluator import search
+
         result = search("test query")
         assert "Search results for: test query" in result
 
     def test_analyzer_tool(self):
         """分析器工具测试"""
         from src.domain.evaluators.runtime_agent_evaluator import analyzer
+
         result = analyzer("hello world test")
         assert "Words: 3" in result
         assert "Characters: 16" in result
@@ -717,9 +734,7 @@ class TestHelperMethods:
     def test_generate_thought_with_history(self, evaluator):
         """生成思考 - 有历史记录"""
         state = AgentState(task="测试任务")
-        state.history.append({
-            "observation": {"content": "上一步结果"}
-        })
+        state.history.append({"observation": {"content": "上一步结果"}})
         thought = evaluator._generate_thought(state)
         assert "观察到" in thought
         assert "上一步结果" in thought
@@ -781,6 +796,7 @@ class TestHelperMethods:
 
     def test_execute_action_tool_call_success(self, evaluator):
         """执行行动 - 工具调用成功"""
+
         # 注册工具
         @ToolRegistry.register(name="test_exec", description="测试", parameters={})
         def test_exec():
@@ -881,6 +897,7 @@ class TestEvaluatorFactoryRegistration:
         """验证runtime_agent已注册到工厂"""
         # 重新导入以触发注册
         from src.domain.evaluators import auto_discover
+
         auto_discover(force=True)
 
         evaluators = EvaluatorFactory.list_evaluators()
@@ -889,18 +906,20 @@ class TestEvaluatorFactoryRegistration:
     def test_create_evaluator_from_factory(self):
         """从工厂创建评估器"""
         from src.domain.evaluators import auto_discover
+
         auto_discover(force=True)
 
         evaluator = EvaluatorFactory.get("runtime_agent")
         # 使用类名检查而不是isinstance，避免导入路径问题
         assert evaluator.__class__.__name__ == "RuntimeAgentEvaluator"
         # 验证评估器具有必要的方法
-        assert hasattr(evaluator, 'evaluate')
-        assert hasattr(evaluator, 'safe_evaluate')
+        assert hasattr(evaluator, "evaluate")
+        assert hasattr(evaluator, "safe_evaluate")
 
     def test_create_evaluator_with_client(self):
         """从工厂创建带客户端的评估器"""
         from src.domain.evaluators import auto_discover
+
         auto_discover(force=True)
 
         mock_client = MagicMock()

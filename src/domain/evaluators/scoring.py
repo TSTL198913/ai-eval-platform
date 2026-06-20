@@ -55,11 +55,11 @@ def score_keyword_overlap(output: str, expected: str | None) -> float:
         tokens = []
         i = 0
         while i < len(text):
-            if '\u4e00' <= text[i] <= '\u9fff':
+            if "\u4e00" <= text[i] <= "\u9fff":
                 tokens.append(text[i])
                 i += 1
             else:
-                match = re.match(r'[a-zA-Z0-9]+', text[i:])
+                match = re.match(r"[a-zA-Z0-9]+", text[i:])
                 if match:
                     tokens.append(match.group())
                     i += match.end()

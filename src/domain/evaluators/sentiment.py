@@ -7,8 +7,38 @@ from src.schemas.evaluation import DomainResponse, EvaluationSchema
 class SentimentEvaluator(BaseEvaluator):
     """情感分析评估器"""
 
-    POSITIVE_WORDS = ["好", "喜欢", "爱", "棒", "优秀", "满意", "开心", "高兴", "happy", "love", "good", "great", "excellent", "wonderful"]
-    NEGATIVE_WORDS = ["坏", "讨厌", "恨", "差", "糟糕", "不满", "伤心", "难过", "sad", "hate", "bad", "terrible", "awful", "poor"]
+    POSITIVE_WORDS = [
+        "好",
+        "喜欢",
+        "爱",
+        "棒",
+        "优秀",
+        "满意",
+        "开心",
+        "高兴",
+        "happy",
+        "love",
+        "good",
+        "great",
+        "excellent",
+        "wonderful",
+    ]
+    NEGATIVE_WORDS = [
+        "坏",
+        "讨厌",
+        "恨",
+        "差",
+        "糟糕",
+        "不满",
+        "伤心",
+        "难过",
+        "sad",
+        "hate",
+        "bad",
+        "terrible",
+        "awful",
+        "poor",
+    ]
 
     def evaluate(self, request: EvaluationSchema) -> DomainResponse:
         user_input = self.get_input_text(request)

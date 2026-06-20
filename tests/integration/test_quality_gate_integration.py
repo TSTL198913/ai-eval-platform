@@ -57,6 +57,7 @@ class TestQualityGateIntegration:
 
     def test_quality_gate_decorator(self):
         """测试质量门禁装饰器"""
+
         @quality_gate(level=QualityGateLevel.NORMAL)
         def sample_function(x):
             return x * 2
@@ -67,6 +68,7 @@ class TestQualityGateIntegration:
 
     def test_quality_gate_disabled(self):
         """测试禁用质量门禁"""
+
         @quality_gate(level=QualityGateLevel.DISABLED)
         def sample_function(x):
             return x * 2
@@ -76,6 +78,7 @@ class TestQualityGateIntegration:
 
     def test_red_team_test_decorator(self):
         """测试Red Team测试装饰器"""
+
         @red_team_test(test_type=TestType.SECURITY, description="安全测试")
         def security_test():
             return True
@@ -86,6 +89,7 @@ class TestQualityGateIntegration:
 
     def test_blue_team_test_decorator(self):
         """测试Blue Team测试装饰器"""
+
         @blue_team_test(test_type=TestType.FUNCTIONAL, description="功能测试")
         def functional_test():
             return True
@@ -130,10 +134,12 @@ class TestEvaluatorFactoryQualityIntegration:
 
     def test_get_evaluator_info_with_quality(self):
         """测试获取评估器信息包含质量门禁"""
+
         # 注册一个测试评估器
         @EvaluatorFactory.register("test_quality_evaluator")
         class TestQualityEvaluator(BaseEvaluator):
             """测试质量评估器"""
+
             def evaluate(self, request: EvaluationSchema) -> DomainResponse:
                 return DomainResponse(is_valid=True, score=1.0)
 
@@ -154,10 +160,12 @@ class TestEvaluatorFactoryQualityIntegration:
 
     def test_get_with_quality_check(self):
         """测试带质量检查的评估器获取"""
+
         # 注册测试评估器
         @EvaluatorFactory.register("quality_check_test")
         class QualityCheckEvaluator(BaseEvaluator):
             """质量检查测试评估器"""
+
             def evaluate(self, request: EvaluationSchema) -> DomainResponse:
                 return DomainResponse(is_valid=True, score=0.9)
 
@@ -238,10 +246,12 @@ class TestDefenseInDepthWorkflow:
 
     def test_quality_gate_with_evaluator_factory(self):
         """测试评估器工厂与质量门禁的完整集成"""
+
         # 1. 注册评估器
         @EvaluatorFactory.register("workflow_test_evaluator")
         class WorkflowTestEvaluator(BaseEvaluator):
             """工作流测试评估器"""
+
             def evaluate(self, request: EvaluationSchema) -> DomainResponse:
                 return DomainResponse(
                     is_valid=True,

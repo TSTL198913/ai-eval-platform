@@ -2,6 +2,7 @@
 安全中间件 - 在API Gateway层进行安全检测
 毫秒级响应，只拦截高风险请求
 """
+
 import re
 import time
 
@@ -64,7 +65,11 @@ class SecurityMiddleware(BaseHTTPMiddleware):
 
         user_input = ""
         if isinstance(body, dict):
-            user_input = str(body.get("user_input", "")) + str(body.get("payload", "")) + str(body.get("input", ""))
+            user_input = (
+                str(body.get("user_input", ""))
+                + str(body.get("payload", ""))
+                + str(body.get("input", ""))
+            )
 
         if isinstance(body, list):
             user_input = str(body)
@@ -83,9 +88,9 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                     "data": {
                         "risk_level": risk_level,
                         "risk_details": risk_details,
-                        "response_time_ms": round(response_time, 2)
-                    }
-                }
+                        "response_time_ms": round(response_time, 2),
+                    },
+                },
             )
             # 添加安全头
             for header_name, header_value in SECURITY_HEADERS.items():

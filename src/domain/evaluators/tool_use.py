@@ -21,7 +21,11 @@ class ToolUseEvaluator(BaseEvaluator):
                 is_valid=True,
                 score=0.0,
                 text="No tool calls made",
-                data={"reason": "No tool calls made", "correct_calls": 0, "total_expected": len(expected_tool_calls)},
+                data={
+                    "reason": "No tool calls made",
+                    "correct_calls": 0,
+                    "total_expected": len(expected_tool_calls),
+                },
             )
 
         correct_calls = 0

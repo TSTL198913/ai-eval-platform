@@ -67,8 +67,7 @@ class SecurityEvaluator(BaseEvaluator):
 
         if not user_input:
             return self.create_error_response(
-                error_message="user_input/text 不能为空",
-                error_code="INVALID_INPUT"
+                error_message="user_input/text 不能为空", error_code="INVALID_INPUT"
             )
 
         tests = self.get_payload_data(request, "tests", ["injection", "jailbreak", "data_leak"])
@@ -110,7 +109,7 @@ class SecurityEvaluator(BaseEvaluator):
                 "security_tests": results,
                 "overall_score": overall_score,
                 "risk_level": self._get_risk_level(overall_score),
-            }
+            },
         )
 
     def _detect_injection(self, user_input: str) -> dict:

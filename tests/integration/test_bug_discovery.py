@@ -7,6 +7,7 @@
 
 目标：发现生产环境潜在 Bug、架构缺陷、安全风险
 """
+
 import json
 import os
 import sys
@@ -59,10 +60,7 @@ class TestAPIContractBugsDiscovery:
         # 只有 id，缺 type 和 payload
         response = client.post("/api/v1/evaluate", json={"id": "case_x"})
         if response.status_code == 200:
-            pytest.fail(
-                "BUG: evaluate 端点接受不完整请求（仅 id），"
-                "应使用 Pydantic 拦截"
-            )
+            pytest.fail("BUG: evaluate 端点接受不完整请求（仅 id），" "应使用 Pydantic 拦截")
 
     def test_login_empty_body_returns_400_inconsistent(self):
         """BUG: 登录端点空 body 返回 400 而非 401
@@ -225,7 +223,7 @@ class TestAPIContractBugsDiscovery:
     def test_evaluators_name_validation_blocks_spaces(self):
         """验证：评估器名包含空格应被拒绝"""
 
-        from src.api.server import validate_evaluator_name
+        from src.api.common import validate_evaluator_name
 
         # validate_evaluator_name 应该拒绝 "name with space"
         assert validate_evaluator_name("name with space") is False
@@ -414,9 +412,7 @@ class TestDistributedBugsDiscovery:
         """
         from src.distributed.rate_limiter import RateLimitConfig, TokenBucket
 
-        bucket = TokenBucket(
-            MagicMock(), "user", RateLimitConfig(max_tokens=10, refill_rate=0.0)
-        )
+        bucket = TokenBucket(MagicMock(), "user", RateLimitConfig(max_tokens=10, refill_rate=0.0))
 
         # 先消耗所有令牌
         for _ in range(10):
@@ -670,9 +666,7 @@ class TestEngineBugsDiscovery:
         client.config.model_name = "test"
 
         engine = EvaluationEngine(client)
-        result = engine.run(EvaluationSchema(
-            id="ctx_001", type="err_ctx_test", payload={}
-        ))
+        result = engine.run(EvaluationSchema(id="ctx_001", type="err_ctx_test", payload={}))
 
         # 当前实现: error_message = "契约验证错误"（丢失具体信息）
         if result.error_message == "契约验证错误":
@@ -705,9 +699,7 @@ class TestEngineBugsDiscovery:
         client.config.model_name = "test"
 
         engine = EvaluationEngine(client)
-        result = engine.run(EvaluationSchema(
-            id="i18n_001", type="i18n_test", payload={}
-        ))
+        result = engine.run(EvaluationSchema(id="i18n_001", type="i18n_test", payload={}))
 
         # 当前实现: response.error = "领域错误"（中文）
         if result.response.error == "领域错误":
@@ -739,9 +731,7 @@ class TestEngineBugsDiscovery:
         client.config.model_name = "test"
 
         engine = EvaluationEngine(client)
-        result = engine.run(EvaluationSchema(
-            id="slow_001", type="slow_fail_eng", payload={}
-        ))
+        result = engine.run(EvaluationSchema(id="slow_001", type="slow_fail_eng", payload={}))
 
         # 期望: latency 包含 sleep 100ms
         # 但业务方监控 SLA 时，失败 case 也算 100ms
@@ -774,17 +764,13 @@ class TestEngineBugsDiscovery:
         client.config.model_name = "test"
 
         engine = EvaluationEngine(client)
-        result = engine.run(EvaluationSchema(
-            id="mixed_001", type="mixed_exc_test", payload={}
-        ))
+        result = engine.run(EvaluationSchema(id="mixed_001", type="mixed_exc_test", payload={}))
 
         # ContractValidationError 应被 engine 识别为 ERROR
         # 但 base.py 的 safe_evaluate 也会捕获 BasePlatformError 并 re-raise
         # 所以最终是 engine 捕获
         if result.status.value != "error":
-            pytest.fail(
-                f"BUG: 业务异常未映射为 ERROR，实际: {result.status.value}"
-            )
+            pytest.fail(f"BUG: 业务异常未映射为 ERROR，实际: {result.status.value}")
 
 
 # ============================================================
@@ -796,6 +782,7 @@ class TestSecurityBugsDiscovery:
     def test_secret_key_hardcoded(self):
         """严重安全 BUG: JWT SECRET_KEY 硬编码在代码中"""
         from src.api.auth import SECRET_KEY
+
         if "change-in-production" not in SECRET_KEY and "secret" in SECRET_KEY.lower():
             pytest.fail(
                 f"严重安全 BUG: SECRET_KEY 硬编码在代码中！\n"
@@ -811,6 +798,7 @@ class TestSecurityBugsDiscovery:
         待改进：生产环境应改用 bcrypt/argon2 + 随机盐
         """
         from src.api.auth import _hash_password
+
         h1 = _hash_password("password123")
         h2 = _hash_password("password123")
         # 当前实现仍使用 SHA-256（相同密码产生相同hash）
@@ -848,9 +836,7 @@ class TestSecurityBugsDiscovery:
 
         client = TestClient(app)
         # sort_by 注入
-        response = client.get(
-            "/api/v1/records/search?sort_by=created_at; DROP TABLE--"
-        )
+        response = client.get("/api/v1/records/search?sort_by=created_at; DROP TABLE--")
         # 当前实现: 直接传给 repo.search
         # 修复: 应做白名单校验
         if response.status_code in (200, 500):
@@ -914,9 +900,11 @@ class TestPerformanceStabilityBugs:
             for i in range(100):
                 name = f"race_{start_idx}_{i}"
                 # 内联类不能用装饰器，模拟运行时注册
-                cls = type(f"RaceEval_{start_idx}_{i}", (), {
-                    "evaluate": lambda self, req: DomainResponse(is_valid=True)
-                })
+                cls = type(
+                    f"RaceEval_{start_idx}_{i}",
+                    (),
+                    {"evaluate": lambda self, req: DomainResponse(is_valid=True)},
+                )
                 EvaluatorFactory._registry[name] = cls
 
         threads = [threading.Thread(target=register_many, args=(i,)) for i in range(5)]
@@ -929,9 +917,7 @@ class TestPerformanceStabilityBugs:
         expected_count = 5 * 100
         actual_count = sum(1 for k in EvaluatorFactory._registry if k.startswith("race_"))
         if actual_count != expected_count:
-            pytest.fail(
-                f"并发注册 BUG: 期望 {expected_count} 个，实际 {actual_count} 个"
-            )
+            pytest.fail(f"并发注册 BUG: 期望 {expected_count} 个，实际 {actual_count} 个")
 
     def test_evaluation_cache_memory_leak(self):
         """BUG: EvaluationCache 的 stats 不会因 clear 而完全重置?
@@ -939,6 +925,7 @@ class TestPerformanceStabilityBugs:
         业务风险：监控数据不准
         """
         from src.infra.cache import EvaluationCache
+
         cache = EvaluationCache()
 
         for i in range(100):
@@ -950,9 +937,7 @@ class TestPerformanceStabilityBugs:
         stats = cache.get_stats()
         # 期望 hits=0, misses=0
         if stats.get("hits", 0) != 0 or stats.get("misses", 0) != 0:
-            pytest.fail(
-                f"BUG: cache.clear() 后 stats 未完全重置: {stats}"
-            )
+            pytest.fail(f"BUG: cache.clear() 后 stats 未完全重置: {stats}")
 
     def test_evaluator_singleton_keeps_llm_client(self):
         """BUG: EvaluatorFactory.get() 每次创建新实例，LLM 客户端不共享
@@ -966,6 +951,7 @@ class TestPerformanceStabilityBugs:
         class SingletonEval:
             def __init__(self, client=None):
                 self.client = client
+
             def evaluate(self, req):
                 return DomainResponse(is_valid=True)
 

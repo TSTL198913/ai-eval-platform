@@ -45,9 +45,7 @@ class TestSecurityEvaluator:
 """
 
         request = EvaluationSchema(
-            id="meta_test_001",
-            type="meta_test",
-            payload={"test_code": test_code}
+            id="meta_test_001", type="meta_test", payload={"test_code": test_code}
         )
 
         result = evaluator.evaluate(request)
@@ -88,9 +86,7 @@ def test_with_mock(mock_client):
 """
 
         request = EvaluationSchema(
-            id="meta_test_002",
-            type="meta_test",
-            payload={"test_code": test_code}
+            id="meta_test_002", type="meta_test", payload={"test_code": test_code}
         )
 
         result = evaluator.evaluate(request)
@@ -111,11 +107,7 @@ class TestMetaTestEvaluatorNegativeCases:
 
     def test_empty_test_code_returns_error(self, evaluator):
         """空测试代码应返回错误"""
-        request = EvaluationSchema(
-            id="meta_test_003",
-            type="meta_test",
-            payload={"test_code": ""}
-        )
+        request = EvaluationSchema(id="meta_test_003", type="meta_test", payload={"test_code": ""})
 
         result = evaluator.evaluate(request)
 
@@ -126,9 +118,7 @@ class TestMetaTestEvaluatorNegativeCases:
     def test_none_test_code_returns_error(self, evaluator):
         """None测试代码应返回错误"""
         request = EvaluationSchema(
-            id="meta_test_004",
-            type="meta_test",
-            payload={"test_code": None}
+            id="meta_test_004", type="meta_test", payload={"test_code": None}
         )
 
         result = evaluator.evaluate(request)
@@ -154,9 +144,7 @@ def test_weak_assertion():
 """
 
         request = EvaluationSchema(
-            id="meta_test_005",
-            type="meta_test",
-            payload={"test_code": test_code}
+            id="meta_test_005", type="meta_test", payload={"test_code": test_code}
         )
 
         result = evaluator.evaluate(request)
@@ -179,9 +167,7 @@ def test_missing_mock_return_value():
 """
 
         request = EvaluationSchema(
-            id="meta_test_006",
-            type="meta_test",
-            payload={"test_code": test_code}
+            id="meta_test_006", type="meta_test", payload={"test_code": test_code}
         )
 
         result = evaluator.evaluate(request)
@@ -208,9 +194,7 @@ def test_case_2():
 """
 
         request = EvaluationSchema(
-            id="meta_test_007",
-            type="meta_test",
-            payload={"test_code": test_code}
+            id="meta_test_007", type="meta_test", payload={"test_code": test_code}
         )
 
         result = evaluator.evaluate(request)
@@ -238,9 +222,7 @@ def test_valid_input():
 """
 
         request = EvaluationSchema(
-            id="meta_test_008",
-            type="meta_test",
-            payload={"test_code": test_code}
+            id="meta_test_008", type="meta_test", payload={"test_code": test_code}
         )
 
         result = evaluator.evaluate(request)
@@ -262,9 +244,7 @@ def test_success_case():
 """
 
         request = EvaluationSchema(
-            id="meta_test_009",
-            type="meta_test",
-            payload={"test_code": test_code}
+            id="meta_test_009", type="meta_test", payload={"test_code": test_code}
         )
 
         result = evaluator.evaluate(request)
@@ -302,7 +282,7 @@ class TestMetaTestEvaluatorDriftDetection:
                 "test_code": "test code",
                 "test_results": test_results,
                 "baseline_results": baseline_results,
-            }
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -334,7 +314,7 @@ class TestMetaTestEvaluatorDriftDetection:
                 "test_code": "test code",
                 "test_results": test_results,
                 "baseline_results": baseline_results,
-            }
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -366,7 +346,7 @@ class TestMetaTestEvaluatorDriftDetection:
                 "test_code": "test code",
                 "test_results": test_results,
                 "baseline_results": baseline_results,
-            }
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -393,9 +373,7 @@ def test_weak():
 """
 
         request = EvaluationSchema(
-            id="meta_test_013",
-            type="meta_test",
-            payload={"test_code": test_code}
+            id="meta_test_013", type="meta_test", payload={"test_code": test_code}
         )
 
         result = evaluator.evaluate(request)
@@ -428,9 +406,7 @@ def test_valid_input_returns_expected(evaluator):
 """
 
         request = EvaluationSchema(
-            id="meta_test_014",
-            type="meta_test",
-            payload={"test_code": test_code}
+            id="meta_test_014", type="meta_test", payload={"test_code": test_code}
         )
 
         result = evaluator.evaluate(request)
@@ -508,7 +484,7 @@ class TestSecurityEvaluator:
                 "test_code": test_code,
                 "test_results": test_results,
                 "baseline_results": baseline_results,
-            }
+            },
         )
 
         result = evaluator.evaluate(request)

@@ -402,8 +402,8 @@ class TestCommunicationAnalysis:
         assert analysis["delivered_messages"] == 2
         assert analysis["acknowledged_messages"] == 1
         # 注意：代码中使用round(delivery_rate, 4)，所以值会被四舍五入
-        assert abs(analysis["delivery_rate"] - 2/3) < 0.001
-        assert abs(analysis["acknowledgment_rate"] - 1/3) < 0.001
+        assert abs(analysis["delivery_rate"] - 2 / 3) < 0.001
+        assert abs(analysis["acknowledgment_rate"] - 1 / 3) < 0.001
         assert analysis["avg_latency_ms"] == 75.0  # (50 + 100) / 2
         assert "request" in analysis["message_type_distribution"]
         assert "response" in analysis["message_type_distribution"]
@@ -647,8 +647,8 @@ class TestTaskAnalysis:
         assert analysis["failed_tasks"] == 1
         assert analysis["pending_tasks"] == 1
         # 注意：代码中使用round(completion_rate, 4)，所以值会被四舍五入
-        assert abs(analysis["completion_rate"] - 1/3) < 0.001
-        assert abs(analysis["failure_rate"] - 1/3) < 0.001
+        assert abs(analysis["completion_rate"] - 1 / 3) < 0.001
+        assert abs(analysis["failure_rate"] - 1 / 3) < 0.001
         assert analysis["avg_completion_time_ms"] == 1000.0  # 1秒 = 1000ms
         assert "agent_001" in analysis["agent_task_distribution"]
         assert analysis["task_efficiency_score"] > 0.0

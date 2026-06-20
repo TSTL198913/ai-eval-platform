@@ -19,11 +19,14 @@ class TestCircuitBreakerBasic:
 
     @pytest.fixture
     def breaker(self):
-        return CircuitBreaker("test-breaker", config=CircuitBreakerConfig(
-            failure_threshold=3,
-            success_threshold=2,
-            timeout_seconds=10.0,
-        ))
+        return CircuitBreaker(
+            "test-breaker",
+            config=CircuitBreakerConfig(
+                failure_threshold=3,
+                success_threshold=2,
+                timeout_seconds=10.0,
+            ),
+        )
 
     def test_initial_state_closed(self, breaker):
         assert breaker.state == CircuitState.CLOSED
@@ -62,11 +65,14 @@ class TestCircuitBreakerStateTransitions:
 
     @pytest.fixture
     def breaker(self):
-        return CircuitBreaker("state-test", config=CircuitBreakerConfig(
-            failure_threshold=2,
-            success_threshold=2,
-            timeout_seconds=0.1,
-        ))
+        return CircuitBreaker(
+            "state-test",
+            config=CircuitBreakerConfig(
+                failure_threshold=2,
+                success_threshold=2,
+                timeout_seconds=0.1,
+            ),
+        )
 
     @pytest.mark.asyncio
     async def test_closed_to_open(self, breaker):
@@ -101,11 +107,14 @@ class TestCircuitBreakerStats:
 
     @pytest.fixture
     def breaker(self):
-        return CircuitBreaker("stats-test", config=CircuitBreakerConfig(
-            failure_threshold=5,
-            success_threshold=2,
-            timeout_seconds=10.0,
-        ))
+        return CircuitBreaker(
+            "stats-test",
+            config=CircuitBreakerConfig(
+                failure_threshold=5,
+                success_threshold=2,
+                timeout_seconds=10.0,
+            ),
+        )
 
     @pytest.mark.asyncio
     async def test_stats_count_calls(self, breaker):
@@ -138,11 +147,14 @@ class TestCircuitBreakerEdgeCases:
 
     @pytest.fixture
     def breaker(self):
-        return CircuitBreaker("edge-test", config=CircuitBreakerConfig(
-            failure_threshold=1,
-            success_threshold=1,
-            timeout_seconds=0.1,
-        ))
+        return CircuitBreaker(
+            "edge-test",
+            config=CircuitBreakerConfig(
+                failure_threshold=1,
+                success_threshold=1,
+                timeout_seconds=0.1,
+            ),
+        )
 
     @pytest.mark.asyncio
     async def test_immediate_open(self, breaker):
@@ -210,21 +222,26 @@ class TestCircuitBreakerRedisPersistence:
 
     def test_load_state_from_redis(self, mock_redis):
         import json
-        mock_redis.get = MagicMock(return_value=json.dumps({
-            "state": "open",
-            "failure_count": 5,
-            "success_count": 0,
-            "last_failure_time": time.time(),
-            "half_open_calls": 0,
-            "stats": {
-                "total_calls": 5,
-                "successful_calls": 0,
-                "failed_calls": 5,
-                "rejected_calls": 0,
-                "state_changes": 1,
-                "last_state_change_time": time.time(),
-            },
-        }))
+
+        mock_redis.get = MagicMock(
+            return_value=json.dumps(
+                {
+                    "state": "open",
+                    "failure_count": 5,
+                    "success_count": 0,
+                    "last_failure_time": time.time(),
+                    "half_open_calls": 0,
+                    "stats": {
+                        "total_calls": 5,
+                        "successful_calls": 0,
+                        "failed_calls": 5,
+                        "rejected_calls": 0,
+                        "state_changes": 1,
+                        "last_state_change_time": time.time(),
+                    },
+                }
+            )
+        )
         breaker = CircuitBreaker("redis-load", redis_client=mock_redis)
         assert breaker._state == CircuitState.OPEN
         assert breaker.stats.total_calls == 5
@@ -271,11 +288,14 @@ class TestCircuitBreakerReset:
 
     @pytest.fixture
     def breaker(self):
-        return CircuitBreaker("reset-test", config=CircuitBreakerConfig(
-            failure_threshold=2,
-            success_threshold=2,
-            timeout_seconds=10.0,
-        ))
+        return CircuitBreaker(
+            "reset-test",
+            config=CircuitBreakerConfig(
+                failure_threshold=2,
+                success_threshold=2,
+                timeout_seconds=10.0,
+            ),
+        )
 
     @pytest.mark.asyncio
     async def test_reset_returns_to_closed(self, breaker):
@@ -294,16 +314,20 @@ class TestCircuitBreakerAsyncFunction:
 
     @pytest.fixture
     def breaker(self):
-        return CircuitBreaker("async-test", config=CircuitBreakerConfig(
-            failure_threshold=2,
-            success_threshold=2,
-            timeout_seconds=10.0,
-        ))
+        return CircuitBreaker(
+            "async-test",
+            config=CircuitBreakerConfig(
+                failure_threshold=2,
+                success_threshold=2,
+                timeout_seconds=10.0,
+            ),
+        )
 
     @pytest.mark.asyncio
     async def test_async_function_success(self, breaker):
         async def async_func():
             return "async_result"
+
         result = await breaker.call(async_func)
         assert result == "async_result"
 
@@ -311,6 +335,7 @@ class TestCircuitBreakerAsyncFunction:
     async def test_async_function_failure(self, breaker):
         async def async_func():
             raise Exception("async_error")
+
         with pytest.raises(Exception):
             await breaker.call(async_func)
         assert breaker._failure_count == 1

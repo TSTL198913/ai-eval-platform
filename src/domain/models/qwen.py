@@ -67,7 +67,9 @@ class QwenClient(BaseLLMClient):
                     "max_tokens": self.config.max_tokens,
                 },
             }
-            response = await self.async_client.post(self.api_url, headers=self.headers, json=payload)
+            response = await self.async_client.post(
+                self.api_url, headers=self.headers, json=payload
+            )
             response.raise_for_status()
             result = response.json()
             return result["output"]["choices"][0]["message"]["content"]

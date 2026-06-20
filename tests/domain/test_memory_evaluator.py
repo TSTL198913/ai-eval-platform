@@ -28,6 +28,7 @@ def reset_evaluators_each_test():
     """
     from src.domain.evaluators import auto_discover
     from src.domain.evaluators.evaluator_factory import EvaluatorFactory as EF
+
     EF._registry = {}
     auto_discover(force=True)
     yield
@@ -56,8 +57,8 @@ class TestMemoryEvaluatorPositiveCases:
                 "user_input": "机器学习算法",
                 "retrieved_context": "机器学习算法是人工智能的核心技术",
                 "expected_context": "机器学习算法",
-                "ground_truth": "机器学习算法"
-            }
+                "ground_truth": "机器学习算法",
+            },
         )
 
         # Act
@@ -70,7 +71,13 @@ class TestMemoryEvaluatorPositiveCases:
         assert "relevance_score" in result.data
         assert "coverage_score" in result.data
         assert "factual_score" in result.data
-        assert result.data["retrieval_quality"] in ["excellent", "good", "fair", "poor", "very_poor"]
+        assert result.data["retrieval_quality"] in [
+            "excellent",
+            "good",
+            "fair",
+            "poor",
+            "very_poor",
+        ]
         assert isinstance(result.data["retrieval_acceptable"], bool)
 
     def test_evaluate_retrieval_with_query_only_returns_expected(self, evaluator):
@@ -82,8 +89,8 @@ class TestMemoryEvaluatorPositiveCases:
             payload={
                 "action": "evaluate_retrieval",
                 "text": "Python 编程语言",
-                "retrieved_context": "Python 是一种高级编程语言，广泛用于数据科学和Web开发。"
-            }
+                "retrieved_context": "Python 是一种高级编程语言，广泛用于数据科学和Web开发。",
+            },
         )
 
         # Act
@@ -106,8 +113,8 @@ class TestMemoryEvaluatorPositiveCases:
                 "action": "evaluate_consistency",
                 "old_memory": "用户喜欢蓝色住在上海",
                 "new_memory": "用户喜欢蓝色住在上海",  # 完全相同
-                "update_intent": "添加用户喜欢的颜色"
-            }
+                "update_intent": "添加用户喜欢的颜色",
+            },
         )
 
         # Act
@@ -117,7 +124,13 @@ class TestMemoryEvaluatorPositiveCases:
         assert result.is_valid is True
         assert result.score is not None
         assert result.data["change_score"] >= 0.5  # 相似度应较高
-        assert result.data["consistency_level"] in ["highly_consistent", "consistent", "somewhat_consistent", "inconsistent", "highly_inconsistent"]
+        assert result.data["consistency_level"] in [
+            "highly_consistent",
+            "consistent",
+            "somewhat_consistent",
+            "inconsistent",
+            "highly_inconsistent",
+        ]
 
     def test_evaluate_forgetting_with_valid_memory_returns_expected(self, evaluator):
         """遗忘率评估 - 正常记忆保留应返回低遗忘率"""
@@ -129,8 +142,8 @@ class TestMemoryEvaluatorPositiveCases:
                 "action": "evaluate_forgetting",
                 "original_memory": "用户姓名是张三，年龄25岁，工作地点在北京",
                 "current_memory": "用户姓名是张三，年龄25岁，工作地点在北京",
-                "important_facts": ["张三", "25岁", "北京"]
-            }
+                "important_facts": ["张三", "25岁", "北京"],
+            },
         )
 
         # Act
@@ -155,8 +168,8 @@ class TestMemoryEvaluatorPositiveCases:
                 "action": "evaluate_retrieval",
                 "user_input": "数据库索引",
                 "retrieved_context": "数据库索引可以显著提高查询性能",
-                "expected_context": "数据库索引"  # 简化期望上下文
-            }
+                "expected_context": "数据库索引",  # 简化期望上下文
+            },
         )
 
         # Act
@@ -177,8 +190,8 @@ class TestMemoryEvaluatorPositiveCases:
                 "action": "evaluate_retrieval",
                 "user_input": "公司营收",
                 "retrieved_context": "公司2023年营收为500万元",
-                "ground_truth": "2023年营收500万元"
-            }
+                "ground_truth": "2023年营收500万元",
+            },
         )
 
         # Act
@@ -206,10 +219,7 @@ class TestMemoryEvaluatorNegativeCases:
         request = EvaluationSchema(
             id="case_neg_001",
             type="memory",
-            payload={
-                "action": "evaluate_retrieval",
-                "retrieved_context": "一些上下文内容"
-            }
+            payload={"action": "evaluate_retrieval", "retrieved_context": "一些上下文内容"},
         )
 
         # Act
@@ -226,10 +236,7 @@ class TestMemoryEvaluatorNegativeCases:
         request = EvaluationSchema(
             id="case_neg_002",
             type="memory",
-            payload={
-                "action": "evaluate_retrieval",
-                "user_input": "查询内容"
-            }
+            payload={"action": "evaluate_retrieval", "user_input": "查询内容"},
         )
 
         # Act
@@ -246,10 +253,7 @@ class TestMemoryEvaluatorNegativeCases:
         request = EvaluationSchema(
             id="case_neg_003",
             type="memory",
-            payload={
-                "action": "evaluate_consistency",
-                "new_memory": "新的记忆内容"
-            }
+            payload={"action": "evaluate_consistency", "new_memory": "新的记忆内容"},
         )
 
         # Act
@@ -266,10 +270,7 @@ class TestMemoryEvaluatorNegativeCases:
         request = EvaluationSchema(
             id="case_neg_004",
             type="memory",
-            payload={
-                "action": "evaluate_consistency",
-                "old_memory": "旧的记忆内容"
-            }
+            payload={"action": "evaluate_consistency", "old_memory": "旧的记忆内容"},
         )
 
         # Act
@@ -285,10 +286,7 @@ class TestMemoryEvaluatorNegativeCases:
         request = EvaluationSchema(
             id="case_neg_005",
             type="memory",
-            payload={
-                "action": "evaluate_forgetting",
-                "current_memory": "当前记忆"
-            }
+            payload={"action": "evaluate_forgetting", "current_memory": "当前记忆"},
         )
 
         # Act
@@ -304,10 +302,7 @@ class TestMemoryEvaluatorNegativeCases:
         request = EvaluationSchema(
             id="case_neg_006",
             type="memory",
-            payload={
-                "action": "evaluate_forgetting",
-                "original_memory": "原始记忆"
-            }
+            payload={"action": "evaluate_forgetting", "original_memory": "原始记忆"},
         )
 
         # Act
@@ -321,11 +316,7 @@ class TestMemoryEvaluatorNegativeCases:
         """评估 - 未知 action 应返回错误"""
         # Arrange
         request = EvaluationSchema(
-            id="case_neg_007",
-            type="memory",
-            payload={
-                "action": "unknown_action"
-            }
+            id="case_neg_007", type="memory", payload={"action": "unknown_action"}
         )
 
         # Act
@@ -356,8 +347,8 @@ class TestMemoryEvaluatorBoundaryCases:
             payload={
                 "action": "evaluate_retrieval",
                 "user_input": "",
-                "retrieved_context": "上下文"
-            }
+                "retrieved_context": "上下文",
+            },
         )
 
         # Act
@@ -373,11 +364,7 @@ class TestMemoryEvaluatorBoundaryCases:
         request = EvaluationSchema(
             id="case_bound_002",
             type="memory",
-            payload={
-                "action": "evaluate_retrieval",
-                "user_input": "查询",
-                "retrieved_context": ""
-            }
+            payload={"action": "evaluate_retrieval", "user_input": "查询", "retrieved_context": ""},
         )
 
         # Act
@@ -396,8 +383,8 @@ class TestMemoryEvaluatorBoundaryCases:
             payload={
                 "action": "evaluate_consistency",
                 "old_memory": "用户喜欢编程",
-                "new_memory": "用户喜欢编程"
-            }
+                "new_memory": "用户喜欢编程",
+            },
         )
 
         # Act
@@ -419,8 +406,8 @@ class TestMemoryEvaluatorBoundaryCases:
             payload={
                 "action": "evaluate_forgetting",
                 "original_memory": "用户姓名张三年龄二十五",
-                "current_memory": "今天天气晴朗适合外出"
-            }
+                "current_memory": "今天天气晴朗适合外出",
+            },
         )
 
         # Act
@@ -441,8 +428,8 @@ class TestMemoryEvaluatorBoundaryCases:
             payload={
                 "action": "evaluate_retrieval",
                 "user_input": "的 是 在 有",  # 全是停用词
-                "retrieved_context": "一些上下文内容"
-            }
+                "retrieved_context": "一些上下文内容",
+            },
         )
 
         # Act
@@ -462,8 +449,8 @@ class TestMemoryEvaluatorBoundaryCases:
                 "action": "evaluate_forgetting",
                 "original_memory": "用户喜欢编程",
                 "current_memory": "用户喜欢编程和阅读",
-                "important_facts": []
-            }
+                "important_facts": [],
+            },
         )
 
         # Act
@@ -483,8 +470,8 @@ class TestMemoryEvaluatorBoundaryCases:
             payload={
                 "action": "evaluate_consistency",
                 "old_memory": "用户是会员",
-                "new_memory": "用户不是会员"
-            }
+                "new_memory": "用户不是会员",
+            },
         )
 
         # Act
@@ -515,8 +502,8 @@ class TestMemoryEvaluatorExceptionCases:
             payload={
                 "action": "evaluate_retrieval",
                 "user_input": "查询",
-                "retrieved_context": None  # None 值
-            }
+                "retrieved_context": None,  # None 值
+            },
         )
 
         # Act
@@ -535,8 +522,8 @@ class TestMemoryEvaluatorExceptionCases:
             payload={
                 "action": "evaluate_consistency",
                 "old_memory": "用户姓名张三年龄二十五工作北京住址上海电话一二三四五六七八九零",
-                "new_memory": "用户姓名张三"  # 大量信息丢失
-            }
+                "new_memory": "用户姓名张三",  # 大量信息丢失
+            },
         )
 
         # Act
@@ -556,8 +543,8 @@ class TestMemoryEvaluatorExceptionCases:
                 "action": "evaluate_consistency",
                 "old_memory": "用户喜欢编程",
                 "new_memory": "用户喜欢编程阅读和音乐",
-                "update_intent": "添加用户的兴趣爱好"
-            }
+                "update_intent": "添加用户的兴趣爱好",
+            },
         )
 
         # Act
@@ -577,8 +564,8 @@ class TestMemoryEvaluatorExceptionCases:
                 "action": "evaluate_consistency",
                 "old_memory": "用户喜欢编程阅读和音乐",
                 "new_memory": "用户喜欢编程",
-                "update_intent": "删除部分爱好"
-            }
+                "update_intent": "删除部分爱好",
+            },
         )
 
         # Act
@@ -598,8 +585,8 @@ class TestMemoryEvaluatorExceptionCases:
                 "action": "evaluate_consistency",
                 "old_memory": "用户喜欢编程",
                 "new_memory": "用户喜欢阅读",
-                "update_intent": "做一些改变"  # 无法识别的意图
-            }
+                "update_intent": "做一些改变",  # 无法识别的意图
+            },
         )
 
         # Act
@@ -655,8 +642,8 @@ class TestMemoryEvaluatorDependencyHandling:
             payload={
                 "action": "evaluate_retrieval",
                 "user_input": "测试查询",
-                "retrieved_context": "测试上下文"
-            }
+                "retrieved_context": "测试上下文",
+            },
         )
 
         # Act
@@ -676,8 +663,8 @@ class TestMemoryEvaluatorDependencyHandling:
             payload={
                 "action": "evaluate_retrieval",
                 "user_input": "测试",
-                "retrieved_context": "上下文"
-            }
+                "retrieved_context": "上下文",
+            },
         )
 
         # Act
@@ -734,8 +721,7 @@ class TestMemoryEvaluatorHelperMethods:
         """相关性计算 - 关键词匹配应返回分数"""
         # Act - 使用空格分隔的文本以获得更好的关键词提取
         score = evaluator._calculate_relevance(
-            "机器 学习 算法",
-            "机器 学习 是 人工智能 的 重要 分支 包含 多种 算法"
+            "机器 学习 算法", "机器 学习 是 人工智能 的 重要 分支 包含 多种 算法"
         )
 
         # Assert - 分数应在合理范围
@@ -745,10 +731,7 @@ class TestMemoryEvaluatorHelperMethods:
     def test_calculate_coverage_with_full_overlap(self, evaluator):
         """覆盖率计算 - 完全覆盖应返回1.0"""
         # Act
-        score = evaluator._calculate_coverage(
-            "机器学习算法",
-            "机器学习算法"
-        )
+        score = evaluator._calculate_coverage("机器学习算法", "机器学习算法")
 
         # Assert
         assert score == 1.0
@@ -757,8 +740,7 @@ class TestMemoryEvaluatorHelperMethods:
         """事实一致性 - 数字匹配应影响分数"""
         # Act
         score = evaluator._calculate_factual_consistency(
-            "营收500万元，增长20%",
-            "营收500万元，增长20%"
+            "营收500万元，增长20%", "营收500万元，增长20%"
         )
 
         # Assert
@@ -794,10 +776,7 @@ class TestMemoryEvaluatorHelperMethods:
     def test_check_fact_retention_with_full_match(self, evaluator):
         """事实保留检查 - 完全匹配应返回高分"""
         # Act - 使用空格分隔的文本以获得更好的关键词提取
-        score = evaluator._check_fact_retention(
-            "张 三",
-            "用户 姓名 是 张 三"
-        )
+        score = evaluator._check_fact_retention("张 三", "用户 姓名 是 张 三")
 
         # Assert - 分数应在合理范围
         assert score >= 0.0
@@ -806,10 +785,7 @@ class TestMemoryEvaluatorHelperMethods:
     def test_check_fact_retention_with_no_match(self, evaluator):
         """事实保留检查 - 无匹配应返回0.0"""
         # Act
-        score = evaluator._check_fact_retention(
-            "李四",
-            "用户姓名是张三"
-        )
+        score = evaluator._check_fact_retention("李四", "用户姓名是张三")
 
         # Assert
         assert score == 0.0
@@ -836,8 +812,8 @@ class TestMemoryEvaluatorBusinessScenarios:
                 "user_input": "数据库 索引 查询 性能",
                 "retrieved_context": "数据库 索引 可以 显著 提高 查询 性能",
                 "expected_context": "数据库 索引 查询 性能",
-                "ground_truth": "索引 提高 性能"
-            }
+                "ground_truth": "索引 提高 性能",
+            },
         )
 
         # Act
@@ -849,7 +825,13 @@ class TestMemoryEvaluatorBusinessScenarios:
         assert result.score >= 0.0  # 分数应在合理范围
         assert "relevance_score" in result.data
         assert "coverage_score" in result.data
-        assert result.data["retrieval_quality"] in ["excellent", "good", "fair", "poor", "very_poor"]
+        assert result.data["retrieval_quality"] in [
+            "excellent",
+            "good",
+            "fair",
+            "poor",
+            "very_poor",
+        ]
 
     def test_memory_update_consistency_check(self, evaluator):
         """业务场景 - 用户画像更新一致性检查"""
@@ -861,8 +843,8 @@ class TestMemoryEvaluatorBusinessScenarios:
                 "action": "evaluate_consistency",
                 "old_memory": "用户ID: 12345, 姓名: 张三, 年龄: 25, 城市: 北京, 职业: 工程师",
                 "new_memory": "用户ID: 12345, 姓名: 张三, 年龄: 26, 城市: 北京, 职业: 高级工程师",
-                "update_intent": "更新用户年龄和职业信息"
-            }
+                "update_intent": "更新用户年龄和职业信息",
+            },
         )
 
         # Act
@@ -884,8 +866,8 @@ class TestMemoryEvaluatorBusinessScenarios:
                 "action": "evaluate_forgetting",
                 "original_memory": "用户偏好: 喜欢蓝色, 周末打篮球, 喝咖啡不加糖, 使用Python编程, 关注AI技术",
                 "current_memory": "用户偏好: 喜欢蓝色, 周末打篮球",
-                "important_facts": ["咖啡不加糖", "Python编程", "AI技术"]
-            }
+                "important_facts": ["咖啡不加糖", "Python编程", "AI技术"],
+            },
         )
 
         # Act

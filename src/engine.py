@@ -31,7 +31,11 @@ class EvaluationEngine:
             return EvaluationResult(
                 case_id=request.id,
                 status=status,
-                model_name=(getattr(self.client.config, "model_name", None) or "unknown") if self.client.config else "unknown",
+                model_name=(
+                    (getattr(self.client.config, "model_name", None) or "unknown")
+                    if self.client.config
+                    else "unknown"
+                ),
                 adapter_name=evaluator.__class__.__name__,
                 response=domain_response,
                 latency_ms=(time.perf_counter() - start_time) * 1000,
@@ -42,7 +46,11 @@ class EvaluationEngine:
             return EvaluationResult(
                 case_id=request.id,
                 status=EvaluationStatus.ERROR,
-                model_name=(getattr(self.client.config, "model_name", None) or "unknown") if self.client.config else "unknown",
+                model_name=(
+                    (getattr(self.client.config, "model_name", None) or "unknown")
+                    if self.client.config
+                    else "unknown"
+                ),
                 adapter_name="contract_validator",
                 response=DomainResponse(is_valid=False, error="CONTRACT_ERROR"),
                 latency_ms=(time.perf_counter() - start_time) * 1000,
@@ -54,7 +62,11 @@ class EvaluationEngine:
             return EvaluationResult(
                 case_id=request.id,
                 status=EvaluationStatus.ERROR,
-                model_name=(getattr(self.client.config, "model_name", None) or "unknown") if self.client.config else "unknown",
+                model_name=(
+                    (getattr(self.client.config, "model_name", None) or "unknown")
+                    if self.client.config
+                    else "unknown"
+                ),
                 adapter_name="domain_handler",
                 response=DomainResponse(is_valid=False, error="DOMAIN_ERROR"),
                 latency_ms=(time.perf_counter() - start_time) * 1000,
@@ -66,7 +78,11 @@ class EvaluationEngine:
             return EvaluationResult(
                 case_id=request.id,
                 status=EvaluationStatus.ERROR,
-                model_name=(getattr(self.client.config, "model_name", None) or "unknown") if self.client.config else "unknown",
+                model_name=(
+                    (getattr(self.client.config, "model_name", None) or "unknown")
+                    if self.client.config
+                    else "unknown"
+                ),
                 adapter_name="infra_handler",
                 response=DomainResponse(is_valid=False, error="INFRA_ERROR"),
                 latency_ms=(time.perf_counter() - start_time) * 1000,
@@ -78,7 +94,11 @@ class EvaluationEngine:
             return EvaluationResult(
                 case_id=request.id,
                 status=EvaluationStatus.ERROR,
-                model_name=(getattr(self.client.config, "model_name", None) or "unknown") if self.client.config else "unknown",
+                model_name=(
+                    (getattr(self.client.config, "model_name", None) or "unknown")
+                    if self.client.config
+                    else "unknown"
+                ),
                 adapter_name="error_handler",
                 response=DomainResponse(is_valid=False, error="INTERNAL_ERROR"),
                 latency_ms=(time.perf_counter() - start_time) * 1000,

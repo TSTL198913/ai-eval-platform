@@ -33,11 +33,13 @@ class GSM8KBenchmark:
                     for line in f:
                         try:
                             item = json.loads(line.strip())
-                            dataset.append({
-                                "question": item.get("question", ""),
-                                "answer": item.get("answer", ""),
-                                "id": item.get("id", len(dataset)),
-                            })
+                            dataset.append(
+                                {
+                                    "question": item.get("question", ""),
+                                    "answer": item.get("answer", ""),
+                                    "id": item.get("id", len(dataset)),
+                                }
+                            )
                         except json.JSONDecodeError:
                             continue
 
@@ -52,16 +54,19 @@ class GSM8KBenchmark:
         """加载真实GSM8K数据（从JSONL）"""
         try:
             from src.domain.benchmarks.dataset_loader import DatasetLoader
+
             real_samples = DatasetLoader.load_gsm8k(limit=self.num_samples * 2)
             if real_samples:
                 converted = []
                 for s in real_samples:
-                    converted.append({
-                        "id": len(converted),
-                        "question": s["question"],
-                        "answer": str(s["answer"]),
-                        "solution": s.get("solution", ""),
-                    })
+                    converted.append(
+                        {
+                            "id": len(converted),
+                            "question": s["question"],
+                            "answer": str(s["answer"]),
+                            "solution": s.get("solution", ""),
+                        }
+                    )
                 return converted
         except Exception:
             pass
@@ -124,11 +129,13 @@ class GSM8KBenchmark:
         extended = []
         for i in range(50):
             base = synthetic[i % len(synthetic)]
-            extended.append({
-                "question": base["question"],
-                "answer": base["answer"],
-                "id": i,
-            })
+            extended.append(
+                {
+                    "question": base["question"],
+                    "answer": base["answer"],
+                    "id": i,
+                }
+            )
 
         return extended
 
@@ -150,25 +157,29 @@ class GSM8KBenchmark:
                 if is_correct:
                     correct += 1
 
-                results.append({
-                    "id": sample["id"],
-                    "question": sample["question"],
-                    "correct_answer": sample["answer"],
-                    "predicted_answer": predicted_answer,
-                    "is_correct": is_correct,
-                    "raw_response": response,
-                })
+                results.append(
+                    {
+                        "id": sample["id"],
+                        "question": sample["question"],
+                        "correct_answer": sample["answer"],
+                        "predicted_answer": predicted_answer,
+                        "is_correct": is_correct,
+                        "raw_response": response,
+                    }
+                )
 
             except Exception as e:
                 errors.append(f"Sample {sample['id']}: {str(e)}")
-                results.append({
-                    "id": sample["id"],
-                    "question": sample["question"],
-                    "correct_answer": sample["answer"],
-                    "predicted_answer": None,
-                    "is_correct": False,
-                    "error": str(e),
-                })
+                results.append(
+                    {
+                        "id": sample["id"],
+                        "question": sample["question"],
+                        "correct_answer": sample["answer"],
+                        "predicted_answer": None,
+                        "is_correct": False,
+                        "error": str(e),
+                    }
+                )
 
         accuracy = correct / len(samples) if samples else 0.0
 

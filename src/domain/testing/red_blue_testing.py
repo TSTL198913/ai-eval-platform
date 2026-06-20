@@ -22,30 +22,31 @@ logger = logging.getLogger(__name__)
 
 
 class TeamRole(str, Enum):
-    BLUE = "blue"   # AI生成代码 + AI生成测试
-    RED = "red"     # 人类编写的破坏性测试
+    BLUE = "blue"  # AI生成代码 + AI生成测试
+    RED = "red"  # 人类编写的破坏性测试
 
 
 class TestType(str, Enum):
-    FUNCTIONAL = "functional"       # 功能正确性
-    EDGE_CASE = "edge_case"         # 边界条件
-    SECURITY = "security"           # 安全漏洞
-    PERFORMANCE = "performance"     # 性能压力
-    CONCURRENCY = "concurrency"     # 并发安全
+    FUNCTIONAL = "functional"  # 功能正确性
+    EDGE_CASE = "edge_case"  # 边界条件
+    SECURITY = "security"  # 安全漏洞
+    PERFORMANCE = "performance"  # 性能压力
+    CONCURRENCY = "concurrency"  # 并发安全
 
 
 @dataclass
 class TestCase:
     """红蓝对抗测试用例"""
+
     id: str
     team: TeamRole
     test_type: TestType
     description: str
     input_data: dict[str, Any]
     expected_behavior: str  # 期望行为描述（自然语言）
-    assertions: list[str]   # 断言列表
-    priority: int = 1       # 1-5, 5最高
-    author: str = "unknown" # 编写者（human/ai）
+    assertions: list[str]  # 断言列表
+    priority: int = 1  # 1-5, 5最高
+    author: str = "unknown"  # 编写者（human/ai）
     created_at: str = ""
 
     def to_dict(self) -> dict:
@@ -66,6 +67,7 @@ class TestCase:
 @dataclass
 class RedBlueTestResult:
     """红蓝对抗测试结果"""
+
     test_id: str
     team: TeamRole
     passed: bool
@@ -87,6 +89,7 @@ class RedBlueTestResult:
 @dataclass
 class RedBlueTestReport:
     """红蓝对抗测试报告"""
+
     module_name: str
     blue_team_results: list[RedBlueTestResult] = field(default_factory=list)
     red_team_results: list[RedBlueTestResult] = field(default_factory=list)
@@ -108,8 +111,8 @@ class RedBlueTestReport:
         # 信任分数 = Red Team通过率 × 权重（Red Team更重要）
         # Blue Team通过率作为参考
         self.overall_trust_score = (
-            self.red_pass_rate * 0.7 +  # Red Team权重70%
-            self.blue_pass_rate * 0.3   # Blue Team权重30%
+            self.red_pass_rate * 0.7  # Red Team权重70%
+            + self.blue_pass_rate * 0.3  # Blue Team权重30%
         )
 
         # 生成推荐
@@ -137,7 +140,9 @@ class RedBlueTestManager:
     """红蓝对抗测试管理器"""
 
     def __init__(self, test_data_dir: str | None = None):
-        self.test_data_dir = Path(test_data_dir) if test_data_dir else Path(__file__).parent / "data"
+        self.test_data_dir = (
+            Path(test_data_dir) if test_data_dir else Path(__file__).parent / "data"
+        )
         self.blue_tests: list[TestCase] = []
         self.red_tests: list[TestCase] = []
 
@@ -151,36 +156,40 @@ class RedBlueTestManager:
             with open(blue_file, encoding="utf-8") as f:
                 data = json.load(f)
                 for item in data.get("tests", []):
-                    blue_tests.append(TestCase(
-                        id=item["id"],
-                        team=TeamRole.BLUE,
-                        test_type=TestType(item["test_type"]),
-                        description=item["description"],
-                        input_data=item["input_data"],
-                        expected_behavior=item["expected_behavior"],
-                        assertions=item["assertions"],
-                        priority=item.get("priority", 1),
-                        author=item.get("author", "ai"),
-                        created_at=item.get("created_at", ""),
-                    ))
+                    blue_tests.append(
+                        TestCase(
+                            id=item["id"],
+                            team=TeamRole.BLUE,
+                            test_type=TestType(item["test_type"]),
+                            description=item["description"],
+                            input_data=item["input_data"],
+                            expected_behavior=item["expected_behavior"],
+                            assertions=item["assertions"],
+                            priority=item.get("priority", 1),
+                            author=item.get("author", "ai"),
+                            created_at=item.get("created_at", ""),
+                        )
+                    )
 
         red_tests = []
         if red_file.exists():
             with open(red_file, encoding="utf-8") as f:
                 data = json.load(f)
                 for item in data.get("tests", []):
-                    red_tests.append(TestCase(
-                        id=item["id"],
-                        team=TeamRole.RED,
-                        test_type=TestType(item["test_type"]),
-                        description=item["description"],
-                        input_data=item["input_data"],
-                        expected_behavior=item["expected_behavior"],
-                        assertions=item["assertions"],
-                        priority=item.get("priority", 5),  # Red Team默认高优先级
-                        author=item.get("author", "human"),
-                        created_at=item.get("created_at", ""),
-                    ))
+                    red_tests.append(
+                        TestCase(
+                            id=item["id"],
+                            team=TeamRole.RED,
+                            test_type=TestType(item["test_type"]),
+                            description=item["description"],
+                            input_data=item["input_data"],
+                            expected_behavior=item["expected_behavior"],
+                            assertions=item["assertions"],
+                            priority=item.get("priority", 5),  # Red Team默认高优先级
+                            author=item.get("author", "human"),
+                            created_at=item.get("created_at", ""),
+                        )
+                    )
 
         self.blue_tests = blue_tests
         self.red_tests = red_tests
@@ -342,7 +351,10 @@ EXAMPLE_BLUE_TEST_SUITE = {
             "id": "blue_evaluator_factory_002",
             "test_type": "functional",
             "description": "测试评估器evaluate方法",
-            "input_data": {"evaluator_name": "general", "request": {"id": "test", "type": "general", "payload": {"user_input": "hello"}}},
+            "input_data": {
+                "evaluator_name": "general",
+                "request": {"id": "test", "type": "general", "payload": {"user_input": "hello"}},
+            },
             "expected_behavior": "应返回DomainResponse",
             "assertions": ["contains:score", "contains:is_valid"],
             "priority": 1,

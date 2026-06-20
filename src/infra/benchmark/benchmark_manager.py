@@ -111,23 +111,27 @@ class BenchmarkManager:
                 if is_correct:
                     correct_count += 1
 
-                detailed_results.append({
-                    "question_id": question.get("id", f"q-{i}"),
-                    "input": question.get("input", ""),
-                    "expected_output": question.get("expected_output", ""),
-                    "actual_output": result.get("text", ""),
-                    "score": result.get("score", 0),
-                    "is_correct": is_correct,
-                    "latency_ms": latency_ms,
-                })
+                detailed_results.append(
+                    {
+                        "question_id": question.get("id", f"q-{i}"),
+                        "input": question.get("input", ""),
+                        "expected_output": question.get("expected_output", ""),
+                        "actual_output": result.get("text", ""),
+                        "score": result.get("score", 0),
+                        "is_correct": is_correct,
+                        "latency_ms": latency_ms,
+                    }
+                )
             except Exception as e:
-                detailed_results.append({
-                    "question_id": question.get("id", f"q-{i}"),
-                    "input": question.get("input", ""),
-                    "error": str(e),
-                    "is_correct": False,
-                    "latency_ms": (time.time() - start_time) * 1000,
-                })
+                detailed_results.append(
+                    {
+                        "question_id": question.get("id", f"q-{i}"),
+                        "input": question.get("input", ""),
+                        "error": str(e),
+                        "is_correct": False,
+                        "latency_ms": (time.time() - start_time) * 1000,
+                    }
+                )
 
         accuracy = correct_count / len(dataset.questions) if dataset.questions else 0
         avg_latency_ms = total_latency_ms / len(dataset.questions) if dataset.questions else 0

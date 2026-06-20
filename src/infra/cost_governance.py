@@ -51,9 +51,21 @@ class CostGovernance:
     def __init__(self, daily_cost_limit=None, weekly_cost_limit=None, monthly_cost_limit=None):
         self.records: list[CostRecord] = []
         self._records_lock = threading.Lock()
-        self.daily_cost_limit = daily_cost_limit if daily_cost_limit is not None else settings.__dict__.get("daily_cost_limit", 100.0)
-        self.weekly_cost_limit = weekly_cost_limit if weekly_cost_limit is not None else settings.__dict__.get("weekly_cost_limit", 500.0)
-        self.monthly_cost_limit = monthly_cost_limit if monthly_cost_limit is not None else settings.__dict__.get("monthly_cost_limit", 2000.0)
+        self.daily_cost_limit = (
+            daily_cost_limit
+            if daily_cost_limit is not None
+            else settings.__dict__.get("daily_cost_limit", 100.0)
+        )
+        self.weekly_cost_limit = (
+            weekly_cost_limit
+            if weekly_cost_limit is not None
+            else settings.__dict__.get("weekly_cost_limit", 500.0)
+        )
+        self.monthly_cost_limit = (
+            monthly_cost_limit
+            if monthly_cost_limit is not None
+            else settings.__dict__.get("monthly_cost_limit", 2000.0)
+        )
         self.hourly_request_limit = settings.__dict__.get("hourly_request_limit", 10000)
 
     def calculate_cost(self, model_name: str, prompt_tokens: int, completion_tokens: int) -> float:
@@ -140,7 +152,14 @@ class CostGovernance:
             "daily_usage_percent": (metrics.daily_cost_usd / self.daily_cost_limit) * 100,
         }
 
-    def record_request(self, prompt_tokens: int, completion_tokens: int, cost_usd: float, model_name: str = "default", latency_ms: float = 0) -> CostRecord:
+    def record_request(
+        self,
+        prompt_tokens: int,
+        completion_tokens: int,
+        cost_usd: float,
+        model_name: str = "default",
+        latency_ms: float = 0,
+    ) -> CostRecord:
         """简化版记录请求（兼容测试接口）"""
         record = CostRecord(
             record_id=f"req_{len(self.records)}",

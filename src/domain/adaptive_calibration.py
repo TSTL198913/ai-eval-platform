@@ -17,17 +17,18 @@ from src.domain.statistical_analysis import statistical_analyzer
 
 
 class CalibrationStatus(Enum):
-    NOT_CALIBRATED = "not_calibrated"       # 未校准
-    NO_VERSION = "no_version"               # 无版本注册
-    CALIBRATING = "calibrating"             # 校准中
-    CALIBRATED = "calibrated"               # 校准通过
-    DRIFTED = "drifted"                     # 偏离校准
-    REJECTED = "rejected"                   # 拒绝执行
+    NOT_CALIBRATED = "not_calibrated"  # 未校准
+    NO_VERSION = "no_version"  # 无版本注册
+    CALIBRATING = "calibrating"  # 校准中
+    CALIBRATED = "calibrated"  # 校准通过
+    DRIFTED = "drifted"  # 偏离校准
+    REJECTED = "rejected"  # 拒绝执行
 
 
 @dataclass
 class CalibrationResult:
     """校准结果"""
+
     evaluator_name: str
     evaluator_version: str
     dataset_name: str
@@ -35,20 +36,20 @@ class CalibrationResult:
 
     # 校准数据
     n_samples: int
-    gold_scores: list[float]      # 专家标准分数
-    eval_scores: list[float]      # 评估器预测分数
+    gold_scores: list[float]  # 专家标准分数
+    eval_scores: list[float]  # 评估器预测分数
 
     # 偏差分析
     mean_gold: float
     mean_eval: float
-    mean_deviation: float        # 平均偏差
-    max_deviation: float         # 最大偏差
-    rmse: float                  # 均方根误差
+    mean_deviation: float  # 平均偏差
+    max_deviation: float  # 最大偏差
+    rmse: float  # 均方根误差
 
     # 统计显著性
-    correlation: float           # 与专家评分相关性
-    is_calibrated: bool          # 是否通过校准
-    deviation_threshold: float   # 偏差阈值
+    correlation: float  # 与专家评分相关性
+    is_calibrated: bool  # 是否通过校准
+    deviation_threshold: float  # 偏差阈值
     confidence_interval: tuple[float, float]  # 95%置信区间
 
     # 建议
@@ -73,13 +74,14 @@ class CalibrationResult:
             "deviation_threshold": self.deviation_threshold,
             "confidence_interval": [round(x, 2) for x in self.confidence_interval],
             "suggestions": self.suggestions,
-            "timestamp": self.timestamp.isoformat()
+            "timestamp": self.timestamp.isoformat(),
         }
 
 
 @dataclass
 class PreExecutionCheck:
     """执行前检查结果"""
+
     evaluator_name: str
     evaluator_version: str | None
     can_proceed: bool
@@ -96,7 +98,7 @@ class PreExecutionCheck:
             "can_proceed": self.can_proceed,
             "status": self.status.value,
             "message": self.message,
-            "warnings": self.warnings
+            "warnings": self.warnings,
         }
         if self.calibration_result:
             result["calibration_result"] = self.calibration_result.to_dict()
@@ -110,7 +112,7 @@ class AdaptiveCalibrator:
         self,
         default_threshold: float = 5.0,  # 默认偏差阈值(%)
         min_calibration_samples: int = 5,  # 最少校准样本数
-        calibration_interval: int = 24    # 校准有效期(小时)
+        calibration_interval: int = 24,  # 校准有效期(小时)
     ):
         self._default_threshold = default_threshold
         self._min_calibration_samples = min_calibration_samples
@@ -155,7 +157,7 @@ class AdaptiveCalibrator:
         evaluator_name: str,
         evaluator_func: callable,
         dataset_id: str,
-        threshold: float = None
+        threshold: float = None,
     ) -> CalibrationResult:
         """在黄金数据集上运行校准
 
@@ -205,7 +207,11 @@ class AdaptiveCalibrator:
 
         # RMSE
         import numpy as np
-        rmse = np.sqrt(sum((e - g) ** 2 for e, g in zip(eval_scores, gold_scores, strict=False)) / len(eval_scores))
+
+        rmse = np.sqrt(
+            sum((e - g) ** 2 for e, g in zip(eval_scores, gold_scores, strict=False))
+            / len(eval_scores)
+        )
 
         # 相关性
         if len(gold_scores) > 1:
@@ -249,7 +255,7 @@ class AdaptiveCalibrator:
             is_calibrated=is_calibrated,
             deviation_threshold=threshold,
             confidence_interval=confidence_interval,
-            suggestions=suggestions
+            suggestions=suggestions,
         )
 
         # 更新缓存
@@ -257,7 +263,7 @@ class AdaptiveCalibrator:
         self._calibration_cache[key] = {
             "is_calibrated": is_calibrated,
             "mean_deviation": mean_deviation,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
         self._save_cache()
 
@@ -266,11 +272,7 @@ class AdaptiveCalibrator:
 
         return result
 
-    def pre_execution_check(
-        self,
-        evaluator_name: str,
-        dataset_id: str = None
-    ) -> PreExecutionCheck:
+    def pre_execution_check(self, evaluator_name: str, dataset_id: str = None) -> PreExecutionCheck:
         """执行前检查
 
         Returns:
@@ -286,7 +288,7 @@ class AdaptiveCalibrator:
                 can_proceed=True,  # 允许执行，但给出警告
                 status=CalibrationStatus.NO_VERSION,
                 message="评估器未注册版本，建议先注册版本",
-                warnings=["评估结果可能不可靠", "建议先在黄金数据集上校准"]
+                warnings=["评估结果可能不可靠", "建议先在黄金数据集上校准"],
             )
         else:
             evaluator_version = version_info.version
@@ -299,7 +301,7 @@ class AdaptiveCalibrator:
                     evaluator_version=evaluator_version,
                     can_proceed=False,
                     status=CalibrationStatus.NOT_CALIBRATED,
-                    message=f"评估器尚未在数据集 {dataset_id} 上校准，或校准已过期"
+                    message=f"评估器尚未在数据集 {dataset_id} 上校准，或校准已过期",
                 )
 
             # 检查缓存中的校准状态
@@ -313,7 +315,7 @@ class AdaptiveCalibrator:
                     evaluator_version=evaluator_version,
                     can_proceed=True,
                     status=CalibrationStatus.CALIBRATED,
-                    message="校准检查通过"
+                    message="校准检查通过",
                 )
             else:
                 mean_deviation = cached.get("mean_deviation", 0)
@@ -323,7 +325,7 @@ class AdaptiveCalibrator:
                     can_proceed=False,
                     status=CalibrationStatus.DRIFTED,
                     message=f"评估器偏差 {mean_deviation:.2f} 超过阈值，需要重新校准",
-                    warnings=["评估器已偏离校准区间"]
+                    warnings=["评估器已偏离校准区间"],
                 )
 
         # 没有指定数据集，检查全局校准状态
@@ -337,7 +339,7 @@ class AdaptiveCalibrator:
                 can_proceed=True,  # 允许执行，但会提示
                 status=CalibrationStatus.NOT_CALIBRATED,
                 message="评估器尚未校准，建议先在黄金数据集上校准",
-                warnings=["评估结果可能不可靠"]
+                warnings=["评估结果可能不可靠"],
             )
 
         if not can_proceed:
@@ -346,7 +348,7 @@ class AdaptiveCalibrator:
                 evaluator_version=evaluator_version,
                 can_proceed=False,
                 status=CalibrationStatus.DRIFTED,
-                message="评估器偏离校准区间，系统拒绝执行"
+                message="评估器偏离校准区间，系统拒绝执行",
             )
 
         return PreExecutionCheck(
@@ -354,7 +356,7 @@ class AdaptiveCalibrator:
             evaluator_version=evaluator_version,
             can_proceed=True,
             status=CalibrationStatus.CALIBRATED,
-            message="校准检查通过"
+            message="校准检查通过",
         )
 
     def get_calibration_report(self, evaluator_name: str) -> dict[str, Any]:
@@ -365,18 +367,20 @@ class AdaptiveCalibrator:
             "evaluator_name": evaluator_name,
             "version": version_info.version if version_info else "unknown",
             "calibration_history": evaluator_version_manager.get_version_history(evaluator_name),
-            "calibration_status": evaluator_version_manager.check_calibration_status(evaluator_name),
+            "calibration_status": evaluator_version_manager.check_calibration_status(
+                evaluator_name
+            ),
             "cached_datasets": [
                 {
                     "dataset_id": k.split(":")[1],
                     "is_calibrated": v.get("is_calibrated"),
                     "mean_deviation": v.get("mean_deviation"),
-                    "timestamp": v.get("timestamp")
+                    "timestamp": v.get("timestamp"),
                 }
                 for k, v in self._calibration_cache.items()
                 if k.startswith(f"{evaluator_name}:")
             ],
-            "recommendations": self._generate_recommendations(evaluator_name)
+            "recommendations": self._generate_recommendations(evaluator_name),
         }
 
     def _generate_recommendations(self, evaluator_name: str) -> list[str]:

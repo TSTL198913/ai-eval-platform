@@ -62,32 +62,43 @@ class TestRedBlueTesting:
             # 创建Blue Team测试集
             blue_file = os.path.join(tmpdir, "module_blue.json")
             with open(blue_file, "w") as f:
-                json.dump({
-                    "tests": [{
-                        "id": "blue_001",
-                        "test_type": "functional",
-                        "description": "正常功能测试",
-                        "input_data": {"x": 1},
-                        "expected_behavior": "返回正确结果",
-                        "assertions": ["equals:2"],
-                    }]
-                }, f)
+                json.dump(
+                    {
+                        "tests": [
+                            {
+                                "id": "blue_001",
+                                "test_type": "functional",
+                                "description": "正常功能测试",
+                                "input_data": {"x": 1},
+                                "expected_behavior": "返回正确结果",
+                                "assertions": ["equals:2"],
+                            }
+                        ]
+                    },
+                    f,
+                )
 
             # 创建Red Team测试集
             red_file = os.path.join(tmpdir, "module_red.json")
             with open(red_file, "w") as f:
-                json.dump({
-                    "tests": [{
-                        "id": "red_001",
-                        "test_type": "edge_case",
-                        "description": "边界测试",
-                        "input_data": {"x": 0},
-                        "expected_behavior": "应处理边界值",
-                        "assertions": ["not_null"],
-                    }]
-                }, f)
+                json.dump(
+                    {
+                        "tests": [
+                            {
+                                "id": "red_001",
+                                "test_type": "edge_case",
+                                "description": "边界测试",
+                                "input_data": {"x": 0},
+                                "expected_behavior": "应处理边界值",
+                                "assertions": ["not_null"],
+                            }
+                        ]
+                    },
+                    f,
+                )
 
             from pathlib import Path
+
             manager.test_data_dir = Path(tmpdir)
             suite = manager.load_test_suite("module")
 
@@ -216,12 +227,12 @@ class TestMutationTesting:
         """测试变异生成"""
         tester = MutationTester()
 
-        source_code = '''
+        source_code = """
 def add(a, b):
     if a > 0:
         return a + b
     return 0
-'''
+"""
 
         mutations = tester.generate_mutations(source_code)
 
@@ -231,16 +242,16 @@ def add(a, b):
         # 检查变异类型
         mutation_types = [m.mutation_type for m in mutations]
         assert MutationType.COMPARISON in mutation_types  # a > 0
-        assert MutationType.ARITHMETIC in mutation_types   # a + b
-        assert MutationType.RETURN_VALUE in mutation_types # return 0
+        assert MutationType.ARITHMETIC in mutation_types  # a + b
+        assert MutationType.RETURN_VALUE in mutation_types  # return 0
 
     def test_mutation_application(self):
         """测试变异应用"""
         tester = MutationTester()
 
-        source_code = '''line1
+        source_code = """line1
 if x > 0:
-    return True'''
+    return True"""
 
         mutation = Mutation(
             mutation_id="test_mut",
@@ -310,14 +321,54 @@ class TestDefenseInDepthIntegration:
 
         # Red Team破坏性测试
         red_tests = [
-            TestCase("r1", TeamRole.RED, TestType.EDGE_CASE, "null输入", {"value": None}, "返回None", ["not_null"], 5, "human"),
-            TestCase("r2", TeamRole.RED, TestType.EDGE_CASE, "负数输入", {"value": -1}, "返回-2", ["equals:-2"], 5, "human"),
-            TestCase("r3", TeamRole.RED, TestType.SECURITY, "超大输入", {"value": 1000000}, "不应溢出", ["less_than:10000000"], 5, "human"),
+            TestCase(
+                "r1",
+                TeamRole.RED,
+                TestType.EDGE_CASE,
+                "null输入",
+                {"value": None},
+                "返回None",
+                ["not_null"],
+                5,
+                "human",
+            ),
+            TestCase(
+                "r2",
+                TeamRole.RED,
+                TestType.EDGE_CASE,
+                "负数输入",
+                {"value": -1},
+                "返回-2",
+                ["equals:-2"],
+                5,
+                "human",
+            ),
+            TestCase(
+                "r3",
+                TeamRole.RED,
+                TestType.SECURITY,
+                "超大输入",
+                {"value": 1000000},
+                "不应溢出",
+                ["less_than:10000000"],
+                5,
+                "human",
+            ),
         ]
 
         # Blue Team正常测试
         blue_tests = [
-            TestCase("b1", TeamRole.BLUE, TestType.FUNCTIONAL, "正常输入", {"value": 5}, "返回10", ["equals:10"], 1, "ai"),
+            TestCase(
+                "b1",
+                TeamRole.BLUE,
+                TestType.FUNCTIONAL,
+                "正常输入",
+                {"value": 5},
+                "返回10",
+                ["equals:10"],
+                1,
+                "ai",
+            ),
         ]
 
         # 执行测试
@@ -341,12 +392,12 @@ class TestDefenseInDepthIntegration:
         # 2. 变异测试（可选）
         tester = MutationTester()
 
-        source_code = '''
+        source_code = """
 def target_function(value):
     if value is None:
         return None
     return value * 2
-'''
+"""
 
         tester.run_mutation_test(
             module_name="quality_gate_test",

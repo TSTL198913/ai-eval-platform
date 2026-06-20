@@ -39,6 +39,7 @@ def _get_env_bool(key: str, default: bool) -> bool:
 @dataclass
 class ConnectionPoolConfig:
     """连接池配置 - 支持从环境变量动态读取"""
+
     pool_size: int = field(default_factory=lambda: _get_env_int("DB_POOL_SIZE", 20))
     max_overflow: int = field(default_factory=lambda: _get_env_int("DB_MAX_OVERFLOW", 40))
     pool_timeout: int = field(default_factory=lambda: _get_env_int("DB_POOL_TIMEOUT", 30))
@@ -60,6 +61,7 @@ class ConnectionPoolConfig:
 @dataclass
 class ConnectionPoolMetrics:
     """连接池监控指标"""
+
     pool_size: int = 0
     checked_in: int = 0
     checked_out: int = 0
@@ -87,6 +89,7 @@ class ConnectionPoolMetrics:
 @dataclass
 class ConnectionLeakInfo:
     """连接泄漏信息"""
+
     connection_id: int
     checkout_time: float
     thread_id: int
@@ -133,10 +136,7 @@ class ConnectionLeakDetector:
                 # 周期性（每30s）采样一次用于调试
                 self._last_leak_check_time = checkout_time
                 stack = traceback.extract_stack()
-                relevant_frames = [
-                    frame for frame in stack
-                    if "session.py" not in frame.filename
-                ]
+                relevant_frames = [frame for frame in stack if "session.py" not in frame.filename]
                 stack_trace = "".join(traceback.format_list(relevant_frames[-5:]))
 
             self._connections[conn_id] = ConnectionLeakInfo(
@@ -264,9 +264,12 @@ def _get_database_url() -> str:
         return os.getenv("TEST_DATABASE_URL", "sqlite:///:memory:")
     try:
         from src.config import settings
+
         return settings.database_url
     except Exception:
-        return os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/eval_platform")
+        return os.getenv(
+            "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/eval_platform"
+        )
 
 
 def _create_engine() -> Engine:
@@ -348,7 +351,7 @@ def _update_pool_metrics() -> None:
     global _pool_metrics
     engine = get_engine()
 
-    if hasattr(engine, 'pool') and isinstance(engine.pool, QueuePool):
+    if hasattr(engine, "pool") and isinstance(engine.pool, QueuePool):
         qpool = engine.pool
         with _metrics_lock:
             _pool_metrics.pool_size = qpool.size()
@@ -381,7 +384,11 @@ def get_pool_status() -> dict[str, Any]:
         "total": metrics.total_connections,
         "active": metrics.active_connections,
         "idle": metrics.idle_connections,
-        "utilization_rate": f"{metrics.active_connections / metrics.pool_size * 100:.1f}%" if metrics.pool_size > 0 else "N/A",
+        "utilization_rate": (
+            f"{metrics.active_connections / metrics.pool_size * 100:.1f}%"
+            if metrics.pool_size > 0
+            else "N/A"
+        ),
         "leak_detection": leak_report,
     }
 
@@ -524,7 +531,7 @@ def invalidate_pool() -> None:
 def close_all_connections() -> None:
     """关闭所有连接池中的连接"""
     engine = get_engine()
-    if hasattr(engine, 'pool'):
+    if hasattr(engine, "pool"):
         engine.pool.dispose()
 
 

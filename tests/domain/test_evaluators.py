@@ -2,6 +2,7 @@
 Domain 层测试 - 评估器业务逻辑
 真实业务场景：金融评估、安全评估、评分、漂移检测
 """
+
 from unittest.mock import MagicMock
 
 import pytest
@@ -26,6 +27,7 @@ def reset_evaluators_each_test():
     """
     from src.domain.evaluators import auto_discover
     from src.domain.evaluators.evaluator_factory import EvaluatorFactory as EF
+
     EF._registry = {}
     auto_discover(force=True)
     yield
@@ -54,6 +56,7 @@ class TestEvaluatorFactoryBusinessScenarios:
 
     def test_factory_creates_evaluator_with_client(self):
         """场景：用户请求评测时，工厂注入 LLM 客户端"""
+
         @EvaluatorFactory.register("test_creator")
         class MockCreator:
             def __init__(self, client=None):
@@ -74,6 +77,7 @@ class TestEvaluatorFactoryBusinessScenarios:
 
     def test_list_evaluators_returns_sorted(self):
         """场景：前端展示可用的评估器列表"""
+
         @EvaluatorFactory.register("zzz_last")
         class _A:
             def evaluate(self, req):
@@ -89,9 +93,11 @@ class TestEvaluatorFactoryBusinessScenarios:
 
     def test_get_evaluator_info_includes_metadata(self):
         """场景：审计系统列出所有评估器信息"""
+
         @EvaluatorFactory.register("meta_test")
         class MockWithDoc:
             """用于测试的评估器"""
+
             def evaluate(self, req):
                 return DomainResponse(is_valid=True)
 
@@ -221,7 +227,10 @@ class TestGeneralEvaluatorBusinessScenarios:
         request = EvaluationSchema(
             id="case_003",
             type="general",
-            payload={"user_input": "Q1: 解释下 API 网关", "expected_output": "API 网关是一种反向代理"},
+            payload={
+                "user_input": "Q1: 解释下 API 网关",
+                "expected_output": "API 网关是一种反向代理",
+            },
         )
         response = evaluator.safe_evaluate(request)
         # LLM 输出完全匹配 expected_output，分数应为 1.0
@@ -278,15 +287,9 @@ class TestGeneralEvaluatorBusinessScenarios:
         """场景：业务方可能用 user_input 或 text 字段"""
         evaluator = GeneralEvaluator()
 
-        req1 = EvaluationSchema(
-            id="c1", type="general", payload={"user_input": "input1"}
-        )
-        req2 = EvaluationSchema(
-            id="c2", type="general", payload={"text": "input2"}
-        )
-        req3 = EvaluationSchema(
-            id="c3", type="general", payload={}
-        )
+        req1 = EvaluationSchema(id="c1", type="general", payload={"user_input": "input1"})
+        req2 = EvaluationSchema(id="c2", type="general", payload={"text": "input2"})
+        req3 = EvaluationSchema(id="c3", type="general", payload={})
 
         assert evaluator.get_input_text(req1) == "input1"
         assert evaluator.get_input_text(req2) == "input2"
@@ -302,6 +305,7 @@ class TestExceptionHierarchyBusinessScenarios:
     def test_base_platform_error_has_code(self):
         """场景：错误码用于国际化与日志聚合"""
         from src.exceptions import BasePlatformError
+
         err = BasePlatformError("boom", code="CUSTOM_CODE")
         assert err.message == "boom"
         assert err.code == "CUSTOM_CODE"
@@ -310,6 +314,7 @@ class TestExceptionHierarchyBusinessScenarios:
     def test_contract_validation_error_default_code(self):
         """场景：客户端提交非法请求体"""
         from src.exceptions import ContractValidationError
+
         err = ContractValidationError()
         assert err.code == "CONTRACT_ERROR"
 
@@ -340,6 +345,7 @@ class TestEvaluationSchemaValidation:
     def test_schema_requires_id_type_payload(self):
         """场景：必填字段缺失"""
         from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             EvaluationSchema()  # type: ignore
 
@@ -363,6 +369,7 @@ class TestEvaluationSchemaValidation:
             payload={},
         )
         from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             req.id = "xyz"  # type: ignore
 
@@ -376,4 +383,8 @@ class TestEvaluationSchemaValidation:
         )
         assert response.is_valid is True
         # extra="allow" 应保留自定义字段
-        assert response.model_extra is None or "custom_field_1" in response.model_extra or hasattr(response, "custom_field_1")
+        assert (
+            response.model_extra is None
+            or "custom_field_1" in response.model_extra
+            or hasattr(response, "custom_field_1")
+        )

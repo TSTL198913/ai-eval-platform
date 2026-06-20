@@ -27,6 +27,7 @@ def reset_evaluators_each_test():
     """
     from src.domain.evaluators import auto_discover
     from src.domain.evaluators.evaluator_factory import EvaluatorFactory as EF
+
     EF._registry = {}
     auto_discover(force=True)
     yield
@@ -113,7 +114,12 @@ class TestTrajectoryEvaluatorPositiveCases:
                 "trajectory_id": "traj-003",
                 "steps": [
                     {"action": "thought", "thought": "分析", "latency_ms": 100},
-                    {"action": "tool", "tool_name": "search", "tool_result": "结果", "latency_ms": 200},
+                    {
+                        "action": "tool",
+                        "tool_name": "search",
+                        "tool_result": "结果",
+                        "latency_ms": 200,
+                    },
                     {"action": "finish", "thought": "完成", "latency_ms": 50},
                 ],
                 "success": True,
@@ -891,7 +897,9 @@ class TestTrajectoryEvaluatorSpecialScenarios:
         # 未使用工具应添加缺点
         assert any("未使用任何工具" in w for w in result.data["weaknesses"])
 
-    def test_check_reasoning_chain_validity_with_multiple_steps_calculates_correctly(self, evaluator):
+    def test_check_reasoning_chain_validity_with_multiple_steps_calculates_correctly(
+        self, evaluator
+    ):
         """检查推理链有效性时应正确计算转换分数"""
         # Arrange - 创建一个有效的推理链
         request = EvaluationSchema(

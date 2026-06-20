@@ -169,12 +169,14 @@ class DriftDetectionEvaluator(BaseEvaluator):
             avg_diff = (length_diff + token_diff) / 2
             drift_score = min(avg_diff, 1.0)
 
-            stats.update({
-                "baseline_length": baseline_len,
-                "baseline_tokens": baseline_tokens,
-                "length_drift": length_diff,
-                "token_drift": token_diff,
-            })
+            stats.update(
+                {
+                    "baseline_length": baseline_len,
+                    "baseline_tokens": baseline_tokens,
+                    "length_drift": length_diff,
+                    "token_drift": token_diff,
+                }
+            )
         else:
             drift_score = 0
 
@@ -200,9 +202,13 @@ class DriftDetectionEvaluator(BaseEvaluator):
         version_b_metadata = self.get_payload_data(request, "version_b_metadata", {})
 
         if not version_a_output or not version_b_output:
-            return DomainResponse(is_valid=False, error="version_a_output 和 version_b_output 不能为空")
+            return DomainResponse(
+                is_valid=False, error="version_a_output 和 version_b_output 不能为空"
+            )
 
-        comparison = self._compare_versions(version_a_output, version_b_output, version_a_metadata, version_b_metadata)
+        comparison = self._compare_versions(
+            version_a_output, version_b_output, version_a_metadata, version_b_metadata
+        )
 
         return DomainResponse(
             is_valid=True,
@@ -238,20 +244,22 @@ class DriftDetectionEvaluator(BaseEvaluator):
         }
 
     def _compute_fingerprint(self, text: str) -> str:
-        normalized_text = re.sub(r'\s+', ' ', text.strip()).lower()
+        normalized_text = re.sub(r"\s+", " ", text.strip()).lower()
         return hashlib.md5(normalized_text.encode()).hexdigest()
 
     def _compute_text_stats(self, text: str) -> dict:
-        sentences = re.split(r'[.!?]+', text)
+        sentences = re.split(r"[.!?]+", text)
         sentences = [s for s in sentences if s.strip()]
 
-        words = re.findall(r'\w+', text)
+        words = re.findall(r"\w+", text)
 
         return {
             "length": len(text),
             "word_count": len(words),
             "sentence_count": len(sentences),
-            "avg_sentence_length": sum(len(s) for s in sentences) / len(sentences) if sentences else 0,
+            "avg_sentence_length": (
+                sum(len(s) for s in sentences) / len(sentences) if sentences else 0
+            ),
             "avg_word_length": sum(len(w) for w in words) / len(words) if words else 0,
         }
 
@@ -289,7 +297,9 @@ class DriftDetectionEvaluator(BaseEvaluator):
             data=drift_result,
         )
 
-    def _analyze_semantic_drift(self, actual: str, baseline: str, context: str | None = None) -> dict:
+    def _analyze_semantic_drift(
+        self, actual: str, baseline: str, context: str | None = None
+    ) -> dict:
         actual_keywords = self._extract_keywords(actual)
         baseline_keywords = self._extract_keywords(baseline)
 
@@ -303,7 +313,11 @@ class DriftDetectionEvaluator(BaseEvaluator):
 
         text_similarity = difflib.SequenceMatcher(None, actual, baseline).ratio()
 
-        drift_score = (1.0 - keyword_overlap) * 0.4 + (1.0 - factual_consistency) * 0.3 + (1.0 - text_similarity) * 0.3
+        drift_score = (
+            (1.0 - keyword_overlap) * 0.4
+            + (1.0 - factual_consistency) * 0.3
+            + (1.0 - text_similarity) * 0.3
+        )
 
         return {
             "drift_score": drift_score,
@@ -317,22 +331,80 @@ class DriftDetectionEvaluator(BaseEvaluator):
         }
 
     def _extract_keywords(self, text: str) -> list:
-        words = re.findall(r'\w+', text.lower())
-        stop_words = {"the", "and", "or", "but", "is", "are", "was", "were", "be", "been", "being",
-                      "have", "has", "had", "do", "does", "did", "will", "would", "could", "should",
-                      "may", "might", "must", "shall", "can", "need", "dare", "ought", "used",
-                      "to", "of", "in", "for", "on", "with", "at", "by", "from", "up", "about",
-                      "into", "over", "after", "as", "if", "when", "than",
-                      "because", "while", "although", "though", "that", "which", "who", "whom",
-                      "this", "these", "those", "what", "how", "where", "why"}
+        words = re.findall(r"\w+", text.lower())
+        stop_words = {
+            "the",
+            "and",
+            "or",
+            "but",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "being",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "must",
+            "shall",
+            "can",
+            "need",
+            "dare",
+            "ought",
+            "used",
+            "to",
+            "of",
+            "in",
+            "for",
+            "on",
+            "with",
+            "at",
+            "by",
+            "from",
+            "up",
+            "about",
+            "into",
+            "over",
+            "after",
+            "as",
+            "if",
+            "when",
+            "than",
+            "because",
+            "while",
+            "although",
+            "though",
+            "that",
+            "which",
+            "who",
+            "whom",
+            "this",
+            "these",
+            "those",
+            "what",
+            "how",
+            "where",
+            "why",
+        }
 
         filtered = [w for w in words if w not in stop_words and len(w) > 2]
 
         return filtered
 
     def _check_factual_consistency(self, actual: str, baseline: str) -> float:
-        actual_nums = re.findall(r'\d+\.?\d*', actual)
-        baseline_nums = re.findall(r'\d+\.?\d*', baseline)
+        actual_nums = re.findall(r"\d+\.?\d*", actual)
+        baseline_nums = re.findall(r"\d+\.?\d*", baseline)
 
         if not baseline_nums:
             return 0.5
@@ -381,8 +453,8 @@ class DriftDetectionEvaluator(BaseEvaluator):
     def _analyze_structure(self, text: str) -> dict:
         has_json = "{" in text and "}" in text
         has_markdown = any(m in text for m in ["#", "*", "**", "- ", "1.", "2.", "3."])
-        has_list = re.search(r'(\d+\.|-|\*)\s+', text) is not None
-        has_table = "|" in text and re.search(r'\|.*\|', text) is not None
+        has_list = re.search(r"(\d+\.|-|\*)\s+", text) is not None
+        has_table = "|" in text and re.search(r"\|.*\|", text) is not None
 
         return {
             "has_json": has_json,
@@ -402,7 +474,11 @@ class DriftDetectionEvaluator(BaseEvaluator):
         stats_a = current["stats"]
         stats_b = baseline.get("stats", {})
         if stats_a and stats_b:
-            stat_diff = sum(abs(stats_a[k] - stats_b.get(k, 0)) / max(stats_a[k], 1) for k in stats_a if k in stats_b)
+            stat_diff = sum(
+                abs(stats_a[k] - stats_b.get(k, 0)) / max(stats_a[k], 1)
+                for k in stats_a
+                if k in stats_b
+            )
             score += max(0, 0.3 - stat_diff * 0.3)
         total += 0.3
 
@@ -424,7 +500,9 @@ class DriftDetectionEvaluator(BaseEvaluator):
             return self._BASELINE_STORE[case_id]
 
         # 自动从历史记录创建基线（使用前10条记录）
-        valid_scores = [r.get("score", 0) for r in recent_results[:10] if r.get("score") is not None]
+        valid_scores = [
+            r.get("score", 0) for r in recent_results[:10] if r.get("score") is not None
+        ]
         if len(valid_scores) >= 3:
             baseline = sum(valid_scores) / len(valid_scores)
             self._BASELINE_STORE[case_id] = baseline
@@ -438,6 +516,7 @@ class DriftDetectionEvaluator(BaseEvaluator):
         try:
             import json
             from pathlib import Path
+
             baseline_file = Path("data/baselines.json")
             baseline_file.parent.mkdir(parents=True, exist_ok=True)
             existing = {}
@@ -456,6 +535,7 @@ class DriftDetectionEvaluator(BaseEvaluator):
         try:
             import json
             from pathlib import Path
+
             baseline_file = Path("data/baselines.json")
             if baseline_file.exists():
                 data = json.loads(baseline_file.read_text(encoding="utf-8"))

@@ -56,14 +56,22 @@ class TestFrontendBackendContract:
 
             value = data[field]
             if isinstance(expected_type, tuple):
-                if not any(isinstance(value, t) for t in expected_type if not isinstance(t, type(None))):
+                if not any(
+                    isinstance(value, t) for t in expected_type if not isinstance(t, type(None))
+                ):
                     # 允许 None
                     if value is not None:
-                        allowed = [t.__name__ if isinstance(t, type) else str(t) for t in expected_type]
-                        errors.append(f"字段 {field} 类型错误: 期望 {allowed}, 实际 {type(value).__name__}")
+                        allowed = [
+                            t.__name__ if isinstance(t, type) else str(t) for t in expected_type
+                        ]
+                        errors.append(
+                            f"字段 {field} 类型错误: 期望 {allowed}, 实际 {type(value).__name__}"
+                        )
             else:
                 if not isinstance(value, expected_type):
-                    errors.append(f"字段 {field} 类型错误: 期望 {expected_type.__name__}, 实际 {type(value).__name__}")
+                    errors.append(
+                        f"字段 {field} 类型错误: 期望 {expected_type.__name__}, 实际 {type(value).__name__}"
+                    )
         return errors
 
     def test_evaluation_record_matches_frontend(self):
@@ -154,7 +162,9 @@ class TestFrontendBackendContract:
 
         # 前端期望的 status 值
         valid_statuses = {"passed", "failed", "error", "success"}
-        assert result["status"] in valid_statuses, f"status '{result['status']}' 不在有效值 {valid_statuses} 中"
+        assert (
+            result["status"] in valid_statuses
+        ), f"status '{result['status']}' 不在有效值 {valid_statuses} 中"
 
     def test_status_and_evaluation_status_different_meanings(self):
         """场景: status 与 evaluation_status 是不同字段，有不同含义"""
@@ -177,9 +187,15 @@ class TestFrontendBackendContract:
 
         # status: API 层状态（success/error）
         # evaluation_status: 评估结果状态（passed/failed/error）
-        assert result["status"] in ["success", "error"], f"status 应为 'success' 或 'error', 实际: {result['status']}"
-        assert result["evaluation_status"] in ["passed", "failed", "error"], \
-            f"evaluation_status 应为 'passed'/'failed'/'error', 实际: {result['evaluation_status']}"
+        assert result["status"] in [
+            "success",
+            "error",
+        ], f"status 应为 'success' 或 'error', 实际: {result['status']}"
+        assert result["evaluation_status"] in [
+            "passed",
+            "failed",
+            "error",
+        ], f"evaluation_status 应为 'passed'/'failed'/'error', 实际: {result['evaluation_status']}"
 
     def test_error_response_structure(self):
         """场景: 错误响应结构必须与前端错误处理一致"""

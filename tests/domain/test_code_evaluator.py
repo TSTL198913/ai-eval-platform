@@ -490,8 +490,8 @@ class TestCodeEvaluatorDependencyHandling:
         # system_prompt 作为关键字参数
         assert call_args[1]["system_prompt"] == "你是代码审查专家"
 
-    @patch('src.domain.evaluators.code.score_text_similarity')
-    @patch('src.domain.evaluators.code.score_keyword_overlap')
+    @patch("src.domain.evaluators.code.score_text_similarity")
+    @patch("src.domain.evaluators.code.score_keyword_overlap")
     def test_scoring_functions_called_correctly(self, mock_keyword, mock_similarity, evaluator):
         """验证评分函数被正确调用"""
         # Arrange

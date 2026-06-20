@@ -70,7 +70,10 @@ class MTBenchDataset(BaseDataset):
                 "id": "mt_bench_002",
                 "category": "reasoning",
                 "turns": [
-                    {"role": "user", "content": "一个房间里有3个人，每个人都有2只手，一共有多少只手？"},
+                    {
+                        "role": "user",
+                        "content": "一个房间里有3个人，每个人都有2只手，一共有多少只手？",
+                    },
                     {"role": "assistant", "content": "3个人 × 2只手 = 6只手。"},
                     {"role": "user", "content": "如果每个人又多了1只手，一共有多少只手？"},
                     {"role": "assistant", "content": "3个人 × 3只手 = 9只手。"},
@@ -82,7 +85,10 @@ class MTBenchDataset(BaseDataset):
                 "category": "coding",
                 "turns": [
                     {"role": "user", "content": "写一个Python函数计算斐波那契数列。"},
-                    {"role": "assistant", "content": "def fibonacci(n):\n    if n <= 1:\n        return n\n    return fibonacci(n-1) + fibonacci(n-2)"},
+                    {
+                        "role": "assistant",
+                        "content": "def fibonacci(n):\n    if n <= 1:\n        return n\n    return fibonacci(n-1) + fibonacci(n-2)",
+                    },
                     {"role": "user", "content": "优化这个函数使其支持大数值计算。"},
                     {"role": "assistant", "content": "使用动态规划或矩阵快速幂优化。"},
                 ],
@@ -101,7 +107,8 @@ class MTBenchDataset(BaseDataset):
         return {
             "total_samples": len(self.data),
             "categories": categories,
-            "avg_turns": sum(len(item.get("turns", [])) for item in self.data) / max(len(self.data), 1),
+            "avg_turns": sum(len(item.get("turns", [])) for item in self.data)
+            / max(len(self.data), 1),
         }
 
 
@@ -190,7 +197,12 @@ class MMLUDataset(BaseDataset):
                 "id": "mmlu_002",
                 "subject": "biology",
                 "question": "DNA的全称是什么？",
-                "options": ["Deoxyribonucleic Acid", "Ribonucleic Acid", "Amino Acid", "Fatty Acid"],
+                "options": [
+                    "Deoxyribonucleic Acid",
+                    "Ribonucleic Acid",
+                    "Amino Acid",
+                    "Fatty Acid",
+                ],
                 "answer": "Deoxyribonucleic Acid",
                 "difficulty": "medium",
             },
@@ -229,20 +241,23 @@ class HumanEvalDataset(BaseDataset):
         # 优先尝试从真实数据集加载
         try:
             from src.domain.benchmarks.dataset_loader import DatasetLoader
+
             real_samples = DatasetLoader.load_humaneval()
             if real_samples:
                 # 转换为标准格式
                 self.data = []
                 for s in real_samples:
-                    self.data.append({
-                        "id": s.get("task_id", f"humaneval_{len(self.data)}"),
-                        "task_id": s.get("task_id"),
-                        "prompt": s.get("prompt", ""),
-                        "canonical_solution": s.get("canonical_solution", ""),
-                        "test": s.get("test", ""),
-                        "entry_point": s.get("entry_point", ""),
-                        "reference": s.get("reference", ""),
-                    })
+                    self.data.append(
+                        {
+                            "id": s.get("task_id", f"humaneval_{len(self.data)}"),
+                            "task_id": s.get("task_id"),
+                            "prompt": s.get("prompt", ""),
+                            "canonical_solution": s.get("canonical_solution", ""),
+                            "test": s.get("test", ""),
+                            "entry_point": s.get("entry_point", ""),
+                            "reference": s.get("reference", ""),
+                        }
+                    )
                 return self.data
         except Exception:
             pass
@@ -260,14 +275,14 @@ class HumanEvalDataset(BaseDataset):
             {
                 "id": "humaneval_001",
                 "task_id": "HumanEval/0",
-                "prompt": "def factorial(n):\n    \"\"\"计算n的阶乘\"\"\"",
+                "prompt": 'def factorial(n):\n    """计算n的阶乘"""',
                 "canonical_solution": "def factorial(n):\n    if n == 0:\n        return 1\n    return n * factorial(n-1)",
                 "test": "def test_factorial():\n    assert factorial(0) == 1\n    assert factorial(5) == 120\n    assert factorial(10) == 3628800",
             },
             {
                 "id": "humaneval_002",
                 "task_id": "HumanEval/1",
-                "prompt": "def reverse_string(s):\n    \"\"\"反转字符串\"\"\"",
+                "prompt": 'def reverse_string(s):\n    """反转字符串"""',
                 "canonical_solution": "def reverse_string(s):\n    return s[::-1]",
                 "test": "def test_reverse_string():\n    assert reverse_string('hello') == 'olleh'\n    assert reverse_string('world') == 'dlrow'",
             },

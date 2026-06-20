@@ -86,7 +86,7 @@ TOKEN_PRICING = {
 def get_token_cost(provider: str, model: str, prompt_tokens: int, completion_tokens: int) -> float:
     """计算Token成本"""
     pricing = TOKEN_PRICING.get(provider, {}).get(model, {"prompt": 0, "completion": 0})
-    cost = (prompt_tokens * pricing["prompt"] + completion_tokens * pricing["completion"])
+    cost = prompt_tokens * pricing["prompt"] + completion_tokens * pricing["completion"]
     return round(cost, 6)
 
 
@@ -148,6 +148,7 @@ def timed_llm_call(provider: str, model: str):
         def call_llm(prompt):
             return client.chat(prompt)
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -167,7 +168,9 @@ def timed_llm_call(provider: str, model: str):
                     latency=latency,
                     error=error,
                 )
+
         return wrapper
+
     return decorator
 
 

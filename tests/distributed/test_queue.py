@@ -143,10 +143,12 @@ class TestRedisListQueue:
     async def test_consume_with_message(self, queue, mock_redis):
         """消费消息应正确处理"""
         import json
+
         message = QueueMessage(message_id="consume-001", payload="test")
         mock_redis.rpop = MagicMock(return_value=json.dumps(message.to_dict()))
 
         received_message = []
+
         async def callback(msg):
             received_message.append(msg)
 
@@ -161,6 +163,7 @@ class TestRedisListQueue:
         mock_redis.rpop = MagicMock(return_value=None)
 
         received_message = []
+
         async def callback(msg):
             received_message.append(msg)
 
@@ -172,6 +175,7 @@ class TestRedisListQueue:
     async def test_consume_with_callback_error(self, queue, mock_redis):
         """回调错误应触发nack"""
         import json
+
         message = QueueMessage(message_id="error-msg", payload="test")
         mock_redis.rpop = MagicMock(return_value=json.dumps(message.to_dict()))
 

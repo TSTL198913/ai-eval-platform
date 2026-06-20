@@ -2,6 +2,7 @@
 成本治理模块单元测试 - 带有效断言
 覆盖: 成本计算、预算检查、指标统计、模型排序
 """
+
 import os
 import sys
 
@@ -228,7 +229,9 @@ class TestCostGovernanceDefaults:
 
     def test_custom_limits(self):
         """自定义限制应生效"""
-        cg = CostGovernance(daily_cost_limit=50.0, weekly_cost_limit=200.0, monthly_cost_limit=1000.0)
+        cg = CostGovernance(
+            daily_cost_limit=50.0, weekly_cost_limit=200.0, monthly_cost_limit=1000.0
+        )
         assert cg.daily_cost_limit == 50.0
         assert cg.weekly_cost_limit == 200.0
         assert cg.monthly_cost_limit == 1000.0

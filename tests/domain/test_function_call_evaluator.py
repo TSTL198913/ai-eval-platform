@@ -121,12 +121,8 @@ class TestFunctionCallEvaluatorPositiveCases:
             type="function_call",
             payload={
                 "action": "validate_params",
-                "expected_params": {
-                    "get_weather": {"city": "Shanghai", "unit": "fahrenheit"}
-                },
-                "actual_params": {
-                    "get_weather": {"city": "Shanghai", "unit": "fahrenheit"}
-                },
+                "expected_params": {"get_weather": {"city": "Shanghai", "unit": "fahrenheit"}},
+                "actual_params": {"get_weather": {"city": "Shanghai", "unit": "fahrenheit"}},
                 "tool_definitions": tool_definitions,
             },
         )
@@ -136,8 +132,12 @@ class TestFunctionCallEvaluatorPositiveCases:
         assert result.is_valid is True
         assert result.score == 1.0
         assert result.data["details"]["average_score"] == 1.0
-        assert result.data["details"]["per_tool_scores"]["get_weather"]["city"]["status"] == "correct"
-        assert result.data["details"]["per_tool_scores"]["get_weather"]["unit"]["status"] == "correct"
+        assert (
+            result.data["details"]["per_tool_scores"]["get_weather"]["city"]["status"] == "correct"
+        )
+        assert (
+            result.data["details"]["per_tool_scores"]["get_weather"]["unit"]["status"] == "correct"
+        )
 
     def test_validate_result_exact_match(self, evaluator):
         """结果验证：结果完全匹配"""
@@ -194,9 +194,7 @@ class TestFunctionCallEvaluatorPositiveCases:
             type="function_call",
             payload={
                 "action": "validate_params",
-                "expected_params": {
-                    "get_weather": {"city": "Beijing", "unit": "celsius"}
-                },
+                "expected_params": {"get_weather": {"city": "Beijing", "unit": "celsius"}},
                 "actual_params": {
                     "get_weather": {"city": "Shanghai", "unit": "fahrenheit"}  # 类型正确但值错误
                 },
@@ -209,8 +207,14 @@ class TestFunctionCallEvaluatorPositiveCases:
         assert result.is_valid is True
         # 每个参数类型正确但值错误，应得0.5分，平均分 = (0.5 + 0.5) / 2 = 0.5
         assert result.score == pytest.approx(0.5, abs=0.01)
-        assert result.data["details"]["per_tool_scores"]["get_weather"]["city"]["status"] == "type_correct_value_wrong"
-        assert result.data["details"]["per_tool_scores"]["get_weather"]["unit"]["status"] == "type_correct_value_wrong"
+        assert (
+            result.data["details"]["per_tool_scores"]["get_weather"]["city"]["status"]
+            == "type_correct_value_wrong"
+        )
+        assert (
+            result.data["details"]["per_tool_scores"]["get_weather"]["unit"]["status"]
+            == "type_correct_value_wrong"
+        )
 
 
 class TestFunctionCallEvaluatorNegativeCases:
@@ -282,12 +286,8 @@ class TestFunctionCallEvaluatorNegativeCases:
             type="function_call",
             payload={
                 "action": "validate_params",
-                "expected_params": {
-                    "get_weather": {"city": "Beijing", "unit": "celsius"}
-                },
-                "actual_params": {
-                    "get_weather": {}  # 参数完全缺失
-                },
+                "expected_params": {"get_weather": {"city": "Beijing", "unit": "celsius"}},
+                "actual_params": {"get_weather": {}},  # 参数完全缺失
                 "tool_definitions": [],
             },
         )
@@ -296,8 +296,12 @@ class TestFunctionCallEvaluatorNegativeCases:
 
         assert result.is_valid is True
         assert result.score == 0.0
-        assert result.data["details"]["per_tool_scores"]["get_weather"]["city"]["status"] == "missing"
-        assert result.data["details"]["per_tool_scores"]["get_weather"]["unit"]["status"] == "missing"
+        assert (
+            result.data["details"]["per_tool_scores"]["get_weather"]["city"]["status"] == "missing"
+        )
+        assert (
+            result.data["details"]["per_tool_scores"]["get_weather"]["unit"]["status"] == "missing"
+        )
 
     def test_incorrect_result(self, evaluator):
         """结果不匹配：应得0分"""
@@ -434,24 +438,10 @@ class TestFunctionCallEvaluatorBoundaryCases:
             payload={
                 "action": "validate_params",
                 "expected_params": {
-                    "complex_tool": {
-                        "nested": {
-                            "deep": {
-                                "value": "test",
-                                "numbers": [1, 2, 3]
-                            }
-                        }
-                    }
+                    "complex_tool": {"nested": {"deep": {"value": "test", "numbers": [1, 2, 3]}}}
                 },
                 "actual_params": {
-                    "complex_tool": {
-                        "nested": {
-                            "deep": {
-                                "value": "test",
-                                "numbers": [1, 2, 3]
-                            }
-                        }
-                    }
+                    "complex_tool": {"nested": {"deep": {"value": "test", "numbers": [1, 2, 3]}}}
                 },
                 "tool_definitions": [],
             },
@@ -588,12 +578,8 @@ class TestFunctionCallEvaluatorDependencyHandling:
             type="function_call",
             payload={
                 "action": "validate_params",
-                "expected_params": {
-                    "unknown_tool": {"param": "value"}
-                },
-                "actual_params": {
-                    "unknown_tool": {"param": "different_value"}
-                },
+                "expected_params": {"unknown_tool": {"param": "value"}},
+                "actual_params": {"unknown_tool": {"param": "different_value"}},
                 "tool_definitions": [],  # 工具定义缺失
             },
         )
@@ -619,12 +605,8 @@ class TestFunctionCallEvaluatorSpecialCases:
             type="function_call",
             payload={
                 "action": "validate_result",
-                "expected_results": {
-                    "tool": "hello world"
-                },
-                "actual_results": {
-                    "tool": "hello word"  # 一个字符差异
-                },
+                "expected_results": {"tool": "hello world"},
+                "actual_results": {"tool": "hello word"},  # 一个字符差异
             },
         )
 
@@ -642,12 +624,8 @@ class TestFunctionCallEvaluatorSpecialCases:
             type="function_call",
             payload={
                 "action": "validate_result",
-                "expected_results": {
-                    "tool": {"a": 1, "b": 2, "c": 3}
-                },
-                "actual_results": {
-                    "tool": {"a": 1, "b": 2, "d": 4}  # c缺失，d新增
-                },
+                "expected_results": {"tool": {"a": 1, "b": 2, "c": 3}},
+                "actual_results": {"tool": {"a": 1, "b": 2, "d": 4}},  # c缺失，d新增
             },
         )
 
@@ -666,12 +644,8 @@ class TestFunctionCallEvaluatorSpecialCases:
             type="function_call",
             payload={
                 "action": "validate_result",
-                "expected_results": {
-                    "tool": [1, 2, 3, 4, 5]
-                },
-                "actual_results": {
-                    "tool": [1, 3, 5, 7, 9]  # LCS: [1, 3, 5]
-                },
+                "expected_results": {"tool": [1, 2, 3, 4, 5]},
+                "actual_results": {"tool": [1, 3, 5, 7, 9]},  # LCS: [1, 3, 5]
             },
         )
 
@@ -688,12 +662,8 @@ class TestFunctionCallEvaluatorSpecialCases:
             type="function_call",
             payload={
                 "action": "validate_result",
-                "expected_results": {
-                    "tool": 100
-                },
-                "actual_results": {
-                    "tool": 90  # 差异10%
-                },
+                "expected_results": {"tool": 100},
+                "actual_results": {"tool": 90},  # 差异10%
             },
         )
 
@@ -710,12 +680,8 @@ class TestFunctionCallEvaluatorSpecialCases:
             type="function_call",
             payload={
                 "action": "validate_params",
-                "expected_params": {
-                    "tool": {"param": "  HELLO  "}
-                },
-                "actual_params": {
-                    "tool": {"param": "hello"}  # 大小写和空格不同
-                },
+                "expected_params": {"tool": {"param": "  HELLO  "}},
+                "actual_params": {"tool": {"param": "hello"}},  # 大小写和空格不同
                 "tool_definitions": [],
             },
         )
@@ -828,18 +794,14 @@ class TestFunctionCallEvaluatorIntegrationScenarios:
             payload={
                 "expected_tools": ["get_weather"],
                 "actual_tools": ["get_weather"],
-                "expected_params": {
-                    "get_weather": {"city": "北京", "unit": "celsius"}
-                },
-                "actual_params": {
-                    "get_weather": {"city": "北京", "unit": "celsius"}
-                },
+                "expected_params": {"get_weather": {"city": "北京", "unit": "celsius"}},
+                "actual_params": {"get_weather": {"city": "北京", "unit": "celsius"}},
                 "expected_results": {
                     "get_weather": {
                         "temperature": 25,
                         "humidity": 60,
                         "condition": "晴",
-                        "wind_speed": 3.5
+                        "wind_speed": 3.5,
                     }
                 },
                 "actual_results": {
@@ -847,7 +809,7 @@ class TestFunctionCallEvaluatorIntegrationScenarios:
                         "temperature": 25,
                         "humidity": 60,
                         "condition": "晴",
-                        "wind_speed": 3.5
+                        "wind_speed": 3.5,
                     }
                 },
                 "tool_definitions": tool_definitions,

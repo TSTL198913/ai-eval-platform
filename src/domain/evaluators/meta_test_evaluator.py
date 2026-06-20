@@ -1,6 +1,5 @@
 """元测试评估器 - 使用系统自身的评估器评估测试代码"""
 
-
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.domain.evaluators.scoring_utils import ScoreCalculator
@@ -26,8 +25,7 @@ class MetaTestEvaluator(BaseEvaluator):
 
         if not test_code:
             return self.create_error_response(
-                error_message="test_code 不能为空",
-                error_code="INVALID_INPUT"
+                error_message="test_code 不能为空", error_code="INVALID_INPUT"
             )
 
         # 1. 评估测试代码质量
@@ -40,9 +38,7 @@ class MetaTestEvaluator(BaseEvaluator):
         drift_detection = self._detect_test_drift(test_results, baseline_results)
 
         # 4. 计算总体评分
-        overall_score = self._calculate_overall_score(
-            code_quality, logic_quality, drift_detection
-        )
+        overall_score = self._calculate_overall_score(code_quality, logic_quality, drift_detection)
 
         # 5. 生成改进建议
         recommendations = self._generate_recommendations(
@@ -58,7 +54,7 @@ class MetaTestEvaluator(BaseEvaluator):
                 "drift_detection": drift_detection,
                 "overall_score": overall_score,
                 "recommendations": recommendations,
-            }
+            },
         )
 
     def _evaluate_code_quality(self, test_code: str) -> dict:
@@ -115,12 +111,19 @@ class MetaTestEvaluator(BaseEvaluator):
         # 检查命名是否描述性
         # 简单检查: 是否包含常见测试场景关键词
         descriptive_keywords = [
-            "valid", "invalid", "empty", "null", "error",
-            "success", "fail", "boundary", "edge", "exception"
+            "valid",
+            "invalid",
+            "empty",
+            "null",
+            "error",
+            "success",
+            "fail",
+            "boundary",
+            "edge",
+            "exception",
         ]
         checks["has_descriptive_name"] = any(
-            keyword in test_code.lower()
-            for keyword in descriptive_keywords
+            keyword in test_code.lower() for keyword in descriptive_keywords
         )
 
         return checks
@@ -137,16 +140,15 @@ class MetaTestEvaluator(BaseEvaluator):
             "assert result.is_valid",
         ]
         checks["has_strong_assertion"] = any(
-            assertion in test_code
-            for assertion in strong_assertions
+            assertion in test_code for assertion in strong_assertions
         )
 
         # 检查是否有弱断言(仅验证状态)
         weak_assertions = ["assert result", "assert response"]
-        checks["has_weak_assertion"] = any(
-            assertion in test_code
-            for assertion in weak_assertions
-        ) and not checks["has_strong_assertion"]
+        checks["has_weak_assertion"] = (
+            any(assertion in test_code for assertion in weak_assertions)
+            and not checks["has_strong_assertion"]
+        )
 
         # 检查是否有多个断言
         checks["has_multiple_assertions"] = test_code.count("assert") >= 2
@@ -176,7 +178,7 @@ class MetaTestEvaluator(BaseEvaluator):
         checks = {}
 
         # 简单检查: 是否有重复的代码块
-        lines = test_code.split('\n')
+        lines = test_code.split("\n")
         unique_lines = {line.strip() for line in lines if line.strip()}
 
         # 重复率 = (总行数 - 唯一行数) / 总行数
@@ -196,7 +198,7 @@ class MetaTestEvaluator(BaseEvaluator):
         checks["has_docstring"] = '"""' in test_code or "'''" in test_code
 
         # 检查代码长度(过长可能难以理解)
-        lines = test_code.split('\n')
+        lines = test_code.split("\n")
         checks["reasonable_length"] = len(lines) < 50
 
         return checks
@@ -233,22 +235,19 @@ class MetaTestEvaluator(BaseEvaluator):
         # 检查是否有正向测试
         positive_keywords = ["valid", "success", "correct", "normal"]
         checks["has_positive_test"] = any(
-            keyword in test_code.lower()
-            for keyword in positive_keywords
+            keyword in test_code.lower() for keyword in positive_keywords
         )
 
         # 检查是否有负向测试
         negative_keywords = ["invalid", "error", "fail", "wrong"]
         checks["has_negative_test"] = any(
-            keyword in test_code.lower()
-            for keyword in negative_keywords
+            keyword in test_code.lower() for keyword in negative_keywords
         )
 
         # 检查是否有边界测试
         boundary_keywords = ["boundary", "edge", "limit", "empty", "null"]
         checks["has_boundary_test"] = any(
-            keyword in test_code.lower()
-            for keyword in boundary_keywords
+            keyword in test_code.lower() for keyword in boundary_keywords
         )
 
         return checks
@@ -259,9 +258,9 @@ class MetaTestEvaluator(BaseEvaluator):
 
         # 检查是否有Arrange-Act-Assert模式
         checks["has_aaa_pattern"] = (
-            "arrange" in test_code.lower() or
-            "act" in test_code.lower() or
-            "assert" in test_code.lower()
+            "arrange" in test_code.lower()
+            or "act" in test_code.lower()
+            or "assert" in test_code.lower()
         )
 
         # 检查是否有清晰的测试步骤
@@ -295,7 +294,7 @@ class MetaTestEvaluator(BaseEvaluator):
         checks["has_fixture_reuse"] = "fixture" in test_code
 
         # 检查代码长度(过长难以维护)
-        lines = test_code.split('\n')
+        lines = test_code.split("\n")
         checks["reasonable_length"] = len(lines) < 100
 
         return checks
@@ -307,20 +306,17 @@ class MetaTestEvaluator(BaseEvaluator):
         # 检查是否有业务逻辑验证
         business_keywords = ["score", "data", "result", "output"]
         checks["has_business_logic_check"] = any(
-            keyword in test_code
-            for keyword in business_keywords
+            keyword in test_code for keyword in business_keywords
         )
 
         # 检查是否有错误处理验证
-        checks["has_error_handling"] = "error" in test_code.lower() or "exception" in test_code.lower()
+        checks["has_error_handling"] = (
+            "error" in test_code.lower() or "exception" in test_code.lower()
+        )
 
         return checks
 
-    def _detect_test_drift(
-        self,
-        test_results: dict | None,
-        baseline_results: dict | None
-    ) -> dict:
+    def _detect_test_drift(self, test_results: dict | None, baseline_results: dict | None) -> dict:
         """检测测试漂移"""
         if not test_results or not baseline_results:
             return {
@@ -354,7 +350,8 @@ class MetaTestEvaluator(BaseEvaluator):
         baseline_duration = baseline_results.get("duration", 0.0)
         drift_detection["performance_drift"] = (
             (current_duration - baseline_duration) / baseline_duration
-            if baseline_duration > 0 else 0.0
+            if baseline_duration > 0
+            else 0.0
         )
 
         # 检测依赖漂移(依赖版本变化)
@@ -380,10 +377,7 @@ class MetaTestEvaluator(BaseEvaluator):
         return drift_detection
 
     def _calculate_overall_score(
-        self,
-        code_quality: dict,
-        logic_quality: dict,
-        drift_detection: dict
+        self, code_quality: dict, logic_quality: dict, drift_detection: dict
     ) -> float:
         """计算元测试总体评分"""
         # 使用加权平均
@@ -393,16 +387,13 @@ class MetaTestEvaluator(BaseEvaluator):
                 "logic_quality": logic_quality.get("overall_score", 1.0),
                 "drift_detection": drift_detection.get("overall_drift_score", 1.0),
             },
-            self.META_TEST_WEIGHTS
+            self.META_TEST_WEIGHTS,
         )
 
         return overall_score
 
     def _generate_recommendations(
-        self,
-        code_quality: dict,
-        logic_quality: dict,
-        drift_detection: dict
+        self, code_quality: dict, logic_quality: dict, drift_detection: dict
     ) -> list[str]:
         """生成测试改进建议"""
         recommendations = []

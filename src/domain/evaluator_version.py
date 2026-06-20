@@ -20,6 +20,7 @@ class VersionStatus(Enum):
 @dataclass
 class EvaluatorVersion:
     """评估器版本"""
+
     version_id: str
     evaluator_name: str
     version: str  # 语义化版本，如 "1.0.0"
@@ -46,7 +47,7 @@ class EvaluatorVersion:
             "status": self.status.value,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
-            "created_by": self.created_by
+            "created_by": self.created_by,
         }
 
 
@@ -99,10 +100,11 @@ class EvaluatorVersionManager:
         code_hash: str,
         config: dict[str, Any],
         changelog: str = "",
-        created_by: str = "system"
+        created_by: str = "system",
     ) -> EvaluatorVersion:
         """注册新的评估器版本"""
         import uuid
+
         version_id = str(uuid.uuid4())[:8]
 
         # 检查是否已存在相同版本
@@ -117,7 +119,7 @@ class EvaluatorVersionManager:
             changelog=changelog,
             code_hash=code_hash,
             config_snapshot=config,
-            created_by=created_by
+            created_by=created_by,
         )
 
         self._versions[version_id] = evaluator_version
@@ -153,10 +155,7 @@ class EvaluatorVersionManager:
         return sorted(versions, key=lambda x: x.created_at, reverse=True)
 
     def update_calibration(
-        self,
-        evaluator_name: str,
-        calibration_score: float,
-        code_hash: str = None
+        self, evaluator_name: str, calibration_score: float, code_hash: str = None
     ) -> EvaluatorVersion | None:
         """更新校准分数"""
         if code_hash:
@@ -186,7 +185,7 @@ class EvaluatorVersionManager:
                 "status": "not_calibrated",
                 "message": "尚未校准",
                 "version_id": current.version_id,
-                "can_proceed": True  # 未校准但允许执行
+                "can_proceed": True,  # 未校准但允许执行
             }
 
         # 计算与基准的偏差
@@ -204,7 +203,7 @@ class EvaluatorVersionManager:
             "baseline_score": baseline_score,
             "deviation_pct": round(deviation_pct, 2),
             "threshold": current.calibration_threshold,
-            "can_proceed": is_calibrated
+            "can_proceed": is_calibrated,
         }
 
     def deprecate_version(self, version_id: str, reason: str = "") -> bool:
@@ -227,7 +226,7 @@ class EvaluatorVersionManager:
                 "changelog": v.changelog,
                 "calibration_score": v.calibration_score,
                 "status": v.status.value,
-                "created_at": v.created_at.isoformat()
+                "created_at": v.created_at.isoformat(),
             }
             for v in versions
         ]

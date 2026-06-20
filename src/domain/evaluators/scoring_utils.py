@@ -29,14 +29,8 @@ class ScoreCalculator:
             return "high"
 
     @staticmethod
-    def calculate_weighted_average(
-        scores: dict[str, float],
-        weights: dict[str, float]
-    ) -> float:
+    def calculate_weighted_average(scores: dict[str, float], weights: dict[str, float]) -> float:
         """加权平均计算"""
-        weighted_score = sum(
-            scores[key] * weights.get(key, 1.0)
-            for key in scores
-        )
+        weighted_score = sum(scores[key] * weights.get(key, 1.0) for key in scores)
         total_weight = sum(weights.get(key, 1.0) for key in scores)
         return weighted_score / total_weight if total_weight > 0 else 1.0

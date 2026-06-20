@@ -232,10 +232,7 @@ class DatasetManager:
             return []
 
         query_lower = query.lower()
-        matched = [
-            s for s in dataset.latest_version.samples
-            if query_lower in s.question.lower()
-        ]
+        matched = [s for s in dataset.latest_version.samples if query_lower in s.question.lower()]
         return matched[:limit]
 
     def get_dataset_stats(self, dataset_id: str) -> dict[str, Any] | None:
@@ -262,7 +259,9 @@ class DatasetManager:
             "version_count": len(dataset.versions),
         }
 
-    def detect_duplicates(self, dataset_id: str, similarity_threshold: float = 0.8) -> list[dict[str, Any]]:
+    def detect_duplicates(
+        self, dataset_id: str, similarity_threshold: float = 0.8
+    ) -> list[dict[str, Any]]:
         dataset = self._datasets.get(dataset_id)
         if not dataset or not dataset.latest_version:
             return []
@@ -275,27 +274,31 @@ class DatasetManager:
             text_hash = self._compute_text_hash(sample.question)
 
             if text_hash in seen_hashes:
-                duplicates.append({
-                    "duplicate_id": sample.id,
-                    "original_id": seen_hashes[text_hash]["id"],
-                    "duplicate_index": i,
-                    "original_index": seen_hashes[text_hash]["index"],
-                    "similarity": 1.0,
-                    "reason": "完全重复",
-                })
+                duplicates.append(
+                    {
+                        "duplicate_id": sample.id,
+                        "original_id": seen_hashes[text_hash]["id"],
+                        "duplicate_index": i,
+                        "original_index": seen_hashes[text_hash]["index"],
+                        "similarity": 1.0,
+                        "reason": "完全重复",
+                    }
+                )
             else:
                 for j in range(i):
                     other_sample = samples[j]
                     similarity = self._calculate_similarity(sample.question, other_sample.question)
                     if similarity >= similarity_threshold:
-                        duplicates.append({
-                            "duplicate_id": sample.id,
-                            "original_id": other_sample.id,
-                            "duplicate_index": i,
-                            "original_index": j,
-                            "similarity": similarity,
-                            "reason": f"相似度超过阈值 {similarity_threshold}",
-                        })
+                        duplicates.append(
+                            {
+                                "duplicate_id": sample.id,
+                                "original_id": other_sample.id,
+                                "duplicate_index": i,
+                                "original_index": j,
+                                "similarity": similarity,
+                                "reason": f"相似度超过阈值 {similarity_threshold}",
+                            }
+                        )
                         break
                 seen_hashes[text_hash] = {"id": sample.id, "index": i}
 
@@ -336,11 +339,17 @@ class DatasetManager:
         for sample in samples:
             similarity = self._calculate_similarity(sample.question, external_text)
             if similarity > 0.7:
-                matches.append({
-                    "sample_id": sample.id,
-                    "question": sample.question[:100] + "..." if len(sample.question) > 100 else sample.question,
-                    "similarity": similarity,
-                })
+                matches.append(
+                    {
+                        "sample_id": sample.id,
+                        "question": (
+                            sample.question[:100] + "..."
+                            if len(sample.question) > 100
+                            else sample.question
+                        ),
+                        "similarity": similarity,
+                    }
+                )
 
         return {
             "contaminated": len(matches) > 0,
@@ -350,11 +359,13 @@ class DatasetManager:
 
     def _compute_text_hash(self, text: str) -> str:
         import hashlib
+
         normalized = text.strip().lower().replace("\n", " ").replace("\r", "")
         return hashlib.md5(normalized.encode()).hexdigest()
 
     def _calculate_similarity(self, text1: str, text2: str) -> float:
         from difflib import SequenceMatcher
+
         return SequenceMatcher(None, text1, text2).ratio()
 
     def update_version_periodically(self, dataset_id: str, max_age_days: int = 30) -> bool:
@@ -406,7 +417,9 @@ class DatasetManager:
             "folded_count": folded_count,
             "original_size": original_size,
             "folded_size": folded_size,
-            "reduction_ratio": (original_size - folded_size) / original_size if original_size > 0 else 0,
+            "reduction_ratio": (
+                (original_size - folded_size) / original_size if original_size > 0 else 0
+            ),
         }
 
     def create_summary_memory(self, dataset_id: str) -> dict[str, Any] | None:
@@ -432,7 +445,9 @@ class DatasetManager:
             summary["categories"][category] = summary["categories"].get(category, 0) + 1
 
             difficulty = sample.metadata.get("difficulty", "medium")
-            summary["difficulty_distribution"][difficulty] = summary["difficulty_distribution"].get(difficulty, 0) + 1
+            summary["difficulty_distribution"][difficulty] = (
+                summary["difficulty_distribution"].get(difficulty, 0) + 1
+            )
 
         summary["created_at"] = datetime.utcnow().isoformat()
 

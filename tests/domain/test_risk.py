@@ -23,6 +23,7 @@ def reset_evaluators_each_test():
     """
     from src.domain.evaluators import auto_discover
     from src.domain.evaluators.evaluator_factory import EvaluatorFactory as EF
+
     EF._registry = {}
     auto_discover(force=True)
     yield
@@ -52,7 +53,7 @@ class TestRiskEvaluatorPositiveCases:
                 "core_alignment": 0.9,
                 "unresolved_warnings": 10,
                 "overall_coverage": 0.85,
-            }
+            },
         )
 
         # Act
@@ -83,9 +84,9 @@ class TestRiskEvaluatorPositiveCases:
             payload={
                 "action": "feature_creep",
                 "feature_complexity": 0.9,  # 高复杂度
-                "core_alignment": 0.3,      # 低对齐度
-                "responsibility_blur": 0.8  # 高职责模糊
-            }
+                "core_alignment": 0.3,  # 低对齐度
+                "responsibility_blur": 0.8,  # 高职责模糊
+            },
         )
 
         # Act
@@ -107,11 +108,11 @@ class TestRiskEvaluatorPositiveCases:
             type="risk",
             payload={
                 "action": "tech_debt",
-                "unresolved_warnings": 50,        # 中等警告数
-                "duplicate_code_ratio": 0.3,      # 中等重复率
-                "pending_refactoring": 5,         # 中等重构数
-                "documentation_gap": 0.4          # 中等文档缺失
-            }
+                "unresolved_warnings": 50,  # 中等警告数
+                "duplicate_code_ratio": 0.3,  # 中等重复率
+                "pending_refactoring": 5,  # 中等重构数
+                "documentation_gap": 0.4,  # 中等文档缺失
+            },
         )
 
         # Act
@@ -133,10 +134,10 @@ class TestRiskEvaluatorPositiveCases:
             type="risk",
             payload={
                 "action": "coupling",
-                "external_dependencies": 1,    # 极少外部依赖
-                "cyclic_dependencies": 0,      # 无循环依赖
-                "cross_layer_calls": 0         # 无跨层调用
-            }
+                "external_dependencies": 1,  # 极少外部依赖
+                "cyclic_dependencies": 0,  # 无循环依赖
+                "cross_layer_calls": 0,  # 无跨层调用
+            },
         )
 
         # Act
@@ -159,11 +160,11 @@ class TestRiskEvaluatorPositiveCases:
             type="risk",
             payload={
                 "action": "test_coverage",
-                "overall_coverage": 0.2,        # 极低整体覆盖率
-                "new_code_coverage": 0.1,       # 极低新代码覆盖率
+                "overall_coverage": 0.2,  # 极低整体覆盖率
+                "new_code_coverage": 0.1,  # 极低新代码覆盖率
                 "critical_path_coverage": 0.2,  # 极低关键路径覆盖率
-                "test_pass_rate": 0.5           # 低通过率
-            }
+                "test_pass_rate": 0.5,  # 低通过率
+            },
         )
 
         # Act
@@ -186,12 +187,12 @@ class TestRiskEvaluatorPositiveCases:
             type="risk",
             payload={
                 "action": "drift",
-                "baseline_score": 0.9,          # 基线分数
-                "current_score": 0.5,           # 当前分数（显著下降）
-                "format_changes": 8,           # 格式变化
-                "latency_increase": 50,         # 延迟增加
-                "error_rate_change": 0.05      # 错误率变化
-            }
+                "baseline_score": 0.9,  # 基线分数
+                "current_score": 0.5,  # 当前分数（显著下降）
+                "format_changes": 8,  # 格式变化
+                "latency_increase": 50,  # 延迟增加
+                "error_rate_change": 0.05,  # 错误率变化
+            },
         )
 
         # Act
@@ -219,11 +220,7 @@ class TestRiskEvaluatorNegativeCases:
         """未知 action 应返回错误"""
         # Arrange
         request = EvaluationSchema(
-            id="test-007",
-            type="risk",
-            payload={
-                "action": "unknown_action_xyz"
-            }
+            id="test-007", type="risk", payload={"action": "unknown_action_xyz"}
         )
 
         # Act
@@ -239,12 +236,7 @@ class TestRiskEvaluatorNegativeCases:
         """缺少 action 参数时应默认为 detect_all"""
         # Arrange - 不提供 action
         request = EvaluationSchema(
-            id="test-008",
-            type="risk",
-            payload={
-                "feature_complexity": 0.2,
-                "core_alignment": 0.8
-            }
+            id="test-008", type="risk", payload={"feature_complexity": 0.2, "core_alignment": 0.8}
         )
 
         # Act
@@ -264,8 +256,8 @@ class TestRiskEvaluatorNegativeCases:
             payload={
                 "action": "feature_creep",
                 "feature_complexity": "invalid",  # 字符串而非数值
-                "core_alignment": None
-            }
+                "core_alignment": None,
+            },
         )
 
         # Act & Assert - 应抛出 TypeError
@@ -286,11 +278,7 @@ class TestRiskEvaluatorBoundaryCases:
     def test_empty_payload_uses_defaults(self, evaluator):
         """空 payload 应使用默认值（可能产生高风险）"""
         # Arrange
-        request = EvaluationSchema(
-            id="test-010",
-            type="risk",
-            payload={}
-        )
+        request = EvaluationSchema(id="test-010", type="risk", payload={})
 
         # Act
         result = evaluator.evaluate(request)
@@ -329,8 +317,8 @@ class TestRiskEvaluatorBoundaryCases:
                 "current_score": 0.0,
                 "format_changes": 20,
                 "latency_increase": 200,
-                "error_rate_change": 0.2
-            }
+                "error_rate_change": 0.2,
+            },
         )
 
         # Act
@@ -352,9 +340,9 @@ class TestRiskEvaluatorBoundaryCases:
             payload={
                 "action": "feature_creep",
                 "feature_complexity": 0.7,  # 使总评分达到阈值
-                "core_alignment": 0.0,      # 完全不对齐
-                "responsibility_blur": 0.0
-            }
+                "core_alignment": 0.0,  # 完全不对齐
+                "responsibility_blur": 0.0,
+            },
         )
 
         # Act
@@ -377,8 +365,8 @@ class TestRiskEvaluatorBoundaryCases:
                 "action": "feature_creep",
                 "feature_complexity": 0.0,
                 "core_alignment": 1.0 - threshold * 0.5 * 2,  # 使 risk_score ≈ threshold * 0.5
-                "responsibility_blur": 0.0
-            }
+                "responsibility_blur": 0.0,
+            },
         )
 
         # Act
@@ -399,8 +387,8 @@ class TestRiskEvaluatorBoundaryCases:
                 "unresolved_warnings": 0,
                 "duplicate_code_ratio": 0,
                 "pending_refactoring": 0,
-                "documentation_gap": 0
-            }
+                "documentation_gap": 0,
+            },
         )
 
         # Act
@@ -471,8 +459,8 @@ class TestRiskEvaluatorRiskLevels:
                 "core_alignment": 0.1,
                 "unresolved_warnings": 100,
                 "duplicate_code_ratio": 0.9,
-                "overall_coverage": 0.2
-            }
+                "overall_coverage": 0.2,
+            },
         )
 
         # Act
@@ -496,8 +484,8 @@ class TestRiskEvaluatorRiskLevels:
                 "feature_complexity": 0.4,
                 "core_alignment": 0.7,
                 "unresolved_warnings": 30,
-                "overall_coverage": 0.65
-            }
+                "overall_coverage": 0.65,
+            },
         )
 
         # Act
@@ -520,6 +508,7 @@ class TestRiskEvaluatorDependencyHandling:
         """评估器应正确注册到工厂"""
         # Arrange & Act
         from src.domain.evaluators import auto_discover
+
         auto_discover(force=True)
 
         # Assert
@@ -532,6 +521,7 @@ class TestRiskEvaluatorDependencyHandling:
         """工厂应能创建评估器实例"""
         # Arrange
         from src.domain.evaluators import auto_discover
+
         auto_discover(force=True)
 
         # Act
@@ -562,11 +552,7 @@ class TestRiskEvaluatorDependencyHandling:
         """评估器无需 LLM 客户端即可工作"""
         # Arrange
         evaluator = RiskEvaluator(client=None)
-        request = EvaluationSchema(
-            id="test-017",
-            type="risk",
-            payload={"action": "feature_creep"}
-        )
+        request = EvaluationSchema(id="test-017", type="risk", payload={"action": "feature_creep"})
 
         # Act
         result = evaluator.evaluate(request)
@@ -580,9 +566,7 @@ class TestRiskEvaluatorDependencyHandling:
         # Arrange
         evaluator = RiskEvaluator()
         request = EvaluationSchema(
-            id="test-018",
-            type="risk",
-            payload={"custom_key": "custom_value"}
+            id="test-018", type="risk", payload={"custom_key": "custom_value"}
         )
 
         # Act
@@ -595,11 +579,7 @@ class TestRiskEvaluatorDependencyHandling:
         """get_payload_data 应在键不存在时返回默认值"""
         # Arrange
         evaluator = RiskEvaluator()
-        request = EvaluationSchema(
-            id="test-019",
-            type="risk",
-            payload={}
-        )
+        request = EvaluationSchema(id="test-019", type="risk", payload={})
 
         # Act
         value = evaluator.get_payload_data(request, "nonexistent_key", "default_value")
@@ -626,7 +606,9 @@ class TestRiskEvaluatorBusinessLogic:
         responsibility_blur = 0.4
 
         # 预期公式: (1 - core_alignment) * 0.5 + feature_complexity * 0.3 + responsibility_blur * 0.2
-        expected_score = (1 - core_alignment) * 0.5 + feature_complexity * 0.3 + responsibility_blur * 0.2
+        expected_score = (
+            (1 - core_alignment) * 0.5 + feature_complexity * 0.3 + responsibility_blur * 0.2
+        )
 
         request = EvaluationSchema(
             id="test-020",
@@ -635,8 +617,8 @@ class TestRiskEvaluatorBusinessLogic:
                 "action": "feature_creep",
                 "feature_complexity": feature_complexity,
                 "core_alignment": core_alignment,
-                "responsibility_blur": responsibility_blur
-            }
+                "responsibility_blur": responsibility_blur,
+            },
         )
 
         # Act
@@ -655,9 +637,9 @@ class TestRiskEvaluatorBusinessLogic:
                 "action": "tech_debt",
                 "unresolved_warnings": 500,  # 超过100，应被限制为1.0
                 "duplicate_code_ratio": 0.8,  # 高重复率
-                "pending_refactoring": 20,    # 超过10，应被限制为1.0
-                "documentation_gap": 0.8      # 高文档缺失
-            }
+                "pending_refactoring": 20,  # 超过10，应被限制为1.0
+                "documentation_gap": 0.8,  # 高文档缺失
+            },
         )
 
         # Act
@@ -683,8 +665,8 @@ class TestRiskEvaluatorBusinessLogic:
                 "action": "coupling",
                 "external_dependencies": 50,  # 超过10，应被限制
                 "cyclic_dependencies": 0.5,
-                "cross_layer_calls": 0.5
-            }
+                "cross_layer_calls": 0.5,
+            },
         )
 
         # Act
@@ -724,8 +706,8 @@ class TestRiskEvaluatorBusinessLogic:
                 "overall_coverage": overall_coverage,
                 "new_code_coverage": new_code_coverage,
                 "critical_path_coverage": critical_path_coverage,
-                "test_pass_rate": test_pass_rate
-            }
+                "test_pass_rate": test_pass_rate,
+            },
         )
 
         # Act
@@ -760,8 +742,8 @@ class TestRiskEvaluatorBusinessLogic:
                 "current_score": current_score,
                 "format_changes": format_changes,
                 "latency_increase": latency_increase,
-                "error_rate_change": error_rate_change
-            }
+                "error_rate_change": error_rate_change,
+            },
         )
 
         # Act
@@ -788,11 +770,7 @@ class TestRiskEvaluatorSuggestions:
         request = EvaluationSchema(
             id="test-025",
             type="risk",
-            payload={
-                "action": "feature_creep",
-                "feature_complexity": 0.9,
-                "core_alignment": 0.1
-            }
+            payload={"action": "feature_creep", "feature_complexity": 0.9, "core_alignment": 0.1},
         )
 
         # Act
@@ -815,8 +793,8 @@ class TestRiskEvaluatorSuggestions:
                 "action": "coupling",
                 "external_dependencies": 2,
                 "cyclic_dependencies": 0,
-                "cross_layer_calls": 0
-            }
+                "cross_layer_calls": 0,
+            },
         )
 
         # Act

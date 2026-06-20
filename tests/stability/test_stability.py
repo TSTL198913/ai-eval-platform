@@ -6,6 +6,7 @@
 3. 验证错误恢复能力
 4. 验证系统自愈能力
 """
+
 import concurrent.futures
 import gc
 import os
@@ -59,7 +60,7 @@ class TestLongRunningStability:
                         json={
                             "id": f"long_run_{thread_id}_{counter}",
                             "type": "general",
-                            "payload": {"user_input": f"long running test {counter}"}
+                            "payload": {"user_input": f"long running test {counter}"},
                         },
                     )
                     with lock:
@@ -69,7 +70,9 @@ class TestLongRunningStability:
                         else:
                             results["error"] += 1
                             error_msg = response.json().get("message", "unknown")
-                            results["error_types"][error_msg] = results["error_types"].get(error_msg, 0) + 1
+                            results["error_types"][error_msg] = (
+                                results["error_types"].get(error_msg, 0) + 1
+                            )
                     counter += 1
                     time.sleep(0.1)  # 防止过度压测
                 except Exception as e:
@@ -77,7 +80,9 @@ class TestLongRunningStability:
                         results["total_requests"] += 1
                         results["error"] += 1
                         error_msg = str(e)[:50]
-                        results["error_types"][error_msg] = results["error_types"].get(error_msg, 0) + 1
+                        results["error_types"][error_msg] = (
+                            results["error_types"].get(error_msg, 0) + 1
+                        )
 
         # 启动5个持续评估线程
         threads = [threading.Thread(target=continuous_evaluation, args=(i,)) for i in range(5)]
@@ -92,8 +97,7 @@ class TestLongRunningStability:
             t.join()
 
         # 验证：总请求量 ≥ 100
-        assert results["total_requests"] >= 100, \
-            f"请求量过低: {results['total_requests']}"
+        assert results["total_requests"] >= 100, f"请求量过低: {results['total_requests']}"
 
         # 验证：成功率 ≥ 95%
         success_rate = results["success"] / results["total_requests"]
@@ -101,11 +105,14 @@ class TestLongRunningStability:
 
         # 验证：无严重错误类型
         for error_type, count in results["error_types"].items():
-            assert count < results["total_requests"] * 0.05, \
-                f"错误类型 '{error_type}' 出现过多: {count} 次"
+            assert (
+                count < results["total_requests"] * 0.05
+            ), f"错误类型 '{error_type}' 出现过多: {count} 次"
 
-        print(f"长时间运行测试结果: 总请求 {results['total_requests']}, "
-              f"成功 {results['success']}, 失败 {results['error']}")
+        print(
+            f"长时间运行测试结果: 总请求 {results['total_requests']}, "
+            f"成功 {results['success']}, 失败 {results['error']}"
+        )
 
     def test_120_seconds_continuous_repository_operations(self):
         """120秒持续仓储操作测试"""
@@ -164,16 +171,14 @@ class TestLongRunningStability:
             t.join()
 
         # 验证：总操作量 ≥ 100
-        assert results["total_operations"] >= 100, \
-            f"操作量过低: {results['total_operations']}"
+        assert results["total_operations"] >= 100, f"操作量过低: {results['total_operations']}"
 
         # 验证：成功率 ≥ 99%
         success_rate = results["success"] / results["total_operations"]
         assert success_rate >= 0.99, f"成功率过低: {success_rate:.2%}"
 
         # 验证：无连接错误
-        assert results["connection_errors"] == 0, \
-            f"出现连接错误: {results['connection_errors']} 次"
+        assert results["connection_errors"] == 0, f"出现连接错误: {results['connection_errors']} 次"
 
 
 class TestResourceLeakDetection:
@@ -204,8 +209,9 @@ class TestResourceLeakDetection:
         final_count = self._get_active_connections()
 
         # 验证：连接数未显著增加（允许少量波动）
-        assert final_count <= initial_count + 5, \
-            f"可能存在连接泄漏: 初始 {initial_count}, 最终 {final_count}"
+        assert (
+            final_count <= initial_count + 5
+        ), f"可能存在连接泄漏: 初始 {initial_count}, 最终 {final_count}"
 
     def _get_active_connections(self):
         """获取活跃连接数"""
@@ -245,12 +251,11 @@ class TestResourceLeakDetection:
         snapshot2 = tracemalloc.take_snapshot()
 
         # 计算内存差异
-        stats = snapshot2.compare_to(snapshot1, 'lineno')
+        stats = snapshot2.compare_to(snapshot1, "lineno")
         total_diff = sum(stat.size_diff for stat in stats)
 
         # 验证：内存增长 ≤ 1MB
-        assert total_diff <= 1024 * 1024, \
-            f"可能存在内存泄漏: 内存增长 {total_diff / 1024:.2f}KB"
+        assert total_diff <= 1024 * 1024, f"可能存在内存泄漏: 内存增长 {total_diff / 1024:.2f}KB"
 
         tracemalloc.stop()
 
@@ -339,9 +344,7 @@ class TestErrorRecoveryStability:
 
         # 正常评估
         request = EvaluationSchema(
-            id="eval_recovery_normal",
-            type="general",
-            payload={"user_input": "normal test"}
+            id="eval_recovery_normal", type="general", payload={"user_input": "normal test"}
         )
         mock_client.chat.completions.create.return_value = MagicMock(
             choices=[MagicMock(message=MagicMock(content='{"is_valid": true, "score": 0.9}'))]
@@ -352,9 +355,7 @@ class TestErrorRecoveryStability:
         # 模拟错误
         mock_client.chat.completions.create.side_effect = Exception("API Error")
         request2 = EvaluationSchema(
-            id="eval_recovery_error",
-            type="general",
-            payload={"user_input": "error test"}
+            id="eval_recovery_error", type="general", payload={"user_input": "error test"}
         )
         result2 = engine.run(request2)
         # 错误应被捕获，状态为FAILED
@@ -368,7 +369,7 @@ class TestErrorRecoveryStability:
         request3 = EvaluationSchema(
             id="eval_recovery_after_error",
             type="general",
-            payload={"user_input": "after error test"}
+            payload={"user_input": "after error test"},
         )
         result3 = engine.run(request3)
         assert result3.status in [EvaluationStatus.PASSED, EvaluationStatus.FAILED]
@@ -492,7 +493,7 @@ class TestGracefulDegradationStability:
                     json={
                         "id": f"degradation_test_{i}",
                         "type": "general",
-                        "payload": {"user_input": f"degradation test {i}"}
+                        "payload": {"user_input": f"degradation test {i}"},
                     },
                 )
                 with lock:

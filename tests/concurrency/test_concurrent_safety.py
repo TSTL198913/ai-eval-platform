@@ -6,6 +6,7 @@
 3. 验证评估器工厂的并发注册安全性
 4. 验证高并发下无死锁、无数据丢失
 """
+
 import concurrent.futures
 import os
 import sys
@@ -68,10 +69,7 @@ class TestRepositoryConcurrency:
                 with lock:
                     errors.append(str(e))
 
-        threads = [
-            threading.Thread(target=save_record, args=(i,))
-            for i in range(num_threads)
-        ]
+        threads = [threading.Thread(target=save_record, args=(i,)) for i in range(num_threads)]
 
         for t in threads:
             t.start()
@@ -132,8 +130,12 @@ class TestRepositoryConcurrency:
             t.join()
 
         # 验证：大部分操作成功（允许少量失败由于连接竞争）
-        assert write_count >= num_writers * 5 * 0.8, f"写操作成功率过低: {write_count}/{num_writers * 5}"
-        assert read_count >= num_readers * 5 * 0.8, f"读操作成功率过低: {read_count}/{num_readers * 5}"
+        assert (
+            write_count >= num_writers * 5 * 0.8
+        ), f"写操作成功率过低: {write_count}/{num_writers * 5}"
+        assert (
+            read_count >= num_readers * 5 * 0.8
+        ), f"读操作成功率过低: {read_count}/{num_readers * 5}"
 
     def test_concurrent_batch_delete_idempotency(self, repo, sample_result):
         """并发批量删除幂等性测试"""
@@ -204,10 +206,7 @@ class TestCostGovernanceConcurrency:
                 with lock:
                     errors.append(str(e))
 
-        threads = [
-            threading.Thread(target=record_usage, args=(i,))
-            for i in range(num_threads)
-        ]
+        threads = [threading.Thread(target=record_usage, args=(i,)) for i in range(num_threads)]
 
         for t in threads:
             t.start()
@@ -219,14 +218,16 @@ class TestCostGovernanceConcurrency:
 
         # 验证：记录数正确
         expected_records = num_threads * 10
-        assert len(governance.records) == expected_records, \
-            f"预期 {expected_records} 条记录，实际 {len(governance.records)} 条"
+        assert (
+            len(governance.records) == expected_records
+        ), f"预期 {expected_records} 条记录，实际 {len(governance.records)} 条"
 
         # 验证：成本计算正确
         metrics = governance.get_metrics()
         expected_cost = expected_records * (100 * 0.00003 + 50 * 0.00006)  # gpt-4 定价
-        assert abs(metrics.daily_cost_usd - expected_cost) < 0.0001, \
-            f"成本计算不一致: 预期 {expected_cost}，实际 {metrics.daily_cost_usd}"
+        assert (
+            abs(metrics.daily_cost_usd - expected_cost) < 0.0001
+        ), f"成本计算不一致: 预期 {expected_cost}，实际 {metrics.daily_cost_usd}"
 
     def test_concurrent_check_budget(self):
         """并发预算检查应返回一致结果"""
@@ -323,10 +324,7 @@ class TestEvaluatorFactoryConcurrency:
                 with lock:
                     errors.append(str(e))
 
-        threads = [
-            threading.Thread(target=register_evaluator, args=(i,))
-            for i in range(20)
-        ]
+        threads = [threading.Thread(target=register_evaluator, args=(i,)) for i in range(20)]
 
         for t in threads:
             t.start()
@@ -377,7 +375,7 @@ class TestEvaluatorFactoryConcurrency:
         # 验证：所有返回都是有效实例
         for evaluator in results:
             assert evaluator is not None
-            assert hasattr(evaluator, 'evaluate')
+            assert hasattr(evaluator, "evaluate")
 
 
 class TestThreadPoolSafety:
@@ -395,7 +393,11 @@ class TestThreadPoolSafety:
         mock_client.config = MagicMock()
         mock_client.config.model_name = "test-model"
         mock_client.chat.completions.create.return_value = MagicMock(
-            choices=[MagicMock(message=MagicMock(content='{"is_valid": true, "score": 0.9, "reason": "test"}'))]
+            choices=[
+                MagicMock(
+                    message=MagicMock(content='{"is_valid": true, "score": 0.9, "reason": "test"}')
+                )
+            ]
         )
 
         engine = EvaluationEngine(mock_client)
@@ -408,7 +410,7 @@ class TestThreadPoolSafety:
                 request = EvaluationSchema(
                     id=f"thread_pool_test_{i}",
                     type="general",
-                    payload={"user_input": f"test input {i}"}
+                    payload={"user_input": f"test input {i}"},
                 )
                 result = engine.run(request)
                 with lock:
@@ -453,7 +455,9 @@ class TestRaceConditionDetection:
         expected = 10000
         actual = counter["value"]
         # 记录结果但不强制断言，因为竞态条件是预期的
-        print(f"计数器结果: 预期 {expected}, 实际 {actual}, 竞态条件 {'已检测到' if actual < expected else '未触发'}")
+        print(
+            f"计数器结果: 预期 {expected}, 实际 {actual}, 竞态条件 {'已检测到' if actual < expected else '未触发'}"
+        )
 
     def test_protected_counter_no_race_condition(self):
         """受保护计数器无竞态条件"""

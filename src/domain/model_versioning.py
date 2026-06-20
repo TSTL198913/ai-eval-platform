@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 class ModelVersion(BaseModel):
     """模型版本"""
+
     version_id: str
     model_name: str
     version: str

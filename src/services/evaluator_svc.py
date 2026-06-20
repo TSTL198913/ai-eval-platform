@@ -9,11 +9,13 @@ from src.domain.models.llm_factory import create_llm_client
 # 动态获取评估器注册表，避免与 EvaluatorFactory._registry 不同步
 def _get_evaluator_registry():
     from src.domain.evaluators import EVALUATOR_REGISTRY
+
     # 优先使用 EvaluatorFactory 的实时注册表，若为空则回退到模块级变量
     registry = EvaluatorFactory._registry
     if not registry and EVALUATOR_REGISTRY:
         return EVALUATOR_REGISTRY
     return registry
+
 
 from src.engine import EvaluationEngine
 from src.exceptions import BasePlatformError, DomainLogicError
@@ -49,7 +51,11 @@ def _normalize_raw_data(raw_data: dict[str, Any]) -> dict[str, Any]:
         return {
             "id": raw_data.get("id", "unknown"),
             "type": raw_data.get("type"),
-            "payload": {k: v for k, v in raw_data.items() if k not in ["id", "type", "metadata", "model_provider", "model_name"]},
+            "payload": {
+                k: v
+                for k, v in raw_data.items()
+                if k not in ["id", "type", "metadata", "model_provider", "model_name"]
+            },
             "metadata": raw_data.get("metadata", {}),
             "model_provider": raw_data.get("model_provider"),
             "model_name": raw_data.get("model_name"),
@@ -72,12 +78,14 @@ def run_evaluation_service(raw_data: dict[str, Any], client=None) -> dict[str, A
         llm_client = client
     elif case.model_provider:
         from src.domain.models.llm_factory import load_config
+
         loaded_config = load_config(case.model_provider)
         if case.model_name:
             loaded_config = loaded_config.model_copy(update={"model_name": case.model_name})
         llm_client = create_llm_client(provider=case.model_provider, config=loaded_config)
     else:
         from src.domain.model_routing import model_router
+
         llm_client, routing_decision = model_router.create_llm_client(case.type, case.payload)
 
     engine = EvaluationEngine(llm_client)

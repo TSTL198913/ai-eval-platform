@@ -47,7 +47,7 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
 
         # 判断是否为评估请求
         if path.startswith(self.eval_pattern):
-            evaluator_type = path[len(self.eval_pattern):].split("/")[0] or "unknown"
+            evaluator_type = path[len(self.eval_pattern) :].split("/")[0] or "unknown"
         else:
             evaluator_type = "other"
 
@@ -55,16 +55,10 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
         status = "success" if status_code < 400 else "error"
 
         # 延迟直方图
-        EVALUATION_LATENCY.labels(
-            domain=evaluator_type,
-            status=status
-        ).observe(latency)
+        EVALUATION_LATENCY.labels(domain=evaluator_type, status=status).observe(latency)
 
         # 计数器
-        EVALUATION_COUNTER.labels(
-            domain=evaluator_type,
-            status=status
-        ).inc()
+        EVALUATION_COUNTER.labels(domain=evaluator_type, status=status).inc()
 
         return response
 

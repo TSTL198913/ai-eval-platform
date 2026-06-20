@@ -25,6 +25,7 @@ def reset_evaluators_each_test():
     """
     from src.domain.evaluators import auto_discover
     from src.domain.evaluators.evaluator_factory import EvaluatorFactory as EF
+
     EF._registry = {}
     auto_discover(force=True)
     yield
@@ -53,9 +54,7 @@ class TestCodeReviewEvaluatorPositiveCases:
         """合法 Python 代码（无 LLM client）应返回成功"""
         # Arrange
         request = EvaluationSchema(
-            id="case_001",
-            type="code_review",
-            payload={"code": "def hello():\n    print('hello')"}
+            id="case_001", type="code_review", payload={"code": "def hello():\n    print('hello')"}
         )
 
         # Act
@@ -74,10 +73,7 @@ class TestCodeReviewEvaluatorPositiveCases:
         request = EvaluationSchema(
             id="case_002",
             type="code_review",
-            payload={
-                "code": "def add(a, b):\n    return a + b",
-                "system_prompt": "请审查代码质量"
-            }
+            payload={"code": "def add(a, b):\n    return a + b", "system_prompt": "请审查代码质量"},
         )
 
         # Act
@@ -98,10 +94,7 @@ class TestCodeReviewEvaluatorPositiveCases:
         request = EvaluationSchema(
             id="case_003",
             type="code_review",
-            payload={
-                "code": "x = 1",
-                "expected_output": "代码质量良好"
-            }
+            payload={"code": "x = 1", "expected_output": "代码质量良好"},
         )
 
         # Act
@@ -120,7 +113,7 @@ class TestCodeReviewEvaluatorPositiveCases:
             id="case_004",
             type="code_review",
             payload={"code": "print('hello')"},
-            metadata={"language": "python", "style_guide": "google"}
+            metadata={"language": "python", "style_guide": "google"},
         )
 
         # Act
@@ -134,11 +127,7 @@ class TestCodeReviewEvaluatorPositiveCases:
     def test_evaluate_with_text_field_as_code_input(self, evaluator):
         """使用 text 字段作为代码输入应正常工作"""
         # Arrange
-        request = EvaluationSchema(
-            id="case_005",
-            type="code_review",
-            payload={"text": "x = 1 + 2"}
-        )
+        request = EvaluationSchema(id="case_005", type="code_review", payload={"text": "x = 1 + 2"})
 
         # Act
         result = evaluator.evaluate(request)
@@ -161,11 +150,7 @@ class TestCodeReviewEvaluatorNegativeCases:
     def test_empty_code_returns_error(self, evaluator):
         """空代码应返回错误"""
         # Arrange
-        request = EvaluationSchema(
-            id="case_006",
-            type="code_review",
-            payload={"code": ""}
-        )
+        request = EvaluationSchema(id="case_006", type="code_review", payload={"code": ""})
 
         # Act
         result = evaluator.evaluate(request)
@@ -179,9 +164,7 @@ class TestCodeReviewEvaluatorNegativeCases:
         """语法错误的代码应返回错误"""
         # Arrange
         request = EvaluationSchema(
-            id="case_007",
-            type="code_review",
-            payload={"code": "def broken(\n    # 缺少右括号"}
+            id="case_007", type="code_review", payload={"code": "def broken(\n    # 缺少右括号"}
         )
 
         # Act
@@ -199,9 +182,7 @@ class TestCodeReviewEvaluatorNegativeCases:
         """缺少 code 和 text 字段应返回错误"""
         # Arrange
         request = EvaluationSchema(
-            id="case_008",
-            type="code_review",
-            payload={"other_field": "value"}
+            id="case_008", type="code_review", payload={"other_field": "value"}
         )
 
         # Act
@@ -217,7 +198,7 @@ class TestCodeReviewEvaluatorNegativeCases:
         request = EvaluationSchema(
             id="case_009",
             type="code_review",
-            payload={"code": "if True\n    print('missing colon')"}
+            payload={"code": "if True\n    print('missing colon')"},
         )
 
         # Act
@@ -249,11 +230,7 @@ class TestCodeReviewEvaluatorBoundaryCases:
     def test_none_code_value_returns_error(self, evaluator):
         """code 为 None 应返回错误"""
         # Arrange
-        request = EvaluationSchema(
-            id="case_010",
-            type="code_review",
-            payload={"code": None}
-        )
+        request = EvaluationSchema(id="case_010", type="code_review", payload={"code": None})
 
         # Act
         result = evaluator.evaluate(request)
@@ -266,9 +243,7 @@ class TestCodeReviewEvaluatorBoundaryCases:
         """仅包含空白的代码通过语法检查（Python 允许空白代码）"""
         # Arrange
         request = EvaluationSchema(
-            id="case_011",
-            type="code_review",
-            payload={"code": "   \n\t   "}
+            id="case_011", type="code_review", payload={"code": "   \n\t   "}
         )
 
         # Act
@@ -284,11 +259,7 @@ class TestCodeReviewEvaluatorBoundaryCases:
         """超长代码应正常处理"""
         # Arrange
         long_code = "x = 1\n" * 10000
-        request = EvaluationSchema(
-            id="case_012",
-            type="code_review",
-            payload={"code": long_code}
-        )
+        request = EvaluationSchema(id="case_012", type="code_review", payload={"code": long_code})
 
         # Act
         result = evaluator_with_client.evaluate(request)
@@ -304,10 +275,7 @@ class TestCodeReviewEvaluatorBoundaryCases:
         request = EvaluationSchema(
             id="case_013",
             type="code_review",
-            payload={
-                "code": "x = 1",
-                "expected_output": "完美匹配期望输出"
-            }
+            payload={"code": "x = 1", "expected_output": "完美匹配期望输出"},
         )
 
         # Act
@@ -332,11 +300,7 @@ class TestCodeReviewEvaluatorExceptionCases:
         client = MagicMock()
         client.chat.side_effect = Exception("LLM service unavailable")
         evaluator = CodeReviewEvaluator(client=client)
-        request = EvaluationSchema(
-            id="case_014",
-            type="code_review",
-            payload={"code": "x = 1"}
-        )
+        request = EvaluationSchema(id="case_014", type="code_review", payload={"code": "x = 1"})
 
         # Act - 使用 safe_evaluate 捕获异常
         result = evaluator.safe_evaluate(request)
@@ -351,11 +315,7 @@ class TestCodeReviewEvaluatorExceptionCases:
         client = MagicMock()
         client.chat.side_effect = RuntimeError("Unexpected error")
         evaluator = CodeReviewEvaluator(client=client)
-        request = EvaluationSchema(
-            id="case_015",
-            type="code_review",
-            payload={"code": "x = 1"}
-        )
+        request = EvaluationSchema(id="case_015", type="code_review", payload={"code": "x = 1"})
 
         # Act
         result = evaluator.safe_evaluate(request)
@@ -376,19 +336,13 @@ class TestCodeReviewEvaluatorDependencyHandling:
         # Arrange
         mock_code_evaluator = MagicMock()
         mock_code_evaluator.evaluate.return_value = DomainResponse(
-            is_valid=True,
-            score=0.9,
-            text="审查通过"
+            is_valid=True, score=0.9, text="审查通过"
         )
 
         evaluator = CodeReviewEvaluator()
         evaluator._delegate = mock_code_evaluator
 
-        request = EvaluationSchema(
-            id="case_016",
-            type="code_review",
-            payload={"code": "x = 1"}
-        )
+        request = EvaluationSchema(id="case_016", type="code_review", payload={"code": "x = 1"})
 
         # Act
         result = evaluator.evaluate(request)
@@ -408,10 +362,7 @@ class TestCodeReviewEvaluatorDependencyHandling:
         request = EvaluationSchema(
             id="case_017",
             type="code_review",
-            payload={
-                "code": "def hello():\n    return 'world'",
-                "system_prompt": "请审查代码"
-            }
+            payload={"code": "def hello():\n    return 'world'", "system_prompt": "请审查代码"},
         )
 
         # Act
@@ -426,11 +377,7 @@ class TestCodeReviewEvaluatorDependencyHandling:
         """无 LLM client 时应仅使用语法检查评分"""
         # Arrange
         evaluator = CodeReviewEvaluator(client=None)
-        request = EvaluationSchema(
-            id="case_018",
-            type="code_review",
-            payload={"code": "x = 1 + 2"}
-        )
+        request = EvaluationSchema(id="case_018", type="code_review", payload={"code": "x = 1 + 2"})
 
         # Act
         result = evaluator.evaluate(request)
@@ -484,10 +431,10 @@ class TestCodeReviewEvaluatorFactoryRegistration:
 
         # Assert - 强断言
         # 验证评估器有 evaluate 方法
-        assert hasattr(evaluator, 'evaluate')
-        assert hasattr(evaluator, 'safe_evaluate')
+        assert hasattr(evaluator, "evaluate")
+        assert hasattr(evaluator, "safe_evaluate")
         # 验证评估器有 _delegate 属性（CodeReviewEvaluator 的特征）
-        assert hasattr(evaluator, '_delegate')
+        assert hasattr(evaluator, "_delegate")
 
     def test_factory_get_with_client_injects_client(self):
         """工厂应正确注入 client"""

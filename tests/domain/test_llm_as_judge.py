@@ -23,25 +23,27 @@ from src.schemas.evaluation import EvaluationSchema
 def mock_llm_client():
     """Mock LLM客户端"""
     client = MagicMock()
-    client.chat.return_value = json.dumps({
-        "scores": {
-            "correctness": {
-                "score": 85,
-                "reason": "回答准确，符合预期",
-                "evidence": ["回答内容准确"],
-                "citation": "无"
+    client.chat.return_value = json.dumps(
+        {
+            "scores": {
+                "correctness": {
+                    "score": 85,
+                    "reason": "回答准确，符合预期",
+                    "evidence": ["回答内容准确"],
+                    "citation": "无",
+                },
+                "relevance": {
+                    "score": 90,
+                    "reason": "回答与问题高度相关",
+                    "evidence": ["直接回答了问题"],
+                    "citation": "无",
+                },
             },
-            "relevance": {
-                "score": 90,
-                "reason": "回答与问题高度相关",
-                "evidence": ["直接回答了问题"],
-                "citation": "无"
-            }
-        },
-        "total_score": 87,
-        "confidence": 0.85,
-        "conflict_detected": False
-    })
+            "total_score": 87,
+            "confidence": 0.85,
+            "conflict_detected": False,
+        }
+    )
     return client
 
 
@@ -65,8 +67,8 @@ def basic_request():
         type="llm_as_judge",
         payload={
             "user_input": "什么是机器学习？",
-            "actual_output": "机器学习是人工智能的一个分支，它使计算机能够从数据中学习并做出决策。"
-        }
+            "actual_output": "机器学习是人工智能的一个分支，它使计算机能够从数据中学习并做出决策。",
+        },
     )
 
 
@@ -76,7 +78,9 @@ def basic_request():
 class TestLLMAJudgeEvaluatorPositiveCases:
     """正向测试 - 正常输入应返回预期输出"""
 
-    def test_evaluate_with_llm_client_returns_valid_response(self, evaluator_with_client, basic_request):
+    def test_evaluate_with_llm_client_returns_valid_response(
+        self, evaluator_with_client, basic_request
+    ):
         """有LLM客户端时应正常评估并返回有效响应"""
         # Act
         result = evaluator_with_client.evaluate(basic_request)
@@ -90,7 +94,9 @@ class TestLLMAJudgeEvaluatorPositiveCases:
         assert "total_score" in result.data
         assert "confidence" in result.data
 
-    def test_evaluate_without_llm_client_uses_mock_result(self, evaluator_without_client, basic_request):
+    def test_evaluate_without_llm_client_uses_mock_result(
+        self, evaluator_without_client, basic_request
+    ):
         """无LLM客户端时应使用Mock结果"""
         # Act
         result = evaluator_without_client.evaluate(basic_request)
@@ -124,8 +130,8 @@ class TestLLMAJudgeEvaluatorPositiveCases:
             payload={
                 "user_input": "如何退款？",
                 "actual_output": "您可以在订单页面申请退款",
-                "expected_output": "在订单详情页点击退款按钮"
-            }
+                "expected_output": "在订单详情页点击退款按钮",
+            },
         )
 
         # Act
@@ -146,8 +152,8 @@ class TestLLMAJudgeEvaluatorPositiveCases:
             payload={
                 "user_input": "解释量子计算",
                 "actual_output": "量子计算利用量子力学原理...",
-                "criteria": "回答必须包含专业术语，且通俗易懂"
-            }
+                "criteria": "回答必须包含专业术语，且通俗易懂",
+            },
         )
 
         # Act
@@ -168,12 +174,12 @@ class TestLLMAJudgeEvaluatorPositiveCases:
                 "user_input": "测试问题",
                 "actual_output": "测试回答",
                 "golden_dataset_id": "dataset-001",
-                "few_shot_limit": 3
-            }
+                "few_shot_limit": 3,
+            },
         )
 
         # Act
-        with patch('src.domain.golden_dataset.golden_dataset_manager') as mock_manager:
+        with patch("src.domain.golden_dataset.golden_dataset_manager") as mock_manager:
             mock_manager.get_few_shot_examples.return_value = ["示例1", "示例2"]
             result = evaluator_with_client.evaluate(request)
 
@@ -202,10 +208,7 @@ class TestLLMAJudgeEvaluatorPositiveCases:
         request = EvaluationSchema(
             id="test-005",
             type="llm_as_judge",
-            payload={
-                "text": "这是一个问题",
-                "actual_output": "这是一个回答"
-            }
+            payload={"text": "这是一个问题", "actual_output": "这是一个回答"},
         )
 
         # Act
@@ -218,19 +221,21 @@ class TestLLMAJudgeEvaluatorPositiveCases:
     def test_evaluate_with_conflict_detection(self, mock_llm_client):
         """检测到评分冲突时应标记conflict_detected"""
         # Arrange
-        mock_llm_client.chat.return_value = json.dumps({
-            "scores": {
-                "correctness": {"score": 90, "reason": "高分", "evidence": [], "citation": "无"}
-            },
-            "total_score": 90,
-            "confidence": 0.7,
-            "conflict_detected": True
-        })
+        mock_llm_client.chat.return_value = json.dumps(
+            {
+                "scores": {
+                    "correctness": {"score": 90, "reason": "高分", "evidence": [], "citation": "无"}
+                },
+                "total_score": 90,
+                "confidence": 0.7,
+                "conflict_detected": True,
+            }
+        )
         evaluator = LLMAJudgeEvaluator(client=mock_llm_client)
         request = EvaluationSchema(
             id="test-006",
             type="llm_as_judge",
-            payload={"user_input": "问题", "actual_output": "回答"}
+            payload={"user_input": "问题", "actual_output": "回答"},
         )
 
         # Act
@@ -242,14 +247,21 @@ class TestLLMAJudgeEvaluatorPositiveCases:
     def test_evaluate_with_custom_dimensions(self, mock_llm_client):
         """自定义维度评估应正确处理"""
         # Arrange
-        mock_llm_client.chat.return_value = json.dumps({
-            "scores": {
-                "creativity": {"score": 95, "reason": "创新性强", "evidence": [], "citation": "无"}
-            },
-            "total_score": 95,
-            "confidence": 0.9,
-            "conflict_detected": False
-        })
+        mock_llm_client.chat.return_value = json.dumps(
+            {
+                "scores": {
+                    "creativity": {
+                        "score": 95,
+                        "reason": "创新性强",
+                        "evidence": [],
+                        "citation": "无",
+                    }
+                },
+                "total_score": 95,
+                "confidence": 0.9,
+                "conflict_detected": False,
+            }
+        )
         evaluator = LLMAJudgeEvaluator(client=mock_llm_client)
         request = EvaluationSchema(
             id="test-007",
@@ -257,8 +269,8 @@ class TestLLMAJudgeEvaluatorPositiveCases:
             payload={
                 "user_input": "创作一首诗",
                 "actual_output": "春眠不觉晓...",
-                "dimensions": ["creativity"]
-            }
+                "dimensions": ["creativity"],
+            },
         )
 
         # Act
@@ -279,11 +291,7 @@ class TestLLMAJudgeEvaluatorNegativeCases:
         """user_input和text都为空时应返回错误"""
         # Arrange
         request = EvaluationSchema(
-            id="test-008",
-            type="llm_as_judge",
-            payload={
-                "actual_output": "这是一个回答"
-            }
+            id="test-008", type="llm_as_judge", payload={"actual_output": "这是一个回答"}
         )
 
         # Act
@@ -300,10 +308,7 @@ class TestLLMAJudgeEvaluatorNegativeCases:
         request = EvaluationSchema(
             id="test-009",
             type="llm_as_judge",
-            payload={
-                "user_input": "这是一个问题",
-                "actual_output": ""
-            }
+            payload={"user_input": "这是一个问题", "actual_output": ""},
         )
 
         # Act
@@ -320,10 +325,7 @@ class TestLLMAJudgeEvaluatorNegativeCases:
         request = EvaluationSchema(
             id="test-010",
             type="llm_as_judge",
-            payload={
-                "user_input": "问题",
-                "actual_output": None
-            }
+            payload={"user_input": "问题", "actual_output": None},
         )
 
         # Act
@@ -339,10 +341,7 @@ class TestLLMAJudgeEvaluatorNegativeCases:
         request = EvaluationSchema(
             id="test-011",
             type="llm_as_judge",
-            payload={
-                "user_input": "   ",
-                "actual_output": "回答"
-            }
+            payload={"user_input": "   ", "actual_output": "回答"},
         )
 
         # Act
@@ -359,11 +358,7 @@ class TestLLMAJudgeEvaluatorNegativeCases:
         request = EvaluationSchema(
             id="test-012",
             type="llm_as_judge",
-            payload={
-                "user_input": "问题",
-                "actual_output": "回答",
-                "dimensions": ["correctness"]
-            }
+            payload={"user_input": "问题", "actual_output": "回答", "dimensions": ["correctness"]},
         )
 
         # Act
@@ -376,16 +371,12 @@ class TestLLMAJudgeEvaluatorNegativeCases:
     def test_evaluate_llm_returns_partial_json(self, mock_llm_client):
         """LLM返回包含JSON的文本时应提取JSON部分"""
         # Arrange
-        mock_llm_client.chat.return_value = "这是评估结果：{\"scores\": {\"correctness\": {\"score\": 80}}, \"total_score\": 80, \"confidence\": 0.8}"
+        mock_llm_client.chat.return_value = '这是评估结果：{"scores": {"correctness": {"score": 80}}, "total_score": 80, "confidence": 0.8}'
         evaluator = LLMAJudgeEvaluator(client=mock_llm_client)
         request = EvaluationSchema(
             id="test-013",
             type="llm_as_judge",
-            payload={
-                "user_input": "问题",
-                "actual_output": "回答",
-                "dimensions": ["correctness"]
-            }
+            payload={"user_input": "问题", "actual_output": "回答", "dimensions": ["correctness"]},
         )
 
         # Act
@@ -408,11 +399,7 @@ class TestLLMAJudgeEvaluatorBoundaryCases:
         request = EvaluationSchema(
             id="test-014",
             type="llm_as_judge",
-            payload={
-                "user_input": "问题",
-                "actual_output": "回答",
-                "dimensions": []
-            }
+            payload={"user_input": "问题", "actual_output": "回答", "dimensions": []},
         )
 
         # Act
@@ -424,23 +411,26 @@ class TestLLMAJudgeEvaluatorBoundaryCases:
     def test_evaluate_with_unknown_dimension(self, mock_llm_client):
         """未知维度应被正确处理"""
         # Arrange
-        mock_llm_client.chat.return_value = json.dumps({
-            "scores": {
-                "unknown_dim": {"score": 75, "reason": "自定义维度", "evidence": [], "citation": "无"}
-            },
-            "total_score": 75,
-            "confidence": 0.75,
-            "conflict_detected": False
-        })
+        mock_llm_client.chat.return_value = json.dumps(
+            {
+                "scores": {
+                    "unknown_dim": {
+                        "score": 75,
+                        "reason": "自定义维度",
+                        "evidence": [],
+                        "citation": "无",
+                    }
+                },
+                "total_score": 75,
+                "confidence": 0.75,
+                "conflict_detected": False,
+            }
+        )
         evaluator = LLMAJudgeEvaluator(client=mock_llm_client)
         request = EvaluationSchema(
             id="test-015",
             type="llm_as_judge",
-            payload={
-                "user_input": "问题",
-                "actual_output": "回答",
-                "dimensions": ["unknown_dim"]
-            }
+            payload={"user_input": "问题", "actual_output": "回答", "dimensions": ["unknown_dim"]},
         )
 
         # Act
@@ -453,22 +443,26 @@ class TestLLMAJudgeEvaluatorBoundaryCases:
     def test_evaluate_with_minimal_score(self, mock_llm_client):
         """最小分数0分应正确处理"""
         # Arrange
-        mock_llm_client.chat.return_value = json.dumps({
-            "scores": {
-                "correctness": {"score": 0, "reason": "完全错误", "evidence": [], "citation": "无"}
-            },
-            "total_score": 0,
-            "confidence": 0.9,
-            "conflict_detected": False
-        })
+        mock_llm_client.chat.return_value = json.dumps(
+            {
+                "scores": {
+                    "correctness": {
+                        "score": 0,
+                        "reason": "完全错误",
+                        "evidence": [],
+                        "citation": "无",
+                    }
+                },
+                "total_score": 0,
+                "confidence": 0.9,
+                "conflict_detected": False,
+            }
+        )
         evaluator = LLMAJudgeEvaluator(client=mock_llm_client)
         request = EvaluationSchema(
             id="test-016",
             type="llm_as_judge",
-            payload={
-                "user_input": "问题",
-                "actual_output": "回答"
-            }
+            payload={"user_input": "问题", "actual_output": "回答"},
         )
 
         # Act
@@ -482,22 +476,26 @@ class TestLLMAJudgeEvaluatorBoundaryCases:
     def test_evaluate_with_maximal_score(self, mock_llm_client):
         """最大分数100分应正确处理"""
         # Arrange
-        mock_llm_client.chat.return_value = json.dumps({
-            "scores": {
-                "correctness": {"score": 100, "reason": "完美回答", "evidence": [], "citation": "无"}
-            },
-            "total_score": 100,
-            "confidence": 1.0,
-            "conflict_detected": False
-        })
+        mock_llm_client.chat.return_value = json.dumps(
+            {
+                "scores": {
+                    "correctness": {
+                        "score": 100,
+                        "reason": "完美回答",
+                        "evidence": [],
+                        "citation": "无",
+                    }
+                },
+                "total_score": 100,
+                "confidence": 1.0,
+                "conflict_detected": False,
+            }
+        )
         evaluator = LLMAJudgeEvaluator(client=mock_llm_client)
         request = EvaluationSchema(
             id="test-017",
             type="llm_as_judge",
-            payload={
-                "user_input": "问题",
-                "actual_output": "回答"
-            }
+            payload={"user_input": "问题", "actual_output": "回答"},
         )
 
         # Act
@@ -511,22 +509,26 @@ class TestLLMAJudgeEvaluatorBoundaryCases:
     def test_evaluate_with_confidence_zero(self, mock_llm_client):
         """置信度为0时应正确处理"""
         # Arrange
-        mock_llm_client.chat.return_value = json.dumps({
-            "scores": {
-                "correctness": {"score": 50, "reason": "不确定", "evidence": [], "citation": "无"}
-            },
-            "total_score": 50,
-            "confidence": 0.0,
-            "conflict_detected": False
-        })
+        mock_llm_client.chat.return_value = json.dumps(
+            {
+                "scores": {
+                    "correctness": {
+                        "score": 50,
+                        "reason": "不确定",
+                        "evidence": [],
+                        "citation": "无",
+                    }
+                },
+                "total_score": 50,
+                "confidence": 0.0,
+                "conflict_detected": False,
+            }
+        )
         evaluator = LLMAJudgeEvaluator(client=mock_llm_client)
         request = EvaluationSchema(
             id="test-018",
             type="llm_as_judge",
-            payload={
-                "user_input": "问题",
-                "actual_output": "回答"
-            }
+            payload={"user_input": "问题", "actual_output": "回答"},
         )
 
         # Act
@@ -539,22 +541,26 @@ class TestLLMAJudgeEvaluatorBoundaryCases:
     def test_evaluate_with_confidence_one(self, mock_llm_client):
         """置信度为1时应正确处理"""
         # Arrange
-        mock_llm_client.chat.return_value = json.dumps({
-            "scores": {
-                "correctness": {"score": 100, "reason": "非常确定", "evidence": [], "citation": "无"}
-            },
-            "total_score": 100,
-            "confidence": 1.0,
-            "conflict_detected": False
-        })
+        mock_llm_client.chat.return_value = json.dumps(
+            {
+                "scores": {
+                    "correctness": {
+                        "score": 100,
+                        "reason": "非常确定",
+                        "evidence": [],
+                        "citation": "无",
+                    }
+                },
+                "total_score": 100,
+                "confidence": 1.0,
+                "conflict_detected": False,
+            }
+        )
         evaluator = LLMAJudgeEvaluator(client=mock_llm_client)
         request = EvaluationSchema(
             id="test-019",
             type="llm_as_judge",
-            payload={
-                "user_input": "问题",
-                "actual_output": "回答"
-            }
+            payload={"user_input": "问题", "actual_output": "回答"},
         )
 
         # Act
@@ -574,12 +580,12 @@ class TestLLMAJudgeEvaluatorBoundaryCases:
                 "user_input": "问题",
                 "actual_output": "回答",
                 "golden_dataset_id": "dataset-001",
-                "few_shot_limit": 0  # 边界值
-            }
+                "few_shot_limit": 0,  # 边界值
+            },
         )
 
         # Act
-        with patch('src.domain.golden_dataset.golden_dataset_manager') as mock_manager:
+        with patch("src.domain.golden_dataset.golden_dataset_manager") as mock_manager:
             mock_manager.get_few_shot_examples.return_value = []
             result = LLMAJudgeEvaluator(client=mock_llm_client).evaluate(request)
 
@@ -593,10 +599,7 @@ class TestLLMAJudgeEvaluatorBoundaryCases:
         request = EvaluationSchema(
             id="test-021",
             type="llm_as_judge",
-            payload={
-                "user_input": long_text,
-                "actual_output": "回答"
-            }
+            payload={"user_input": long_text, "actual_output": "回答"},
         )
 
         # Act
@@ -621,11 +624,7 @@ class TestLLMAJudgeEvaluatorExceptionCases:
         request = EvaluationSchema(
             id="test-022",
             type="llm_as_judge",
-            payload={
-                "user_input": "问题",
-                "actual_output": "回答",
-                "dimensions": ["correctness"]
-            }
+            payload={"user_input": "问题", "actual_output": "回答", "dimensions": ["correctness"]},
         )
 
         # Act
@@ -645,12 +644,12 @@ class TestLLMAJudgeEvaluatorExceptionCases:
             payload={
                 "user_input": "问题",
                 "actual_output": "回答",
-                "golden_dataset_id": "invalid-id"
-            }
+                "golden_dataset_id": "invalid-id",
+            },
         )
 
         # Act
-        with patch('src.domain.golden_dataset.golden_dataset_manager') as mock_manager:
+        with patch("src.domain.golden_dataset.golden_dataset_manager") as mock_manager:
             mock_manager.get_few_shot_examples.side_effect = Exception("Dataset not found")
             result = LLMAJudgeEvaluator(client=mock_llm_client).evaluate(request)
 
@@ -665,10 +664,7 @@ class TestLLMAJudgeEvaluatorExceptionCases:
         request = EvaluationSchema(
             id="test-024",
             type="llm_as_judge",
-            payload={
-                "user_input": "问题",
-                "actual_output": "回答"
-            }
+            payload={"user_input": "问题", "actual_output": "回答"},
         )
 
         # Act & Assert
@@ -679,20 +675,19 @@ class TestLLMAJudgeEvaluatorExceptionCases:
     def test_evaluate_missing_total_score_in_response(self, mock_llm_client):
         """响应中缺少total_score时应使用默认值"""
         # Arrange
-        mock_llm_client.chat.return_value = json.dumps({
-            "scores": {
-                "correctness": {"score": 80, "reason": "良好", "evidence": [], "citation": "无"}
-            },
-            "confidence": 0.8
-        })
+        mock_llm_client.chat.return_value = json.dumps(
+            {
+                "scores": {
+                    "correctness": {"score": 80, "reason": "良好", "evidence": [], "citation": "无"}
+                },
+                "confidence": 0.8,
+            }
+        )
         evaluator = LLMAJudgeEvaluator(client=mock_llm_client)
         request = EvaluationSchema(
             id="test-025",
             type="llm_as_judge",
-            payload={
-                "user_input": "问题",
-                "actual_output": "回答"
-            }
+            payload={"user_input": "问题", "actual_output": "回答"},
         )
 
         # Act
@@ -705,20 +700,19 @@ class TestLLMAJudgeEvaluatorExceptionCases:
     def test_evaluate_missing_confidence_in_response(self, mock_llm_client):
         """响应中缺少confidence时应使用默认值"""
         # Arrange
-        mock_llm_client.chat.return_value = json.dumps({
-            "scores": {
-                "correctness": {"score": 80, "reason": "良好", "evidence": [], "citation": "无"}
-            },
-            "total_score": 80
-        })
+        mock_llm_client.chat.return_value = json.dumps(
+            {
+                "scores": {
+                    "correctness": {"score": 80, "reason": "良好", "evidence": [], "citation": "无"}
+                },
+                "total_score": 80,
+            }
+        )
         evaluator = LLMAJudgeEvaluator(client=mock_llm_client)
         request = EvaluationSchema(
             id="test-026",
             type="llm_as_judge",
-            payload={
-                "user_input": "问题",
-                "actual_output": "回答"
-            }
+            payload={"user_input": "问题", "actual_output": "回答"},
         )
 
         # Act
@@ -731,21 +725,18 @@ class TestLLMAJudgeEvaluatorExceptionCases:
     def test_evaluate_malformed_score_data(self, mock_llm_client):
         """分数数据格式错误时应正确处理"""
         # Arrange
-        mock_llm_client.chat.return_value = json.dumps({
-            "scores": {
-                "correctness": "invalid_score_format"  # 应该是dict
-            },
-            "total_score": 80,
-            "confidence": 0.8
-        })
+        mock_llm_client.chat.return_value = json.dumps(
+            {
+                "scores": {"correctness": "invalid_score_format"},  # 应该是dict
+                "total_score": 80,
+                "confidence": 0.8,
+            }
+        )
         evaluator = LLMAJudgeEvaluator(client=mock_llm_client)
         request = EvaluationSchema(
             id="test-027",
             type="llm_as_judge",
-            payload={
-                "user_input": "问题",
-                "actual_output": "回答"
-            }
+            payload={"user_input": "问题", "actual_output": "回答"},
         )
 
         # Act
@@ -771,8 +762,8 @@ class TestLLMAJudgeEvaluatorDependencyHandling:
             payload={
                 "user_input": "什么是AI？",
                 "actual_output": "AI是人工智能的缩写",
-                "dimensions": ["correctness", "relevance"]
-            }
+                "dimensions": ["correctness", "relevance"],
+            },
         )
 
         # Act
@@ -806,12 +797,12 @@ class TestLLMAJudgeEvaluatorDependencyHandling:
                 "actual_output": "回答",
                 "golden_dataset_id": "dataset-123",
                 "few_shot_limit": 5,
-                "dimensions": ["correctness", "safety"]
-            }
+                "dimensions": ["correctness", "safety"],
+            },
         )
 
         # Act
-        with patch('src.domain.golden_dataset.golden_dataset_manager') as mock_manager:
+        with patch("src.domain.golden_dataset.golden_dataset_manager") as mock_manager:
             mock_manager.get_few_shot_examples.return_value = ["示例1", "示例2", "示例3"]
             evaluator = LLMAJudgeEvaluator(client=mock_llm_client)
             result = evaluator.evaluate(request)
@@ -833,8 +824,8 @@ class TestLLMAJudgeEvaluatorDependencyHandling:
                 "actual_output": "模型输出",
                 "expected_output": "期望输出",
                 "criteria": "评估标准",
-                "dimensions": ["correctness", "completeness"]
-            }
+                "dimensions": ["correctness", "completeness"],
+            },
         )
 
         # Act
@@ -857,10 +848,7 @@ class TestLLMAJudgeEvaluatorDependencyHandling:
         request = EvaluationSchema(
             id="test-031",
             type="llm_as_judge",
-            payload={
-                "user_input": "问题",
-                "actual_output": "回答"
-            }
+            payload={"user_input": "问题", "actual_output": "回答"},
         )
 
         # Act
@@ -882,25 +870,27 @@ class TestLLMAJudgeEvaluatorIntegration:
     def test_full_evaluation_workflow(self, mock_llm_client):
         """完整评估流程应正常工作"""
         # Arrange
-        mock_llm_client.chat.return_value = json.dumps({
-            "scores": {
-                "correctness": {
-                    "score": 92,
-                    "reason": "回答准确，逻辑清晰",
-                    "evidence": ["回答准确", "逻辑清晰"],
-                    "citation": "[KB-001]"
+        mock_llm_client.chat.return_value = json.dumps(
+            {
+                "scores": {
+                    "correctness": {
+                        "score": 92,
+                        "reason": "回答准确，逻辑清晰",
+                        "evidence": ["回答准确", "逻辑清晰"],
+                        "citation": "[KB-001]",
+                    },
+                    "relevance": {
+                        "score": 88,
+                        "reason": "与问题高度相关",
+                        "evidence": ["直接回答了问题"],
+                        "citation": "无",
+                    },
                 },
-                "relevance": {
-                    "score": 88,
-                    "reason": "与问题高度相关",
-                    "evidence": ["直接回答了问题"],
-                    "citation": "无"
-                }
-            },
-            "total_score": 90,
-            "confidence": 0.9,
-            "conflict_detected": False
-        })
+                "total_score": 90,
+                "confidence": 0.9,
+                "conflict_detected": False,
+            }
+        )
         evaluator = LLMAJudgeEvaluator(client=mock_llm_client)
         request = EvaluationSchema(
             id="test-032",
@@ -910,8 +900,8 @@ class TestLLMAJudgeEvaluatorIntegration:
                 "actual_output": "机器学习是人工智能的一个分支，通过算法让计算机从数据中学习模式。",
                 "expected_output": "机器学习是一种数据驱动的方法",
                 "criteria": "回答应简洁明了",
-                "dimensions": ["correctness", "relevance"]
-            }
+                "dimensions": ["correctness", "relevance"],
+            },
         )
 
         # Act
@@ -939,8 +929,8 @@ class TestLLMAJudgeEvaluatorIntegration:
             payload={
                 "user_input": "问题",
                 "actual_output": "回答",
-                "dimensions": ["correctness", "relevance"]
-            }
+                "dimensions": ["correctness", "relevance"],
+            },
         )
 
         # Act
@@ -983,6 +973,7 @@ class TestLLMAJudgeEvaluatorFactory:
         """工厂应能创建带客户端的评估器实例"""
         # Arrange
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+
         mock_client = MagicMock()
 
         # Act

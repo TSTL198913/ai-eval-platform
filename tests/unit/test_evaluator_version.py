@@ -31,7 +31,7 @@ class TestEvaluatorVersionManager:
             version="1.0.0",
             code_hash="abc123",
             config={"threshold": 0.8},
-            changelog="Initial version"
+            changelog="Initial version",
         )
 
         assert isinstance(version, EvaluatorVersion)
@@ -43,27 +43,18 @@ class TestEvaluatorVersionManager:
     def test_register_duplicate_version_raises(self):
         """测试重复注册版本"""
         self.manager.register_version(
-            evaluator_name="test_evaluator",
-            version="1.0.0",
-            code_hash="abc123",
-            config={}
+            evaluator_name="test_evaluator", version="1.0.0", code_hash="abc123", config={}
         )
 
         with pytest.raises(ValueError, match="already exists"):
             self.manager.register_version(
-                evaluator_name="test_evaluator",
-                version="1.0.0",
-                code_hash="def456",
-                config={}
+                evaluator_name="test_evaluator", version="1.0.0", code_hash="def456", config={}
             )
 
     def test_get_current_version(self):
         """测试获取当前版本"""
         self.manager.register_version(
-            evaluator_name="test_evaluator",
-            version="1.0.0",
-            code_hash="abc123",
-            config={}
+            evaluator_name="test_evaluator", version="1.0.0", code_hash="abc123", config={}
         )
 
         current = self.manager.get_current_version("test_evaluator")
@@ -78,10 +69,7 @@ class TestEvaluatorVersionManager:
     def test_get_version_by_id(self):
         """测试通过ID获取版本"""
         version = self.manager.register_version(
-            evaluator_name="test_evaluator",
-            version="1.0.0",
-            code_hash="abc123",
-            config={}
+            evaluator_name="test_evaluator", version="1.0.0", code_hash="abc123", config={}
         )
 
         retrieved = self.manager.get_version_by_id(version.version_id)
@@ -103,15 +91,11 @@ class TestEvaluatorVersionManager:
     def test_update_calibration(self):
         """测试更新校准分数"""
         self.manager.register_version(
-            evaluator_name="test_evaluator",
-            version="1.0.0",
-            code_hash="abc123",
-            config={}
+            evaluator_name="test_evaluator", version="1.0.0", code_hash="abc123", config={}
         )
 
         updated = self.manager.update_calibration(
-            evaluator_name="test_evaluator",
-            calibration_score=0.85
+            evaluator_name="test_evaluator", calibration_score=0.85
         )
 
         assert updated is not None
@@ -125,10 +109,7 @@ class TestEvaluatorVersionManager:
     def test_check_calibration_status_not_calibrated(self):
         """测试检查校准状态 - 未校准"""
         self.manager.register_version(
-            evaluator_name="test_evaluator",
-            version="1.0.0",
-            code_hash="abc123",
-            config={}
+            evaluator_name="test_evaluator", version="1.0.0", code_hash="abc123", config={}
         )
 
         status = self.manager.check_calibration_status("test_evaluator")
@@ -138,14 +119,10 @@ class TestEvaluatorVersionManager:
     def test_check_calibration_status_calibrated(self):
         """测试检查校准状态 - 已校准"""
         self.manager.register_version(
-            evaluator_name="test_evaluator",
-            version="1.0.0",
-            code_hash="abc123",
-            config={}
+            evaluator_name="test_evaluator", version="1.0.0", code_hash="abc123", config={}
         )
         self.manager.update_calibration(
-            evaluator_name="test_evaluator",
-            calibration_score=94.0  # 接近基准95
+            evaluator_name="test_evaluator", calibration_score=94.0  # 接近基准95
         )
 
         status = self.manager.check_calibration_status("test_evaluator")
@@ -155,14 +132,10 @@ class TestEvaluatorVersionManager:
     def test_check_calibration_status_drifted(self):
         """测试检查校准状态 - 已偏离"""
         self.manager.register_version(
-            evaluator_name="test_evaluator",
-            version="1.0.0",
-            code_hash="abc123",
-            config={}
+            evaluator_name="test_evaluator", version="1.0.0", code_hash="abc123", config={}
         )
         self.manager.update_calibration(
-            evaluator_name="test_evaluator",
-            calibration_score=70.0  # 远离基准95
+            evaluator_name="test_evaluator", calibration_score=70.0  # 远离基准95
         )
 
         status = self.manager.check_calibration_status("test_evaluator")
@@ -172,10 +145,7 @@ class TestEvaluatorVersionManager:
     def test_deprecate_version(self):
         """测试废弃版本"""
         version = self.manager.register_version(
-            evaluator_name="test_evaluator",
-            version="1.0.0",
-            code_hash="abc123",
-            config={}
+            evaluator_name="test_evaluator", version="1.0.0", code_hash="abc123", config={}
         )
 
         result = self.manager.deprecate_version(version.version_id)
@@ -200,7 +170,7 @@ class TestEvaluatorVersionManager:
             evaluator_name="test_evaluator",
             version="1.0.0",
             code_hash="abc123",
-            config={"key": "value"}
+            config={"key": "value"},
         )
 
         version_dict = version.to_dict()
@@ -223,7 +193,7 @@ class TestEvaluatorVersion:
             version="1.0.0",
             changelog="Initial",
             code_hash="hash123",
-            config_snapshot={}
+            config_snapshot={},
         )
 
         assert version.version_id == "v001"
@@ -239,7 +209,7 @@ class TestEvaluatorVersion:
             code_hash="hash",
             config_snapshot={},
             calibration_score=92.5,
-            calibration_threshold=5.0
+            calibration_threshold=5.0,
         )
 
         assert version.calibration_score == 92.5

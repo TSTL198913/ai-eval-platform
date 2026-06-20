@@ -37,7 +37,7 @@ class EvaluationCache:
                             result=entry["result"],
                             created_at=datetime.fromisoformat(entry["created_at"]),
                             hit_count=entry.get("hit_count", 0),
-                            avg_latency_ms=entry.get("avg_latency_ms", 0.0)
+                            avg_latency_ms=entry.get("avg_latency_ms", 0.0),
                         )
                         if not self._is_expired(entry_obj):
                             self._cache[key] = entry_obj
@@ -52,7 +52,7 @@ class EvaluationCache:
                 "result": entry.result,
                 "created_at": entry.created_at.isoformat(),
                 "hit_count": entry.hit_count,
-                "avg_latency_ms": entry.avg_latency_ms
+                "avg_latency_ms": entry.avg_latency_ms,
             }
             for key, entry in self._cache.items()
         }
@@ -80,11 +80,7 @@ class EvaluationCache:
 
     def set(self, request_data: dict[str, Any], result: dict[str, Any], latency_ms: float = 0.0):
         key = self._generate_key(request_data)
-        entry = CacheEntry(
-            key=key,
-            result=result,
-            avg_latency_ms=latency_ms
-        )
+        entry = CacheEntry(key=key, result=result, avg_latency_ms=latency_ms)
         self._cache[key] = entry
         self._save_cache()
 
@@ -128,7 +124,7 @@ class AsyncEvaluationProcessor:
         self._pending_tasks[task_id] = {
             "future": future,
             "submitted_at": datetime.utcnow(),
-            "status": "running"
+            "status": "running",
         }
         return future
 
@@ -169,8 +165,7 @@ class AsyncEvaluationProcessor:
 
     def cleanup_completed(self):
         self._pending_tasks = {
-            k: v for k, v in self._pending_tasks.items()
-            if v["status"] == "running"
+            k: v for k, v in self._pending_tasks.items() if v["status"] == "running"
         }
 
 
@@ -181,14 +176,12 @@ class PerformanceOptimizer:
         self._metrics: list[dict[str, Any]] = []
         self._max_metrics = 1000
 
-    def cached_evaluate(self, request_data: dict[str, Any], evaluate_func: Callable) -> dict[str, Any]:
+    def cached_evaluate(
+        self, request_data: dict[str, Any], evaluate_func: Callable
+    ) -> dict[str, Any]:
         cached_result = self._cache.get(request_data)
         if cached_result:
-            return {
-                **cached_result,
-                "from_cache": True,
-                "latency_ms": 0
-            }
+            return {**cached_result, "from_cache": True, "latency_ms": 0}
 
         start_time = time.time()
         result = evaluate_func(request_data)
@@ -202,7 +195,9 @@ class PerformanceOptimizer:
 
         return result
 
-    def async_batch_evaluate(self, requests: list[dict[str, Any]], evaluate_func: Callable) -> list[dict[str, Any]]:
+    def async_batch_evaluate(
+        self, requests: list[dict[str, Any]], evaluate_func: Callable
+    ) -> list[dict[str, Any]]:
         results = []
 
         futures = {}
@@ -225,11 +220,11 @@ class PerformanceOptimizer:
         metric = {
             "timestamp": datetime.utcnow().isoformat(),
             "latency_ms": latency_ms,
-            "from_cache": from_cache
+            "from_cache": from_cache,
         }
         self._metrics.append(metric)
         if len(self._metrics) > self._max_metrics:
-            self._metrics = self._metrics[-self._max_metrics:]
+            self._metrics = self._metrics[-self._max_metrics :]
 
     def get_performance_report(self) -> dict[str, Any]:
         if not self._metrics:
@@ -240,7 +235,7 @@ class PerformanceOptimizer:
                 "p95_latency_ms": 0,
                 "p99_latency_ms": 0,
                 "cache_hit_rate": 0,
-                "recommendations": ["暂无数据"]
+                "recommendations": ["暂无数据"],
             }
 
         non_cached = [m for m in self._metrics if not m["from_cache"]]
@@ -267,7 +262,7 @@ class PerformanceOptimizer:
             "p95_latency_ms": round(latencies[p95_idx] if latencies else 0, 2),
             "p99_latency_ms": round(latencies[p99_idx] if latencies else 0, 2),
             "cache_hit_rate": round(cache_hits / total, 3),
-            "recommendations": recommendations if recommendations else ["性能表现良好"]
+            "recommendations": recommendations if recommendations else ["性能表现良好"],
         }
 
 

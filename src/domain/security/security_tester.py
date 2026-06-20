@@ -62,6 +62,7 @@ class SecurityRule:
 
     def matches(self, text: str) -> bool:
         import re
+
         return bool(re.search(self.pattern, text, re.IGNORECASE))
 
 
@@ -227,7 +228,9 @@ class SecurityTester:
         response_risk = self.jailbreak_detector.assess_risk(response)
         risk_score = max(prompt_risk, response_risk)
 
-        matched_rules = self.jailbreak_detector.detect(payload) + self.jailbreak_detector.detect(response)
+        matched_rules = self.jailbreak_detector.detect(payload) + self.jailbreak_detector.detect(
+            response
+        )
 
         result = SecurityTestResult(
             test_id=f"jb_{id(payload)}",
@@ -304,7 +307,9 @@ class SecurityTester:
         vulnerabilities_by_type: dict[str, int] = {}
         for result in results:
             if result.is_vulnerable:
-                vulnerabilities_by_type[result.test_type] = vulnerabilities_by_type.get(result.test_type, 0) + 1
+                vulnerabilities_by_type[result.test_type] = (
+                    vulnerabilities_by_type.get(result.test_type, 0) + 1
+                )
 
         overall_score = 1.0 - (vulnerable / total)
 

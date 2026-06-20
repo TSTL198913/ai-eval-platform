@@ -3,6 +3,7 @@ Frontend E2E Test - Using Playwright to capture browser console logs
 Test Goal: Auto-verify frontend functionality, capture console errors and network requests
 Key Finding: Playwright can capture all browser logs (console, network, errors)
 """
+
 import os
 import sys
 
@@ -26,37 +27,49 @@ def page(browser: Browser):
 
     # 捕获所有控制台日志
     console_logs = []
-    page.on("console", lambda msg: console_logs.append({
-        "type": msg.type,
-        "text": msg.text,
-        "location": msg.location if msg.location else {}
-    }))
+    page.on(
+        "console",
+        lambda msg: console_logs.append(
+            {"type": msg.type, "text": msg.text, "location": msg.location if msg.location else {}}
+        ),
+    )
 
     # 捕获所有页面错误
     page_errors = []
-    page.on("pageerror", lambda err: page_errors.append({
-        "type": "page_error",
-        "message": str(err.message),
-        "name": err.name,
-        "stack": err.stack
-    }))
+    page.on(
+        "pageerror",
+        lambda err: page_errors.append(
+            {
+                "type": "page_error",
+                "message": str(err.message),
+                "name": err.name,
+                "stack": err.stack,
+            }
+        ),
+    )
 
     # 捕获所有网络请求失败
     network_errors = []
-    page.on("requestfailed", lambda request: network_errors.append({
-        "type": "network_error",
-        "url": request.url,
-        "method": request.method,
-        "failure": request.failure
-    }))
+    page.on(
+        "requestfailed",
+        lambda request: network_errors.append(
+            {
+                "type": "network_error",
+                "url": request.url,
+                "method": request.method,
+                "failure": request.failure,
+            }
+        ),
+    )
 
     # 捕获所有网络响应
     network_responses = []
-    page.on("response", lambda response: network_responses.append({
-        "url": response.url,
-        "status": response.status,
-        "method": response.request.method
-    }))
+    page.on(
+        "response",
+        lambda response: network_responses.append(
+            {"url": response.url, "status": response.status, "method": response.request.method}
+        ),
+    )
 
     # 注入日志到页面对象
     page.console_logs = console_logs
@@ -148,9 +161,9 @@ class TestFrontendE2EWithConsoleLogging:
                 print(f"页面加载失败 {url}: {e}")
 
         # 打印所有收集到的日志
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("📊 控制台日志报告")
-        print("="*80)
+        print("=" * 80)
 
         # 打印页面错误
         if page.page_errors:
@@ -185,12 +198,13 @@ class TestFrontendE2EWithConsoleLogging:
             for resp in status_errors:
                 print(f"  - {resp['method']} {resp['url']}: {resp['status']}")
 
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
 
         # 断言没有严重错误
         assert len(page.page_errors) == 0, f"发现页面错误: {page.page_errors}"
-        assert len([e for e in page.network_errors if "ERR_CONNECTION" in str(e["failure"])]) == 0, \
-            f"发现连接错误: {page.network_errors}"
+        assert (
+            len([e for e in page.network_errors if "ERR_CONNECTION" in str(e["failure"])]) == 0
+        ), f"发现连接错误: {page.network_errors}"
 
 
 class TestFrontendSecurityE2E:

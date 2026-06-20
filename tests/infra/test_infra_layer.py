@@ -2,6 +2,7 @@
 Infra 层综合测试 - 真实业务场景
 重点：缓存、LLM 工厂、数据库、限流
 """
+
 import os
 import sys
 import threading
@@ -20,6 +21,7 @@ class TestEvaluationCacheBusinessScenarios:
     def test_cache_set_and_get(self):
         """场景：业务方获取缓存结果"""
         from src.infra.cache import EvaluationCache
+
         cache = EvaluationCache(ttl_seconds=60, max_size=100)
         cache.set("case_001", {"score": 0.9, "status": "passed"})
         result = cache.get("case_001")
@@ -28,12 +30,14 @@ class TestEvaluationCacheBusinessScenarios:
     def test_cache_returns_none_for_missing_key(self):
         """场景：缓存未命中"""
         from src.infra.cache import EvaluationCache
+
         cache = EvaluationCache()
         assert cache.get("nonexistent") is None
 
     def test_cache_ttl_expiration(self):
         """场景：缓存过期（业务方希望 1 秒后重新计算）"""
         from src.infra.cache import EvaluationCache
+
         cache = EvaluationCache(ttl_seconds=0.1)  # 100ms TTL
         cache.set("case_002", {"score": 0.8})
         # 立即可获取
@@ -45,6 +49,7 @@ class TestEvaluationCacheBusinessScenarios:
     def test_cache_lru_eviction_at_capacity(self):
         """场景：缓存满时淘汰最久未使用"""
         from src.infra.cache import EvaluationCache
+
         cache = EvaluationCache(ttl_seconds=60, max_size=3)
         cache.set("a", 1)
         cache.set("b", 2)
@@ -60,6 +65,7 @@ class TestEvaluationCacheBusinessScenarios:
     def test_cache_lru_promotes_recently_used(self):
         """场景：访问过的 key 不应被淘汰"""
         from src.infra.cache import EvaluationCache
+
         cache = EvaluationCache(ttl_seconds=60, max_size=3)
         cache.set("a", 1)
         cache.set("b", 2)
@@ -77,6 +83,7 @@ class TestEvaluationCacheBusinessScenarios:
     def test_cache_max_size_zero_disables_caching(self):
         """场景：max_size=0 表示禁用缓存"""
         from src.infra.cache import EvaluationCache
+
         cache = EvaluationCache(ttl_seconds=60, max_size=0)
         cache.set("any", "value")
         # 实际不应存储
@@ -85,6 +92,7 @@ class TestEvaluationCacheBusinessScenarios:
     def test_cache_concurrent_access(self):
         """场景：1000 个并发请求同时读写缓存（线程安全）"""
         from src.infra.cache import EvaluationCache
+
         cache = EvaluationCache(ttl_seconds=60, max_size=10000)
         errors = []
 
@@ -117,6 +125,7 @@ class TestEvaluationCacheBusinessScenarios:
     def test_cache_stats_hit_rate(self):
         """场景：业务方监控缓存命中率"""
         from src.infra.cache import EvaluationCache
+
         cache = EvaluationCache(ttl_seconds=60, max_size=100)
         cache.set("hit_key", "value")
         # 3 次命中
@@ -134,6 +143,7 @@ class TestEvaluationCacheBusinessScenarios:
     def test_cache_clear_resets_stats(self):
         """场景：清空缓存同时重置统计"""
         from src.infra.cache import EvaluationCache
+
         cache = EvaluationCache()
         cache.set("a", 1)
         cache.get("a")
@@ -154,6 +164,7 @@ class TestLLMFactoryBusinessScenarios:
     def test_create_client_with_injection(self):
         """场景：业务方注入自定义客户端（测试场景）"""
         from src.domain.models.llm_factory import create_llm_client
+
         mock_client = MagicMock()
         result = create_llm_client(client=mock_client)
         assert result is mock_client
@@ -163,9 +174,14 @@ class TestLLMFactoryBusinessScenarios:
         from src.domain.models.llm_factory import create_llm_client
         from src.domain.models.stub import StubLLMClient
 
-        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "your_key_here", "DEEPSEEK_MODEL": "deepseek-chat"}, clear=True):
+        with patch.dict(
+            os.environ,
+            {"DEEPSEEK_API_KEY": "your_key_here", "DEEPSEEK_MODEL": "deepseek-chat"},
+            clear=True,
+        ):
             # 清除客户端缓存
             from src.domain.models.llm_factory import clear_client_cache
+
             clear_client_cache()
             client = create_llm_client(provider="deepseek", use_cache=False)
             assert isinstance(client, StubLLMClient)
@@ -173,6 +189,7 @@ class TestLLMFactoryBusinessScenarios:
     def test_list_providers(self):
         """场景：前端展示可用模型列表"""
         from src.domain.models.llm_factory import ModelRegistry
+
         providers = ModelRegistry.list_providers()
         assert "deepseek" in providers
         assert "openai" in providers
@@ -181,6 +198,7 @@ class TestLLMFactoryBusinessScenarios:
     def test_get_unknown_provider_raises(self):
         """场景：业务方请求未注册的 provider"""
         from src.domain.models.llm_factory import ModelRegistry
+
         result = ModelRegistry.get_client_class("nonexistent_provider")
         assert result is None  # 不抛错，返回 None
 
@@ -190,6 +208,7 @@ class TestLLMFactoryBusinessScenarios:
             clear_all_caches,
             get_cache_stats,
         )
+
         clear_all_caches()
         stats = get_cache_stats()
         assert stats["client_count"] == 0
@@ -198,6 +217,7 @@ class TestLLMFactoryBusinessScenarios:
     def test_validate_config_returns_dict(self):
         """场景：运维检查配置健康度"""
         from src.domain.models.llm_factory import validate_config
+
         result = validate_config()
         assert "valid" in result
         assert "provider" in result
@@ -215,6 +235,7 @@ class TestStubLLMClientBusinessScenarios:
         """场景：代码审查请求（中文输出）"""
         from src.domain.models.base import ModelConfig
         from src.domain.models.stub import StubLLMClient
+
         client = StubLLMClient(ModelConfig(api_key="stub", model_name="stub"))
         result = client.chat("请审查这段代码：def hello(): pass")
         assert "代码审查" in result
@@ -224,6 +245,7 @@ class TestStubLLMClientBusinessScenarios:
         """场景：金融计算（默认返回）"""
         from src.domain.models.base import ModelConfig
         from src.domain.models.stub import StubLLMClient
+
         client = StubLLMClient(ModelConfig(api_key="stub", model_name="stub"))
         result = client.chat("评估投资回报率")
         assert "模拟金融" in result or "本金" in result
@@ -234,6 +256,7 @@ class TestStubLLMClientBusinessScenarios:
 
         from src.domain.models.base import ModelConfig
         from src.domain.models.stub import StubLLMClient
+
         client = StubLLMClient(ModelConfig(api_key="stub", model_name="stub"))
         sync_result = client.chat("test prompt")
         async_result = asyncio.run(client.achat("test prompt"))
@@ -253,6 +276,7 @@ class TestDatabaseModelsBusinessScenarios:
         Python 直接构造时不强制（非业务层验证）
         """
         from src.infra.db.models import EvaluationResultModel
+
         # SQLAlchemy 的 nullable=False 不在 Python 层强制
         m = EvaluationResultModel(case_id=None)  # type: ignore
         # 这是已知的设计：依赖 DB 约束而非 Python 类型检查
@@ -263,6 +287,7 @@ class TestDatabaseModelsBusinessScenarios:
         from datetime import datetime
 
         from src.infra.db.models import EvaluationResultModel
+
         m = EvaluationResultModel(
             id=1,
             case_id="case_001",
@@ -283,6 +308,7 @@ class TestDatabaseModelsBusinessScenarios:
         from datetime import datetime
 
         from src.infra.db.models import TrajectoryModel
+
         m = TrajectoryModel(
             id=1,
             task_id="task_001",

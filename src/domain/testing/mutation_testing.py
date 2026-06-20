@@ -30,18 +30,19 @@ logger = logging.getLogger(__name__)
 
 
 class MutationType(str, Enum):
-    ARITHMETIC = "arithmetic"       # 算术运算变异
-    CONDITIONAL = "conditional"     # 条件变异
-    RETURN_VALUE = "return_value"   # 返回值变异
-    COMPARISON = "comparison"       # 比较运算变异
-    CONSTANT = "constant"           # 常量变异
-    LOGICAL = "logical"             # 逻辑运算变异
+    ARITHMETIC = "arithmetic"  # 算术运算变异
+    CONDITIONAL = "conditional"  # 条件变异
+    RETURN_VALUE = "return_value"  # 返回值变异
+    COMPARISON = "comparison"  # 比较运算变异
+    CONSTANT = "constant"  # 常量变异
+    LOGICAL = "logical"  # 逻辑运算变异
     STATEMENT_DELETE = "statement_delete"  # 语句删除
 
 
 @dataclass
 class Mutation:
     """变异记录"""
+
     mutation_id: str
     mutation_type: MutationType
     original_code: str
@@ -55,6 +56,7 @@ class Mutation:
 @dataclass
 class MutationTestResult:
     """变异测试结果"""
+
     mutation_id: str
     original_passed: bool
     mutated_passed: bool
@@ -66,12 +68,13 @@ class MutationTestResult:
 @dataclass
 class MutationTestReport:
     """变异测试报告"""
+
     module_name: str
     total_mutations: int = 0
     killed_mutations: int = 0
     survived_mutations: int = 0
     mutation_kill_rate: float = 0.0  # 变异杀死率
-    mutation_coverage: float = 0.0   # 变异覆盖率
+    mutation_coverage: float = 0.0  # 变异覆盖率
     mutations: list[Mutation] = field(default_factory=list)
     results: list[MutationTestResult] = field(default_factory=list)
     weak_tests: list[str] = field(default_factory=list)  # 无效测试列表
@@ -182,7 +185,7 @@ class MutationOperator:
         for op, replacements in self.LOGICAL_MUTATIONS.items():
             for replacement in replacements:
                 # 精确匹配，避免替换变量名中的True/False
-                pattern = r'\b' + op + r'\b'
+                pattern = r"\b" + op + r"\b"
                 mutated = re.sub(pattern, replacement, code, count=1)
                 if mutated != code:
                     mutations.append(mutated)
@@ -201,14 +204,14 @@ class MutationOperator:
             mutations.append(code.replace("return False", "return True"))
 
         # return x → return None
-        if re.search(r'return\s+\w+', code):
-            mutated = re.sub(r'return\s+\w+', 'return None', code, count=1)
+        if re.search(r"return\s+\w+", code):
+            mutated = re.sub(r"return\s+\w+", "return None", code, count=1)
             if mutated != code:
                 mutations.append(mutated)
 
         # return x + y → return x (删除部分计算)
-        if re.search(r'return\s+\w+\s*[\+\-\*/]\s*\w+', code):
-            match = re.search(r'return\s+(\w+)\s*[\+\-\*/]\s*\w+', code)
+        if re.search(r"return\s+\w+\s*[\+\-\*/]\s*\w+", code):
+            match = re.search(r"return\s+(\w+)\s*[\+\-\*/]\s*\w+", code)
             if match:
                 mutated = code.replace(match.group(0), f"return {match.group(1)}")
                 mutations.append(mutated)
@@ -242,7 +245,12 @@ class MutationOperator:
         # 删除非空行（跳过注释和空行）
         for i, line in enumerate(lines):
             stripped = line.strip()
-            if stripped and not stripped.startswith("#") and not stripped.startswith("def ") and not stripped.startswith("class "):
+            if (
+                stripped
+                and not stripped.startswith("#")
+                and not stripped.startswith("def ")
+                and not stripped.startswith("class ")
+            ):
                 mutated_lines = lines.copy()
                 mutated_lines[i] = "# DELETED: " + line  # 注释掉该行
                 mutations.append("\n".join(mutated_lines))
@@ -256,7 +264,9 @@ class MutationTester:
     def __init__(self):
         self.operator = MutationOperator()
 
-    def generate_mutations(self, source_code: str, mutation_types: list[MutationType] | None = None) -> list[Mutation]:
+    def generate_mutations(
+        self, source_code: str, mutation_types: list[MutationType] | None = None
+    ) -> list[Mutation]:
         """生成变异版本"""
         if mutation_types is None:
             mutation_types = [
@@ -287,14 +297,16 @@ class MutationTester:
 
                 for mutated_line in mutated_codes:
                     mutation_id += 1
-                    mutations.append(Mutation(
-                        mutation_id=f"mut_{mutation_id}",
-                        mutation_type=m_type,
-                        original_code=line,
-                        mutated_code=mutated_line,
-                        line_number=line_num,
-                        description=f"{m_type.value} mutation at line {line_num}",
-                    ))
+                    mutations.append(
+                        Mutation(
+                            mutation_id=f"mut_{mutation_id}",
+                            mutation_type=m_type,
+                            original_code=line,
+                            mutated_code=mutated_line,
+                            line_number=line_num,
+                            description=f"{m_type.value} mutation at line {line_num}",
+                        )
+                    )
 
         return mutations
 
@@ -379,7 +391,7 @@ class MutationTester:
 
 
 # 示例：对评分函数进行变异测试
-EXAMPLE_SOURCE_CODE = '''
+EXAMPLE_SOURCE_CODE = """
 def score_text_similarity(output: str, expected: str | None) -> float:
     if not output.strip():
         return 0.0
@@ -396,9 +408,9 @@ def score_text_similarity(output: str, expected: str | None) -> float:
     similarity_ratio = matcher.ratio()
 
     return similarity_ratio
-'''
+"""
 
-EXAMPLE_TEST_FUNCTION = '''
+EXAMPLE_TEST_FUNCTION = """
 def test_score():
     # 正常路径测试
     assert score_text_similarity("hello", "hello") == 1.0
@@ -408,4 +420,4 @@ def test_score():
     # 边界测试
     assert score_text_similarity("Hello", "hello") == 1.0  # 大小写
     assert score_text_similarity("hello world", "hello") > 0.0
-'''
+"""

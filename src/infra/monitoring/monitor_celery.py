@@ -23,8 +23,7 @@ import time
 
 # 设置日志
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -123,10 +122,7 @@ class CeleryQueueMonitor:
         # 估算待处理任务数
         stats = self.get_worker_stats()
         total_workers = len(stats)
-        concurrency = sum(
-            s.get("pool", {}).get("max-concurrency", 1) or 1
-            for s in stats.values()
-        )
+        concurrency = sum(s.get("pool", {}).get("max-concurrency", 1) or 1 for s in stats.values())
 
         # 正在运行的任务数
         running = active
@@ -181,11 +177,12 @@ class CeleryQueueMonitor:
 
             # 推送
             from prometheus_client import generate_latest
+
             data = generate_latest(registry)
             response = httpx.post(
                 f"{self.pushgateway_url}/metrics/job/celery_monitor",
                 data=data,
-                headers={"Content-Type": "text/plain"}
+                headers={"Content-Type": "text/plain"},
             )
             response.raise_for_status()
             logger.debug("Metrics pushed to Pushgateway")
@@ -252,21 +249,15 @@ def main():
 
     parser = argparse.ArgumentParser(description="Celery Queue Monitor")
     parser.add_argument(
-        "--interval", type=int, default=10,
-        help="Monitoring interval in seconds (default: 10)"
+        "--interval", type=int, default=10, help="Monitoring interval in seconds (default: 10)"
     )
     parser.add_argument(
-        "--broker-url", type=str,
-        help="Celery broker URL (default: from CELERY_BROKER_URL env)"
+        "--broker-url", type=str, help="Celery broker URL (default: from CELERY_BROKER_URL env)"
     )
     parser.add_argument(
-        "--pushgateway-url", type=str,
-        help="Pushgateway URL (default: from PUSHGATEWAY_URL env)"
+        "--pushgateway-url", type=str, help="Pushgateway URL (default: from PUSHGATEWAY_URL env)"
     )
-    parser.add_argument(
-        "--once", action="store_true",
-        help="Run once and exit (non-daemon mode)"
-    )
+    parser.add_argument("--once", action="store_true", help="Run once and exit (non-daemon mode)")
 
     args = parser.parse_args()
 

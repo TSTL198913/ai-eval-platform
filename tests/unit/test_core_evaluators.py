@@ -2,6 +2,7 @@
 核心评估器测试套件 - 补充覆盖高风险评估器
 目标：提升评估器整体覆盖率，降低生产风险
 """
+
 import os
 import sys
 
@@ -15,6 +16,7 @@ class TestFactualityEvaluator:
 
     def setup_method(self):
         from src.domain.evaluators.factuality_evaluator import FactualityEvaluator
+
         self.evaluator_class = FactualityEvaluator
 
     def test_evaluator_can_be_created(self):
@@ -25,6 +27,7 @@ class TestFactualityEvaluator:
     def test_empty_input_returns_error(self):
         """空输入时评估器应返回有效响应"""
         from src.schemas.evaluation import EvaluationSchema
+
         evaluator = self.evaluator_class()
 
         request = EvaluationSchema(
@@ -40,6 +43,7 @@ class TestFactualityEvaluator:
     def test_evaluator_registered(self):
         """评估器已注册到工厂"""
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+
         assert "factuality" in EvaluatorFactory._registry
 
 
@@ -48,6 +52,7 @@ class TestRiskEvaluator:
 
     def setup_method(self):
         from src.domain.evaluators.risk import RiskEvaluator
+
         self.evaluator_class = RiskEvaluator
 
     def test_evaluator_can_be_created(self):
@@ -58,6 +63,7 @@ class TestRiskEvaluator:
     def test_empty_input_returns_error(self):
         """空输入时评估器应返回有效响应"""
         from src.schemas.evaluation import EvaluationSchema
+
         evaluator = self.evaluator_class()
 
         request = EvaluationSchema(
@@ -73,6 +79,7 @@ class TestRiskEvaluator:
     def test_evaluator_registered(self):
         """评估器已注册到工厂"""
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+
         assert "risk" in EvaluatorFactory._registry
 
 
@@ -81,6 +88,7 @@ class TestLLMAsJudgeEvaluator:
 
     def setup_method(self):
         from src.domain.evaluators.llm_as_judge import LLMAJudgeEvaluator
+
         self.evaluator_class = LLMAJudgeEvaluator
 
     def test_evaluator_can_be_created(self):
@@ -91,6 +99,7 @@ class TestLLMAsJudgeEvaluator:
     def test_empty_input_returns_error(self):
         """空输入应返回错误"""
         from src.schemas.evaluation import EvaluationSchema
+
         evaluator = self.evaluator_class()
 
         request = EvaluationSchema(
@@ -104,6 +113,7 @@ class TestLLMAsJudgeEvaluator:
     def test_evaluator_registered(self):
         """评估器已注册到工厂"""
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+
         assert "llm_as_judge" in EvaluatorFactory._registry
 
 
@@ -113,6 +123,7 @@ class TestEvaluatorFactory:
     def test_list_evaluators(self):
         """列出所有评估器"""
         from src.domain.evaluators import EVALUATOR_REGISTRY
+
         evaluators = list(EVALUATOR_REGISTRY.keys())
         assert isinstance(evaluators, list)
         assert len(evaluators) > 0
@@ -120,6 +131,7 @@ class TestEvaluatorFactory:
     def test_get_evaluator(self):
         """获取评估器"""
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+
         evaluator = EvaluatorFactory.get("security")
         assert evaluator is not None
 
@@ -127,6 +139,7 @@ class TestEvaluatorFactory:
         """获取不存在的评估器"""
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
         from src.exceptions import DomainLogicError
+
         with pytest.raises(DomainLogicError):
             EvaluatorFactory.get("non_existent_evaluator")
 
@@ -202,6 +215,7 @@ class TestQAEvaluator:
 
     def setup_method(self):
         from src.domain.evaluators.qa import QAEvaluator
+
         self.evaluator_class = QAEvaluator
 
     def test_evaluator_can_be_created(self):
@@ -212,6 +226,7 @@ class TestQAEvaluator:
     def test_evaluator_registered(self):
         """评估器已注册到工厂"""
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+
         assert "qa" in EvaluatorFactory._registry
 
 
@@ -220,6 +235,7 @@ class TestSummaryEvaluator:
 
     def setup_method(self):
         from src.domain.evaluators.summary import SummaryEvaluator
+
         self.evaluator_class = SummaryEvaluator
 
     def test_evaluator_can_be_created(self):
@@ -230,6 +246,7 @@ class TestSummaryEvaluator:
     def test_evaluator_registered(self):
         """评估器已注册到工厂"""
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+
         assert "summary" in EvaluatorFactory._registry
 
 
@@ -238,6 +255,7 @@ class TestTranslationEvaluator:
 
     def setup_method(self):
         from src.domain.evaluators.translation import TranslationEvaluator
+
         self.evaluator_class = TranslationEvaluator
 
     def test_evaluator_can_be_created(self):
@@ -248,6 +266,7 @@ class TestTranslationEvaluator:
     def test_evaluator_registered(self):
         """评估器已注册到工厂"""
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+
         assert "translation" in EvaluatorFactory._registry
 
 
@@ -256,6 +275,7 @@ class TestSentimentEvaluator:
 
     def setup_method(self):
         from src.domain.evaluators.sentiment import SentimentEvaluator
+
         self.evaluator_class = SentimentEvaluator
 
     def test_evaluator_can_be_created(self):
@@ -266,6 +286,7 @@ class TestSentimentEvaluator:
     def test_evaluator_registered(self):
         """评估器已注册到工厂"""
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+
         assert "sentiment" in EvaluatorFactory._registry
 
 
@@ -274,6 +295,7 @@ class TestCodeReviewEvaluator:
 
     def setup_method(self):
         from src.domain.evaluators.code_review import CodeReviewEvaluator
+
         self.evaluator_class = CodeReviewEvaluator
 
     def test_evaluator_can_be_created(self):
@@ -284,4 +306,5 @@ class TestCodeReviewEvaluator:
     def test_evaluator_registered(self):
         """评估器已注册到工厂"""
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+
         assert "code_review" in EvaluatorFactory._registry

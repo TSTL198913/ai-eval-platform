@@ -9,6 +9,7 @@ Prompt回归测试评估器测试
 
 关键发现：（测试过程中记录）
 """
+
 import os
 import sys
 
@@ -38,8 +39,8 @@ class TestPromptRegressionCompare:
                 "old_prompt": "你是一个AI助手",
                 "new_prompt": "你是一个AI助手",
                 "old_output": "你好，我是AI助手",
-                "new_output": "你好，我是AI助手"
-            }
+                "new_output": "你好，我是AI助手",
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -60,8 +61,8 @@ class TestPromptRegressionCompare:
                 "old_prompt": "请回答用户问题",
                 "new_prompt": "请详细回答用户的问题",
                 "old_output": "这是一个很好的问题",
-                "new_output": "这是一个很好的问题"
-            }
+                "new_output": "这是一个很好的问题",
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -85,8 +86,8 @@ class TestPromptRegressionCompare:
                 "old_prompt": old_prompt,
                 "new_prompt": new_prompt,
                 "old_output": "你好",
-                "new_output": "你好，很高兴为您服务"
-            }
+                "new_output": "你好，很高兴为您服务",
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -109,8 +110,8 @@ class TestPromptRegressionCompare:
                 "old_prompt": old_prompt,
                 "new_prompt": new_prompt,
                 "old_output": "旧输出",
-                "new_output": "新输出"
-            }
+                "new_output": "新输出",
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -128,8 +129,8 @@ class TestPromptRegressionCompare:
                 "action": "compare",
                 "new_prompt": "新Prompt",
                 "old_output": "旧输出",
-                "new_output": "新输出"
-            }
+                "new_output": "新输出",
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -147,8 +148,8 @@ class TestPromptRegressionCompare:
                 "action": "compare",
                 "old_prompt": "旧Prompt",
                 "old_output": "旧输出",
-                "new_output": "新输出"
-            }
+                "new_output": "新输出",
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -161,11 +162,7 @@ class TestPromptRegressionCompare:
         request = EvaluationSchema(
             id="test_007",
             type="prompt_regression",
-            payload={
-                "action": "compare",
-                "old_prompt": "旧Prompt",
-                "new_prompt": "新Prompt"
-            }
+            payload={"action": "compare", "old_prompt": "旧Prompt", "new_prompt": "新Prompt"},
         )
 
         result = evaluator.evaluate(request)
@@ -190,8 +187,8 @@ class TestPromptRegressionDriftDetection:
             payload={
                 "action": "detect_drift",
                 "baseline_output": "这是一个很好的回答",
-                "current_output": "这是一个很好的回答"
-            }
+                "current_output": "这是一个很好的回答",
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -209,8 +206,8 @@ class TestPromptRegressionDriftDetection:
             payload={
                 "action": "detect_drift",
                 "baseline_output": "今天天气很好，适合出门",
-                "current_output": "人工智能正在改变世界"
-            }
+                "current_output": "人工智能正在改变世界",
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -228,8 +225,8 @@ class TestPromptRegressionDriftDetection:
             payload={
                 "action": "detect_drift",
                 "baseline_output": "短文本",
-                "current_output": "这是一段非常长的文本内容，包含了很多句子和词汇，用于测试结构漂移检测功能是否正常工作"
-            }
+                "current_output": "这是一段非常长的文本内容，包含了很多句子和词汇，用于测试结构漂移检测功能是否正常工作",
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -246,8 +243,8 @@ class TestPromptRegressionDriftDetection:
             payload={
                 "action": "detect_drift",
                 "baseline_output": "苹果 香蕉 橘子",
-                "current_output": "汽车 飞机 轮船"
-            }
+                "current_output": "汽车 飞机 轮船",
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -265,8 +262,8 @@ class TestPromptRegressionDriftDetection:
                 "action": "detect_drift",
                 "baseline_output": "原始输出内容",
                 "current_output": "修改后的输出内容",
-                "threshold": 0.1
-            }
+                "threshold": 0.1,
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -282,10 +279,7 @@ class TestPromptRegressionDriftDetection:
         request = EvaluationSchema(
             id="test_013",
             type="prompt_regression",
-            payload={
-                "action": "detect_drift",
-                "current_output": "当前输出"
-            }
+            payload={"action": "detect_drift", "current_output": "当前输出"},
         )
 
         result = evaluator.evaluate(request)
@@ -298,10 +292,7 @@ class TestPromptRegressionDriftDetection:
         request = EvaluationSchema(
             id="test_014",
             type="prompt_regression",
-            payload={
-                "action": "detect_drift",
-                "baseline_output": "基线输出"
-            }
+            payload={"action": "detect_drift", "baseline_output": "基线输出"},
         )
 
         result = evaluator.evaluate(request)
@@ -326,8 +317,8 @@ class TestPromptRegressionImpactAnalysis:
             payload={
                 "action": "analyze_impact",
                 "old_output": "这是一个很好的回答",
-                "new_output": "这是一个很好的回答"
-            }
+                "new_output": "这是一个很好的回答",
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -346,8 +337,8 @@ class TestPromptRegressionImpactAnalysis:
                 "action": "analyze_impact",
                 "old_output": "原始回答",
                 "new_output": "修改后的回答",
-                "criteria": ["correctness", "completeness"]
-            }
+                "criteria": ["correctness", "completeness"],
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -366,8 +357,8 @@ class TestPromptRegressionImpactAnalysis:
             payload={
                 "action": "analyze_impact",
                 "old_output": "原始回答",
-                "new_output": "修改后的回答"
-            }
+                "new_output": "修改后的回答",
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -387,8 +378,8 @@ class TestPromptRegressionImpactAnalysis:
             payload={
                 "action": "analyze_impact",
                 "old_output": "简短回答",
-                "new_output": "这是一个非常详细的回答，包含了大量的信息和解释，用于测试影响分析功能是否能够正确识别重大变化"
-            }
+                "new_output": "这是一个非常详细的回答，包含了大量的信息和解释，用于测试影响分析功能是否能够正确识别重大变化",
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -399,11 +390,7 @@ class TestPromptRegressionImpactAnalysis:
     def test_analyze_impact_missing_outputs(self, evaluator):
         """缺失输出应返回错误"""
         request = EvaluationSchema(
-            id="test_019",
-            type="prompt_regression",
-            payload={
-                "action": "analyze_impact"
-            }
+            id="test_019", type="prompt_regression", payload={"action": "analyze_impact"}
         )
 
         result = evaluator.evaluate(request)
@@ -432,8 +419,8 @@ class TestPromptRegressionFullTest:
                 "old_output": "你好，我是AI助手",
                 "new_output": "你好，我是AI助手",
                 "baseline_output": "你好，我是AI助手",
-                "current_output": "你好，我是AI助手"
-            }
+                "current_output": "你好，我是AI助手",
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -457,8 +444,8 @@ class TestPromptRegressionFullTest:
                 "old_output": "你好，我是AI助手",
                 "new_output": "我是全新的助手，功能完全不同",
                 "baseline_output": "你好，我是AI助手",
-                "current_output": "我是全新的助手，功能完全不同"
-            }
+                "current_output": "我是全新的助手，功能完全不同",
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -479,8 +466,8 @@ class TestPromptRegressionFullTest:
                 "old_output": "旧输出",
                 "new_output": "新输出",
                 "baseline_output": "基线输出",
-                "current_output": "当前输出"
-            }
+                "current_output": "当前输出",
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -587,10 +574,7 @@ class TestPromptRegressionHelperMethods:
 
     def test_detect_structural_drift_different_sentences(self, evaluator):
         """不同句子数结构漂移"""
-        drift = evaluator._detect_structural_drift(
-            "第一句。第二句。第三句。",
-            "第一句。"
-        )
+        drift = evaluator._detect_structural_drift("第一句。第二句。第三句。", "第一句。")
         assert drift > 0.3
 
     def test_detect_content_drift_identical(self, evaluator):
@@ -666,26 +650,19 @@ class TestPromptRegressionImpactDimensions:
     def test_evaluate_relevance_impact_same_keywords(self, evaluator):
         """相关性影响 - 相同关键词"""
         # 使用更明确的词汇，确保关键词能被提取
-        result = evaluator._evaluate_relevance_impact(
-            "人工智能 AI 技术",
-            "人工智能 AI 技术"
-        )
+        result = evaluator._evaluate_relevance_impact("人工智能 AI 技术", "人工智能 AI 技术")
         # 相同关键词，重叠率应该很高
         assert result["score"] >= 0.8
 
     def test_evaluate_relevance_impact_different_keywords(self, evaluator):
         """相关性影响 - 不同关键词"""
-        result = evaluator._evaluate_relevance_impact(
-            "苹果是一种水果",
-            "汽车是一种交通工具"
-        )
+        result = evaluator._evaluate_relevance_impact("苹果是一种水果", "汽车是一种交通工具")
         assert result["score"] < 0.5
 
     def test_evaluate_tone_impact_positive(self, evaluator):
         """语气影响 - 正面语气"""
         result = evaluator._evaluate_tone_impact(
-            "这是一个很好的产品，我非常满意",
-            "这是一个优秀的产品，我非常满意"
+            "这是一个很好的产品，我非常满意", "这是一个优秀的产品，我非常满意"
         )
         assert result["old_tone"]["sentiment"] == "positive"
         assert result["new_tone"]["sentiment"] == "positive"
@@ -694,8 +671,7 @@ class TestPromptRegressionImpactDimensions:
     def test_evaluate_tone_impact_negative(self, evaluator):
         """语气影响 - 负面语气"""
         result = evaluator._evaluate_tone_impact(
-            "这个产品很糟糕，我很失望",
-            "这个产品很差，我很不满意"
+            "这个产品很糟糕，我很失望", "这个产品很差，我很不满意"
         )
         assert result["old_tone"]["sentiment"] == "negative"
         assert result["new_tone"]["sentiment"] == "negative"
@@ -703,8 +679,7 @@ class TestPromptRegressionImpactDimensions:
     def test_evaluate_format_impact_bullet_list(self, evaluator):
         """格式影响 - 列表格式"""
         result = evaluator._evaluate_format_impact(
-            "- 第一项\n- 第二项\n- 第三项",
-            "- 第一项\n- 第二项\n- 第三项"
+            "- 第一项\n- 第二项\n- 第三项", "- 第一项\n- 第二项\n- 第三项"
         )
         assert result["old_format"]["has_bullet"] is True
         assert result["new_format"]["has_bullet"] is True
@@ -713,8 +688,7 @@ class TestPromptRegressionImpactDimensions:
     def test_evaluate_format_impact_code_block(self, evaluator):
         """格式影响 - 代码块"""
         result = evaluator._evaluate_format_impact(
-            "```python\nprint('Hello')\n```",
-            "```python\nprint('World')\n```"
+            "```python\nprint('Hello')\n```", "```python\nprint('World')\n```"
         )
         assert result["old_format"]["has_code"] is True
         assert result["new_format"]["has_code"] is True
@@ -763,7 +737,9 @@ class TestPromptRegressionKeywordExtraction:
 
     def test_extract_keywords_english(self, evaluator):
         """英文关键词提取"""
-        keywords = evaluator._extract_keywords("Artificial intelligence is a branch of computer science")
+        keywords = evaluator._extract_keywords(
+            "Artificial intelligence is a branch of computer science"
+        )
         assert len(keywords) > 0
         # 停用词应被过滤
         assert "is" not in keywords
@@ -884,8 +860,8 @@ class TestPromptRegressionEdgeCases:
                 "old_prompt": "",
                 "new_prompt": "",
                 "old_output": "输出",
-                "new_output": "输出"
-            }
+                "new_output": "输出",
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -904,8 +880,8 @@ class TestPromptRegressionEdgeCases:
                 "old_prompt": "Prompt",
                 "new_prompt": "Prompt",
                 "old_output": "",
-                "new_output": ""
-            }
+                "new_output": "",
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -926,8 +902,8 @@ class TestPromptRegressionEdgeCases:
                 "old_prompt": long_text,
                 "new_prompt": long_text[:500],
                 "old_output": "输出",
-                "new_output": "输出"
-            }
+                "new_output": "输出",
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -945,8 +921,8 @@ class TestPromptRegressionEdgeCases:
                 "old_prompt": "Prompt with special chars: <>&\"'",
                 "new_prompt": "Prompt with special chars: <>&\"'",
                 "old_output": "Output with special chars: <>&\"'",
-                "new_output": "Output with special chars: <>&\"'"
-            }
+                "new_output": "Output with special chars: <>&\"'",
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -964,8 +940,8 @@ class TestPromptRegressionEdgeCases:
                 "old_prompt": "中文测试 🎉 表情符号",
                 "new_prompt": "中文测试 🎉 表情符号",
                 "old_output": "输出 🎉",
-                "new_output": "输出 🎉"
-            }
+                "new_output": "输出 🎉",
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -986,8 +962,8 @@ class TestPromptRegressionEdgeCases:
                 "old_output": "Output",
                 "new_output": "Output",
                 "baseline_output": "Baseline",
-                "current_output": "Current"
-            }
+                "current_output": "Current",
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -1006,8 +982,8 @@ class TestPromptRegressionEdgeCases:
                 "old_prompt": None,
                 "new_prompt": "Prompt",
                 "old_output": "Output",
-                "new_output": "Output"
-            }
+                "new_output": "Output",
+            },
         )
 
         result = evaluator.evaluate(request)

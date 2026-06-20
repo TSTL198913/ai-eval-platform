@@ -188,12 +188,12 @@ class TrajectoryEvaluator(BaseEvaluator):
 
         tool_success_rate = 0
         if tool_usage_count > 0:
-            successful_tool_calls = sum(
-                1 for step in steps if step.tool_name and step.tool_result
-            )
+            successful_tool_calls = sum(1 for step in steps if step.tool_name and step.tool_result)
             tool_success_rate = successful_tool_calls / tool_usage_count
 
-        efficiency_score = min(1.0, max(0.0, 1.0 - (len(steps) - 5) * 0.1)) if len(steps) > 0 else 0.5
+        efficiency_score = (
+            min(1.0, max(0.0, 1.0 - (len(steps) - 5) * 0.1)) if len(steps) > 0 else 0.5
+        )
 
         overall_score = (
             efficiency_score * 0.3
@@ -287,9 +287,23 @@ class TrajectoryEvaluator(BaseEvaluator):
         for i, expected_action in enumerate(expected_path):
             if i < len(actual_actions):
                 if actual_actions[i] == expected_action:
-                    matches.append({"step": i, "expected": expected_action, "actual": actual_actions[i], "match": True})
+                    matches.append(
+                        {
+                            "step": i,
+                            "expected": expected_action,
+                            "actual": actual_actions[i],
+                            "match": True,
+                        }
+                    )
                 else:
-                    matches.append({"step": i, "expected": expected_action, "actual": actual_actions[i], "match": False})
+                    matches.append(
+                        {
+                            "step": i,
+                            "expected": expected_action,
+                            "actual": actual_actions[i],
+                            "match": False,
+                        }
+                    )
 
         correct_matches = sum(1 for m in matches if m["match"])
         score = correct_matches / len(expected_path) if expected_path else 0.0
@@ -336,7 +350,10 @@ class TrajectoryEvaluator(BaseEvaluator):
 
         for i, step in enumerate(steps):
             thought = step.thought or ""
-            if any(keyword in thought.lower() for keyword in ["goal", "目标", "objective", "任务", "需要", "应该"]):
+            if any(
+                keyword in thought.lower()
+                for keyword in ["goal", "目标", "objective", "任务", "需要", "应该"]
+            ):
                 relevant_steps += 1
             elif step.action in ["finish", "end", "summarize", "总结"]:
                 relevant_steps += 1
@@ -392,7 +409,9 @@ class TrajectoryEvaluator(BaseEvaluator):
             data=reflection,
         )
 
-    def _perform_reflection(self, trajectory: AgentTrajectory, expected_output: str | None = None) -> dict:
+    def _perform_reflection(
+        self, trajectory: AgentTrajectory, expected_output: str | None = None
+    ) -> dict:
         steps = trajectory.steps
         actual_output = trajectory.final_output
 
@@ -440,7 +459,9 @@ class TrajectoryEvaluator(BaseEvaluator):
             reflection["weaknesses"].append("未使用任何工具")
             reflection["suggestions"].append("考虑是否需要使用工具来辅助完成任务")
 
-        reflection["reflection_score"] = min(1.0, 0.5 + len(reflection["strengths"]) * 0.1 - len(reflection["weaknesses"]) * 0.05)
+        reflection["reflection_score"] = min(
+            1.0, 0.5 + len(reflection["strengths"]) * 0.1 - len(reflection["weaknesses"]) * 0.05
+        )
 
         return reflection
 
@@ -455,7 +476,9 @@ class TrajectoryEvaluator(BaseEvaluator):
 
         tier1_score, tier1_details = self._evaluate_l1_syntax(actual_output, format_spec)
         tier2_score, tier2_details = self._evaluate_l2_semantic(actual_output, expected_output)
-        tier3_score, tier3_details = self._evaluate_l3_goal(actual_output, expected_output, steps_data)
+        tier3_score, tier3_details = self._evaluate_l3_goal(
+            actual_output, expected_output, steps_data
+        )
 
         overall_score = tier1_score * 0.25 + tier2_score * 0.35 + tier3_score * 0.4
 
@@ -498,7 +521,9 @@ class TrajectoryEvaluator(BaseEvaluator):
 
         return 1.0, details
 
-    def _evaluate_l2_semantic(self, actual_output: str, expected_output: str | None = None) -> tuple[float, dict]:
+    def _evaluate_l2_semantic(
+        self, actual_output: str, expected_output: str | None = None
+    ) -> tuple[float, dict]:
         details = {
             "relevant": True,
             "similarity": 0.0,
@@ -522,7 +547,9 @@ class TrajectoryEvaluator(BaseEvaluator):
 
         return score, details
 
-    def _evaluate_l3_goal(self, actual_output: str, expected_output: str | None = None, steps_data: list = None) -> tuple[float, dict]:
+    def _evaluate_l3_goal(
+        self, actual_output: str, expected_output: str | None = None, steps_data: list = None
+    ) -> tuple[float, dict]:
         if steps_data is None:
             steps_data = []
         details = {
@@ -628,7 +655,9 @@ class TrajectoryEvaluator(BaseEvaluator):
             },
         )
 
-    def _check_reasoning_chain_validity(self, steps: list[TrajectoryStep], expected_intermediate: dict) -> dict:
+    def _check_reasoning_chain_validity(
+        self, steps: list[TrajectoryStep], expected_intermediate: dict
+    ) -> dict:
         if len(steps) < 2:
             return {"score": 0.5, "message": "步骤数不足，无法验证推理链"}
 
@@ -654,14 +683,16 @@ class TrajectoryEvaluator(BaseEvaluator):
             else:
                 reason = f"异常转换: {current.action} -> {next_step.action}"
 
-            transitions.append({
-                "from_step": i,
-                "from_action": current.action,
-                "to_step": i + 1,
-                "to_action": next_step.action,
-                "valid": is_valid,
-                "reason": reason,
-            })
+            transitions.append(
+                {
+                    "from_step": i,
+                    "from_action": current.action,
+                    "to_step": i + 1,
+                    "to_action": next_step.action,
+                    "valid": is_valid,
+                    "reason": reason,
+                }
+            )
 
             if is_valid:
                 valid_transitions += 1
@@ -675,7 +706,9 @@ class TrajectoryEvaluator(BaseEvaluator):
             "transitions": transitions,
         }
 
-    def _check_enhanced_coherence(self, steps: list[TrajectoryStep], goal_description: str = "") -> dict:
+    def _check_enhanced_coherence(
+        self, steps: list[TrajectoryStep], goal_description: str = ""
+    ) -> dict:
         if len(steps) < 2:
             return {"score": 0.5, "message": "步骤数不足，无法评估逻辑连贯性"}
 
@@ -693,8 +726,12 @@ class TrajectoryEvaluator(BaseEvaluator):
                 tool_result_str = str(current.tool_result)[:200]
                 thought_str = str(next_step.thought)[:200]
 
-                tool_keywords = re.findall(r'\b[a-zA-Z\u4e00-\u9fff]{2,}\b', tool_result_str.lower())[:10]
-                thought_keywords = re.findall(r'\b[a-zA-Z\u4e00-\u9fff]{2,}\b', thought_str.lower())[:10]
+                tool_keywords = re.findall(
+                    r"\b[a-zA-Z\u4e00-\u9fff]{2,}\b", tool_result_str.lower()
+                )[:10]
+                thought_keywords = re.findall(
+                    r"\b[a-zA-Z\u4e00-\u9fff]{2,}\b", thought_str.lower()
+                )[:10]
 
                 common_keywords = set(tool_keywords) & set(thought_keywords)
                 if common_keywords:
@@ -706,15 +743,22 @@ class TrajectoryEvaluator(BaseEvaluator):
                 str(current.thought).lower()
                 next_thought = str(next_step.thought).lower()
 
-                if any(kw in next_thought for kw in ["因此", "所以", "于是", "then", "therefore", "thus"]):
+                if any(
+                    kw in next_thought
+                    for kw in ["因此", "所以", "于是", "then", "therefore", "thus"]
+                ):
                     coherence_score += 0.5
                 elif "但是" in next_thought or "but" in next_thought or "however" in next_thought:
                     coherence_score += 0.3
 
         if goal_description:
-            goal_keywords = set(re.findall(r'\b[a-zA-Z\u4e00-\u9fff]{2,}\b', goal_description.lower())[:15])
+            goal_keywords = set(
+                re.findall(r"\b[a-zA-Z\u4e00-\u9fff]{2,}\b", goal_description.lower())[:15]
+            )
             for step in steps:
-                thought_keywords = set(re.findall(r'\b[a-zA-Z\u4e00-\u9fff]{2,}\b', (step.thought or "").lower())[:10])
+                thought_keywords = set(
+                    re.findall(r"\b[a-zA-Z\u4e00-\u9fff]{2,}\b", (step.thought or "").lower())[:10]
+                )
                 if goal_keywords & thought_keywords:
                     coherence_score += 0.2
                     total_checks += 1
@@ -728,7 +772,9 @@ class TrajectoryEvaluator(BaseEvaluator):
             "coherent_checks": int(coherence_score),
         }
 
-    def _validate_intermediate_results(self, steps: list[TrajectoryStep], expected_intermediate: dict) -> dict:
+    def _validate_intermediate_results(
+        self, steps: list[TrajectoryStep], expected_intermediate: dict
+    ) -> dict:
         if not expected_intermediate:
             return {"score": 0.5, "message": "无期望中间结果，无法验证"}
 
@@ -748,34 +794,40 @@ class TrajectoryEvaluator(BaseEvaluator):
                     similarity = SequenceMatcher(None, actual_str, expected_str).ratio()
 
                     if similarity > 0.7:
-                        validations.append({
-                            "step_id": step.step_id,
-                            "expected": expected,
-                            "actual": actual_str[:100] if len(actual_str) > 100 else actual_str,
-                            "valid": True,
-                            "similarity": similarity,
-                            "message": "中间结果与期望高度匹配",
-                        })
+                        validations.append(
+                            {
+                                "step_id": step.step_id,
+                                "expected": expected,
+                                "actual": actual_str[:100] if len(actual_str) > 100 else actual_str,
+                                "valid": True,
+                                "similarity": similarity,
+                                "message": "中间结果与期望高度匹配",
+                            }
+                        )
                         validated_count += 1
                     elif similarity > 0.4:
-                        validations.append({
-                            "step_id": step.step_id,
-                            "expected": expected,
-                            "actual": actual_str[:100] if len(actual_str) > 100 else actual_str,
-                            "valid": True,
-                            "similarity": similarity,
-                            "message": "中间结果与期望部分匹配",
-                        })
+                        validations.append(
+                            {
+                                "step_id": step.step_id,
+                                "expected": expected,
+                                "actual": actual_str[:100] if len(actual_str) > 100 else actual_str,
+                                "valid": True,
+                                "similarity": similarity,
+                                "message": "中间结果与期望部分匹配",
+                            }
+                        )
                         validated_count += 0.5
                     else:
-                        validations.append({
-                            "step_id": step.step_id,
-                            "expected": expected,
-                            "actual": actual_str[:100] if len(actual_str) > 100 else actual_str,
-                            "valid": False,
-                            "similarity": similarity,
-                            "message": "中间结果与期望差距较大",
-                        })
+                        validations.append(
+                            {
+                                "step_id": step.step_id,
+                                "expected": expected,
+                                "actual": actual_str[:100] if len(actual_str) > 100 else actual_str,
+                                "valid": False,
+                                "similarity": similarity,
+                                "message": "中间结果与期望差距较大",
+                            }
+                        )
 
         validation_score = validated_count / total_expected if total_expected > 0 else 0.0
 
@@ -799,13 +851,15 @@ class TrajectoryEvaluator(BaseEvaluator):
                     similarity = SequenceMatcher(None, thought, prev_thought).ratio()
 
                     if similarity > 0.8 and i - j > 1:
-                        circular_occurrences.append({
-                            "step_current": i,
-                            "step_previous": j,
-                            "similarity": similarity,
-                            "current_thought": thought[:100],
-                            "previous_thought": prev_thought[:100],
-                        })
+                        circular_occurrences.append(
+                            {
+                                "step_current": i,
+                                "step_previous": j,
+                                "similarity": similarity,
+                                "current_thought": thought[:100],
+                                "previous_thought": prev_thought[:100],
+                            }
+                        )
                         circular_score += similarity
 
                 thought_history.append(thought)
@@ -830,11 +884,25 @@ class TrajectoryEvaluator(BaseEvaluator):
                 statements.append((i, str(step.thought).strip()))
 
         for i, (step_i, stmt_i) in enumerate(statements):
-            for _j, (step_j, stmt_j) in enumerate(statements[i + 1:], i + 1):
+            for _j, (step_j, stmt_j) in enumerate(statements[i + 1 :], i + 1):
                 similarity = SequenceMatcher(None, stmt_i, stmt_j).ratio()
 
                 if similarity < 0.3:
-                    negation_keywords = ["不是", "没有", "不应该", "错误", "否定", "相反", "但是", "然而", "but", "however", "not", "never", "no"]
+                    negation_keywords = [
+                        "不是",
+                        "没有",
+                        "不应该",
+                        "错误",
+                        "否定",
+                        "相反",
+                        "但是",
+                        "然而",
+                        "but",
+                        "however",
+                        "not",
+                        "never",
+                        "no",
+                    ]
 
                     has_negation_i = any(kw in stmt_i for kw in negation_keywords)
                     has_negation_j = any(kw in stmt_j for kw in negation_keywords)
@@ -843,13 +911,15 @@ class TrajectoryEvaluator(BaseEvaluator):
                         continue
 
                     if has_negation_i or has_negation_j:
-                        contradictions.append({
-                            "step_1": step_i,
-                            "statement_1": stmt_i[:150],
-                            "step_2": step_j,
-                            "statement_2": stmt_j[:150],
-                            "reason": "包含否定关键词的语句可能存在矛盾",
-                        })
+                        contradictions.append(
+                            {
+                                "step_1": step_i,
+                                "statement_1": stmt_i[:150],
+                                "step_2": step_j,
+                                "statement_2": stmt_j[:150],
+                                "reason": "包含否定关键词的语句可能存在矛盾",
+                            }
+                        )
                         contradiction_score += 0.3
 
         if statements:

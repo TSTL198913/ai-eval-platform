@@ -2,6 +2,7 @@
 集成测试 - 真实业务场景全链路
 重点：多组件协作、跨层数据流、故障恢复
 """
+
 import os
 import sys
 import threading
@@ -81,8 +82,12 @@ class TestCircuitBreakerAndRetryIntegration:
         )
         from src.distributed.rate_limiter import RateLimitConfig, TokenBucket
 
-        cb = CircuitBreaker("llm_svc", CircuitBreakerConfig(failure_threshold=2, timeout_seconds=60))
-        bucket = TokenBucket(fake_redis, "llm_user", RateLimitConfig(max_tokens=100, refill_rate=10))
+        cb = CircuitBreaker(
+            "llm_svc", CircuitBreakerConfig(failure_threshold=2, timeout_seconds=60)
+        )
+        bucket = TokenBucket(
+            fake_redis, "llm_user", RateLimitConfig(max_tokens=100, refill_rate=10)
+        )
 
         # 触发 2 次失败，熔断器打开
         async def failing_call():
@@ -234,7 +239,9 @@ class TestCrossServiceIntegration:
         engine = EvaluationEngine(client)
 
         request = EvaluationSchema(
-            id="cache_001", type="general", payload={"user_input": "expensive query"},
+            id="cache_001",
+            type="general",
+            payload={"user_input": "expensive query"},
         )
 
         # 第一次：未命中，执行评测
@@ -261,6 +268,7 @@ class TestCrossServiceIntegration:
         @EvaluatorFactory.register("custom_business_eval")
         class CustomBusinessEvaluator(BaseEvaluator):
             """业务方自定义评估器"""
+
             def evaluate(self, request):
                 return DomainResponse(
                     is_valid=True,
@@ -274,7 +282,9 @@ class TestCrossServiceIntegration:
         client.config.model_name = "test"
         engine = EvaluationEngine(client)
         request = EvaluationSchema(
-            id="custom_001", type="custom_business_eval", payload={"data": "test"},
+            id="custom_001",
+            type="custom_business_eval",
+            payload={"data": "test"},
         )
         result = engine.run(request)
         assert result.status.value == "passed"
@@ -423,7 +433,9 @@ class TestHighConcurrencyBusinessScenarios:
             barrier.wait()
             t = "type_a" if idx % 2 == 0 else "type_b"
             request = EvaluationSchema(
-                id=f"mix_{idx:03d}", type=t, payload={},
+                id=f"mix_{idx:03d}",
+                type=t,
+                payload={},
             )
             result = engine.run(request)
             with lock:

@@ -84,6 +84,7 @@ def cached(
         async def compute(x):
             return expensive(x)
     """
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         # 确定使用的缓存实例
         if cache is not None:

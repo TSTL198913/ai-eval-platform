@@ -2,6 +2,7 @@
 数据仓储层单元测试 - 带有效断言
 覆盖: CRUD、批量操作、字段白名单、空值处理
 """
+
 import os
 import sys
 
@@ -89,6 +90,7 @@ class TestRepositorySave:
             repo.save(result)
         assert "case_id" in str(exc_info.value)
 
+
 class TestRepositoryGetById:
     """按 ID 查询单元测试"""
 
@@ -137,12 +139,21 @@ class TestRepositoryGetRecent:
         repo.save(sample_result)
         records = repo.get_recent(limit=1)
         record = records[0]
-        required_fields = {"id", "case_id", "model_name", "adapter_name", "status", "latency_ms", "created_at"}
+        required_fields = {
+            "id",
+            "case_id",
+            "model_name",
+            "adapter_name",
+            "status",
+            "latency_ms",
+            "created_at",
+        }
         assert required_fields.issubset(set(record.keys()))
 
     def test_get_recent_ordered_by_created_at_desc(self, repo, sample_result):
         """应按 created_at 降序排列"""
         import time
+
         for i in range(3):
             sample_result.case_id = f"order_test_{i}"
             repo.save(sample_result)
@@ -306,27 +317,31 @@ class TestRepositoryCreate:
 
     def test_create_with_dict(self, repo):
         """用字典创建应成功"""
-        db_id = repo.create({
-            "case_id": "create_test",
-            "model_name": "test-model",
-            "adapter_name": "TestAdapter",
-            "status": "passed",
-            "latency_ms": 100.0,
-            "response_data": {"score": 0.9},
-        })
+        db_id = repo.create(
+            {
+                "case_id": "create_test",
+                "model_name": "test-model",
+                "adapter_name": "TestAdapter",
+                "status": "passed",
+                "latency_ms": 100.0,
+                "response_data": {"score": 0.9},
+            }
+        )
         assert db_id > 0
         record = repo.get_by_id(db_id)
         assert record["case_id"] == "create_test"
 
     def test_create_with_string_response_data(self, repo):
         """response_data 为字符串时应被解析"""
-        db_id = repo.create({
-            "case_id": "create_str_test",
-            "model_name": "test",
-            "adapter_name": "test",
-            "status": "passed",
-            "response_data": '{"score": 0.8}',
-        })
+        db_id = repo.create(
+            {
+                "case_id": "create_str_test",
+                "model_name": "test",
+                "adapter_name": "test",
+                "status": "passed",
+                "response_data": '{"score": 0.8}',
+            }
+        )
         assert db_id > 0
 
 
@@ -350,7 +365,9 @@ class TestTrajectoryRepository:
         """空 task_id 应抛出 InfrastructureError"""
         traj_repo = TrajectoryRepository()
         with pytest.raises(InfrastructureError) as exc_info:
-            traj_repo.save_step(task_id="", step_index=0, step_type="test", prompt="p", response="r")
+            traj_repo.save_step(
+                task_id="", step_index=0, step_type="test", prompt="p", response="r"
+            )
         assert "task_id" in str(exc_info.value)
 
     def test_get_trajectory(self):

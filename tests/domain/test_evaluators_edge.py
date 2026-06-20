@@ -2,6 +2,7 @@
 Domain 层深度补充测试 - 业务边界场景
 重点：评分算法边界、异常传播、并发场景
 """
+
 import os
 import sys
 from unittest.mock import MagicMock
@@ -20,6 +21,7 @@ class TestScoringEdgeCasesBusiness:
     def test_numeric_match_decimal_values(self):
         """场景：金融小数匹配（如汇率 0.85）"""
         from src.domain.evaluators.scoring import score_numeric_match
+
         expected = "Exchange rate is 0.85"
         output = "The rate is 0.85 today"
         # 当前实现: re.findall(r"\d+\.?\d*") 会匹配到 0 和 85
@@ -31,6 +33,7 @@ class TestScoringEdgeCasesBusiness:
     def test_numeric_match_negative_numbers(self):
         """场景：负数（财务报表）"""
         from src.domain.evaluators.scoring import score_numeric_match
+
         # 当前实现不处理负数（只匹配正数）
         expected = "Loss was -100"
         output = "Loss was -100"
@@ -43,6 +46,7 @@ class TestScoringEdgeCasesBusiness:
     def test_numeric_match_thousands_separator(self):
         """场景：千位分隔符（1,000 vs 1000）"""
         from src.domain.evaluators.scoring import score_numeric_match
+
         expected = "Revenue was 1,000"
         output = "Revenue was 1000"
         # 当前实现：1 和 000 都会被匹配 (1 在 output 中有, 000 是字面 000)
@@ -54,6 +58,7 @@ class TestScoringEdgeCasesBusiness:
     def test_text_similarity_empty_strings(self):
         """场景：双方都为空"""
         from src.domain.evaluators.scoring import score_text_similarity
+
         # 当前实现：empty output 直接返回 0
         assert score_text_similarity("", "") == 0.0
         # 业务语义：双方都为空时，应返回 1.0（完全匹配）
@@ -62,6 +67,7 @@ class TestScoringEdgeCasesBusiness:
     def test_text_similarity_unicode_normalization(self):
         """场景：Unicode 规范化（中文全角/半角）"""
         from src.domain.evaluators.scoring import score_text_similarity
+
         # 全角逗号 vs 半角逗号
         expected = "你好，世界"
         output = "你好,世界"
@@ -75,6 +81,7 @@ class TestScoringEdgeCasesBusiness:
     def test_keyword_overlap_punctuation_in_chinese(self):
         """场景：中文标点符号处理"""
         from src.domain.evaluators.scoring import score_keyword_overlap
+
         # 中文句号、逗号是标点
         expected = "评估 模型 性能"
         output = "评估,模型.性能"
@@ -86,6 +93,7 @@ class TestScoringEdgeCasesBusiness:
     def test_keyword_overlap_case_sensitivity(self):
         """场景：英文大小写"""
         from src.domain.evaluators.scoring import score_keyword_overlap
+
         expected = "API Gateway"
         output = "api gateway"
         # 当前实现：转小写后比较
@@ -98,6 +106,7 @@ class TestScoringEdgeCasesBusiness:
     def test_keyword_overlap_with_stemming_miss(self):
         """场景：英文词干不匹配（running vs run）"""
         from src.domain.evaluators.scoring import score_keyword_overlap
+
         expected = "run fast"
         output = "running quickly"
         # 当前实现：不支持词干提取
@@ -193,7 +202,8 @@ class TestGeneralEvaluatorEdgeCases:
         client.chat = MagicMock(return_value="any response")
         evaluator = GeneralEvaluator(client=client)
         request = EvaluationSchema(
-            id="c1", type="general",
+            id="c1",
+            type="general",
             payload={"user_input": "test", "expected_output": ""},
         )
         response = evaluator.safe_evaluate(request)
@@ -210,7 +220,9 @@ class TestGeneralEvaluatorEdgeCases:
         client.chat = MagicMock(side_effect=ConnectionError("LLM 服务不可用"))
         evaluator = GeneralEvaluator(client=client)
         request = EvaluationSchema(
-            id="c1", type="general", payload={"user_input": "test"},
+            id="c1",
+            type="general",
+            payload={"user_input": "test"},
         )
         # 当前实现：safe_evaluate 捕获异常并返回 is_valid=False
         # 不重新抛出，业务方可能不知情
@@ -229,7 +241,9 @@ class TestGeneralEvaluatorEdgeCases:
         evaluator = GeneralEvaluator(client=client)
         special_input = "Q: 代码 `print('hello')` 的输出是？"
         request = EvaluationSchema(
-            id="c1", type="general", payload={"user_input": special_input},
+            id="c1",
+            type="general",
+            payload={"user_input": special_input},
         )
         evaluator.safe_evaluate(request)
         # 关键：应原样传递
@@ -265,6 +279,7 @@ class TestEvaluatorFactoryEdgeCases:
     def test_get_evaluator_info_preserves_order(self):
         """场景：审计系统依赖稳定顺序"""
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+
         # list_evaluators 使用 sorted
         names = EvaluatorFactory.list_evaluators()
         # 应已排序
@@ -279,6 +294,7 @@ class TestEvaluatorFactoryEdgeCases:
         class NoClientEval:
             def __init__(self, client=None):
                 self.client = client
+
             def evaluate(self, req):
                 return DomainResponse(is_valid=True)
 
@@ -296,8 +312,10 @@ class TestSchemaEdgeCases:
     def test_payload_accepts_nested_dict(self):
         """场景：复杂业务 payload"""
         from src.schemas.evaluation import EvaluationSchema
+
         request = EvaluationSchema(
-            id="c1", type="general",
+            id="c1",
+            type="general",
             payload={
                 "user_input": "test",
                 "context": {
@@ -314,8 +332,10 @@ class TestSchemaEdgeCases:
     def test_payload_accepts_list_values(self):
         """场景：批量场景（多轮对话）"""
         from src.schemas.evaluation import EvaluationSchema
+
         request = EvaluationSchema(
-            id="c1", type="general",
+            id="c1",
+            type="general",
             payload={
                 "user_input": "test",
                 "turns": [
@@ -329,16 +349,22 @@ class TestSchemaEdgeCases:
     def test_metadata_field_optional(self):
         """场景：metadata 字段可选"""
         from src.schemas.evaluation import EvaluationSchema
+
         request = EvaluationSchema(
-            id="c1", type="general", payload={"user_input": "test"},
+            id="c1",
+            type="general",
+            payload={"user_input": "test"},
         )
         assert request.metadata is None
 
     def test_model_provider_optional(self):
         """场景：未指定 model_provider（使用默认路由）"""
         from src.schemas.evaluation import EvaluationSchema
+
         request = EvaluationSchema(
-            id="c1", type="general", payload={"user_input": "test"},
+            id="c1",
+            type="general",
+            payload={"user_input": "test"},
         )
         assert request.model_provider is None
         assert request.model_name is None
@@ -350,11 +376,13 @@ class TestSchemaEdgeCases:
         会导致数据截断或写入失败
         """
         from src.schemas.evaluation import EvaluationSchema
+
         # 100 字符 ID（超过 DB String(50)）
         long_id = "x" * 100
         request = EvaluationSchema(
             id=long_id,
-            type="general", payload={"user_input": "test"},
+            type="general",
+            payload={"user_input": "test"},
         )
         # 当前实现：Schema 不做长度校验
         assert len(request.id) == 100  # BUG: 应校验
@@ -370,6 +398,7 @@ class TestExceptionHierarchyEdgeCases:
     def test_base_error_message_override(self):
         """场景：错误信息可定制"""
         from src.exceptions import BasePlatformError
+
         e1 = BasePlatformError("msg1", code="E1")
         e2 = BasePlatformError("msg2", code="E2")
         assert e1.message == "msg1"
@@ -380,6 +409,7 @@ class TestExceptionHierarchyEdgeCases:
     def test_contract_error_with_no_message(self):
         """场景：构造时不传 message（使用默认）"""
         from src.exceptions import ContractValidationError
+
         e = ContractValidationError()
         assert e.message == "输入数据校验失败"
         assert e.code == "CONTRACT_ERROR"
@@ -387,12 +417,14 @@ class TestExceptionHierarchyEdgeCases:
     def test_domain_error_with_custom_message(self):
         """场景：业务方自定义错误信息"""
         from src.exceptions import DomainLogicError
+
         e = DomainLogicError("模型 gpt-5 暂不支持此场景")
         assert "gpt-5" in e.message
 
     def test_infrastructure_error_preserves_stack(self):
         """场景：基础设施错误保留堆栈"""
         from src.exceptions import InfrastructureError
+
         try:
             raise InfrastructureError("DB 连接超时")
         except InfrastructureError as e:
@@ -407,6 +439,7 @@ class TestExceptionHierarchyEdgeCases:
         不包含 code 'X'，导致日志中无法直接看到错误码
         """
         from src.exceptions import BasePlatformError
+
         e = BasePlatformError("test", code="X")
         s = str(e)
         assert "test" in s

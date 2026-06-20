@@ -2,6 +2,7 @@
 评测引擎单元测试 - 带有效断言
 覆盖: 正常评测、各类异常处理、结果结构、延迟计算
 """
+
 import os
 import sys
 from unittest.mock import MagicMock
@@ -10,7 +11,8 @@ import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from src.domain.evaluators.base import BaseEvaluator, EvaluatorFactory
+from src.domain.evaluators.base import BaseEvaluator
+from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.engine import EvaluationEngine
 from src.exceptions import ContractValidationError, DomainLogicError, InfrastructureError
 from src.schemas.evaluation import DomainResponse, EvaluationSchema
@@ -19,24 +21,28 @@ from src.schemas.schemas import EvaluationStatus
 
 class MockPassingEvaluator(BaseEvaluator):
     """模拟通过的评估器"""
+
     def evaluate(self, request):
         return DomainResponse(is_valid=True, score=0.95, text="good")
 
 
 class MockFailingEvaluator(BaseEvaluator):
     """模拟失败的评估器"""
+
     def evaluate(self, request):
         return DomainResponse(is_valid=False, score=0.3, text="bad")
 
 
 class MockExceptionEvaluator(BaseEvaluator):
     """模拟抛出异常的评估器"""
+
     def evaluate(self, request):
         raise RuntimeError("模拟异常")
 
 
 class MockNoneEvaluator(BaseEvaluator):
     """模拟返回 None 的评估器"""
+
     def evaluate(self, request):
         return None
 
@@ -116,6 +122,7 @@ class TestEngineExceptionHandling:
 
     def test_run_contract_validation_error(self):
         """契约错误应返回 ERROR 状态并保留错误信息"""
+
         @EvaluatorFactory.register("test_contract")
         class ContractErrorEvaluator(BaseEvaluator):
             def evaluate(self, request):
@@ -136,6 +143,7 @@ class TestEngineExceptionHandling:
 
     def test_run_domain_logic_error(self):
         """领域错误应返回 ERROR 状态"""
+
         @EvaluatorFactory.register("test_domain")
         class DomainErrorEvaluator(BaseEvaluator):
             def evaluate(self, request):
@@ -156,6 +164,7 @@ class TestEngineExceptionHandling:
 
     def test_run_infrastructure_error(self):
         """基础设施错误应返回 ERROR 状态"""
+
         @EvaluatorFactory.register("test_infra")
         class InfraErrorEvaluator(BaseEvaluator):
             def evaluate(self, request):

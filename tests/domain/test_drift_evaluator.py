@@ -10,6 +10,7 @@
 
 关键发现：（测试过程中记录）
 """
+
 import os
 import sys
 from unittest.mock import patch
@@ -39,8 +40,8 @@ class TestDriftDetectionSimilarity:
                 "user_input": "什么是AI？",
                 "actual_output": "AI是人工智能的缩写。",
                 "baseline_output": "AI是人工智能。",
-                "methods": ["similarity"]
-            }
+                "methods": ["similarity"],
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -59,8 +60,8 @@ class TestDriftDetectionSimilarity:
                 "user_input": "什么是AI？",
                 "actual_output": "今天天气很好，我们可以去公园散步。",
                 "baseline_output": "AI是人工智能。",
-                "methods": ["similarity"]
-            }
+                "methods": ["similarity"],
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -76,8 +77,8 @@ class TestDriftDetectionSimilarity:
             payload={
                 "user_input": "什么是AI？",
                 "actual_output": "AI是人工智能。",
-                "methods": ["similarity"]
-            }
+                "methods": ["similarity"],
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -88,8 +89,7 @@ class TestDriftDetectionSimilarity:
     def test_similarity_calculation(self, evaluator):
         """相似度计算应正确"""
         result = evaluator._detect_by_similarity(
-            actual_output="Hello World",
-            baseline_output="Hello World"
+            actual_output="Hello World", baseline_output="Hello World"
         )
 
         assert result["similarity"] == 1.0
@@ -99,8 +99,7 @@ class TestDriftDetectionSimilarity:
     def test_similarity_calculation_partial_match(self, evaluator):
         """部分匹配相似度计算"""
         result = evaluator._detect_by_similarity(
-            actual_output="Hello World",
-            baseline_output="Hello"
+            actual_output="Hello World", baseline_output="Hello"
         )
 
         assert 0.3 < result["similarity"] < 0.7
@@ -119,23 +118,25 @@ class TestDriftDetectionScoreHistory:
     @pytest.fixture
     def mock_repository(self):
         """模拟数据库"""
-        with patch('src.domain.evaluators.drift.EvaluationRepository') as MockRepo:
+        with patch("src.domain.evaluators.drift.EvaluationRepository") as MockRepo:
             mock_instance = MockRepo.return_value
             # 生成20条历史记录
             records = []
             for i in range(20):
-                records.append({
-                    "case_id": f"case_{i}",
-                    "score": 0.8 + (i * 0.005),  # 逐渐上升
-                    "latency_ms": 100,
-                    "status": "passed"
-                })
+                records.append(
+                    {
+                        "case_id": f"case_{i}",
+                        "score": 0.8 + (i * 0.005),  # 逐渐上升
+                        "latency_ms": 100,
+                        "status": "passed",
+                    }
+                )
             mock_instance.get_recent.return_value = records
             yield mock_instance
 
     def test_detect_score_history_insufficient_data(self, evaluator):
         """历史数据不足应返回低置信度"""
-        with patch('src.domain.evaluators.drift.EvaluationRepository') as MockRepo:
+        with patch("src.domain.evaluators.drift.EvaluationRepository") as MockRepo:
             mock_instance = MockRepo.return_value
             mock_instance.get_recent.return_value = []  # 无历史数据
 
@@ -163,7 +164,7 @@ class TestDriftDetectionScoreHistory:
 
     def test_detect_score_history_with_drift(self, evaluator):
         """分数大幅变化应检测为漂移 - 使用正确场景"""
-        with patch('src.domain.evaluators.drift.EvaluationRepository') as MockRepo:
+        with patch("src.domain.evaluators.drift.EvaluationRepository") as MockRepo:
             mock_instance = MockRepo.return_value
             # 使用更极端的分数变化场景
             records = [
@@ -192,8 +193,7 @@ class TestDriftDetectionStatistics:
     def test_detect_statistics_no_baseline(self, evaluator):
         """无baseline时统计检测"""
         result = evaluator._detect_by_statistics(
-            actual_output="这是一段比较长的文本内容，包含了很多句子和词汇。",
-            baseline_output=None
+            actual_output="这是一段比较长的文本内容，包含了很多句子和词汇。", baseline_output=None
         )
 
         assert result["method"] == "statistics"
@@ -204,7 +204,7 @@ class TestDriftDetectionStatistics:
         """有baseline时统计检测 - 使用正确阈值"""
         result = evaluator._detect_by_statistics(
             actual_output="短文本",  # 3字符
-            baseline_output="这是一段比较长的文本内容，包含了很多句子和词汇。"  # 约30字符
+            baseline_output="这是一段比较长的文本内容，包含了很多句子和词汇。",  # 约30字符
         )
 
         # 长度差异约10倍，drift_score约为0.4375（符合实现逻辑）
@@ -236,12 +236,9 @@ class TestDriftDetectionCombined:
     @pytest.fixture
     def mock_repository(self):
         """模拟数据库"""
-        with patch('src.domain.evaluators.drift.EvaluationRepository') as MockRepo:
+        with patch("src.domain.evaluators.drift.EvaluationRepository") as MockRepo:
             mock_instance = MockRepo.return_value
-            records = [
-                {"case_id": f"case_{i}", "score": 0.8, "latency_ms": 100}
-                for i in range(20)
-            ]
+            records = [{"case_id": f"case_{i}", "score": 0.8, "latency_ms": 100} for i in range(20)]
             mock_instance.get_recent.return_value = records
             yield mock_instance
 
@@ -254,8 +251,8 @@ class TestDriftDetectionCombined:
                 "user_input": "测试",
                 "actual_output": "输出内容",
                 "baseline_output": "不同的输出",
-                "methods": ["similarity", "score_comparison", "statistical"]
-            }
+                "methods": ["similarity", "score_comparison", "statistical"],
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -276,8 +273,8 @@ class TestDriftDetectionCombined:
                 "actual_output": "输出内容",
                 "baseline_output": "不同的输出",
                 "methods": ["similarity", "score_comparison", "statistical"],
-                "threshold": 0.3  # 自定义阈值
-            }
+                "threshold": 0.3,  # 自定义阈值
+            },
         )
 
         result = evaluator.evaluate(request)
@@ -303,9 +300,7 @@ class TestDriftDetectionConfidence:
 
     def test_confidence_single_method(self, evaluator):
         """单方法置信度"""
-        results = {
-            "similarity": {"confidence": 0.7}
-        }
+        results = {"similarity": {"confidence": 0.7}}
         confidence = evaluator._calculate_confidence(results)
         assert confidence == 0.7
 
@@ -314,7 +309,7 @@ class TestDriftDetectionConfidence:
         results = {
             "similarity": {"confidence": 0.7},
             "score_comparison": {"confidence": 0.85},
-            "statistical": {"confidence": 0.6}
+            "statistical": {"confidence": 0.6},
         }
         confidence = evaluator._calculate_confidence(results)
         expected = (0.7 + 0.85 + 0.6) / 3
@@ -335,18 +330,14 @@ class TestDriftDetectionBaseline:
         """从存储获取基线"""
         evaluator._BASELINE_STORE["case_001"] = 0.85
 
-        recent_results = [
-            {"score": 0.8}, {"score": 0.82}, {"score": 0.84}
-        ]
+        recent_results = [{"score": 0.8}, {"score": 0.82}, {"score": 0.84}]
         baseline = evaluator._get_or_create_baseline("case_001", recent_results)
 
         assert baseline == 0.85
 
     def test_get_or_create_baseline_auto_create(self, evaluator):
         """自动创建基线"""
-        recent_results = [
-            {"score": 0.8}, {"score": 0.82}, {"score": 0.84}, {"score": 0.86}
-        ]
+        recent_results = [{"score": 0.8}, {"score": 0.82}, {"score": 0.84}, {"score": 0.86}]
         baseline = evaluator._get_or_create_baseline("case_new", recent_results)
 
         expected_baseline = (0.8 + 0.82 + 0.84 + 0.86) / 4
@@ -414,12 +405,12 @@ class TestDriftDetectionFingerprint:
         fp1 = {
             "text_hash": "abc123",
             "stats": {"length": 100, "word_count": 20, "sentence_count": 2},
-            "keywords": ["test", "data"]
+            "keywords": ["test", "data"],
         }
         fp2 = {
             "text_hash": "abc123",
             "stats": {"length": 105, "word_count": 22, "sentence_count": 2},
-            "keywords": ["test", "data", "more"]
+            "keywords": ["test", "data", "more"],
         }
 
         score = evaluator._match_fingerprints(fp1, fp2)
@@ -441,7 +432,7 @@ class TestDriftDetectionVersionCompare:
             a_output="Hello World Version A",
             b_output="Hello World Version B",
             a_meta={"version": "1.0.0"},
-            b_meta={"version": "1.1.0"}
+            b_meta={"version": "1.1.0"},
         )
 
         assert "text_similarity" in result
@@ -455,7 +446,7 @@ class TestDriftDetectionVersionCompare:
             a_output="相同的内容",
             b_output="相同的内容",
             a_meta={"version": "1.0.0"},
-            b_meta={"version": "1.1.0"}
+            b_meta={"version": "1.1.0"},
         )
 
         assert result["text_similarity"] == 1.0
@@ -473,9 +464,7 @@ class TestDriftDetectionSemantic:
     def test_semantic_drift_analysis(self, evaluator):
         """语义漂移分析"""
         result = evaluator._analyze_semantic_drift(
-            actual="苹果是一种水果",
-            baseline="苹果是一种水果",
-            context="问答题"
+            actual="苹果是一种水果", baseline="苹果是一种水果", context="问答题"
         )
 
         assert "drift_score" in result
@@ -497,19 +486,13 @@ class TestDriftDetectionSemantic:
 
     def test_factual_consistency(self, evaluator):
         """事实一致性检查"""
-        result = evaluator._check_factual_consistency(
-            actual="价格为100元",
-            baseline="原价100元"
-        )
+        result = evaluator._check_factual_consistency(actual="价格为100元", baseline="原价100元")
 
         assert result > 0  # 有数字匹配
 
     def test_factual_consistency_no_numbers(self, evaluator):
         """无数字时返回0.5"""
-        result = evaluator._check_factual_consistency(
-            actual="这是文本",
-            baseline="那是文本"
-        )
+        result = evaluator._check_factual_consistency(actual="这是文本", baseline="那是文本")
 
         assert result == 0.5
 
@@ -527,10 +510,7 @@ class TestDriftDetectionValidation:
         request = EvaluationSchema(
             id="test_validation",
             type="drift",
-            payload={
-                "user_input": "",
-                "actual_output": "some output"
-            }
+            payload={"user_input": "", "actual_output": "some output"},
         )
 
         result = evaluator.evaluate(request)
@@ -543,10 +523,7 @@ class TestDriftDetectionValidation:
         request = EvaluationSchema(
             id="test_validation",
             type="drift",
-            payload={
-                "user_input": "some input",
-                "actual_output": ""
-            }
+            payload={"user_input": "some input", "actual_output": ""},
         )
 
         result = evaluator.evaluate(request)

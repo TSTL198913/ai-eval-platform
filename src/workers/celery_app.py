@@ -7,7 +7,9 @@ from celery import Celery
 
 # 使用文件系统作为broker，避免依赖Redis
 BROKER_URL = os.getenv("CELERY_BROKER_URL", f"filesystem://{tempfile.gettempdir()}/celery_broker")
-BACKEND_URL = os.getenv("CELERY_RESULT_BACKEND", f"filesystem://{tempfile.gettempdir()}/celery_backend")
+BACKEND_URL = os.getenv(
+    "CELERY_RESULT_BACKEND", f"filesystem://{tempfile.gettempdir()}/celery_backend"
+)
 
 # 任务并发数配置
 WORKER_CONCURRENCY = int(os.getenv("CELERY_WORKER_CONCURRENCY", "4"))
@@ -25,7 +27,9 @@ TASK_RETRY_JITTER = bool(os.getenv("CELERY_TASK_RETRY_JITTER", "true").lower() =
 
 # 任务缓冲配置
 TASK_ACKS_LATE = bool(os.getenv("CELERY_TASK_ACKS_LATE", "true").lower() == "true")
-TASK_REJECT_ON_WORKER_LOST = bool(os.getenv("CELERY_TASK_REJECT_ON_WORKER_LOST", "true").lower() == "true")
+TASK_REJECT_ON_WORKER_LOST = bool(
+    os.getenv("CELERY_TASK_REJECT_ON_WORKER_LOST", "true").lower() == "true"
+)
 
 # Worker配置
 WORKER_MAX_TASKS_PER_CHILD = int(os.getenv("CELERY_WORKER_MAX_TASKS_PER_CHILD", "50"))

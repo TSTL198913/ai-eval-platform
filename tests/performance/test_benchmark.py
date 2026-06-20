@@ -54,9 +54,11 @@ BASELINE_FILE = RESULTS_DIR / "baseline.json"
 # 数据模型
 # =====================================================================
 
+
 @dataclass
 class BenchmarkResult:
     """基准测试结果"""
+
     name: str
     iterations: int
     total_duration_ms: float
@@ -82,6 +84,7 @@ class BenchmarkResult:
 @dataclass
 class BaselineComparison:
     """与基线对比"""
+
     metric: str
     baseline_value: float
     current_value: float
@@ -96,6 +99,7 @@ class BaselineComparison:
 # =====================================================================
 # 工具函数
 # =====================================================================
+
 
 def calculate_percentiles(values: list[float], percentiles: list[float]) -> dict[str, float]:
     """计算百分位数"""
@@ -116,7 +120,9 @@ def calculate_percentiles(values: list[float], percentiles: list[float]) -> dict
                 result[f"p{p}"] = sorted_values[-1]
             else:
                 weight = index - lower
-                result[f"p{p}"] = sorted_values[lower] * (1 - weight) + sorted_values[upper] * weight
+                result[f"p{p}"] = (
+                    sorted_values[lower] * (1 - weight) + sorted_values[upper] * weight
+                )
 
     return result
 
@@ -131,10 +137,7 @@ def save_results(results: list[BenchmarkResult], filename: str | None = None) ->
 
     filepath = RESULTS_DIR / filename
 
-    data = {
-        "timestamp": datetime.now().isoformat(),
-        "results": [r.to_dict() for r in results]
-    }
+    data = {"timestamp": datetime.now().isoformat(), "results": [r.to_dict() for r in results]}
 
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
@@ -163,7 +166,9 @@ def save_baseline(results: list[BenchmarkResult]) -> Path:
     return save_results(results, BASELINE_FILE.name)
 
 
-def compare_with_baseline(current: BenchmarkResult, baseline_data: dict[str, dict]) -> list[BaselineComparison]:
+def compare_with_baseline(
+    current: BenchmarkResult, baseline_data: dict[str, dict]
+) -> list[BaselineComparison]:
     """与基线对比"""
     comparisons = []
 
@@ -195,13 +200,15 @@ def compare_with_baseline(current: BenchmarkResult, baseline_data: dict[str, dic
             else:
                 status = "improved" if change < 0 else "degraded" if change > 0 else "stable"
 
-            comparisons.append(BaselineComparison(
-                metric=metric_name,
-                baseline_value=baseline_val,
-                current_value=current_val,
-                change_percent=round(change, 2),
-                status=status
-            ))
+            comparisons.append(
+                BaselineComparison(
+                    metric=metric_name,
+                    baseline_value=baseline_val,
+                    current_value=current_val,
+                    change_percent=round(change, 2),
+                    status=status,
+                )
+            )
 
     return comparisons
 
@@ -209,6 +216,7 @@ def compare_with_baseline(current: BenchmarkResult, baseline_data: dict[str, dic
 # =====================================================================
 # 基准测试类
 # =====================================================================
+
 
 class PerformanceBenchmark:
     """性能基准测试"""
@@ -224,7 +232,7 @@ class PerformanceBenchmark:
         name: str,
         func: Callable[[], Any],
         iterations: int = MEASURE_ITERATIONS,
-        warmup: int = WARMUP_ITERATIONS
+        warmup: int = WARMUP_ITERATIONS,
     ) -> BenchmarkResult:
         """运行同步基准测试"""
         # 预热
@@ -272,7 +280,7 @@ class PerformanceBenchmark:
             throughput=iterations / (total_duration / 1000) if total_duration > 0 else 0,
             errors=errors,
             error_rate=errors / iterations * 100,
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
 
     def _run_async_benchmark(
@@ -280,9 +288,10 @@ class PerformanceBenchmark:
         name: str,
         func: Callable[[], Any],
         iterations: int = MEASURE_ITERATIONS,
-        warmup: int = WARMUP_ITERATIONS
+        warmup: int = WARMUP_ITERATIONS,
     ) -> BenchmarkResult:
         """运行异步基准测试"""
+
         async def run():
             return await func()
 
@@ -331,16 +340,20 @@ class PerformanceBenchmark:
             throughput=iterations / (total_duration / 1000) if total_duration > 0 else 0,
             errors=errors,
             error_rate=errors / iterations * 100,
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
 
-    def run_sync(self, name: str, func: Callable[[], Any], iterations: int = MEASURE_ITERATIONS) -> BenchmarkResult:
+    def run_sync(
+        self, name: str, func: Callable[[], Any], iterations: int = MEASURE_ITERATIONS
+    ) -> BenchmarkResult:
         """运行同步测试并记录结果"""
         result = self._run_sync_benchmark(name, func, iterations)
         self.results.append(result)
         return result
 
-    def run_async(self, name: str, func: Callable[[], Any], iterations: int = MEASURE_ITERATIONS) -> BenchmarkResult:
+    def run_async(
+        self, name: str, func: Callable[[], Any], iterations: int = MEASURE_ITERATIONS
+    ) -> BenchmarkResult:
         """运行异步测试并记录结果"""
         result = self._run_async_benchmark(name, func, iterations)
         self.results.append(result)
@@ -368,6 +381,7 @@ class PerformanceBenchmark:
 # API 基准测试
 # =====================================================================
 
+
 class APIBenchmark:
     """API 性能基准测试"""
 
@@ -380,6 +394,7 @@ class APIBenchmark:
 
     def benchmark_health(self, iterations: int = MEASURE_ITERATIONS) -> BenchmarkResult:
         """健康检查接口基准"""
+
         def call():
             response = self.client.get(f"{self.base_url}/health")
             response.raise_for_status()
@@ -390,6 +405,7 @@ class APIBenchmark:
 
     def benchmark_list_evaluators(self, iterations: int = MEASURE_ITERATIONS) -> BenchmarkResult:
         """评估器列表接口基准"""
+
         def call():
             response = self.client.get(f"{self.base_url}/api/v1/evaluators")
             response.raise_for_status()
@@ -400,14 +416,15 @@ class APIBenchmark:
 
     def benchmark_evaluate(self, iterations: int = MEASURE_ITERATIONS) -> BenchmarkResult:
         """评测接口基准（同步）"""
+
         def call():
             response = self.client.post(
                 f"{self.base_url}/api/v1/evaluate",
                 json={
                     "id": f"bench_{time.time()}",
                     "type": "general",
-                    "payload": {"user_input": "测试文本"}
-                }
+                    "payload": {"user_input": "测试文本"},
+                },
             )
             response.raise_for_status()
             return response.json()
@@ -416,11 +433,7 @@ class APIBenchmark:
         return benchmark.run_sync("evaluate", call, iterations)
 
     def benchmark_concurrent(
-        self,
-        name: str,
-        call_func: Callable[[], Any],
-        concurrency: int,
-        total_requests: int = 1000
+        self, name: str, call_func: Callable[[], Any], concurrency: int, total_requests: int = 1000
     ) -> BenchmarkResult:
         """并发请求基准"""
         results = []
@@ -431,7 +444,12 @@ class APIBenchmark:
             nonlocal errors
             start = time.perf_counter()
             try:
-                await call_func()
+                import inspect
+
+                if inspect.iscoroutinefunction(call_func):
+                    await call_func()
+                else:
+                    call_func()
                 duration = (time.perf_counter() - start) * 1000
                 async with lock:
                     results.append(duration)
@@ -472,7 +490,7 @@ class APIBenchmark:
             throughput=total_requests / (total_duration / 1000) if total_duration > 0 else 0,
             errors=errors,
             error_rate=errors / total_requests * 100,
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
 
     def run_full_suite(self) -> list[BenchmarkResult]:
@@ -502,7 +520,7 @@ class APIBenchmark:
                 "health",
                 lambda: self.client.get(f"{self.base_url}/health"),
                 concurrency,
-                total_requests=concurrency * 10
+                total_requests=concurrency * 10,
             )
             results.append(result)
 
@@ -528,6 +546,7 @@ class APIBenchmark:
 # =====================================================================
 # 测试用例
 # =====================================================================
+
 
 @pytest.fixture(scope="module")
 def benchmark_api():
@@ -576,7 +595,7 @@ def test_concurrent_performance(benchmark_api):
             "health",
             lambda: benchmark_api.client.get(f"{benchmark_api.base_url}/health"),
             concurrency,
-            total_requests=concurrency * 5
+            total_requests=concurrency * 5,
         )
         results.append(result)
 
@@ -608,6 +627,7 @@ def test_baseline_comparison():
 # =====================================================================
 # 主函数
 # =====================================================================
+
 
 def main():
     """运行完整基准测试"""

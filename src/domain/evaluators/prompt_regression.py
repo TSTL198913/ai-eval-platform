@@ -70,7 +70,9 @@ class PromptRegressionEvaluator(BaseEvaluator):
         co = self.get_payload_data(request, "current_output")
         ti = self.get_input_text(request)
         if not bo or not co:
-            return DomainResponse(is_valid=False, error="baseline_output 和 current_output 不能为空")
+            return DomainResponse(
+                is_valid=False, error="baseline_output 和 current_output 不能为空"
+            )
         ss = self._calculate_similarity(bo, co)
         ds = 1.0 - ss
         sd = self._detect_structural_drift(bo, co)
@@ -128,7 +130,11 @@ class PromptRegressionEvaluator(BaseEvaluator):
         return difflib.SequenceMatcher(None, t1, t2).ratio()
 
     def _detect_prompt_changes(self, op: str, np: str) -> dict:
-        diff = list(difflib.unified_diff(op.splitlines(), np.splitlines(), fromfile="old", tofile="new", lineterm="", n=3))
+        diff = list(
+            difflib.unified_diff(
+                op.splitlines(), np.splitlines(), fromfile="old", tofile="new", lineterm="", n=3
+            )
+        )
         added = sum(1 for line in diff if line.startswith("+") and not line.startswith("+++"))
         removed = sum(1 for line in diff if line.startswith("-") and not line.startswith("---"))
         cl = added + removed
@@ -184,39 +190,280 @@ class PromptRegressionEvaluator(BaseEvaluator):
 
     def _evaluate_correctness_impact(self, oo: str, no: str) -> dict:
         s = self._calculate_similarity(oo, no)
-        return {"dimension": "correctness", "score": s, "impact": self._get_impact_level(s), "description": f"相似度: {s:.2f}"}
+        return {
+            "dimension": "correctness",
+            "score": s,
+            "impact": self._get_impact_level(s),
+            "description": f"相似度: {s:.2f}",
+        }
 
     def _evaluate_completeness_impact(self, oo: str, no: str) -> dict:
         ol, nl = len(oo), len(no)
         c = min(1.0, nl / ol) if ol > 0 else 0.0
-        return {"dimension": "completeness", "score": c, "impact": self._get_impact_level(c), "description": f"长度比: {nl/ol:.2f}x"}
+        return {
+            "dimension": "completeness",
+            "score": c,
+            "impact": self._get_impact_level(c),
+            "description": f"长度比: {nl/ol:.2f}x",
+        }
 
     def _evaluate_relevance_impact(self, oo: str, no: str) -> dict:
         ok, nk = set(self._extract_keywords(oo)), set(self._extract_keywords(no))
         if not ok:
-            return {"dimension": "relevance", "score": 0.5, "impact": "neutral", "description": "无法评估"}
+            return {
+                "dimension": "relevance",
+                "score": 0.5,
+                "impact": "neutral",
+                "description": "无法评估",
+            }
         o = len(ok & nk) / len(ok)
-        return {"dimension": "relevance", "score": o, "impact": self._get_impact_level(o), "description": f"重叠率: {o:.2f}"}
+        return {
+            "dimension": "relevance",
+            "score": o,
+            "impact": self._get_impact_level(o),
+            "description": f"重叠率: {o:.2f}",
+        }
 
     def _evaluate_tone_impact(self, oo: str, no: str) -> dict:
         ot, nt = self._analyze_tone(oo), self._analyze_tone(no)
         tm = sum(1 for k in ot if ot[k] == nt[k]) / len(ot)
-        return {"dimension": "tone", "score": tm, "impact": self._get_impact_level(tm), "description": f"匹配度: {tm:.2f}", "old_tone": ot, "new_tone": nt}
+        return {
+            "dimension": "tone",
+            "score": tm,
+            "impact": self._get_impact_level(tm),
+            "description": f"匹配度: {tm:.2f}",
+            "old_tone": ot,
+            "new_tone": nt,
+        }
 
     def _evaluate_format_impact(self, oo: str, no: str) -> dict:
         of, nf = self._detect_format(oo), self._detect_format(no)
         fm = sum(1 for k in of if of[k] == nf[k]) / len(of)
-        return {"dimension": "format", "score": fm, "impact": self._get_impact_level(fm), "description": f"匹配度: {fm:.2f}", "old_format": of, "new_format": nf}
+        return {
+            "dimension": "format",
+            "score": fm,
+            "impact": self._get_impact_level(fm),
+            "description": f"匹配度: {fm:.2f}",
+            "old_format": of,
+            "new_format": nf,
+        }
 
     def _extract_keywords(self, text: str) -> list[str]:
         import re
+
         words = re.findall(r"\b[a-zA-Z\u4e00-\u9fff]{2,}\b", text.lower())
-        sw = {"的", "是", "在", "有", "和", "了", "我", "你", "他", "她", "它", "这", "那", "很", "也", "都", "要", "会", "可以", "能", "不", "没", "好", "就", "对", "说", "看", "想", "去", "来", "上", "下", "大", "小", "多", "少", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "个", "位", "名", "本", "页", "条", "种", "类", "们", "等", "及", "与", "或", "但", "而", "因为", "所以", "如果", "虽然", "但是", "什么", "怎么", "为什么", "哪里", "多少", "谁", "哪个", "this", "that", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "do", "does", "did", "will", "would", "could", "should", "may", "might", "must", "a", "an", "the", "of", "to", "in", "for", "on", "with", "at", "by", "from", "as", "into", "through", "during", "before", "after", "above", "below", "between", "under", "again", "further", "then", "once", "here", "there", "when", "where", "why", "how", "all", "each", "few", "more", "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same", "so", "than", "too", "very", "just", "now", "out", "over", "up", "about", "against", "amoung", "and", "another", "any", "both", "but", "if", "or", "because", "until", "while"}
+        sw = {
+            "的",
+            "是",
+            "在",
+            "有",
+            "和",
+            "了",
+            "我",
+            "你",
+            "他",
+            "她",
+            "它",
+            "这",
+            "那",
+            "很",
+            "也",
+            "都",
+            "要",
+            "会",
+            "可以",
+            "能",
+            "不",
+            "没",
+            "好",
+            "就",
+            "对",
+            "说",
+            "看",
+            "想",
+            "去",
+            "来",
+            "上",
+            "下",
+            "大",
+            "小",
+            "多",
+            "少",
+            "一",
+            "二",
+            "三",
+            "四",
+            "五",
+            "六",
+            "七",
+            "八",
+            "九",
+            "十",
+            "个",
+            "位",
+            "名",
+            "本",
+            "页",
+            "条",
+            "种",
+            "类",
+            "们",
+            "等",
+            "及",
+            "与",
+            "或",
+            "但",
+            "而",
+            "因为",
+            "所以",
+            "如果",
+            "虽然",
+            "但是",
+            "什么",
+            "怎么",
+            "为什么",
+            "哪里",
+            "多少",
+            "谁",
+            "哪个",
+            "this",
+            "that",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "being",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "must",
+            "a",
+            "an",
+            "the",
+            "of",
+            "to",
+            "in",
+            "for",
+            "on",
+            "with",
+            "at",
+            "by",
+            "from",
+            "as",
+            "into",
+            "through",
+            "during",
+            "before",
+            "after",
+            "above",
+            "below",
+            "between",
+            "under",
+            "again",
+            "further",
+            "then",
+            "once",
+            "here",
+            "there",
+            "when",
+            "where",
+            "why",
+            "how",
+            "all",
+            "each",
+            "few",
+            "more",
+            "most",
+            "other",
+            "some",
+            "such",
+            "no",
+            "nor",
+            "not",
+            "only",
+            "own",
+            "same",
+            "so",
+            "than",
+            "too",
+            "very",
+            "just",
+            "now",
+            "out",
+            "over",
+            "up",
+            "about",
+            "against",
+            "amoung",
+            "and",
+            "another",
+            "any",
+            "both",
+            "but",
+            "if",
+            "or",
+            "because",
+            "until",
+            "while",
+        }
         return [w for w in words if w not in sw][:20]
 
     def _analyze_tone(self, text: str) -> dict:
-        pw = {"好", "优秀", "出色", "完美", "成功", "满意", "喜欢", "赞赏", "感谢", "支持", "good", "excellent", "great", "wonderful", "perfect", "successful", "satisfied", "happy", "thank", "appreciate"}
-        nw = {"差", "糟糕", "失败", "错误", "问题", "不满意", "抱怨", "批评", "失望", "反对", "bad", "terrible", "awful", "poor", "failed", "wrong", "problem", "complaint", "criticize", "disappointed"}
+        pw = {
+            "好",
+            "优秀",
+            "出色",
+            "完美",
+            "成功",
+            "满意",
+            "喜欢",
+            "赞赏",
+            "感谢",
+            "支持",
+            "good",
+            "excellent",
+            "great",
+            "wonderful",
+            "perfect",
+            "successful",
+            "satisfied",
+            "happy",
+            "thank",
+            "appreciate",
+        }
+        nw = {
+            "差",
+            "糟糕",
+            "失败",
+            "错误",
+            "问题",
+            "不满意",
+            "抱怨",
+            "批评",
+            "失望",
+            "反对",
+            "bad",
+            "terrible",
+            "awful",
+            "poor",
+            "failed",
+            "wrong",
+            "problem",
+            "complaint",
+            "criticize",
+            "disappointed",
+        }
         tl = text.lower()
         pc = sum(1 for w in pw if w in tl)
         nc = sum(1 for w in nw if w in tl)
@@ -226,12 +473,22 @@ class PromptRegressionEvaluator(BaseEvaluator):
         return {"sentiment": sent, "formality": form}
 
     def _detect_format(self, text: str) -> dict:
-        hb = any(text.startswith(p) for p in ("- ", "* ", "1.", "2.", "• ")) or "\n- " in text or "\n* " in text
+        hb = (
+            any(text.startswith(p) for p in ("- ", "* ", "1.", "2.", "• "))
+            or "\n- " in text
+            or "\n* " in text
+        )
         hn = any(f"\n{i}." in text for i in range(1, 10))
         hc = "```" in text or "`" in text
         ht = "|" in text and "\n|" in text
         ht2 = text.strip().startswith("#")
-        return {"has_bullet": hb, "has_numbered": hn, "has_code": hc, "has_table": ht, "has_title": ht2}
+        return {
+            "has_bullet": hb,
+            "has_numbered": hn,
+            "has_code": hc,
+            "has_table": ht,
+            "has_title": ht2,
+        }
 
     def _get_impact_level(self, score: float) -> str:
         if score >= 0.9:

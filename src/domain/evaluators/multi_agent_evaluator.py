@@ -36,17 +36,18 @@ def sanitize_input(text: str, max_length: int = 1000) -> str:
     text = text[:max_length]
 
     # 移除潜在危险的HTML标签和脚本
-    text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.IGNORECASE | re.DOTALL)
-    text = re.sub(r'<[^>]+>', '', text)  # 移除所有HTML标签
+    text = re.sub(r"<script[^>]*>.*?</script>", "", text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r"<[^>]+>", "", text)  # 移除所有HTML标签
 
     # 移除潜在危险的字符
-    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)  # 控制字符
+    text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", text)  # 控制字符
 
     return text.strip()
 
 
 class MessageType(str, Enum):
     """消息类型枚举"""
+
     REQUEST = "request"
     RESPONSE = "response"
     BROADCAST = "broadcast"
@@ -56,6 +57,7 @@ class MessageType(str, Enum):
 
 class ConflictType(str, Enum):
     """冲突类型枚举"""
+
     RESOURCE = "resource"
     TASK = "task"
     COMMUNICATION = "communication"
@@ -65,6 +67,7 @@ class ConflictType(str, Enum):
 
 class TaskStatus(str, Enum):
     """任务状态枚举"""
+
     PENDING = "pending"
     ASSIGNED = "assigned"
     IN_PROGRESS = "in_progress"
@@ -75,6 +78,7 @@ class TaskStatus(str, Enum):
 @dataclass
 class AgentMessage:
     """Agent间消息"""
+
     message_id: str
     sender_id: str
     receiver_id: str
@@ -90,6 +94,7 @@ class AgentMessage:
 @dataclass
 class AgentTask:
     """Agent任务"""
+
     task_id: str
     agent_id: str
     description: str
@@ -105,6 +110,7 @@ class AgentTask:
 @dataclass
 class Conflict:
     """冲突记录"""
+
     conflict_id: str
     conflict_type: ConflictType
     agent_ids: list[str]
@@ -117,6 +123,7 @@ class Conflict:
 @dataclass
 class AgentInfo:
     """Agent信息"""
+
     agent_id: str
     role: str
     capabilities: list[str] = field(default_factory=list)
@@ -178,10 +185,7 @@ class MultiAgentEvaluator(BaseEvaluator):
         capabilities = self.get_payload_data(request, "capabilities", [])
 
         if not agent_id:
-            return DomainResponse(
-                is_valid=False,
-                error="agent_id 不能为空"
-            )
+            return DomainResponse(is_valid=False, error="agent_id 不能为空")
 
         agent = AgentInfo(
             agent_id=agent_id,
@@ -198,7 +202,7 @@ class MultiAgentEvaluator(BaseEvaluator):
                 "agent_id": agent_id,
                 "role": role,
                 "capabilities": capabilities,
-            }
+            },
         )
 
     def _record_message(self, request: EvaluationSchema) -> DomainResponse:
@@ -214,19 +218,13 @@ class MultiAgentEvaluator(BaseEvaluator):
         metadata = self.get_payload_data(request, "metadata", {})
 
         if not sender_id or not receiver_id:
-            return DomainResponse(
-                is_valid=False,
-                error="sender_id 和 receiver_id 不能为空"
-            )
+            return DomainResponse(is_valid=False, error="sender_id 和 receiver_id 不能为空")
 
         # 安全处理枚举值
         try:
             msg_type = MessageType(message_type)
         except ValueError:
-            return DomainResponse(
-                is_valid=False,
-                error=f"无效的message_type: {message_type}"
-            )
+            return DomainResponse(is_valid=False, error=f"无效的message_type: {message_type}")
 
         message = AgentMessage(
             message_id=message_id or f"msg-{len(self.messages)}",
@@ -255,7 +253,7 @@ class MultiAgentEvaluator(BaseEvaluator):
                 "sender_id": sender_id,
                 "receiver_id": receiver_id,
                 "message_type": message_type,
-            }
+            },
         )
 
     def _assign_task(self, request: EvaluationSchema) -> DomainResponse:
@@ -267,16 +265,10 @@ class MultiAgentEvaluator(BaseEvaluator):
         dependencies = self.get_payload_data(request, "dependencies", [])
 
         if not task_id or not agent_id:
-            return DomainResponse(
-                is_valid=False,
-                error="task_id 和 agent_id 不能为空"
-            )
+            return DomainResponse(is_valid=False, error="task_id 和 agent_id 不能为空")
 
         if agent_id not in self.agents:
-            return DomainResponse(
-                is_valid=False,
-                error=f"Agent {agent_id} 未注册"
-            )
+            return DomainResponse(is_valid=False, error=f"Agent {agent_id} 未注册")
 
         task = AgentTask(
             task_id=task_id,
@@ -298,7 +290,7 @@ class MultiAgentEvaluator(BaseEvaluator):
                 "task_id": task_id,
                 "agent_id": agent_id,
                 "status": "assigned",
-            }
+            },
         )
 
     def _update_task(self, request: EvaluationSchema) -> DomainResponse:
@@ -309,19 +301,13 @@ class MultiAgentEvaluator(BaseEvaluator):
         error = sanitize_input(self.get_payload_data(request, "error", ""))
 
         if task_id not in self.tasks:
-            return DomainResponse(
-                is_valid=False,
-                error=f"任务 {task_id} 不存在"
-            )
+            return DomainResponse(is_valid=False, error=f"任务 {task_id} 不存在")
 
         # 安全处理枚举值
         try:
             new_status = TaskStatus(status)
         except ValueError:
-            return DomainResponse(
-                is_valid=False,
-                error=f"无效的status: {status}"
-            )
+            return DomainResponse(is_valid=False, error=f"无效的status: {status}")
 
         task = self.tasks[task_id]
         old_status = task.status
@@ -349,7 +335,7 @@ class MultiAgentEvaluator(BaseEvaluator):
                 "task_id": task_id,
                 "old_status": old_status.value,
                 "new_status": status,
-            }
+            },
         )
 
     def _record_conflict(self, request: EvaluationSchema) -> DomainResponse:
@@ -360,19 +346,13 @@ class MultiAgentEvaluator(BaseEvaluator):
         description = sanitize_input(self.get_payload_data(request, "description", ""))
 
         if not agent_ids:
-            return DomainResponse(
-                is_valid=False,
-                error="agent_ids 不能为空"
-            )
+            return DomainResponse(is_valid=False, error="agent_ids 不能为空")
 
         # 安全处理枚举值
         try:
             conflict_type_enum = ConflictType(conflict_type)
         except ValueError:
-            return DomainResponse(
-                is_valid=False,
-                error=f"无效的conflict_type: {conflict_type}"
-            )
+            return DomainResponse(is_valid=False, error=f"无效的conflict_type: {conflict_type}")
 
         conflict = Conflict(
             conflict_id=conflict_id or f"conflict-{len(self.conflicts)}",
@@ -391,7 +371,7 @@ class MultiAgentEvaluator(BaseEvaluator):
                 "conflict_id": conflict.conflict_id,
                 "conflict_type": conflict_type,
                 "agent_ids": agent_ids,
-            }
+            },
         )
 
     def _resolve_conflict(self, request: EvaluationSchema) -> DomainResponse:
@@ -406,10 +386,7 @@ class MultiAgentEvaluator(BaseEvaluator):
                 break
 
         if not conflict:
-            return DomainResponse(
-                is_valid=False,
-                error=f"冲突 {conflict_id} 不存在"
-            )
+            return DomainResponse(is_valid=False, error=f"冲突 {conflict_id} 不存在")
 
         conflict.resolved = True
         conflict.resolution = resolution
@@ -421,7 +398,7 @@ class MultiAgentEvaluator(BaseEvaluator):
             data={
                 "conflict_id": conflict_id,
                 "resolution": resolution,
-            }
+            },
         )
 
     def _start_collaboration_session(self, request: EvaluationSchema) -> DomainResponse:
@@ -431,10 +408,7 @@ class MultiAgentEvaluator(BaseEvaluator):
         goal = self.get_payload_data(request, "goal", "")
 
         if not session_id:
-            return DomainResponse(
-                is_valid=False,
-                error="session_id 不能为空"
-            )
+            return DomainResponse(is_valid=False, error="session_id 不能为空")
 
         self.collaboration_sessions[session_id] = {
             "session_id": session_id,
@@ -455,7 +429,7 @@ class MultiAgentEvaluator(BaseEvaluator):
                 "session_id": session_id,
                 "agent_ids": agent_ids,
                 "goal": goal,
-            }
+            },
         )
 
     def _end_collaboration_session(self, request: EvaluationSchema) -> DomainResponse:
@@ -464,10 +438,7 @@ class MultiAgentEvaluator(BaseEvaluator):
         status = self.get_payload_data(request, "status", "completed")
 
         if session_id not in self.collaboration_sessions:
-            return DomainResponse(
-                is_valid=False,
-                error=f"会话 {session_id} 不存在"
-            )
+            return DomainResponse(is_valid=False, error=f"会话 {session_id} 不存在")
 
         session = self.collaboration_sessions[session_id]
         session["end_time"] = time.time()
@@ -481,7 +452,7 @@ class MultiAgentEvaluator(BaseEvaluator):
                 "session_id": session_id,
                 "status": status,
                 "duration_seconds": session["end_time"] - session["start_time"],
-            }
+            },
         )
 
     def _analyze_collaboration(self, request: EvaluationSchema) -> DomainResponse:
@@ -606,7 +577,11 @@ class MultiAgentEvaluator(BaseEvaluator):
             return {"error": f"会话 {session_id} 不存在"}
 
         # 获取会话相关的消息和任务
-        session_messages = [m for m in self.messages if m.sender_id in session["agent_ids"] or m.receiver_id in session["agent_ids"]]
+        session_messages = [
+            m
+            for m in self.messages
+            if m.sender_id in session["agent_ids"] or m.receiver_id in session["agent_ids"]
+        ]
         session_tasks = [t for t in self.tasks.values() if t.agent_id in session["agent_ids"]]
 
         communication_analysis = self._analyze_communication(session_messages)
@@ -614,9 +589,9 @@ class MultiAgentEvaluator(BaseEvaluator):
         conflict_analysis = self._analyze_conflicts_for_agents(session["agent_ids"])
 
         overall_score = (
-            communication_analysis.get("communication_score", 0.5) * 0.3 +
-            task_analysis.get("task_efficiency_score", 0.5) * 0.4 +
-            conflict_analysis.get("conflict_resolution_score", 0.5) * 0.3
+            communication_analysis.get("communication_score", 0.5) * 0.3
+            + task_analysis.get("task_efficiency_score", 0.5) * 0.4
+            + conflict_analysis.get("conflict_resolution_score", 0.5) * 0.3
         )
 
         return {
@@ -636,10 +611,10 @@ class MultiAgentEvaluator(BaseEvaluator):
         collaboration_analysis = self._analyze_collaboration_quality()
 
         overall_score = (
-            communication_analysis.get("communication_score", 0.5) * 0.25 +
-            task_analysis.get("task_efficiency_score", 0.5) * 0.35 +
-            conflict_analysis.get("conflict_resolution_score", 0.5) * 0.2 +
-            collaboration_analysis.get("collaboration_score", 0.5) * 0.2
+            communication_analysis.get("communication_score", 0.5) * 0.25
+            + task_analysis.get("task_efficiency_score", 0.5) * 0.35
+            + conflict_analysis.get("conflict_resolution_score", 0.5) * 0.2
+            + collaboration_analysis.get("collaboration_score", 0.5) * 0.2
         )
 
         return {
@@ -685,11 +660,7 @@ class MultiAgentEvaluator(BaseEvaluator):
         # 计算通信质量分数
         # 考虑投递率、确认率和延迟
         latency_score = max(0.0, min(1.0, 1.0 - (avg_latency / 1000.0))) if avg_latency > 0 else 1.0
-        communication_score = (
-            delivery_rate * 0.4 +
-            acknowledgment_rate * 0.3 +
-            latency_score * 0.3
-        )
+        communication_score = delivery_rate * 0.4 + acknowledgment_rate * 0.3 + latency_score * 0.3
 
         return {
             "total_messages": total_messages,
@@ -716,7 +687,9 @@ class MultiAgentEvaluator(BaseEvaluator):
         total_tasks = len(tasks)
         completed_tasks = sum(1 for t in tasks if t.status == TaskStatus.COMPLETED)
         failed_tasks = sum(1 for t in tasks if t.status == TaskStatus.FAILED)
-        pending_tasks = sum(1 for t in tasks if t.status in [TaskStatus.PENDING, TaskStatus.ASSIGNED])
+        pending_tasks = sum(
+            1 for t in tasks if t.status in [TaskStatus.PENDING, TaskStatus.ASSIGNED]
+        )
 
         completion_rate = completed_tasks / total_tasks if total_tasks > 0 else 0.0
         failure_rate = failed_tasks / total_tasks if total_tasks > 0 else 0.0
@@ -724,18 +697,26 @@ class MultiAgentEvaluator(BaseEvaluator):
         # 计算平均完成时间
         completion_times = []
         for task in tasks:
-            if task.status == TaskStatus.COMPLETED and task.completed_at > 0 and task.assigned_at > 0:
+            if (
+                task.status == TaskStatus.COMPLETED
+                and task.completed_at > 0
+                and task.assigned_at > 0
+            ):
                 completion_times.append((task.completed_at - task.assigned_at) * 1000)
 
-        avg_completion_time = sum(completion_times) / len(completion_times) if completion_times else 0.0
+        avg_completion_time = (
+            sum(completion_times) / len(completion_times) if completion_times else 0.0
+        )
 
         # 计算任务效率分数
         # 考虑完成率、失败率和完成时间
-        time_score = max(0.0, min(1.0, 1.0 - (avg_completion_time / 10000.0))) if avg_completion_time > 0 else 1.0
+        time_score = (
+            max(0.0, min(1.0, 1.0 - (avg_completion_time / 10000.0)))
+            if avg_completion_time > 0
+            else 1.0
+        )
         task_efficiency_score = (
-            completion_rate * 0.5 +
-            (1.0 - failure_rate) * 0.3 +
-            time_score * 0.2
+            completion_rate * 0.5 + (1.0 - failure_rate) * 0.3 + time_score * 0.2
         )
 
         # 按Agent统计任务分配
@@ -830,7 +811,9 @@ class MultiAgentEvaluator(BaseEvaluator):
         avg_messages_per_agent = total_messages / total_agents if total_agents > 0 else 0.0
 
         # Agent利用率：有任务的Agent比例
-        agents_with_tasks = sum(1 for a in self.agents.values() if a.completed_tasks > 0 or len(a.current_tasks) > 0)
+        agents_with_tasks = sum(
+            1 for a in self.agents.values() if a.completed_tasks > 0 or len(a.current_tasks) > 0
+        )
         agent_utilization_rate = agents_with_tasks / total_agents if total_agents > 0 else 0.0
 
         # 协作分数计算
@@ -847,9 +830,7 @@ class MultiAgentEvaluator(BaseEvaluator):
             load_balance_score = 1.0
 
         collaboration_score = (
-            activity_score * 0.3 +
-            agent_utilization_rate * 0.4 +
-            load_balance_score * 0.3
+            activity_score * 0.3 + agent_utilization_rate * 0.4 + load_balance_score * 0.3
         )
 
         return {

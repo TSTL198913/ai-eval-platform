@@ -9,6 +9,7 @@
 注意：此测试使用 TestClient 模拟 HTTP 请求，验证 API 响应结构是否符合前端预期。
 真实的浏览器自动化测试需要使用 Selenium/Playwright 等工具。
 """
+
 import os
 import sys
 
@@ -37,6 +38,7 @@ class TestWebFrontendContract:
     def client(self):
         """创建测试客户端"""
         from src.api.server import app
+
         return TestClient(app)
 
     def test_evaluator_list_response_structure(self, client):
@@ -68,8 +70,8 @@ class TestWebFrontendContract:
             json={
                 "id": "web_e2e_eval_test",
                 "type": "general",
-                "payload": {"user_input": "web frontend test"}
-            }
+                "payload": {"user_input": "web frontend test"},
+            },
         )
 
         # 验证响应状态
@@ -136,6 +138,7 @@ class TestWebUserFlow:
     def client(self):
         """创建测试客户端"""
         from src.api.server import app
+
         return TestClient(app)
 
     def test_user_login_flow(self, client):
@@ -146,8 +149,7 @@ class TestWebUserFlow:
 
         # 2. 执行登录
         response = client.post(
-            "/api/v1/auth/login",
-            json={"username": "demo", "password": "demo123"}
+            "/api/v1/auth/login", json={"username": "demo", "password": "demo123"}
         )
 
         # 验证登录响应
@@ -177,8 +179,8 @@ class TestWebUserFlow:
                 json={
                     "id": "user_flow_eval",
                     "type": evaluator_name,
-                    "payload": {"user_input": "user flow test"}
-                }
+                    "payload": {"user_input": "user flow test"},
+                },
             )
             assert response.status_code in [200, 422]
 
@@ -220,6 +222,7 @@ class TestWebErrorHandling:
     def client(self):
         """创建测试客户端"""
         from src.api.server import app
+
         return TestClient(app)
 
     def test_invalid_evaluator_type_error(self, client):
@@ -229,8 +232,8 @@ class TestWebErrorHandling:
             json={
                 "id": "error_test",
                 "type": "nonexistent_evaluator",
-                "payload": {"user_input": "test"}
-            }
+                "payload": {"user_input": "test"},
+            },
         )
 
         # 验证错误响应结构
@@ -270,8 +273,8 @@ class TestWebErrorHandling:
             json={
                 # 缺少 id 字段
                 "type": "general",
-                "payload": {"user_input": "test"}
-            }
+                "payload": {"user_input": "test"},
+            },
         )
 
         # 验证错误响应结构
@@ -288,6 +291,7 @@ class TestWebPagination:
     def client(self):
         """创建测试客户端"""
         from src.api.server import app
+
         return TestClient(app)
 
     def test_pagination_first_page(self, client):
@@ -323,6 +327,7 @@ class TestWebSearch:
     def client(self):
         """创建测试客户端"""
         from src.api.server import app
+
         return TestClient(app)
 
     def test_search_by_status(self, client):
@@ -347,7 +352,9 @@ class TestWebSearch:
 
         # 所有记录评估器应为 GeneralEvaluator
         for record in records:
-            assert "General" in record["adapter_name"] or record["adapter_name"] == "GeneralEvaluator"
+            assert (
+                "General" in record["adapter_name"] or record["adapter_name"] == "GeneralEvaluator"
+            )
 
     def test_search_combined_filters(self, client):
         """组合搜索"""
@@ -371,6 +378,7 @@ class TestWebModelComparison:
     def client(self):
         """创建测试客户端"""
         from src.api.server import app
+
         return TestClient(app)
 
     def test_model_comparison_response_structure(self, client):
@@ -380,10 +388,10 @@ class TestWebModelComparison:
             json={
                 "models": [
                     {"provider": "openai", "name": "gpt-4"},
-                    {"provider": "openai", "name": "gpt-3.5-turbo"}
+                    {"provider": "openai", "name": "gpt-3.5-turbo"},
                 ],
-                "datasets": ["mmlu"]
-            }
+                "datasets": ["mmlu"],
+            },
         )
 
         # 验证响应状态
@@ -399,13 +407,7 @@ class TestWebModelComparison:
 
     def test_model_comparison_empty_models_error(self, client):
         """模型对比空模型列表错误"""
-        response = client.post(
-            "/api/v1/models/compare",
-            json={
-                "models": [],
-                "datasets": ["mmlu"]
-            }
-        )
+        response = client.post("/api/v1/models/compare", json={"models": [], "datasets": ["mmlu"]})
 
         data = response.json()
         assert data["code"] == 400  # 错误码
@@ -418,6 +420,7 @@ class TestWebDashboard:
     def client(self):
         """创建测试客户端"""
         from src.api.server import app
+
         return TestClient(app)
 
     def test_dashboard_stats_response(self, client):
@@ -452,13 +455,13 @@ class TestWebAuthentication:
     def client(self):
         """创建测试客户端"""
         from src.api.server import app
+
         return TestClient(app)
 
     def test_login_success_response(self, client):
         """登录成功响应"""
         response = client.post(
-            "/api/v1/auth/login",
-            json={"username": "demo", "password": "demo123"}
+            "/api/v1/auth/login", json={"username": "demo", "password": "demo123"}
         )
 
         if response.status_code == 200:
@@ -472,8 +475,7 @@ class TestWebAuthentication:
     def test_login_failure_response(self, client):
         """登录失败响应"""
         response = client.post(
-            "/api/v1/auth/login",
-            json={"username": "invalid", "password": "invalid"}
+            "/api/v1/auth/login", json={"username": "invalid", "password": "invalid"}
         )
 
         # 验证错误响应结构
@@ -484,10 +486,7 @@ class TestWebAuthentication:
 
     def test_refresh_token_response(self, client):
         """刷新令牌响应"""
-        response = client.post(
-            "/api/v1/auth/refresh",
-            json={"refresh_token": "demo-refresh-token"}
-        )
+        response = client.post("/api/v1/auth/refresh", json={"refresh_token": "demo-refresh-token"})
 
         # 验证响应结构
         if response.status_code == 200:

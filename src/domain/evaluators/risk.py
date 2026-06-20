@@ -1,4 +1,3 @@
-
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.schemas.evaluation import DomainResponse, EvaluationSchema
@@ -72,7 +71,11 @@ class RiskEvaluator(BaseEvaluator):
         return DomainResponse(
             is_valid=True,
             text=f"风险评估完成，检测到 {len(high_risks)} 个高风险，{len(medium_risks)} 个中风险",
-            score=1.0 if overall_risk_level == "low" else (0.5 if overall_risk_level == "medium" else 0.0),
+            score=(
+                1.0
+                if overall_risk_level == "low"
+                else (0.5 if overall_risk_level == "medium" else 0.0)
+            ),
             data={
                 "overall_risk_level": overall_risk_level,
                 "high_risks": high_risks,
@@ -92,7 +95,9 @@ class RiskEvaluator(BaseEvaluator):
         core_alignment = self.get_payload_data(request, "core_alignment", 1.0)
         responsibility_blur = self.get_payload_data(request, "responsibility_blur", 0)
 
-        risk_score = (1 - core_alignment) * 0.5 + feature_complexity * 0.3 + responsibility_blur * 0.2
+        risk_score = (
+            (1 - core_alignment) * 0.5 + feature_complexity * 0.3 + responsibility_blur * 0.2
+        )
 
         risk_level = self._get_risk_level(risk_score, self.RISK_THRESHOLDS["feature_creep"])
 
@@ -109,7 +114,11 @@ class RiskEvaluator(BaseEvaluator):
                     "core_alignment": core_alignment,
                     "responsibility_blur": responsibility_blur,
                 },
-                "suggestion": "建议审查新增功能是否符合核心目标，考虑拆分或延期非核心功能" if risk_level in ("medium", "high") else "功能范围控制良好",
+                "suggestion": (
+                    "建议审查新增功能是否符合核心目标，考虑拆分或延期非核心功能"
+                    if risk_level in ("medium", "high")
+                    else "功能范围控制良好"
+                ),
             },
         )
 
@@ -142,7 +151,11 @@ class RiskEvaluator(BaseEvaluator):
                     "pending_refactoring": pending_refactoring,
                     "documentation_gap": documentation_gap,
                 },
-                "suggestion": "建议优先清理技术债务，制定定期清理计划" if risk_level in ("medium", "high") else "技术债务控制良好",
+                "suggestion": (
+                    "建议优先清理技术债务，制定定期清理计划"
+                    if risk_level in ("medium", "high")
+                    else "技术债务控制良好"
+                ),
             },
         )
 
@@ -172,7 +185,11 @@ class RiskEvaluator(BaseEvaluator):
                     "cyclic_dependencies": cyclic_dependencies,
                     "cross_layer_calls": cross_layer_calls,
                 },
-                "suggestion": "建议减少跨层调用，考虑引入中间层解耦" if risk_level in ("medium", "high") else "模块耦合度控制良好",
+                "suggestion": (
+                    "建议减少跨层调用，考虑引入中间层解耦"
+                    if risk_level in ("medium", "high")
+                    else "模块耦合度控制良好"
+                ),
             },
         )
 
@@ -209,7 +226,11 @@ class RiskEvaluator(BaseEvaluator):
                     "critical_path_coverage": critical_path_coverage,
                     "test_pass_rate": test_pass_rate,
                 },
-                "suggestion": "建议补充测试用例，重点覆盖新增代码和关键路径" if risk_level in ("medium", "high") else "测试覆盖率良好",
+                "suggestion": (
+                    "建议补充测试用例，重点覆盖新增代码和关键路径"
+                    if risk_level in ("medium", "high")
+                    else "测试覆盖率良好"
+                ),
             },
         )
 
@@ -246,7 +267,11 @@ class RiskEvaluator(BaseEvaluator):
                     "latency_increase": latency_increase,
                     "error_rate_change": error_rate_change,
                 },
-                "suggestion": "建议审查最近的代码变更，定位漂移原因并修复" if risk_level in ("medium", "high") else "系统行为稳定，无明显漂移",
+                "suggestion": (
+                    "建议审查最近的代码变更，定位漂移原因并修复"
+                    if risk_level in ("medium", "high")
+                    else "系统行为稳定，无明显漂移"
+                ),
             },
         )
 

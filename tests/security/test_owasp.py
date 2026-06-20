@@ -43,8 +43,10 @@ RESULTS_DIR = Path(__file__).parent.parent / "security_results"
 # 数据模型
 # =====================================================================
 
+
 class VulnerabilitySeverity(Enum):
     """漏洞严重等级"""
+
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
@@ -54,6 +56,7 @@ class VulnerabilitySeverity(Enum):
 
 class OWASPCategory(Enum):
     """OWASP 类别"""
+
     A01_ACCESS_CONTROL = "A01 - Broken Access Control"
     A02_CRYPTO = "A02 - Cryptographic Failures"
     A03_INJECTION = "A03 - Injection"
@@ -69,6 +72,7 @@ class OWASPCategory(Enum):
 @dataclass
 class SecurityTestResult:
     """安全测试结果"""
+
     test_name: str
     category: OWASPCategory
     severity: VulnerabilitySeverity
@@ -83,6 +87,7 @@ class SecurityTestResult:
 # 安全测试引擎
 # =====================================================================
 
+
 class SecurityTestEngine:
     """安全渗透测试引擎"""
 
@@ -96,12 +101,7 @@ class SecurityTestEngine:
     def close(self):
         self.client.close()
 
-    def _make_request(
-        self,
-        method: str,
-        path: str,
-        **kwargs
-    ) -> httpx.Response:
+    def _make_request(self, method: str, path: str, **kwargs) -> httpx.Response:
         """发送请求（可选带认证）"""
         url = f"{self.base_url}{path}"
         headers = kwargs.pop("headers", {})
@@ -115,9 +115,7 @@ class SecurityTestEngine:
         """登录 Demo 模式"""
         try:
             response = self._make_request(
-                "POST",
-                "/api/v1/auth/login",
-                json={"username": "admin", "password": "admin123"}
+                "POST", "/api/v1/auth/login", json={"username": "admin", "password": "admin123"}
             )
             if response.status_code == 200:
                 data = response.json()
@@ -145,7 +143,7 @@ class SecurityTestEngine:
             category=OWASPCategory.A01_ACCESS_CONTROL,
             severity=VulnerabilitySeverity.HIGH,
             passed=False,
-            description="测试未授权访问受保护资源"
+            description="测试未授权访问受保护资源",
         )
 
         try:
@@ -172,7 +170,7 @@ class SecurityTestEngine:
             category=OWASPCategory.A01_ACCESS_CONTROL,
             severity=VulnerabilitySeverity.HIGH,
             passed=False,
-            description="测试水平越权访问"
+            description="测试水平越权访问",
         )
 
         try:
@@ -198,7 +196,7 @@ class SecurityTestEngine:
             category=OWASPCategory.A01_ACCESS_CONTROL,
             severity=VulnerabilitySeverity.CRITICAL,
             passed=False,
-            description="测试垂直越权访问"
+            description="测试垂直越权访问",
         )
 
         try:
@@ -235,20 +233,22 @@ class SecurityTestEngine:
                 category=OWASPCategory.A03_INJECTION,
                 severity=VulnerabilitySeverity.CRITICAL,
                 passed=False,
-                description=f"测试 SQL 注入: {payload}"
+                description=f"测试 SQL 注入: {payload}",
             )
 
             try:
                 # 测试搜索参数
                 response = self._make_request(
-                    "GET",
-                    f"/api/v1/records/search?query={urllib.parse.quote(payload)}"
+                    "GET", f"/api/v1/records/search?query={urllib.parse.quote(payload)}"
                 )
 
                 # 检查是否有 SQL 注入迹象
                 response_text = response.text.lower()
 
-                if any(indicator in response_text for indicator in ["sql", "syntax", "error", "mysql", "postgres", "sqlite"]):
+                if any(
+                    indicator in response_text
+                    for indicator in ["sql", "syntax", "error", "mysql", "postgres", "sqlite"]
+                ):
                     result.passed = False
                     result.details["vulnerability_detected"] = True
                     result.remediation = "使用参数化查询，避免 SQL 拼接"
@@ -274,7 +274,7 @@ class SecurityTestEngine:
                 category=OWASPCategory.A03_INJECTION,
                 severity=VulnerabilitySeverity.HIGH,
                 passed=False,
-                description=f"测试 XSS 注入: {payload}"
+                description=f"测试 XSS 注入: {payload}",
             )
 
             try:
@@ -285,8 +285,8 @@ class SecurityTestEngine:
                     json={
                         "id": f"xss_test_{time.time()}",
                         "type": "general",
-                        "payload": {"user_input": payload}
-                    }
+                        "payload": {"user_input": payload},
+                    },
                 )
 
                 # 检查响应中是否反射了 payload
@@ -316,7 +316,7 @@ class SecurityTestEngine:
                 category=OWASPCategory.A03_INJECTION,
                 severity=VulnerabilitySeverity.HIGH,
                 passed=False,
-                description=f"测试 Prompt 注入: {payload}"
+                description=f"测试 Prompt 注入: {payload}",
             )
 
             try:
@@ -326,8 +326,8 @@ class SecurityTestEngine:
                     json={
                         "id": f"prompt_test_{time.time()}",
                         "type": "general",
-                        "payload": {"user_input": payload}
-                    }
+                        "payload": {"user_input": payload},
+                    },
                 )
 
                 # 检查是否有注入防护
@@ -357,7 +357,7 @@ class SecurityTestEngine:
             category=OWASPCategory.A07_AUTH_FAILURES,
             severity=VulnerabilitySeverity.HIGH,
             passed=False,
-            description="测试暴力破解防护"
+            description="测试暴力破解防护",
         )
 
         try:
@@ -367,10 +367,7 @@ class SecurityTestEngine:
                 response = self._make_request(
                     "POST",
                     "/api/v1/auth/login",
-                    json={
-                        "username": "admin",
-                        "password": f"wrong_password_{i}"
-                    }
+                    json={"username": "admin", "password": f"wrong_password_{i}"},
                 )
 
                 if response.status_code != 200:
@@ -397,14 +394,12 @@ class SecurityTestEngine:
                 category=OWASPCategory.A07_AUTH_FAILURES,
                 severity=VulnerabilitySeverity.MEDIUM,
                 passed=False,
-                description=f"测试弱密码: {password}"
+                description=f"测试弱密码: {password}",
             )
 
             try:
                 response = self._make_request(
-                    "POST",
-                    "/api/v1/auth/login",
-                    json={"username": "admin", "password": password}
+                    "POST", "/api/v1/auth/login", json={"username": "admin", "password": password}
                 )
 
                 if response.status_code == 200:
@@ -423,7 +418,7 @@ class SecurityTestEngine:
             category=OWASPCategory.A07_AUTH_FAILURES,
             severity=VulnerabilitySeverity.HIGH,
             passed=False,
-            description="测试 JWT 令牌安全性"
+            description="测试 JWT 令牌安全性",
         )
 
         if self.login_demo():
@@ -438,7 +433,9 @@ class SecurityTestEngine:
 
                         # 检查是否有敏感信息
                         sensitive_keys = ["password", "secret", "key", "token"]
-                        has_sensitive = any(key in str(payload_data).lower() for key in sensitive_keys)
+                        has_sensitive = any(
+                            key in str(payload_data).lower() for key in sensitive_keys
+                        )
 
                         if has_sensitive:
                             result.passed = False
@@ -470,7 +467,7 @@ class SecurityTestEngine:
             category=OWASPCategory.A02_CRYPTO,
             severity=VulnerabilitySeverity.CRITICAL,
             passed=False,
-            description="测试敏感数据泄露"
+            description="测试敏感数据泄露",
         )
 
         try:
@@ -527,7 +524,7 @@ class SecurityTestEngine:
                 category=OWASPCategory.A10_SSRF,
                 severity=VulnerabilitySeverity.HIGH,
                 passed=False,
-                description=f"测试 SSRF: {payload}"
+                description=f"测试 SSRF: {payload}",
             )
 
             try:
@@ -537,8 +534,8 @@ class SecurityTestEngine:
                     json={
                         "id": f"ssrf_test_{time.time()}",
                         "type": "general",
-                        "payload": {"user_input": payload, "url": payload}
-                    }
+                        "payload": {"user_input": payload, "url": payload},
+                    },
                 )
 
                 # 检查是否尝试了内部请求
@@ -570,7 +567,7 @@ class SecurityTestEngine:
             category=OWASPCategory.A05_MISCONFIG,
             severity=VulnerabilitySeverity.MEDIUM,
             passed=False,
-            description="测试安全响应头"
+            description="测试安全响应头",
         )
 
         try:
@@ -610,18 +607,14 @@ class SecurityTestEngine:
             category=OWASPCategory.A05_MISCONFIG,
             severity=VulnerabilitySeverity.MEDIUM,
             passed=False,
-            description="测试堆栈跟踪泄露"
+            description="测试堆栈跟踪泄露",
         )
 
         try:
             response = self._make_request(
                 "POST",
                 "/api/v1/evaluate",
-                json={
-                    "id": "error_test",
-                    "type": "nonexistent_type",
-                    "payload": {}
-                }
+                json={"id": "error_test", "type": "nonexistent_type", "payload": {}},
             )
 
             error_indicators = ["traceback", "stack trace", "exception", "error in", "line "]
@@ -683,8 +676,12 @@ class SecurityTestEngine:
         passed = sum(1 for r in results if r.passed)
         failed = total - passed
 
-        critical_issues = [r for r in results if not r.passed and r.severity == VulnerabilitySeverity.CRITICAL]
-        high_issues = [r for r in results if not r.passed and r.severity == VulnerabilitySeverity.HIGH]
+        critical_issues = [
+            r for r in results if not r.passed and r.severity == VulnerabilitySeverity.CRITICAL
+        ]
+        high_issues = [
+            r for r in results if not r.passed and r.severity == VulnerabilitySeverity.HIGH
+        ]
 
         print(f"\n总测试数: {total}")
         print(f"通过: {passed} ({passed/total*100:.1f}%)")
@@ -727,7 +724,7 @@ class SecurityTestEngine:
                     "remediation": r.remediation,
                 }
                 for r in results
-            ]
+            ],
         }
 
         with open(filepath, "w", encoding="utf-8") as f:
@@ -739,6 +736,7 @@ class SecurityTestEngine:
 # =====================================================================
 # 测试用例
 # =====================================================================
+
 
 @pytest.fixture(scope="module")
 def security_engine():
@@ -808,7 +806,9 @@ def test_sensitive_data_protection(security_engine):
     results = security_engine._check_sensitive_data()
 
     # API Key 泄露测试应该通过
-    api_key_result = next((r for r in results if "api_key" in r.test_name or "sensitive_data" in r.test_name), None)
+    api_key_result = next(
+        (r for r in results if "api_key" in r.test_name or "sensitive_data" in r.test_name), None
+    )
     if api_key_result:
         assert api_key_result.passed, "发现敏感数据泄露"
 
@@ -843,6 +843,7 @@ def test_ssrf_protection(security_engine):
 # =====================================================================
 # 主函数
 # =====================================================================
+
 
 def main():
     """运行完整安全测试"""

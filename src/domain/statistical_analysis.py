@@ -13,14 +13,15 @@ from scipy import stats
 
 
 class SignificanceLevel(Enum):
-    P05 = 0.05   # 95% 置信度
-    P01 = 0.01   # 99% 置信度
-    P10 = 0.10   # 90% 置信度
+    P05 = 0.05  # 95% 置信度
+    P01 = 0.01  # 99% 置信度
+    P10 = 0.10  # 90% 置信度
 
 
 @dataclass
 class ABTestResult:
     """A/B 测试结果"""
+
     model_a_name: str
     model_b_name: str
     n_samples: int
@@ -72,13 +73,14 @@ class ABTestResult:
             "ci_confidence": self.ci_confidence,
             "winner": self.winner,
             "conclusion": self.conclusion,
-            "timestamp": self.timestamp.isoformat()
+            "timestamp": self.timestamp.isoformat(),
         }
 
 
 @dataclass
 class ConfidenceInterval:
     """置信区间"""
+
     estimate: float
     lower: float
     upper: float
@@ -92,7 +94,7 @@ class ConfidenceInterval:
             "upper": round(self.upper, 4),
             "confidence": self.confidence,
             "interval_width": round(self.upper - self.lower, 4),
-            "method": self.method
+            "method": self.method,
         }
 
 
@@ -110,7 +112,7 @@ class StatisticalSignificanceAnalyzer:
         model_a_name: str = "Model A",
         model_b_name: str = "Model B",
         significance_level: float = 0.05,
-        test_type: str = "auto"
+        test_type: str = "auto",
     ) -> ABTestResult:
         """运行 A/B 测试
 
@@ -151,7 +153,7 @@ class StatisticalSignificanceAnalyzer:
         elif test_type == "welch":
             t_stat, p_value = stats.ttest_ind(scores_a, scores_b, equal_var=False)
         else:  # mannwhitney
-            t_stat, p_value = stats.mannwhitneyu(scores_a, scores_b, alternative='two-sided')
+            t_stat, p_value = stats.mannwhitneyu(scores_a, scores_b, alternative="two-sided")
             # Mann-Whitney U 转换为 z-score 用于效应量
             n1, n2 = len(scores_a), len(scores_b)
             U = t_stat
@@ -159,8 +161,10 @@ class StatisticalSignificanceAnalyzer:
             t_stat = z
 
         # 计算效应量 (Cohen's d)
-        pooled_std = np.sqrt(((len(scores_a) - 1) * std_a**2 + (len(scores_b) - 1) * std_b**2) /
-                            (len(scores_a) + len(scores_b) - 2))
+        pooled_std = np.sqrt(
+            ((len(scores_a) - 1) * std_a**2 + (len(scores_b) - 1) * std_b**2)
+            / (len(scores_a) + len(scores_b) - 2)
+        )
         effect_size = (mean_b - mean_a) / pooled_std if pooled_std > 0 else 0
 
         # 效应量解释
@@ -177,8 +181,9 @@ class StatisticalSignificanceAnalyzer:
         # 计算置信区间 (使用 Welch's t 分布)
         n1, n2 = len(scores_a), len(scores_b)
         se = np.sqrt(std_a**2 / n1 + std_b**2 / n2)
-        df = ((std_a**2 / n1 + std_b**2 / n2)**2 /
-              ((std_a**2 / n1)**2 / (n1 - 1) + (std_b**2 / n2)**2 / (n2 - 1)))
+        df = (std_a**2 / n1 + std_b**2 / n2) ** 2 / (
+            (std_a**2 / n1) ** 2 / (n1 - 1) + (std_b**2 / n2) ** 2 / (n2 - 1)
+        )
         t_crit = stats.t.ppf(1 - significance_level / 2, df)
         ci_lower = (mean_b - mean_a) - t_crit * se
         ci_upper = (mean_b - mean_a) + t_crit * se
@@ -190,10 +195,14 @@ class StatisticalSignificanceAnalyzer:
         if is_significant:
             if mean_b > mean_a:
                 winner = "model_b"
-                conclusion = f"Model B 显著优于 Model A (提升 {((mean_b - mean_a) / mean_a * 100):.1f}%)"
+                conclusion = (
+                    f"Model B 显著优于 Model A (提升 {((mean_b - mean_a) / mean_a * 100):.1f}%)"
+                )
             else:
                 winner = "model_a"
-                conclusion = f"Model A 显著优于 Model B (差距 {((mean_a - mean_b) / mean_b * 100):.1f}%)"
+                conclusion = (
+                    f"Model A 显著优于 Model B (差距 {((mean_a - mean_b) / mean_b * 100):.1f}%)"
+                )
         else:
             winner = "no_significant_difference"
             conclusion = "两模型无显著差异"
@@ -216,14 +225,11 @@ class StatisticalSignificanceAnalyzer:
             ci_upper=ci_upper,
             ci_confidence=1 - significance_level,
             winner=winner,
-            conclusion=conclusion
+            conclusion=conclusion,
         )
 
     def calculate_confidence_interval(
-        self,
-        scores: list[float],
-        confidence: float = 0.95,
-        method: str = "t-distribution"
+        self, scores: list[float], confidence: float = 0.95, method: str = "t-distribution"
     ) -> ConfidenceInterval:
         """计算置信区间"""
         scores = np.array(scores)
@@ -262,14 +268,14 @@ class StatisticalSignificanceAnalyzer:
             lower=ci_lower,
             upper=ci_upper,
             confidence=confidence,
-            method=method_used
+            method=method_used,
         )
 
     def compare_multiple_models(
         self,
         model_scores: dict[str, list[float]],
         baseline_model: str = None,
-        significance_level: float = 0.05
+        significance_level: float = 0.05,
     ) -> dict[str, Any]:
         """多模型比较（与基线或两两比较）"""
         results = {}
@@ -282,7 +288,7 @@ class StatisticalSignificanceAnalyzer:
                 "mean": round(np.mean(scores), 4),
                 "std": round(np.std(scores, ddof=1), 4),
                 "n": len(scores),
-                "ci": ci.to_dict()
+                "ci": ci.to_dict(),
             }
 
         # 如果有基线模型，进行与基线的比较
@@ -294,22 +300,21 @@ class StatisticalSignificanceAnalyzer:
                         scores_b=model_scores[model_name],
                         model_a_name=baseline_model,
                         model_b_name=model_name,
-                        significance_level=significance_level
+                        significance_level=significance_level,
                     )
                     results[model_name]["ab_test"] = result.to_dict()
 
         return {
             "models": results,
             "significance_level": significance_level,
-            "best_model": max(model_names, key=lambda x: np.mean(model_scores[x])) if model_scores else None,
-            "timestamp": datetime.utcnow().isoformat()
+            "best_model": (
+                max(model_names, key=lambda x: np.mean(model_scores[x])) if model_scores else None
+            ),
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
     def power_analysis(
-        self,
-        effect_size: float = 0.5,
-        significance_level: float = 0.05,
-        power: float = 0.8
+        self, effect_size: float = 0.5, significance_level: float = 0.05, power: float = 0.8
     ) -> dict[str, Any]:
         """统计功效分析 - 计算所需样本量"""
         from scipy.stats import norm
@@ -325,7 +330,7 @@ class StatisticalSignificanceAnalyzer:
             "total_samples_needed": int(np.ceil(n * 2)),
             "effect_size": effect_size,
             "significance_level": significance_level,
-            "power": power
+            "power": power,
         }
 
 

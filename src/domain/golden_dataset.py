@@ -11,7 +11,7 @@ class GoldenSample:
     user_input: str
     actual_output: str
     expected_output: str | None = None
-    dimensions: list[str] = field(default_factory=lambda: ['correctness'])
+    dimensions: list[str] = field(default_factory=lambda: ["correctness"])
     scores: dict[str, float] = field(default_factory=dict)
     human_corrected: bool = False
     corrected_by: str | None = None
@@ -24,9 +24,10 @@ class GoldenSample:
         return dict(vars(self).items())
 
     def to_few_shot_example(self) -> str:
-        scores_str = ', '.join([f'{k}: {v}/100' for k, v in self.scores.items()])
-        expected_section = f'\n期望输出: {self.expected_output}' if self.expected_output else ''
-        return f'示例开始\n用户问题: {self.user_input}\n模型输出: {self.actual_output}{expected_section}\n评分结果: {scores_str}\n示例结束\n'
+        scores_str = ", ".join([f"{k}: {v}/100" for k, v in self.scores.items()])
+        expected_section = f"\n期望输出: {self.expected_output}" if self.expected_output else ""
+        return f"示例开始\n用户问题: {self.user_input}\n模型输出: {self.actual_output}{expected_section}\n评分结果: {scores_str}\n示例结束\n"
+
 
 @dataclass
 class GoldenDataset:
@@ -42,16 +43,21 @@ class GoldenDataset:
     def corrected_count(self) -> int:
         return sum(1 for s in self.samples if s.human_corrected)
 
+
 class GoldenDatasetManager:
-    def __init__(self, data_dir: str = 'data/golden_datasets'):
+    def __init__(self, data_dir: str = "data/golden_datasets"):
         self._datasets: dict[str, GoldenDataset] = {}
         self._sample_index: dict[str, GoldenSample] = {}
         self._data_dir = data_dir
         os.makedirs(data_dir, exist_ok=True)
 
-    def create_dataset(self, name: str, description: str = '', category: str = 'general') -> GoldenDataset:
+    def create_dataset(
+        self, name: str, description: str = "", category: str = "general"
+    ) -> GoldenDataset:
         dataset_id = str(uuid4())[:8]
-        dataset = GoldenDataset(id=dataset_id, name=name, description=description, category=category)
+        dataset = GoldenDataset(
+            id=dataset_id, name=name, description=description, category=category
+        )
         self._datasets[dataset_id] = dataset
         return dataset
 
@@ -60,18 +66,20 @@ class GoldenDatasetManager:
         if not dataset:
             return None
         sample = GoldenSample(
-            id=sample_data.get('id', str(uuid4())[:8]),
-            user_input=sample_data['user_input'],
-            actual_output=sample_data['actual_output'],
-            expected_output=sample_data.get('expected_output'),
-            dimensions=sample_data.get('dimensions', ['correctness']),
-            scores=sample_data.get('scores', {}),
+            id=sample_data.get("id", str(uuid4())[:8]),
+            user_input=sample_data["user_input"],
+            actual_output=sample_data["actual_output"],
+            expected_output=sample_data.get("expected_output"),
+            dimensions=sample_data.get("dimensions", ["correctness"]),
+            scores=sample_data.get("scores", {}),
         )
         dataset.samples.append(sample)
         self._sample_index[sample.id] = sample
         return sample
 
-    def correct_sample(self, sample_id: str, corrected_scores: dict[str, float], corrected_by: str) -> GoldenSample | None:
+    def correct_sample(
+        self, sample_id: str, corrected_scores: dict[str, float], corrected_by: str
+    ) -> GoldenSample | None:
         """校正样本评分 - 合并而非覆盖，避免数据丢失"""
         sample = self._sample_index.get(sample_id)
         if not sample:
@@ -88,7 +96,11 @@ class GoldenDatasetManager:
         dataset = self._datasets.get(dataset_id)
         if not dataset:
             return []
-        candidates = sorted([s for s in dataset.samples if s.human_corrected], key=lambda x: x.updated_at, reverse=True)[:limit]
+        candidates = sorted(
+            [s for s in dataset.samples if s.human_corrected],
+            key=lambda x: x.updated_at,
+            reverse=True,
+        )[:limit]
         return [s.to_few_shot_example() for s in candidates]
 
     def get_dataset(self, dataset_id: str) -> GoldenDataset | None:
@@ -96,5 +108,6 @@ class GoldenDatasetManager:
 
     def list_datasets(self) -> list[GoldenDataset]:
         return list(self._datasets.values())
+
 
 golden_dataset_manager = GoldenDatasetManager()

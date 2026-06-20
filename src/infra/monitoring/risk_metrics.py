@@ -71,33 +71,39 @@ def check_risk_thresholds() -> list[dict]:
     for metric in feature_creep:
         for sample in metric.samples:
             if sample.value >= 0.7:
-                warnings.append({
-                    "type": "feature_creep",
-                    "module": sample.labels.get("module"),
-                    "value": sample.value,
-                    "message": "功能蔓延风险超过阈值",
-                })
+                warnings.append(
+                    {
+                        "type": "feature_creep",
+                        "module": sample.labels.get("module"),
+                        "value": sample.value,
+                        "message": "功能蔓延风险超过阈值",
+                    }
+                )
 
     tech_debt = TECH_DEBT_RISK.collect()
     for metric in tech_debt:
         for sample in metric.samples:
             if sample.value >= 0.6:
-                warnings.append({
-                    "type": "tech_debt",
-                    "module": sample.labels.get("module"),
-                    "value": sample.value,
-                    "message": "技术债务风险超过阈值",
-                })
+                warnings.append(
+                    {
+                        "type": "tech_debt",
+                        "module": sample.labels.get("module"),
+                        "value": sample.value,
+                        "message": "技术债务风险超过阈值",
+                    }
+                )
 
     coupling = COUPLING_RISK.collect()
     for metric in coupling:
         for sample in metric.samples:
             if sample.value >= 0.5:
-                warnings.append({
-                    "type": "coupling",
-                    "module": sample.labels.get("module"),
-                    "value": sample.value,
-                    "message": "模块耦合风险超过阈值",
-                })
+                warnings.append(
+                    {
+                        "type": "coupling",
+                        "module": sample.labels.get("module"),
+                        "value": sample.value,
+                        "message": "模块耦合风险超过阈值",
+                    }
+                )
 
     return warnings

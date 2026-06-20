@@ -8,18 +8,24 @@ from src.domain.golden_dataset import golden_dataset_manager
 
 class CalibrationService:
     def __init__(self):
-        self._calibration_data_dir = 'data/calibration'
+        self._calibration_data_dir = "data/calibration"
         os.makedirs(self._calibration_data_dir, exist_ok=True)
 
-    def create_golden_dataset(self, name: str, description: str = '', category: str = 'general') -> dict[str, Any]:
+    def create_golden_dataset(
+        self, name: str, description: str = "", category: str = "general"
+    ) -> dict[str, Any]:
         dataset = golden_dataset_manager.create_dataset(name, description, category)
         return dataset.to_dict()
 
-    def add_golden_sample(self, dataset_id: str, sample_data: dict[str, Any]) -> dict[str, Any] | None:
+    def add_golden_sample(
+        self, dataset_id: str, sample_data: dict[str, Any]
+    ) -> dict[str, Any] | None:
         sample = golden_dataset_manager.add_sample(dataset_id, sample_data)
         return sample.to_dict() if sample else None
 
-    def correct_evaluation(self, sample_id: str, corrected_scores: dict[str, float], corrected_by: str = 'user') -> dict[str, Any] | None:
+    def correct_evaluation(
+        self, sample_id: str, corrected_scores: dict[str, float], corrected_by: str = "user"
+    ) -> dict[str, Any] | None:
         sample = golden_dataset_manager.correct_sample(sample_id, corrected_scores, corrected_by)
         return sample.to_dict() if sample else None
 
@@ -31,11 +37,11 @@ class CalibrationService:
         if not dataset:
             return None
         return {
-            'dataset_id': dataset.id,
-            'name': dataset.name,
-            'total_samples': len(dataset.samples),
-            'corrected_samples': dataset.corrected_count,
-            'uncorrected_samples': len(dataset.samples) - dataset.corrected_count,
+            "dataset_id": dataset.id,
+            "name": dataset.name,
+            "total_samples": len(dataset.samples),
+            "corrected_samples": dataset.corrected_count,
+            "uncorrected_samples": len(dataset.samples) - dataset.corrected_count,
         }
 
     def list_golden_datasets(self) -> list[dict[str, Any]]:
@@ -44,17 +50,20 @@ class CalibrationService:
     def export_calibration_data(self, dataset_id: str) -> str:
         dataset = golden_dataset_manager.get_dataset(dataset_id)
         if not dataset:
-            return ''
+            return ""
         export_data = {
-            'dataset_id': dataset.id,
-            'name': dataset.name,
-            'description': dataset.description,
-            'category': dataset.category,
-            'exported_at': datetime.utcnow().isoformat(),
-            'samples': [s.to_dict() for s in dataset.samples],
+            "dataset_id": dataset.id,
+            "name": dataset.name,
+            "description": dataset.description,
+            "category": dataset.category,
+            "exported_at": datetime.utcnow().isoformat(),
+            "samples": [s.to_dict() for s in dataset.samples],
         }
-        filepath = os.path.join(self._calibration_data_dir, f'{dataset_id}_export_{int(datetime.utcnow().timestamp())}.json')
-        with open(filepath, 'w', encoding='utf-8') as f:
+        filepath = os.path.join(
+            self._calibration_data_dir,
+            f"{dataset_id}_export_{int(datetime.utcnow().timestamp())}.json",
+        )
+        with open(filepath, "w", encoding="utf-8") as f:
             json.dump(export_data, f, ensure_ascii=False, indent=2)
         return filepath
 
@@ -62,14 +71,14 @@ class CalibrationService:
         if not os.path.exists(filepath):
             return False
         try:
-            with open(filepath, encoding='utf-8') as f:
+            with open(filepath, encoding="utf-8") as f:
                 data = json.load(f)
             dataset = golden_dataset_manager.create_dataset(
-                name=data.get('name', 'imported'),
-                description=data.get('description', ''),
-                category=data.get('category', 'general'),
+                name=data.get("name", "imported"),
+                description=data.get("description", ""),
+                category=data.get("category", "general"),
             )
-            for sample_data in data.get('samples', []):
+            for sample_data in data.get("samples", []):
                 golden_dataset_manager.add_sample(dataset.id, sample_data)
             return True
         except Exception:

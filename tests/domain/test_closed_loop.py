@@ -9,6 +9,7 @@
 
 关键发现：（测试过程中记录）
 """
+
 import os
 import shutil
 import sys
@@ -38,16 +39,14 @@ class TestExecuteStage:
             is_valid=True,
             score=0.85,
             text="评估完成",
-            data={"dimension_scores": {"correctness": 85}}
+            data={"dimension_scores": {"correctness": 85}},
         )
         return evaluator
 
     def test_execute_creates_evaluation_result(self, mock_evaluator):
         """执行应创建评估结果"""
         request = EvaluationSchema(
-            id="case_001",
-            type="test_evaluator",
-            payload={"user_input": "测试输入"}
+            id="case_001", type="test_evaluator", payload={"user_input": "测试输入"}
         )
 
         result = mock_evaluator.evaluate(request)
@@ -64,7 +63,7 @@ class TestExecuteStage:
             "version_id": "v001",
             "evaluator_name": "test_evaluator",
             "version": "1.0.0",
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.utcnow().isoformat(),
         }
 
         # 在实际实现中，这个信息会被附加到结果上
@@ -86,25 +85,27 @@ class TestFeedbackStage:
         """反馈校正应更新黄金数据集"""
         # 1. 创建数据集
         dataset = feedback_manager.create_dataset(
-            name="customer_service_golden",
-            description="客服回答黄金标准"
+            name="customer_service_golden", description="客服回答黄金标准"
         )
 
         # 2. 添加初始评估结果
-        feedback_manager.add_sample(dataset.id, {
-            "id": "case_001",
-            "user_input": "商品一周没发货，要求退款",
-            "actual_output": "您好，非常抱歉...",
-            "expected_output": "道歉、查询、方案",
-            "dimensions": ["correctness", "safety"],
-            "scores": {"correctness": 70, "safety": 60}
-        })
+        feedback_manager.add_sample(
+            dataset.id,
+            {
+                "id": "case_001",
+                "user_input": "商品一周没发货，要求退款",
+                "actual_output": "您好，非常抱歉...",
+                "expected_output": "道歉、查询、方案",
+                "dimensions": ["correctness", "safety"],
+                "scores": {"correctness": 70, "safety": 60},
+            },
+        )
 
         # 3. 人工校正（反馈）
         corrected = feedback_manager.correct_sample(
             sample_id="case_001",
             corrected_scores={"correctness": 90, "safety": 95},
-            corrected_by="expert_user"
+            corrected_by="expert_user",
         )
 
         # 验证校正结果
@@ -115,25 +116,23 @@ class TestFeedbackStage:
     def test_feedback_generates_few_shot_examples(self, feedback_manager):
         """反馈应生成Few-shot示例"""
         # 1. 创建数据集
-        dataset = feedback_manager.create_dataset(
-            name="test_golden",
-            description="测试"
-        )
+        dataset = feedback_manager.create_dataset(name="test_golden", description="测试")
 
         # 2. 添加多个样本
         for i in range(3):
-            feedback_manager.add_sample(dataset.id, {
-                "id": f"case_{i:03d}",
-                "user_input": f"问题{i}",
-                "actual_output": f"回答{i}",
-                "scores": {"correctness": 80 + i}
-            })
+            feedback_manager.add_sample(
+                dataset.id,
+                {
+                    "id": f"case_{i:03d}",
+                    "user_input": f"问题{i}",
+                    "actual_output": f"回答{i}",
+                    "scores": {"correctness": 80 + i},
+                },
+            )
 
         # 3. 校正部分样本
         feedback_manager.correct_sample(
-            sample_id="case_000",
-            corrected_scores={"correctness": 95},
-            corrected_by="expert"
+            sample_id="case_000", corrected_scores={"correctness": 95}, corrected_by="expert"
         )
 
         # 4. 获取Few-shot示例（用于指导后续评估）
@@ -167,7 +166,7 @@ class TestAnalyzeStage:
         mock_dataset.samples = samples
         mock_dataset.name = "test_dataset"
 
-        with patch('src.domain.adaptive_calibration.golden_dataset_manager') as mock_gm:
+        with patch("src.domain.adaptive_calibration.golden_dataset_manager") as mock_gm:
             mock_gm.get_dataset.return_value = mock_dataset
 
             # 模拟评估器（与专家有偏差）
@@ -175,9 +174,7 @@ class TestAnalyzeStage:
                 return {"score": sum(sample.scores.values()) / len(sample.scores) - 10}
 
             result = calibrator.run_calibration(
-                evaluator_name="test_evaluator",
-                evaluator_func=mock_eval,
-                dataset_id="test_dataset"
+                evaluator_name="test_evaluator", evaluator_func=mock_eval, dataset_id="test_dataset"
             )
 
             # 分析结果
@@ -189,8 +186,7 @@ class TestAnalyzeStage:
         evaluator = DriftDetectionEvaluator()
 
         result = evaluator._detect_by_similarity(
-            actual_output="完全不同的内容ABC",
-            baseline_output="原始内容XYZ"
+            actual_output="完全不同的内容ABC", baseline_output="原始内容XYZ"
         )
 
         # 漂移检测结果
@@ -215,16 +211,12 @@ class TestOptimizeStage:
         """优化应触发重新校准"""
         # 1. 注册版本
         version_manager.register_version(
-            evaluator_name="test_evaluator",
-            version="1.0.0",
-            code_hash="hash1",
-            config={}
+            evaluator_name="test_evaluator", version="1.0.0", code_hash="hash1", config={}
         )
 
         # 2. 更新校准分数（模拟优化）
         updated = version_manager.update_calibration(
-            "test_evaluator",
-            calibration_score=94.0  # 接近基线95
+            "test_evaluator", calibration_score=94.0  # 接近基线95
         )
 
         # 验证
@@ -234,17 +226,11 @@ class TestOptimizeStage:
         """优化应拒绝漂移的评估器"""
         # 1. 注册版本
         version_manager.register_version(
-            evaluator_name="test_evaluator",
-            version="1.0.0",
-            code_hash="hash1",
-            config={}
+            evaluator_name="test_evaluator", version="1.0.0", code_hash="hash1", config={}
         )
 
         # 2. 设置严重漂移的校准分数
-        version_manager.update_calibration(
-            "test_evaluator",
-            calibration_score=70.0  # 偏离基线95
-        )
+        version_manager.update_calibration("test_evaluator", calibration_score=70.0)  # 偏离基线95
 
         # 3. 检查状态
         status = version_manager.check_calibration_status("test_evaluator")
@@ -274,7 +260,7 @@ class TestClosedLoopIntegration:
             "golden_manager": golden_manager,
             "calibrator": calibrator,
             "version_manager": version_manager,
-            "temp_dir": temp_dir
+            "temp_dir": temp_dir,
         }
 
         shutil.rmtree(temp_dir, ignore_errors=True)
@@ -298,7 +284,7 @@ class TestClosedLoopIntegration:
             evaluator_name="llm_as_judge",
             version="1.0.0",
             code_hash="hash_v1",
-            config={"threshold": 0.8}
+            config={"threshold": 0.8},
         )
 
         # 1.2 执行评估（模拟）
@@ -307,32 +293,34 @@ class TestClosedLoopIntegration:
             "evaluator": "llm_as_judge",
             "version": "1.0.0",
             "score": 85,  # 评估器评分
-            "dimensions": {"correctness": 85, "safety": 85}
+            "dimensions": {"correctness": 85, "safety": 85},
         }
         assert evaluation_result["score"] == 85
 
         # ===== 阶段2：反馈 =====
         # 2.1 创建黄金数据集
         dataset = golden_manager.create_dataset(
-            name="llm_judge_golden",
-            description="LLM评判黄金标准"
+            name="llm_judge_golden", description="LLM评判黄金标准"
         )
 
         # 2.2 添加评估结果作为样本
-        golden_manager.add_sample(dataset.id, {
-            "id": "case_001",
-            "user_input": "测试问题",
-            "actual_output": "模型回答内容",
-            "expected_output": "期望包含的关键点",
-            "dimensions": ["correctness", "safety"],
-            "scores": evaluation_result["dimensions"]  # 初始评分
-        })
+        golden_manager.add_sample(
+            dataset.id,
+            {
+                "id": "case_001",
+                "user_input": "测试问题",
+                "actual_output": "模型回答内容",
+                "expected_output": "期望包含的关键点",
+                "dimensions": ["correctness", "safety"],
+                "scores": evaluation_result["dimensions"],  # 初始评分
+            },
+        )
 
         # 2.3 人工校正（专家反馈）
         golden_manager.correct_sample(
             sample_id="case_001",
             corrected_scores={"correctness": 95, "safety": 90},  # 专家校正分数
-            corrected_by="senior_expert"
+            corrected_by="senior_expert",
         )
 
         # 验证反馈
@@ -351,15 +339,12 @@ class TestClosedLoopIntegration:
         for _ in range(5):
             sample = MagicMock()
             # 评估器评分比专家低10分
-            sample.scores = {
-                "correctness": 85,  # 专家给95
-                "safety": 80       # 专家给90
-            }
+            sample.scores = {"correctness": 85, "safety": 80}  # 专家给95  # 专家给90
             samples.append(sample)
         mock_dataset.samples = samples
         mock_dataset.name = dataset.name
 
-        with patch('src.domain.adaptive_calibration.golden_dataset_manager') as mock_gm:
+        with patch("src.domain.adaptive_calibration.golden_dataset_manager") as mock_gm:
             mock_gm.get_dataset.return_value = mock_dataset
 
             def mock_eval(sample):
@@ -368,9 +353,7 @@ class TestClosedLoopIntegration:
                 return {"score": sum(scores) / len(scores) - 10}
 
             calibration_result = calibrator.run_calibration(
-                evaluator_name="llm_as_judge",
-                evaluator_func=mock_eval,
-                dataset_id=dataset.id
+                evaluator_name="llm_as_judge", evaluator_func=mock_eval, dataset_id=dataset.id
             )
 
         # 3.2 分析结果
@@ -380,28 +363,25 @@ class TestClosedLoopIntegration:
         # 3.3 漂移检测
         drift_evaluator = DriftDetectionEvaluator()
         drift_result = drift_evaluator._detect_by_similarity(
-            actual_output="评估器认为正确的答案",
-            baseline_output="专家认可的正确答案"
+            actual_output="评估器认为正确的答案", baseline_output="专家认可的正确答案"
         )
         assert drift_result["drift_score"] > 0  # 可能存在漂移
 
         # ===== 阶段4：优化 =====
         # 4.1 更新校准分数
         version_manager.update_calibration(
-            "llm_as_judge",
-            calibration_score=calibration_result.mean_eval
+            "llm_as_judge", calibration_score=calibration_result.mean_eval
         )
 
         # 4.2 检查优化决策（需要传入dataset_id以触发校准检查）
         # 使用唯一的评估器名称避免测试冲突
         import uuid
+
         unique_name = f"llm_as_judge_{uuid.uuid4().hex[:8]}"
         from src.domain.evaluator_version import evaluator_version_manager
+
         evaluator_version_manager.register_version(
-            evaluator_name=unique_name,
-            version="1.0.0",
-            code_hash="hash123",
-            config={}
+            evaluator_name=unique_name, version="1.0.0", code_hash="hash123", config={}
         )
         # 更新校准分数
         evaluator_version_manager.update_calibration(unique_name, calibration_result.mean_eval)
@@ -431,19 +411,22 @@ class TestClosedLoopIntegration:
         corrected_count = 0
 
         for i in range(total_samples):
-            golden_manager.add_sample(dataset.id, {
-                "id": f"case_{i:03d}",
-                "user_input": f"问题{i}",
-                "actual_output": f"回答{i}",
-                "scores": {"correctness": 80}
-            })
+            golden_manager.add_sample(
+                dataset.id,
+                {
+                    "id": f"case_{i:03d}",
+                    "user_input": f"问题{i}",
+                    "actual_output": f"回答{i}",
+                    "scores": {"correctness": 80},
+                },
+            )
 
             # 模拟部分样本被校正
             if i < 3:  # 30%被校正
                 golden_manager.correct_sample(
                     sample_id=f"case_{i:03d}",
                     corrected_scores={"correctness": 95},
-                    corrected_by="expert"
+                    corrected_by="expert",
                 )
                 corrected_count += 1
 
@@ -471,7 +454,7 @@ class TestLoopEdgeCases:
         mock_check = {
             "can_proceed": True,  # 允许执行
             "status": "not_calibrated",
-            "message": "建议先校准"
+            "message": "建议先校准",
         }
 
         assert mock_check["can_proceed"] is True
@@ -486,12 +469,15 @@ class TestLoopEdgeCases:
 
         # 只添加2个样本（少于要求的5个）
         for i in range(2):
-            golden_manager.add_sample(dataset.id, {
-                "id": f"case_{i:03d}",
-                "user_input": f"问题{i}",
-                "actual_output": f"回答{i}",
-                "scores": {"correctness": 80}
-            })
+            golden_manager.add_sample(
+                dataset.id,
+                {
+                    "id": f"case_{i:03d}",
+                    "user_input": f"问题{i}",
+                    "actual_output": f"回答{i}",
+                    "scores": {"correctness": 80},
+                },
+            )
 
         # 尝试获取Few-shot
         examples = golden_manager.get_few_shot_examples(dataset.id)
@@ -510,17 +496,11 @@ class TestLoopEdgeCases:
 
         # 注册稳定版本
         version_manager.register_version(
-            evaluator_name="stable_evaluator",
-            version="1.0.0",
-            code_hash="stable_hash",
-            config={}
+            evaluator_name="stable_evaluator", version="1.0.0", code_hash="stable_hash", config={}
         )
 
         # 更新校准分数（接近基线）
-        version_manager.update_calibration(
-            "stable_evaluator",
-            calibration_score=94.0  # 接近95基线
-        )
+        version_manager.update_calibration("stable_evaluator", calibration_score=94.0)  # 接近95基线
 
         # 检查状态
         status = version_manager.check_calibration_status("stable_evaluator")
@@ -562,7 +542,7 @@ class TestLoopQualityIndicators:
         # 模拟明显漂移
         result = evaluator._detect_by_similarity(
             actual_output="完全不相关的内容，内容完全不同",
-            baseline_output="原始的、正确的、相关的内容"
+            baseline_output="原始的、正确的、相关的内容",
         )
 
         # 应该检出漂移

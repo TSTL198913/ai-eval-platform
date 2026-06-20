@@ -7,6 +7,7 @@ Factuality Evaluator - 幻觉率独立评估器
 - 实体验证：人物/地点/数字等实体验证
 - 引用追溯：信息来源可追溯性
 """
+
 import re
 from typing import Any
 
@@ -84,7 +85,9 @@ class FactualityEvaluator:
             consistency_score = None  # 无参考时无法评估一致性
 
         # 幻觉检测
-        hallucination_result = self._detect_hallucination_internals(response, reference, context, strict_mode)
+        hallucination_result = self._detect_hallucination_internals(
+            response, reference, context, strict_mode
+        )
         # 实体一致性
         entity_consistency = self._check_entity_consistency(entities, reference)
         # 数字一致性
@@ -112,7 +115,9 @@ class FactualityEvaluator:
                 "is_valid": True,
                 "overall_factuality_score": round(overall, 4),
                 "hallucination_rate": round(hallucination_rate, 4),
-                "dimension_scores": {k: round(v, 4) if v is not None else None for k, v in sub_scores.items()},
+                "dimension_scores": {
+                    k: round(v, 4) if v is not None else None for k, v in sub_scores.items()
+                },
                 "claims_count": len(claims),
                 "entities_count": len(entities),
                 "numbers_count": len(numbers),
@@ -198,11 +203,13 @@ class FactualityEvaluator:
                 if str(n["value"]) not in ref_text:
                     conflicting_numbers.append(n)
             if conflicting_numbers and strict_mode:
-                issues.append({
-                    "type": "unsupported_numbers",
-                    "count": len(conflicting_numbers),
-                    "examples": conflicting_numbers[:3],
-                })
+                issues.append(
+                    {
+                        "type": "unsupported_numbers",
+                        "count": len(conflicting_numbers),
+                        "examples": conflicting_numbers[:3],
+                    }
+                )
 
         # 2. 检测过度自信的语言（无依据的断言）
         overconfident_patterns = [
@@ -226,10 +233,12 @@ class FactualityEvaluator:
                 if tc not in ref_text:
                     unsupported_time_claims.append(tc)
         if unsupported_time_claims and strict_mode:
-            issues.append({
-                "type": "unsupported_time_claims",
-                "claims": unsupported_time_claims[:3],
-            })
+            issues.append(
+                {
+                    "type": "unsupported_time_claims",
+                    "claims": unsupported_time_claims[:3],
+                }
+            )
 
         # 4. 计算幻觉分数
         if not reference:
@@ -316,11 +325,13 @@ class FactualityEvaluator:
                         words1 = set(self._tokenize(c1))
                         words2 = set(self._tokenize(c2))
                         if len(words1 & words2) >= 2:
-                            contradictions.append({
-                                "claim1": c1,
-                                "claim2": c2,
-                                "type": f"{pos}_vs_{neg}",
-                            })
+                            contradictions.append(
+                                {
+                                    "claim1": c1,
+                                    "claim2": c2,
+                                    "type": f"{pos}_vs_{neg}",
+                                }
+                            )
         return contradictions
 
     def _extract_claims(self, text: str) -> list[str]:
@@ -336,7 +347,9 @@ class FactualityEvaluator:
         for match in re.finditer(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b", text):
             entities.append({"text": match.group(1), "type": "proper_noun"})
         # 提取中文人名（简化：2-4字中文，前后不是汉字）
-        for match in re.finditer(r"(?<![\u4e00-\u9fff])([\u4e00-\u9fff]{2,4})(?![\u4e00-\u9fff])", text):
+        for match in re.finditer(
+            r"(?<![\u4e00-\u9fff])([\u4e00-\u9fff]{2,4})(?![\u4e00-\u9fff])", text
+        ):
             word = match.group(1)
             # 简单启发：包含"先生"/"女士"等称呼的更可能是人名
             if any(suffix in text for suffix in ["先生", "女士", "教授", "博士", "总裁"]):
@@ -357,7 +370,9 @@ class FactualityEvaluator:
         for match in re.finditer(r"(\d+(?:\.\d+)?)%", text):
             value = match.group(1)
             try:
-                numbers.append({"value": float(value) / 100, "text": match.group(0), "type": "percentage"})
+                numbers.append(
+                    {"value": float(value) / 100, "text": match.group(0), "type": "percentage"}
+                )
             except ValueError:
                 pass
         return numbers

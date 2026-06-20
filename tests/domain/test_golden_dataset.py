@@ -9,6 +9,7 @@
 3. Few-shot示例生成
 4. 数据持久化
 """
+
 import os
 import shutil
 import sys
@@ -38,9 +39,7 @@ class TestGoldenDatasetManagerCreation:
     def test_create_dataset_returns_golden_dataset(self, manager):
         """创建数据集应返回GoldenDataset实例"""
         dataset = manager.create_dataset(
-            name="test_dataset",
-            description="测试数据集",
-            category="general"
+            name="test_dataset", description="测试数据集", category="general"
         )
 
         assert isinstance(dataset, GoldenDataset)
@@ -91,7 +90,7 @@ class TestGoldenDatasetManagerSamples:
             "actual_output": "AI评测是对人工智能系统进行评估的过程...",
             "expected_output": "定义AI评测",
             "dimensions": ["correctness", "completeness"],
-            "scores": {"correctness": 90, "completeness": 85}
+            "scores": {"correctness": 90, "completeness": 85},
         }
 
         sample = manager.add_sample(dataset.id, sample_data)
@@ -108,11 +107,14 @@ class TestGoldenDatasetManagerSamples:
 
         initial_count = len(dataset.samples)
 
-        manager.add_sample(dataset.id, {
-            "id": "sample_001",
-            "user_input": "测试输入",
-            "actual_output": "测试输出",
-        })
+        manager.add_sample(
+            dataset.id,
+            {
+                "id": "sample_001",
+                "user_input": "测试输入",
+                "actual_output": "测试输出",
+            },
+        )
 
         assert len(dataset.samples) == initial_count + 1
 
@@ -120,11 +122,14 @@ class TestGoldenDatasetManagerSamples:
         """添加样本应创建索引"""
         manager, dataset = manager_with_dataset
 
-        manager.add_sample(dataset.id, {
-            "id": "sample_001",
-            "user_input": "测试输入",
-            "actual_output": "测试输出",
-        })
+        manager.add_sample(
+            dataset.id,
+            {
+                "id": "sample_001",
+                "user_input": "测试输入",
+                "actual_output": "测试输出",
+            },
+        )
 
         assert "sample_001" in manager._sample_index
 
@@ -132,10 +137,13 @@ class TestGoldenDatasetManagerSamples:
         """添加样本时ID可自动生成"""
         manager, dataset = manager_with_dataset
 
-        sample = manager.add_sample(dataset.id, {
-            "user_input": "测试输入",
-            "actual_output": "测试输出",
-        })
+        sample = manager.add_sample(
+            dataset.id,
+            {
+                "user_input": "测试输入",
+                "actual_output": "测试输出",
+            },
+        )
 
         assert sample.id is not None
         assert len(sample.id) > 0
@@ -144,11 +152,14 @@ class TestGoldenDatasetManagerSamples:
         """添加到不存在的数据集应返回None"""
         manager, dataset = manager_with_dataset
 
-        result = manager.add_sample("nonexistent_id", {
-            "id": "sample_001",
-            "user_input": "测试输入",
-            "actual_output": "测试输出",
-        })
+        result = manager.add_sample(
+            "nonexistent_id",
+            {
+                "id": "sample_001",
+                "user_input": "测试输入",
+                "actual_output": "测试输出",
+            },
+        )
 
         assert result is None
 
@@ -162,12 +173,15 @@ class TestGoldenDatasetManagerCorrection:
         temp_dir = tempfile.mkdtemp()
         manager = GoldenDatasetManager(data_dir=temp_dir)
         dataset = manager.create_dataset(name="test_dataset")
-        manager.add_sample(dataset.id, {
-            "id": "sample_001",
-            "user_input": "商品一周没发货，要求退款",
-            "actual_output": "您好，非常抱歉...",
-            "scores": {"correctness": 70, "safety": 60}  # 初始评分可能有偏差
-        })
+        manager.add_sample(
+            dataset.id,
+            {
+                "id": "sample_001",
+                "user_input": "商品一周没发货，要求退款",
+                "actual_output": "您好，非常抱歉...",
+                "scores": {"correctness": 70, "safety": 60},  # 初始评分可能有偏差
+            },
+        )
         yield manager, dataset
         shutil.rmtree(temp_dir, ignore_errors=True)
 
@@ -178,7 +192,7 @@ class TestGoldenDatasetManagerCorrection:
         corrected_sample = manager.correct_sample(
             sample_id="sample_001",
             corrected_scores={"correctness": 85, "safety": 90},
-            corrected_by="expert_user"
+            corrected_by="expert_user",
         )
 
         assert corrected_sample is not None
@@ -190,9 +204,7 @@ class TestGoldenDatasetManagerCorrection:
         manager, dataset = manager_with_sample
 
         manager.correct_sample(
-            sample_id="sample_001",
-            corrected_scores={"correctness": 85},
-            corrected_by="expert_user"
+            sample_id="sample_001", corrected_scores={"correctness": 85}, corrected_by="expert_user"
         )
 
         sample = manager._sample_index["sample_001"]
@@ -207,7 +219,7 @@ class TestGoldenDatasetManagerCorrection:
         result = manager.correct_sample(
             sample_id="nonexistent",
             corrected_scores={"correctness": 85},
-            corrected_by="expert_user"
+            corrected_by="expert_user",
         )
 
         assert result is None
@@ -220,7 +232,7 @@ class TestGoldenDatasetManagerCorrection:
         corrected_sample = manager.correct_sample(
             sample_id="sample_001",
             corrected_scores={"safety": 95},  # 只更新safety
-            corrected_by="expert_user"
+            corrected_by="expert_user",
         )
 
         assert corrected_sample.scores["safety"] == 95
@@ -233,9 +245,7 @@ class TestGoldenDatasetManagerCorrection:
         assert dataset.corrected_count == 0
 
         manager.correct_sample(
-            sample_id="sample_001",
-            corrected_scores={"correctness": 85},
-            corrected_by="expert_user"
+            sample_id="sample_001", corrected_scores={"correctness": 85}, corrected_by="expert_user"
         )
 
         assert dataset.corrected_count == 1
@@ -254,25 +264,24 @@ class TestGoldenDatasetManagerFewShot:
         # 添加多个样本
         for i in range(5):
             sample_id = f"sample_{i:03d}"
-            manager.add_sample(dataset.id, {
-                "id": sample_id,
-                "user_input": f"用户问题{i}",
-                "actual_output": f"模型回答{i}",
-                "expected_output": f"期望输出{i}",
-                "dimensions": ["correctness", "safety"],
-                "scores": {"correctness": 80 + i, "safety": 90}
-            })
+            manager.add_sample(
+                dataset.id,
+                {
+                    "id": sample_id,
+                    "user_input": f"用户问题{i}",
+                    "actual_output": f"模型回答{i}",
+                    "expected_output": f"期望输出{i}",
+                    "dimensions": ["correctness", "safety"],
+                    "scores": {"correctness": 80 + i, "safety": 90},
+                },
+            )
 
         # 校正部分样本
         manager.correct_sample(
-            sample_id="sample_000",
-            corrected_scores={"correctness": 95},
-            corrected_by="expert1"
+            sample_id="sample_000", corrected_scores={"correctness": 95}, corrected_by="expert1"
         )
         manager.correct_sample(
-            sample_id="sample_001",
-            corrected_scores={"correctness": 90},
-            corrected_by="expert2"
+            sample_id="sample_001", corrected_scores={"correctness": 90}, corrected_by="expert2"
         )
 
         yield manager, dataset
@@ -347,7 +356,7 @@ class TestGoldenSampleToFewShotExample:
             actual_output="机器学习是人工智能的一个分支...",
             expected_output="定义机器学习",
             dimensions=["correctness", "completeness"],
-            scores={"correctness": 90, "completeness": 85}
+            scores={"correctness": 90, "completeness": 85},
         )
 
         example = sample.to_few_shot_example()
@@ -367,7 +376,7 @@ class TestGoldenSampleToFewShotExample:
             user_input="测试问题",
             actual_output="测试回答",
             dimensions=["correctness"],
-            scores={"correctness": 80}
+            scores={"correctness": 80},
         )
 
         example = sample.to_few_shot_example()

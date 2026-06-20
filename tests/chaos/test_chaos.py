@@ -40,8 +40,10 @@ SAMPLING_INTERVAL = 0.1  # 采样间隔（秒）
 # 数据模型
 # =====================================================================
 
+
 class FaultType(Enum):
     """故障类型"""
+
     REDIS_DISCONNECT = "redis_disconnect"
     REDIS_TIMEOUT = "redis_timeout"
     REDIS_REJECT = "redis_reject"
@@ -57,6 +59,7 @@ class FaultType(Enum):
 
 class FaultStatus(Enum):
     """故障注入状态"""
+
     INJECTING = "injecting"
     ACTIVE = "active"
     RECOVERING = "recovering"
@@ -67,6 +70,7 @@ class FaultStatus(Enum):
 @dataclass
 class ChaosExperiment:
     """混沌实验结果"""
+
     name: str
     fault_type: FaultType
     start_time: datetime
@@ -87,6 +91,7 @@ class ChaosExperiment:
 # =====================================================================
 # 混沌实验器
 # =====================================================================
+
 
 class ChaosEngine:
     """混沌工程引擎"""
@@ -114,7 +119,7 @@ class ChaosEngine:
         url: str,
         method: str = "GET",
         duration: float = 10.0,
-        stop_event: threading.Event | None = None
+        stop_event: threading.Event | None = None,
     ) -> dict[str, list[float]]:
         """持续发送请求并记录延迟"""
         latencies = []
@@ -150,9 +155,7 @@ class ChaosEngine:
     def _simulate_redis_disconnect(self, duration: float) -> ChaosExperiment:
         """模拟 Redis 连接断开"""
         experiment = ChaosExperiment(
-            name="Redis连接断开",
-            fault_type=FaultType.REDIS_DISCONNECT,
-            start_time=datetime.now()
+            name="Redis连接断开", fault_type=FaultType.REDIS_DISCONNECT, start_time=datetime.now()
         )
 
         print(f"\n[混沌工程] 模拟 Redis 连接断开，持续 {duration}s...")
@@ -190,7 +193,9 @@ class ChaosEngine:
         # 验证恢复
         experiment.status = FaultStatus.RECOVERED
         experiment.end_time = datetime.now()
-        experiment.duration_ms = (experiment.end_time - experiment.start_time).total_seconds() * 1000
+        experiment.duration_ms = (
+            experiment.end_time - experiment.start_time
+        ).total_seconds() * 1000
 
         # 判断优雅降级
         experiment.graceful_degradation = experiment.error_rate < 100.0
@@ -201,9 +206,7 @@ class ChaosEngine:
     def _simulate_redis_timeout(self, duration: float, timeout_ms: int = 1) -> ChaosExperiment:
         """模拟 Redis 超时"""
         experiment = ChaosExperiment(
-            name="Redis超时",
-            fault_type=FaultType.REDIS_TIMEOUT,
-            start_time=datetime.now()
+            name="Redis超时", fault_type=FaultType.REDIS_TIMEOUT, start_time=datetime.now()
         )
 
         print(f"\n[混沌工程] 模拟 Redis 超时 ({timeout_ms}ms)，持续 {duration}s...")
@@ -229,7 +232,9 @@ class ChaosEngine:
 
         experiment.status = FaultStatus.RECOVERED
         experiment.end_time = datetime.now()
-        experiment.duration_ms = (experiment.end_time - experiment.start_time).total_seconds() * 1000
+        experiment.duration_ms = (
+            experiment.end_time - experiment.start_time
+        ).total_seconds() * 1000
         experiment.graceful_degradation = True
         experiment.auto_recovery = self.health_check()
 
@@ -238,9 +243,7 @@ class ChaosEngine:
     def _simulate_db_disconnect(self, duration: float) -> ChaosExperiment:
         """模拟数据库连接断开"""
         experiment = ChaosExperiment(
-            name="数据库连接断开",
-            fault_type=FaultType.DB_DISCONNECT,
-            start_time=datetime.now()
+            name="数据库连接断开", fault_type=FaultType.DB_DISCONNECT, start_time=datetime.now()
         )
 
         print(f"\n[混沌工程] 模拟数据库连接断开，持续 {duration}s...")
@@ -265,7 +268,9 @@ class ChaosEngine:
 
         experiment.status = FaultStatus.RECOVERED
         experiment.end_time = datetime.now()
-        experiment.duration_ms = (experiment.end_time - experiment.start_time).total_seconds() * 1000
+        experiment.duration_ms = (
+            experiment.end_time - experiment.start_time
+        ).total_seconds() * 1000
         experiment.graceful_degradation = experiment.error_rate < 100.0
         experiment.auto_recovery = self.health_check()
 
@@ -276,7 +281,7 @@ class ChaosEngine:
         experiment = ChaosExperiment(
             name=f"网络延迟({delay_ms}ms)",
             fault_type=FaultType.NETWORK_DELAY,
-            start_time=datetime.now()
+            start_time=datetime.now(),
         )
 
         print(f"\n[混沌工程] 模拟网络延迟 ({delay_ms}ms)，持续 {duration}s...")
@@ -312,7 +317,9 @@ class ChaosEngine:
 
         experiment.status = FaultStatus.RECOVERED
         experiment.end_time = datetime.now()
-        experiment.duration_ms = (experiment.end_time - experiment.start_time).total_seconds() * 1000
+        experiment.duration_ms = (
+            experiment.end_time - experiment.start_time
+        ).total_seconds() * 1000
         experiment.graceful_degradation = True
         experiment.auto_recovery = self.health_check()
 
@@ -321,9 +328,7 @@ class ChaosEngine:
     def _simulate_cpu_stress(self, duration: float) -> ChaosExperiment:
         """模拟 CPU 压力"""
         experiment = ChaosExperiment(
-            name="CPU压力",
-            fault_type=FaultType.CPU_STRESS,
-            start_time=datetime.now()
+            name="CPU压力", fault_type=FaultType.CPU_STRESS, start_time=datetime.now()
         )
 
         print(f"\n[混沌工程] 模拟 CPU 压力，持续 {duration}s...")
@@ -367,7 +372,9 @@ class ChaosEngine:
 
         experiment.status = FaultStatus.RECOVERED
         experiment.end_time = datetime.now()
-        experiment.duration_ms = (experiment.end_time - experiment.start_time).total_seconds() * 1000
+        experiment.duration_ms = (
+            experiment.end_time - experiment.start_time
+        ).total_seconds() * 1000
         experiment.graceful_degradation = True
         experiment.auto_recovery = self.health_check()
 
@@ -378,7 +385,7 @@ class ChaosEngine:
         experiment = ChaosExperiment(
             name=f"内存压力({size_mb}MB)",
             fault_type=FaultType.MEMORY_STRESS,
-            start_time=datetime.now()
+            start_time=datetime.now(),
         )
 
         print(f"\n[混沌工程] 模拟内存压力 ({size_mb}MB)，持续 {duration}s...")
@@ -417,7 +424,9 @@ class ChaosEngine:
 
         experiment.status = FaultStatus.RECOVERED
         experiment.end_time = datetime.now()
-        experiment.duration_ms = (experiment.end_time - experiment.start_time).total_seconds() * 1000
+        experiment.duration_ms = (
+            experiment.end_time - experiment.start_time
+        ).total_seconds() * 1000
         experiment.graceful_degradation = True
         experiment.auto_recovery = self.health_check()
 
@@ -452,14 +461,14 @@ class ChaosEngine:
                 sorted_latencies = sorted(latencies)
                 if len(sorted_latencies) > 0:
                     p99_index = int(len(sorted_latencies) * 0.99)
-                    experiment.p99_latency_ms = sorted_latencies[min(p99_index, len(sorted_latencies) - 1)]
+                    experiment.p99_latency_ms = sorted_latencies[
+                        min(p99_index, len(sorted_latencies) - 1)
+                    ]
 
             time.sleep(SAMPLING_INTERVAL)
 
     def run_experiment(
-        self,
-        fault_type: FaultType,
-        duration: float = INJECTION_DURATION
+        self, fault_type: FaultType, duration: float = INJECTION_DURATION
     ) -> ChaosExperiment:
         """运行指定的混沌实验"""
         if not self.health_check():
@@ -548,11 +557,12 @@ class ChaosEngine:
                     "details": r.details,
                 }
                 for r in results
-            ]
+            ],
         }
 
         with open(filepath, "w", encoding="utf-8") as f:
             import json
+
             json.dump(data, f, indent=2, ensure_ascii=False)
 
         return filepath
@@ -561,6 +571,7 @@ class ChaosEngine:
 # =====================================================================
 # 测试用例
 # =====================================================================
+
 
 @pytest.fixture(scope="module")
 def chaos_engine():
@@ -645,6 +656,7 @@ def test_memory_stress_stability(chaos_engine):
 # =====================================================================
 # 主函数
 # =====================================================================
+
 
 def main():
     """运行完整混沌工程测试"""

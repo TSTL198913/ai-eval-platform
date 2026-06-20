@@ -145,6 +145,7 @@ class TestConnectionLeakDetector:
     def test_detect_leaks_with_leak(self, detector):
         """有泄漏时应检测到"""
         import time
+
         detector.track_checkout("fake_conn")
         time.sleep(0.15)
         leaks = detector.detect_leaks()
@@ -160,6 +161,7 @@ class TestConnectionLeakDetector:
     def test_register_leak_detected_hook(self, detector):
         """注册泄漏检测钩子应正确"""
         hook_called = []
+
         def test_hook(leaks):
             hook_called.append(leaks)
 
@@ -167,6 +169,7 @@ class TestConnectionLeakDetector:
         detector.track_checkout("fake_conn")
 
         import time
+
         time.sleep(0.15)
         detector.detect_leaks()
 
@@ -268,14 +271,18 @@ class TestHooks:
 
     def test_register_checkout_hook(self):
         """注册检出钩子应正确"""
+
         def test_hook(conn):
             pass
+
         register_checkout_hook(test_hook)
 
     def test_register_checkin_hook(self):
         """注册归还钩子应正确"""
+
         def test_hook(conn):
             pass
+
         register_checkin_hook(test_hook)
 
 

@@ -43,12 +43,17 @@ class TestIdempotencyCheckerBasic:
 
     def test_get_cached_result(self, checker, mock_redis):
         import json
-        mock_redis.get = MagicMock(return_value=json.dumps({
-            "status": "processed",
-            "result": "cached-result",
-            "timestamp": 1234567890.0,
-            "metadata": {}
-        }).encode())
+
+        mock_redis.get = MagicMock(
+            return_value=json.dumps(
+                {
+                    "status": "processed",
+                    "result": "cached-result",
+                    "timestamp": 1234567890.0,
+                    "metadata": {},
+                }
+            ).encode()
+        )
         result = checker.get_cached_result("cached-id")
         assert result == "cached-result"
 

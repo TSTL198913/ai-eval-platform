@@ -65,7 +65,9 @@ class AnthropicClient(BaseLLMClient):
                 "temperature": self.config.temperature,
                 "max_tokens": self.config.max_tokens,
             }
-            response = await self.async_client.post(self.api_url, headers=self.headers, json=payload)
+            response = await self.async_client.post(
+                self.api_url, headers=self.headers, json=payload
+            )
             response.raise_for_status()
             result = response.json()
             content = result["content"][0]

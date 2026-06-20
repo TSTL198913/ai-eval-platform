@@ -87,6 +87,7 @@ class LLMAJudgeEvaluator(BaseEvaluator):
         if golden_dataset_id:
             try:
                 from src.domain.golden_dataset import golden_dataset_manager
+
                 examples = golden_dataset_manager.get_few_shot_examples(
                     golden_dataset_id, limit=few_shot_limit, dimensions=dimensions
                 )
@@ -199,22 +200,24 @@ class LLMAJudgeEvaluator(BaseEvaluator):
         )
 
     def _mock_judge_result(self) -> str:
-        return json.dumps({
-            "scores": {
-                "correctness": {
-                    "score": 85,
-                    "reason": "回答内容基本正确，体现了道歉和解决问题的态度",
-                    "evidence": ["您好，非常抱歉给您带来不便", "预计3天内可以发出"],
-                    "citation": "无"
+        return json.dumps(
+            {
+                "scores": {
+                    "correctness": {
+                        "score": 85,
+                        "reason": "回答内容基本正确，体现了道歉和解决问题的态度",
+                        "evidence": ["您好，非常抱歉给您带来不便", "预计3天内可以发出"],
+                        "citation": "无",
+                    },
+                    "relevance": {
+                        "score": 90,
+                        "reason": "回答完全针对用户提出的发货和退款问题",
+                        "evidence": ["联系物流催促发货", "退款将在1-3个工作日内到账"],
+                        "citation": "无",
+                    },
                 },
-                "relevance": {
-                    "score": 90,
-                    "reason": "回答完全针对用户提出的发货和退款问题",
-                    "evidence": ["联系物流催促发货", "退款将在1-3个工作日内到账"],
-                    "citation": "无"
-                },
-            },
-            "total_score": 87,
-            "confidence": 0.85,
-            "conflict_detected": False,
-        })
+                "total_score": 87,
+                "confidence": 0.85,
+                "conflict_detected": False,
+            }
+        )

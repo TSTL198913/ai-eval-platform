@@ -30,7 +30,7 @@ class MemoryEvaluator(BaseEvaluator):
         else:
             return DomainResponse(
                 is_valid=False,
-                error=f"未知的 action: {action}，支持的 action: evaluate_retrieval, evaluate_consistency, evaluate_forgetting"
+                error=f"未知的 action: {action}，支持的 action: evaluate_retrieval, evaluate_consistency, evaluate_forgetting",
             )
 
     def _evaluate_retrieval(self, request: EvaluationSchema) -> DomainResponse:
@@ -139,7 +139,9 @@ class MemoryEvaluator(BaseEvaluator):
         important_facts = self.get_payload_data(request, "important_facts", [])
 
         if not original_memory or not current_memory:
-            return DomainResponse(is_valid=False, error="original_memory 和 current_memory 不能为空")
+            return DomainResponse(
+                is_valid=False, error="original_memory 和 current_memory 不能为空"
+            )
 
         # 计算记忆保留度
         retention_score = self._calculate_similarity(original_memory, current_memory)
@@ -198,8 +200,8 @@ class MemoryEvaluator(BaseEvaluator):
 
     def _calculate_factual_consistency(self, context: str, ground_truth: str) -> float:
         """计算事实一致性"""
-        context_nums = set(re.findall(r'\d+\.?\d*', context))
-        truth_nums = set(re.findall(r'\d+\.?\d*', ground_truth))
+        context_nums = set(re.findall(r"\d+\.?\d*", context))
+        truth_nums = set(re.findall(r"\d+\.?\d*", ground_truth))
 
         if not truth_nums:
             return 0.5
@@ -207,8 +209,8 @@ class MemoryEvaluator(BaseEvaluator):
         num_match = len(context_nums & truth_nums) / len(truth_nums)
 
         # 检查关键实体的一致性
-        context_entities = set(re.findall(r'[A-Z][a-z]+', context))
-        truth_entities = set(re.findall(r'[A-Z][a-z]+', ground_truth))
+        context_entities = set(re.findall(r"[A-Z][a-z]+", context))
+        truth_entities = set(re.findall(r"[A-Z][a-z]+", ground_truth))
 
         if not truth_entities:
             entity_match = 0.5
@@ -269,16 +271,24 @@ class MemoryEvaluator(BaseEvaluator):
 
         return False
 
-    def _evaluate_intent_following(
-        self, old: str, new: str, intent: str
-    ) -> float:
+    def _evaluate_intent_following(self, old: str, new: str, intent: str) -> float:
         """评估是否遵循更新意图"""
         intent_lower = intent.lower()
 
         # 扩展意图检测
         add_keywords = ["添加", "新增", "增加", "扩展", "补充", "add", "new", "insert", "expand"]
         remove_keywords = ["删除", "移除", "去掉", "清除", "remove", "delete", "clear"]
-        modify_keywords = ["修改", "更新", "改变", "调整", "修改", "modify", "update", "change", "revise"]
+        modify_keywords = [
+            "修改",
+            "更新",
+            "改变",
+            "调整",
+            "修改",
+            "modify",
+            "update",
+            "change",
+            "revise",
+        ]
 
         # 检测意图类型
         intent_type = None
@@ -338,28 +348,179 @@ class MemoryEvaluator(BaseEvaluator):
     def _extract_keywords(self, text: str) -> list[str]:
         """提取关键词，包含中英文停用词过滤"""
         import re
+
         words = re.findall(r"\b[a-zA-Z\u4e00-\u9fff]{2,}\b", text.lower())
 
         # 中英文停用词
         stop_words = {
             # 中文停用词
-            "的", "是", "在", "有", "和", "了", "我", "你", "他", "她", "它", "这", "那",
-            "很", "也", "都", "要", "会", "可以", "能", "不", "没", "好", "就", "对", "说",
-            "看", "想", "去", "来", "上", "下", "大", "小", "多", "少", "一", "二", "三",
-            "四", "五", "六", "七", "八", "九", "十", "个", "位", "名", "本", "页", "条",
-            "种", "类", "们", "等", "及", "与", "或", "但", "而", "因为", "所以", "如果",
-            "虽然", "但是", "什么", "怎么", "为什么", "哪里", "多少", "谁", "哪个", "这个",
-            "那个", "这些", "那些", "被", "把", "给", "让", "从", "向", "到", "为", "以",
+            "的",
+            "是",
+            "在",
+            "有",
+            "和",
+            "了",
+            "我",
+            "你",
+            "他",
+            "她",
+            "它",
+            "这",
+            "那",
+            "很",
+            "也",
+            "都",
+            "要",
+            "会",
+            "可以",
+            "能",
+            "不",
+            "没",
+            "好",
+            "就",
+            "对",
+            "说",
+            "看",
+            "想",
+            "去",
+            "来",
+            "上",
+            "下",
+            "大",
+            "小",
+            "多",
+            "少",
+            "一",
+            "二",
+            "三",
+            "四",
+            "五",
+            "六",
+            "七",
+            "八",
+            "九",
+            "十",
+            "个",
+            "位",
+            "名",
+            "本",
+            "页",
+            "条",
+            "种",
+            "类",
+            "们",
+            "等",
+            "及",
+            "与",
+            "或",
+            "但",
+            "而",
+            "因为",
+            "所以",
+            "如果",
+            "虽然",
+            "但是",
+            "什么",
+            "怎么",
+            "为什么",
+            "哪里",
+            "多少",
+            "谁",
+            "哪个",
+            "这个",
+            "那个",
+            "这些",
+            "那些",
+            "被",
+            "把",
+            "给",
+            "让",
+            "从",
+            "向",
+            "到",
+            "为",
+            "以",
             # 英文停用词
-            "this", "that", "is", "are", "was", "were", "be", "been", "being",
-            "have", "has", "had", "do", "does", "did", "will", "would", "could",
-            "should", "may", "might", "must", "shall", "can", "need", "dare",
-            "ought", "used", "to", "of", "in", "for", "on", "with", "at", "by",
-            "from", "up", "about", "into", "over", "after", "and", "but", "or",
-            "as", "if", "when", "than", "because", "while", "although", "though",
-            "which", "who", "whom", "what", "how", "where", "why",
-            "a", "an", "the", "its", "they", "their", "them", "he", "she", "him",
-            "her", "his", "i", "me", "my", "we", "us", "our", "you", "your",
+            "this",
+            "that",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "being",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "must",
+            "shall",
+            "can",
+            "need",
+            "dare",
+            "ought",
+            "used",
+            "to",
+            "of",
+            "in",
+            "for",
+            "on",
+            "with",
+            "at",
+            "by",
+            "from",
+            "up",
+            "about",
+            "into",
+            "over",
+            "after",
+            "and",
+            "but",
+            "or",
+            "as",
+            "if",
+            "when",
+            "than",
+            "because",
+            "while",
+            "although",
+            "though",
+            "which",
+            "who",
+            "whom",
+            "what",
+            "how",
+            "where",
+            "why",
+            "a",
+            "an",
+            "the",
+            "its",
+            "they",
+            "their",
+            "them",
+            "he",
+            "she",
+            "him",
+            "her",
+            "his",
+            "i",
+            "me",
+            "my",
+            "we",
+            "us",
+            "our",
+            "you",
+            "your",
         }
 
         return [w for w in words if w not in stop_words][:20]

@@ -2,6 +2,7 @@
 Pytest 配置 - 后端测试
 提供测试夹具：fakeredis 替代、LLM client mock、共享配置
 """
+
 import os
 import sys
 from unittest.mock import MagicMock
@@ -36,6 +37,7 @@ class FakeRedis:
 
     def _now(self) -> float:
         import time as _t
+
         return _t.time()
 
     def _expired(self, key: bytes) -> bool:
@@ -160,7 +162,9 @@ class FakeRedis:
         key = key if isinstance(key, bytes) else key.encode()
         z = self._zsets.setdefault(key, {})
         score = float(score)
-        z.setdefault(score, set()).add(member if isinstance(member, bytes) else str(member).encode())
+        z.setdefault(score, set()).add(
+            member if isinstance(member, bytes) else str(member).encode()
+        )
         return 1
 
     def zremrangebyscore(self, key, min_score, max_score):
@@ -177,6 +181,7 @@ class FakeScript:
     模拟 Redis Lua 脚本对象。
     维护跨调用的状态：token 桶剩余量、滑动窗口计数。
     """
+
     def __init__(self, script: str):
         self.script = script
         self.sha = hash(script)
@@ -261,7 +266,11 @@ def reset_evaluator_registry():
 
     使用 force=True 强制重新导入模块，确保每次测试都有干净的注册表。
     """
+    from src.domain.evaluators import auto_discover
     from src.domain.evaluators.evaluator_factory import EvaluatorFactory as EF
 
     # 重置注册表和缓存标志
     EF._registry = {}
+
+    # 重新发现并注册所有评估器
+    auto_discover(force=True)

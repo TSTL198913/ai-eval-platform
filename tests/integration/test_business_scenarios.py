@@ -2,6 +2,7 @@
 业务场景集成测试 - 带有效断言
 覆盖: 金融评估、代码评估、安全评估、多轮对话、批量任务、成本告警
 """
+
 import os
 import sys
 from unittest.mock import MagicMock, patch
@@ -28,6 +29,7 @@ from src.domain.evaluators.evaluator_factory import EvaluatorFactory as EF
 def reset_evaluators_each_test():
     """每个测试前重置 EvaluatorFactory 并重新触发自动发现"""
     from src.domain.evaluators import auto_discover
+
     EF._registry = {}
     auto_discover(force=True)
     yield
@@ -245,9 +247,21 @@ class TestBatchEvaluationScenario:
         client.chat = MagicMock(side_effect=mock_chat)
 
         cases = [
-            {"id": "batch_001", "type": "general", "payload": {"user_input": "宇宙终极答案", "expected_output": "答案是 42"}},
-            {"id": "batch_002", "type": "general", "payload": {"user_input": "宇宙终极答案", "expected_output": "答案是 42"}},
-            {"id": "batch_003", "type": "general", "payload": {"user_input": "宇宙终极答案", "expected_output": "答案是 42"}},
+            {
+                "id": "batch_001",
+                "type": "general",
+                "payload": {"user_input": "宇宙终极答案", "expected_output": "答案是 42"},
+            },
+            {
+                "id": "batch_002",
+                "type": "general",
+                "payload": {"user_input": "宇宙终极答案", "expected_output": "答案是 42"},
+            },
+            {
+                "id": "batch_003",
+                "type": "general",
+                "payload": {"user_input": "宇宙终极答案", "expected_output": "答案是 42"},
+            },
         ]
 
         results = []
@@ -331,8 +345,26 @@ class TestReportGenerationScenario:
     def test_report_contains_all_records(self):
         """场景: 报告应包含所有记录"""
         records = [
-            {"id": 1, "case_id": "r1", "model_name": "gpt-4", "adapter_name": "General", "status": "passed", "latency_ms": 100.0, "response_data": {"score": 0.9}, "created_at": "2024-01-01T00:00:00"},
-            {"id": 2, "case_id": "r2", "model_name": "gpt-4", "adapter_name": "General", "status": "failed", "latency_ms": 200.0, "response_data": {"score": 0.3}, "created_at": "2024-01-01T00:00:00"},
+            {
+                "id": 1,
+                "case_id": "r1",
+                "model_name": "gpt-4",
+                "adapter_name": "General",
+                "status": "passed",
+                "latency_ms": 100.0,
+                "response_data": {"score": 0.9},
+                "created_at": "2024-01-01T00:00:00",
+            },
+            {
+                "id": 2,
+                "case_id": "r2",
+                "model_name": "gpt-4",
+                "adapter_name": "General",
+                "status": "failed",
+                "latency_ms": 200.0,
+                "response_data": {"score": 0.3},
+                "created_at": "2024-01-01T00:00:00",
+            },
         ]
 
         report_path = generate_report_from_records(records)
@@ -374,7 +406,16 @@ class TestDataConsistencyScenario:
             client=client,
         )
 
-        required_keys = {"status", "code", "message", "record_id", "evaluation_status", "latency_ms", "data", "persist"}
+        required_keys = {
+            "status",
+            "code",
+            "message",
+            "record_id",
+            "evaluation_status",
+            "latency_ms",
+            "data",
+            "persist",
+        }
         assert required_keys.issubset(set(result.keys()))
         assert result["record_id"] == "struct_test_001"
         assert isinstance(result["latency_ms"], (int, float))

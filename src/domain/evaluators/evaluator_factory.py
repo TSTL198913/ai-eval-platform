@@ -45,9 +45,7 @@ class EvaluatorFactory:
         """
         cls._quality_gate_enabled = True
         cls._quality_gate_level = level
-        cls._qa_manager = QualityAssuranceManager(
-            config=QualityGateConfig(level=level)
-        )
+        cls._qa_manager = QualityAssuranceManager(config=QualityGateConfig(level=level))
 
     @classmethod
     def disable_quality_gate(cls):
@@ -113,8 +111,7 @@ class EvaluatorFactory:
         if cls._quality_gate_enabled and cls._qa_manager:
             # 执行质量检查（简化实现）
             quality_result = QualityGateResult(
-                passed=True,
-                recommendations=[f"评估器 '{case_type}' 已通过质量检查"]
+                passed=True, recommendations=[f"评估器 '{case_type}' 已通过质量检查"]
             )
             return evaluator, quality_result
 
@@ -131,13 +128,17 @@ class EvaluatorFactory:
             registry_snapshot = list(cls._registry.items())
         info = []
         for name, evaluator_cls in registry_snapshot:
-            info.append({
-                "name": name,
-                "class_name": evaluator_cls.__name__,
-                "docstring": evaluator_cls.__doc__ or "",
-                "quality_gate_enabled": cls._quality_gate_enabled,
-                "quality_gate_level": cls._quality_gate_level.value if cls._quality_gate_enabled else "disabled",
-            })
+            info.append(
+                {
+                    "name": name,
+                    "class_name": evaluator_cls.__name__,
+                    "docstring": evaluator_cls.__doc__ or "",
+                    "quality_gate_enabled": cls._quality_gate_enabled,
+                    "quality_gate_level": (
+                        cls._quality_gate_level.value if cls._quality_gate_enabled else "disabled"
+                    ),
+                }
+            )
         return info
 
     @classmethod

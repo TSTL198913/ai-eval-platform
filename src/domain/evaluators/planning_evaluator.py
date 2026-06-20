@@ -8,6 +8,7 @@ Planning Evaluator - 任务拆解与计划生成评估器
 - 顺序正确性：评估子任务执行顺序的合理性
 - 完整性：确保计划覆盖所有必要步骤
 """
+
 import re
 from difflib import SequenceMatcher
 from typing import Any
@@ -130,7 +131,9 @@ class PlanningEvaluator:
 
         score = self._calc_completeness(generated, expected)
         matched = self._match_steps(generated, expected)
-        missing = [e for e in expected if not any(self._step_similarity(g, e) > 0.6 for g in generated)]
+        missing = [
+            e for e in expected if not any(self._step_similarity(g, e) > 0.6 for g in generated)
+        ]
 
         return DomainResponse(
             data={
@@ -296,7 +299,22 @@ class PlanningEvaluator:
         # 移除标点符号并分词
         words = re.findall(r"[\w\u4e00-\u9fff]+", text.lower())
         # 过滤停用词
-        stop_words = {"的", "了", "和", "是", "在", "我", "有", "the", "a", "an", "is", "to", "of", "and"}
+        stop_words = {
+            "的",
+            "了",
+            "和",
+            "是",
+            "在",
+            "我",
+            "有",
+            "the",
+            "a",
+            "an",
+            "is",
+            "to",
+            "of",
+            "and",
+        }
         return [w for w in words if len(w) > 1 and w not in stop_words]
 
     @staticmethod

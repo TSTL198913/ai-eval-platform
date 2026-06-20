@@ -12,10 +12,10 @@ from typing import Any
 
 
 class ExportFormat(Enum):
-    OPENAI = "openai"           # OpenAI Fine-tune 格式
-    LLAMA_FACTORY = "llama"     # LLaMA-Factory 格式
-    HUGGING_FACE = "hf"         # HuggingFace Dataset 格式
-    RAW_JSONL = "jsonl"         # 原始 JSONL 格式
+    OPENAI = "openai"  # OpenAI Fine-tune 格式
+    LLAMA_FACTORY = "llama"  # LLaMA-Factory 格式
+    HUGGING_FACE = "hf"  # HuggingFace Dataset 格式
+    RAW_JSONL = "jsonl"  # 原始 JSONL 格式
 
 
 @dataclass
@@ -32,12 +32,15 @@ class TrainingSample:
         return f"USER: {self.prompt}\nASSISTANT: {self.completion}"
 
     def to_json(self) -> str:
-        return json.dumps({
-            "id": self.id,
-            "prompt": self.prompt,
-            "completion": self.completion,
-            "metadata": self.metadata
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "id": self.id,
+                "prompt": self.prompt,
+                "completion": self.completion,
+                "metadata": self.metadata,
+            },
+            ensure_ascii=False,
+        )
 
 
 @dataclass
@@ -46,7 +49,7 @@ class ExportStats:
     by_dimension: dict[str, int] = field(default_factory=dict)
     avg_score: float = 0.0
     high_quality_samples: int = 0  # score >= 80
-    low_quality_samples: int = 0   # score < 50
+    low_quality_samples: int = 0  # score < 50
     export_time: str = ""
 
 
@@ -60,7 +63,7 @@ class FineTuneExporter:
         output_dir: str = "data/fine_tune",
         format: ExportFormat = ExportFormat.OPENAI,
         min_score: float = 0.0,
-        include_metadata: bool = True
+        include_metadata: bool = True,
     ) -> str:
         """从黄金数据集导出训练数据"""
         from src.domain.golden_dataset import golden_dataset_manager
@@ -72,7 +75,9 @@ class FineTuneExporter:
         samples = [s for s in dataset.samples if s.scores]
         filtered = [s for s in samples if self._get_avg_score(s.scores) >= min_score]
 
-        training_samples = self._convert_to_training_samples(filtered, dataset.name, include_metadata)
+        training_samples = self._convert_to_training_samples(
+            filtered, dataset.name, include_metadata
+        )
 
         os.makedirs(output_dir, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -92,7 +97,7 @@ class FineTuneExporter:
         output_dir: str = "data/fine_tune",
         format: ExportFormat = ExportFormat.OPENAI,
         limit: int = 1000,
-        min_score: float = 50.0
+        min_score: float = 50.0,
     ) -> str:
         """从数据库导出评估结果作为训练数据"""
         from src.infra.db.repository import EvaluationRepository
@@ -122,8 +127,8 @@ class FineTuneExporter:
                     "model_name": record.get("model_name"),
                     "adapter_name": record.get("adapter_name"),
                     "latency_ms": record.get("latency_ms"),
-                    "source": "database"
-                }
+                    "source": "database",
+                },
             )
             training_samples.append(sample)
 
@@ -138,10 +143,7 @@ class FineTuneExporter:
         return filepath
 
     def _convert_to_training_samples(
-        self,
-        samples: list[Any],
-        dataset_name: str,
-        include_metadata: bool
+        self, samples: list[Any], dataset_name: str, include_metadata: bool
     ) -> list[TrainingSample]:
         """将黄金样本转换为训练样本"""
         training_samples = []
@@ -155,28 +157,29 @@ class FineTuneExporter:
                 actual_output=sample.actual_output,
                 expected_output=sample.expected_output or "",
                 dimensions=dimensions_str,
-                dataset_name=dataset_name
+                dataset_name=dataset_name,
             )
 
             completion = self._build_evaluation_completion(
-                scores=sample.scores,
-                total_score=avg_score,
-                dimensions=sample.dimensions
+                scores=sample.scores, total_score=avg_score, dimensions=sample.dimensions
             )
 
-            metadata = {
-                "dataset": dataset_name,
-                "sample_id": sample.id,
-                "avg_score": avg_score,
-                "is_corrected": sample.human_corrected
-            } if include_metadata else {}
+            metadata = (
+                {
+                    "dataset": dataset_name,
+                    "sample_id": sample.id,
+                    "avg_score": avg_score,
+                    "is_corrected": sample.human_corrected,
+                }
+                if include_metadata
+                else {}
+            )
 
-            training_samples.append(TrainingSample(
-                id=sample.id,
-                prompt=prompt,
-                completion=completion,
-                metadata=metadata
-            ))
+            training_samples.append(
+                TrainingSample(
+                    id=sample.id, prompt=prompt, completion=completion, metadata=metadata
+                )
+            )
 
         return training_samples
 
@@ -186,7 +189,7 @@ class FineTuneExporter:
         actual_output: str,
         expected_output: str,
         dimensions: str,
-        dataset_name: str
+        dataset_name: str,
     ) -> str:
         """构建评估提示词"""
         expected_section = f"\n期望回答应包含: {expected_output}" if expected_output else ""
@@ -201,10 +204,7 @@ AI回答: {actual_output}{expected_section}
 """
 
     def _build_evaluation_completion(
-        self,
-        scores: dict[str, float],
-        total_score: float,
-        dimensions: list[str]
+        self, scores: dict[str, float], total_score: float, dimensions: list[str]
     ) -> str:
         """构建评估回复"""
         dim_scores = []
@@ -233,12 +233,7 @@ AI回答: {actual_output}{expected_section}
             return 0.0
         return sum(scores.values()) / len(scores)
 
-    def _write_file(
-        self,
-        filepath: str,
-        samples: list[TrainingSample],
-        format: ExportFormat
-    ):
+    def _write_file(self, filepath: str, samples: list[TrainingSample], format: ExportFormat):
         """按指定格式写入文件"""
         with open(filepath, "w", encoding="utf-8") as f:
             for sample in samples:
@@ -255,7 +250,9 @@ AI回答: {actual_output}{expected_section}
         self._stats.total_samples = len(training_samples)
         self._stats.export_time = datetime.now().isoformat()
 
-        scores = [s.metadata.get("avg_score", 0) for s in training_samples if s.metadata.get("avg_score")]
+        scores = [
+            s.metadata.get("avg_score", 0) for s in training_samples if s.metadata.get("avg_score")
+        ]
         if scores:
             self._stats.avg_score = sum(scores) / len(scores)
             self._stats.high_quality_samples = len([s for s in scores if s >= 80])
@@ -272,8 +269,8 @@ AI回答: {actual_output}{expected_section}
             "stats": {
                 "avg_score": self._stats.avg_score,
                 "high_quality_samples": self._stats.high_quality_samples,
-                "low_quality_samples": self._stats.low_quality_samples
-            }
+                "low_quality_samples": self._stats.low_quality_samples,
+            },
         }
         with open(metadata_file, "w", encoding="utf-8") as f:
             json.dump(metadata, f, ensure_ascii=False, indent=2)
@@ -284,7 +281,7 @@ AI回答: {actual_output}{expected_section}
             "avg_score": round(self._stats.avg_score, 2),
             "high_quality_samples": self._stats.high_quality_samples,
             "low_quality_samples": self._stats.low_quality_samples,
-            "export_time": self._stats.export_time
+            "export_time": self._stats.export_time,
         }
 
     def generate_quality_report(self, samples: list[TrainingSample]) -> dict[str, Any]:
@@ -296,9 +293,9 @@ AI回答: {actual_output}{expected_section}
 
         score_distribution = {
             "excellent": len([s for s in scores if s >= 90]),  # 90-100
-            "good": len([s for s in scores if 70 <= s < 90]),   # 70-89
-            "fair": len([s for s in scores if 50 <= s < 70]),    # 50-69
-            "poor": len([s for s in scores if s < 50])           # <50
+            "good": len([s for s in scores if 70 <= s < 90]),  # 70-89
+            "fair": len([s for s in scores if 50 <= s < 70]),  # 50-69
+            "poor": len([s for s in scores if s < 50]),  # <50
         }
 
         return {
@@ -307,7 +304,7 @@ AI回答: {actual_output}{expected_section}
             "avg_score": round(sum(scores) / max(len(scores), 1), 2),
             "score_distribution": score_distribution,
             "quality_grade": self._calculate_quality_grade(score_distribution),
-            "recommendations": self._generate_recommendations(score_distribution)
+            "recommendations": self._generate_recommendations(score_distribution),
         }
 
     def _calculate_quality_grade(self, distribution: dict[str, int]) -> str:

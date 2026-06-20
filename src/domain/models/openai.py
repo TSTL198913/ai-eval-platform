@@ -60,11 +60,15 @@ class OpenAIClient(BaseLLMClient):
                 "temperature": self.config.temperature,
                 "max_tokens": self.config.max_tokens,
             }
-            response = await self.async_client.post(self.api_url, headers=self.headers, json=payload)
+            response = await self.async_client.post(
+                self.api_url, headers=self.headers, json=payload
+            )
             response.raise_for_status()
             return response.json()["choices"][0]["message"]["content"]
         except httpx.HTTPStatusError as e:
-            logger.error(f"OpenAI API HTTP error (async): {e.response.status_code} - {e.response.text}")
+            logger.error(
+                f"OpenAI API HTTP error (async): {e.response.status_code} - {e.response.text}"
+            )
             raise InfrastructureError(f"LLM服务请求失败: HTTP {e.response.status_code}") from e
         except httpx.RequestError as e:
             logger.error(f"OpenAI API request error (async): {e}")

@@ -2,6 +2,7 @@
 核心模块端到端测试 - 带有效断言
 覆盖: 完整请求链路、跨模块数据一致性、异常传播、状态转换
 """
+
 import os
 import sys
 from unittest.mock import MagicMock, patch
@@ -30,6 +31,7 @@ def reset_evaluators_each_test():
     EF._registry = {}
     auto_discover(force=True)
     yield
+
 
 from fastapi.testclient import TestClient
 

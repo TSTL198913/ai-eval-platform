@@ -26,6 +26,7 @@ def reset_evaluators_each_test():
     """
     from src.domain.evaluators import auto_discover
     from src.domain.evaluators.evaluator_factory import EvaluatorFactory as EF
+
     EF._registry = {}
     auto_discover(force=True)
     yield
@@ -89,7 +90,13 @@ class TestRobustnessEvaluatorPositiveCases:
         assert result.data["is_valid"] is True
         assert "robustness_index" in result.data
         assert 0.0 <= result.data["robustness_index"] <= 1.0
-        assert result.data["robustness_level"] in ["excellent", "good", "acceptable", "weak", "poor"]
+        assert result.data["robustness_level"] in [
+            "excellent",
+            "good",
+            "acceptable",
+            "weak",
+            "poor",
+        ]
         assert "dimension_scores" in result.data
         assert len(result.data["dimension_scores"]) == 6
         assert "recommendations" in result.data
@@ -767,5 +774,5 @@ class TestEvaluatorFactoryRegistration:
 
         # Assert
         assert type(evaluator).__name__ == "RobustnessEvaluator"
-        assert hasattr(evaluator, 'evaluate')
-        assert hasattr(evaluator, 'safe_evaluate')
+        assert hasattr(evaluator, "evaluate")
+        assert hasattr(evaluator, "safe_evaluate")

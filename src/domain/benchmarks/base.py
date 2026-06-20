@@ -8,14 +8,13 @@ class BaseBenchmark(Protocol):
     category: str
     num_samples: int
 
-    def load_dataset(self) -> list[dict[str, Any]]:
-        ...
+    def load_dataset(self) -> list[dict[str, Any]]: ...
 
-    def evaluate(self, llm_client, samples: list[dict[str, Any]] | None = None) -> "BenchmarkResult":
-        ...
+    def evaluate(
+        self, llm_client, samples: list[dict[str, Any]] | None = None
+    ) -> "BenchmarkResult": ...
 
-    def calculate_score(self, results: list[dict[str, Any]]) -> float:
-        ...
+    def calculate_score(self, results: list[dict[str, Any]]) -> float: ...
 
 
 @dataclass

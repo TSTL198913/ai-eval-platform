@@ -34,6 +34,7 @@ try:
     from cryptography.fernet import Fernet
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
     HAS_CRYPTO = True
 except ImportError:
     HAS_CRYPTO = False
@@ -43,6 +44,7 @@ except ImportError:
 # =====================================================================
 # 密钥管理
 # =====================================================================
+
 
 def generate_key(password: str, salt: bytes | None = None) -> bytes:
     """生成加密密钥
@@ -96,6 +98,7 @@ def save_key(key: bytes, key_path: str):
 # 加密/解密
 # =====================================================================
 
+
 def encrypt_value(value: str, key: bytes) -> str:
     """加密字符串值"""
     if not HAS_CRYPTO:
@@ -142,6 +145,7 @@ def decrypt_api_key(encrypted_key: str, key: bytes | None = None) -> str:
 # 敏感信息脱敏
 # =====================================================================
 
+
 def mask_sensitive_value(value: str, visible_chars: int = 4) -> str:
     """脱敏敏感值，只显示前N个字符
 
@@ -186,13 +190,13 @@ def mask_url(url: str) -> str:
     import re
 
     # 脱敏API Key参数
-    url = re.sub(r'([?&]api[_-]?key=)([^&]+)', r'\1***', url, flags=re.IGNORECASE)
+    url = re.sub(r"([?&]api[_-]?key=)([^&]+)", r"\1***", url, flags=re.IGNORECASE)
 
     # 脱敏token参数
-    url = re.sub(r'([?&]token=)([^&]+)', r'\1***', url, flags=re.IGNORECASE)
+    url = re.sub(r"([?&]token=)([^&]+)", r"\1***", url, flags=re.IGNORECASE)
 
     # 脱敏password参数
-    url = re.sub(r'([?&]password=)([^&]+)', r'\1***', url, flags=re.IGNORECASE)
+    url = re.sub(r"([?&]password=)([^&]+)", r"\1***", url, flags=re.IGNORECASE)
 
     return url
 
@@ -200,6 +204,7 @@ def mask_url(url: str) -> str:
 # =====================================================================
 # 配置加密存储
 # =====================================================================
+
 
 class EncryptedConfig:
     """加密配置管理器"""
@@ -258,20 +263,22 @@ class EncryptedConfig:
 # 安全日志记录
 # =====================================================================
 
+
 class SecureLogger:
     """安全日志处理器，自动脱敏敏感信息"""
 
     SENSITIVE_PATTERNS = [
-        (r'api[_-]?key["\']?\s*[:=]\s*["\']?([\w-]+)', r'api_key=***'),
-        (r'token["\']?\s*[:=]\s*["\']?([\w.-]+)', r'token=***'),
-        (r'password["\']?\s*[:=]\s*["\']?([^\s"\']+)', r'password=***'),
-        (r'Authorization["\']?\s*[:=]\s*["\']?Bearer\s+([\w.-]+)', r'Authorization=Bearer ***'),
+        (r'api[_-]?key["\']?\s*[:=]\s*["\']?([\w-]+)', r"api_key=***"),
+        (r'token["\']?\s*[:=]\s*["\']?([\w.-]+)', r"token=***"),
+        (r'password["\']?\s*[:=]\s*["\']?([^\s"\']+)', r"password=***"),
+        (r'Authorization["\']?\s*[:=]\s*["\']?Bearer\s+([\w.-]+)', r"Authorization=Bearer ***"),
     ]
 
     @classmethod
     def sanitize(cls, message: str) -> str:
         """脱敏日志消息"""
         import re
+
         for pattern, replacement in cls.SENSITIVE_PATTERNS:
             message = re.sub(pattern, replacement, message, flags=re.IGNORECASE)
         return message
@@ -280,6 +287,7 @@ class SecureLogger:
 # =====================================================================
 # 环境变量安全加载
 # =====================================================================
+
 
 def safe_getenv(key: str, default: str | None = None, required: bool = False) -> str | None:
     """安全获取环境变量

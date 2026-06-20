@@ -8,6 +8,7 @@ Robustness Evaluator - 鲁棒性指数综合加权评估器
 - 异常处理能力
 - 安全性（无注入/越狱触发）
 """
+
 import statistics
 from typing import Any
 
@@ -34,12 +35,12 @@ class RobustnessEvaluator:
     """
 
     DEFAULT_WEIGHTS = {
-        "consistency": 0.25,         # 输出一致性
+        "consistency": 0.25,  # 输出一致性
         "perturbation_resistance": 0.20,  # 扰动抵抗
-        "error_recovery": 0.15,       # 错误恢复
-        "security": 0.20,            # 安全性
-        "drift_resistance": 0.10,    # 漂移抵抗
-        "stability": 0.10,           # 稳定性
+        "error_recovery": 0.15,  # 错误恢复
+        "security": 0.20,  # 安全性
+        "drift_resistance": 0.10,  # 漂移抵抗
+        "stability": 0.10,  # 稳定性
     }
 
     def __init__(self, client: Any | None = None):
@@ -241,7 +242,9 @@ class RobustnessEvaluator:
 
     def _calc_stability(self, test_results: list[dict]) -> float:
         """计算稳定性（响应时间稳定性）"""
-        latencies = [r.get("latency_ms", 0) for r in test_results if r.get("latency_ms") is not None]
+        latencies = [
+            r.get("latency_ms", 0) for r in test_results if r.get("latency_ms") is not None
+        ]
         if len(latencies) < 2:
             return 1.0
         try:
@@ -271,7 +274,8 @@ class RobustnessEvaluator:
         return {
             "total": len(perturbation_results),
             "by_type": by_type,
-            "survival_rate": sum(1 for r in perturbation_results if r.get("survived", False)) / len(perturbation_results),
+            "survival_rate": sum(1 for r in perturbation_results if r.get("survived", False))
+            / len(perturbation_results),
         }
 
     def _generate_recommendations(self, scores: dict[str, float]) -> list[str]:

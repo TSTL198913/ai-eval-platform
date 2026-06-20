@@ -2,6 +2,7 @@
 真实数据集加载器
 提供对MMLU、GSM8K、HumanEval等真实标准数据集的支持
 """
+
 import json
 from pathlib import Path
 from typing import Any
@@ -31,7 +32,9 @@ class DatasetLoader:
         return samples
 
     @classmethod
-    def load_mmlu(cls, subject: str | None = None, limit: int | None = None) -> list[dict[str, Any]]:
+    def load_mmlu(
+        cls, subject: str | None = None, limit: int | None = None
+    ) -> list[dict[str, Any]]:
         """加载MMLU数据集
 
         Args:

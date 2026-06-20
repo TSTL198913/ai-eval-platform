@@ -60,7 +60,12 @@ class ScenarioBenchmark(BaseBenchmark):
                 "input": "我想退货，买的衣服尺码不合适，吊牌还在，是昨天刚收到的。",
                 "expected_output": "确认退货条件并引导操作",
                 "expected_steps": ["确认退货条件", "告知退货流程", "确认收货信息", "预估退款时间"],
-                "context": {"product": "衣服", "issue": "尺码不合适", "purchase_date": "昨天", "tags_intact": True},
+                "context": {
+                    "product": "衣服",
+                    "issue": "尺码不合适",
+                    "purchase_date": "昨天",
+                    "tags_intact": True,
+                },
                 "difficulty": "easy",
                 "success_criteria": ["条件确认", "流程清晰", "时间明确"],
             },
@@ -283,7 +288,9 @@ class ScenarioBenchmark(BaseBenchmark):
     def load_dataset(self) -> list[dict[str, Any]]:
         return self.samples
 
-    def evaluate(self, llm_client=None, samples: list[dict[str, Any]] | None = None) -> BenchmarkResult:
+    def evaluate(
+        self, llm_client=None, samples: list[dict[str, Any]] | None = None
+    ) -> BenchmarkResult:
         if samples is None:
             samples = self.samples
 
@@ -327,8 +334,14 @@ class ScenarioBenchmark(BaseBenchmark):
             else:
                 criteria_matches.append({"criterion": criterion, "matched": False})
 
-        step_match_rate = sum(1 for m in step_matches if m["matched"]) / len(step_matches) if step_matches else 0
-        criteria_match_rate = sum(1 for m in criteria_matches if m["matched"]) / len(criteria_matches) if criteria_matches else 0
+        step_match_rate = (
+            sum(1 for m in step_matches if m["matched"]) / len(step_matches) if step_matches else 0
+        )
+        criteria_match_rate = (
+            sum(1 for m in criteria_matches if m["matched"]) / len(criteria_matches)
+            if criteria_matches
+            else 0
+        )
 
         is_correct = step_match_rate >= 0.6 and criteria_match_rate >= 0.6
 
@@ -353,7 +366,7 @@ class ScenarioBenchmark(BaseBenchmark):
             return True
 
         for i in range(len(step_lower) - 1):
-            substring = step_lower[i:i+2]
+            substring = step_lower[i : i + 2]
             if substring in output_lower:
                 return True
 
@@ -370,7 +383,7 @@ class ScenarioBenchmark(BaseBenchmark):
             return True
 
         for i in range(len(criterion_lower) - 1):
-            substring = criterion_lower[i:i+2]
+            substring = criterion_lower[i : i + 2]
             if substring in output_lower:
                 return True
 
@@ -384,7 +397,7 @@ class ScenarioBenchmark(BaseBenchmark):
         for result in results:
             step_rate = result.get("step_match_rate", 0)
             criteria_rate = result.get("criteria_match_rate", 0)
-            total_score += (step_rate * 0.5 + criteria_rate * 0.5)
+            total_score += step_rate * 0.5 + criteria_rate * 0.5
 
         return total_score / len(results)
 

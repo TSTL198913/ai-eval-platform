@@ -59,7 +59,9 @@ class ProductionSampler:
     def should_sample(self) -> bool:
         return random.random() < self.sample_rate
 
-    def sample(self, request_id: str, user_input: str, model_output: str, **metadata) -> SampledRequest | None:
+    def sample(
+        self, request_id: str, user_input: str, model_output: str, **metadata
+    ) -> SampledRequest | None:
         if not self.should_sample():
             return None
 
@@ -141,7 +143,9 @@ class OnlineEvaluator:
 
         recycled = []
         for result in to_recycle:
-            request = next((r for r in self._sampled_requests if r.request_id == result.request_id), None)
+            request = next(
+                (r for r in self._sampled_requests if r.request_id == result.request_id), None
+            )
             if request:
                 sample_data = {
                     "question": request.user_input,
@@ -205,7 +209,9 @@ class OnlineEvaluationPipeline:
         self.recycle_interval = recycle_interval
         self._count_since_last_recycle = 0
 
-    def process_request(self, request_id: str, user_input: str, model_output: str, **metadata) -> OnlineEvaluationResult | None:
+    def process_request(
+        self, request_id: str, user_input: str, model_output: str, **metadata
+    ) -> OnlineEvaluationResult | None:
         sampled = self.sampler.sample(request_id, user_input, model_output, **metadata)
         if not sampled:
             return None

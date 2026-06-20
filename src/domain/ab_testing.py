@@ -76,7 +76,7 @@ class ABTestResult:
         std_a, std_b = metrics_a["std_score"], metrics_b["std_score"]
         n_a, n_b = metrics_a["sample_size"], metrics_b["sample_size"]
 
-        standard_error = math.sqrt((std_a ** 2 / n_a) + (std_b ** 2 / n_b))
+        standard_error = math.sqrt((std_a**2 / n_a) + (std_b**2 / n_b))
         if standard_error == 0:
             t_value = 0
         else:
@@ -86,7 +86,9 @@ class ABTestResult:
 
         p_value = self._calculate_p_value(t_value, degrees_of_freedom)
 
-        effect_size = (score_b - score_a) / math.sqrt(((n_a - 1) * std_a ** 2 + (n_b - 1) * std_b ** 2) / degrees_of_freedom)
+        effect_size = (score_b - score_a) / math.sqrt(
+            ((n_a - 1) * std_a**2 + (n_b - 1) * std_b**2) / degrees_of_freedom
+        )
 
         confidence_interval = (
             (score_b - score_a) - 1.96 * standard_error,
@@ -108,6 +110,7 @@ class ABTestResult:
         """使用scipy精确计算p值（双尾检验），失败时回退到查表法"""
         try:
             from scipy import stats
+
             if df <= 0:
                 return 1.0
             # 使用scipy.stats.t.sf计算双尾p值
@@ -135,6 +138,7 @@ class ABTestResult:
         """非参数检验（Mann-Whitney U）"""
         try:
             from scipy import stats
+
             scores_a = [r.get("score", 0) for r in self.group_a["results"]]
             scores_b = [r.get("score", 0) for r in self.group_b["results"]]
             if len(scores_a) < 2 or len(scores_b) < 2:
@@ -155,6 +159,7 @@ class ABTestResult:
         """Wilcoxon符号秩检验（配对样本）"""
         try:
             from scipy import stats
+
             scores_a = [r.get("score", 0) for r in self.group_a["results"]]
             scores_b = [r.get("score", 0) for r in self.group_b["results"]]
             min_len = min(len(scores_a), len(scores_b))
@@ -172,7 +177,9 @@ class ABTestResult:
         except Exception as e:
             return {"error": str(e), "method": "Wilcoxon"}
 
-    def apply_multiple_comparison_correction(self, p_values: list[float], method: str = "bonferroni") -> dict:
+    def apply_multiple_comparison_correction(
+        self, p_values: list[float], method: str = "bonferroni"
+    ) -> dict:
         """多重比较校正
 
         Args:
@@ -184,6 +191,7 @@ class ABTestResult:
 
         try:
             import scipy.stats  # noqa: F401
+
             if method == "bonferroni":
                 corrected = [min(p * len(p_values), 1.0) for p in p_values]
             elif method == "holm":
@@ -292,7 +300,9 @@ class ABTestManager:
             del cls._tests[test_id]
 
     @classmethod
-    def run_ab_test(cls, test_id: str, group_a_model, group_b_model, test_cases: list[dict]) -> ABTestResult:
+    def run_ab_test(
+        cls, test_id: str, group_a_model, group_b_model, test_cases: list[dict]
+    ) -> ABTestResult:
         """执行A/B测试"""
         if test_id not in cls._tests:
             raise ValueError(f"Test '{test_id}' not found")
@@ -351,7 +361,10 @@ class ABTestAPI:
             return {"error": f"Test '{test_id}' not found"}
 
         test.add_result(group, result)
-        return {"message": "Result added", "total_results": len(test.group_a["results"]) + len(test.group_b["results"])}
+        return {
+            "message": "Result added",
+            "total_results": len(test.group_a["results"]) + len(test.group_b["results"]),
+        }
 
     @staticmethod
     def complete(test_id: str) -> dict:

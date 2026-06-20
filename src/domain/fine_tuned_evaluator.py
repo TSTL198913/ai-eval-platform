@@ -45,7 +45,7 @@ class FineTunedEvaluator(BaseEvaluator):
         model_path: str = None,
         model_name: str = "fine_tuned_judge",
         fallback_to_llm: bool = True,
-        max_retries: int = 1
+        max_retries: int = 1,
     ):
         super().__init__()
         self._model_path = model_path
@@ -69,13 +69,10 @@ class FineTunedEvaluator(BaseEvaluator):
             from transformers import AutoModelForCausalLM, AutoTokenizer
 
             self._tokenizer = AutoTokenizer.from_pretrained(
-                self._model_path,
-                trust_remote_code=True
+                self._model_path, trust_remote_code=True
             )
             self._model = AutoModelForCausalLM.from_pretrained(
-                self._model_path,
-                device_map="auto",
-                trust_remote_code=True
+                self._model_path, device_map="auto", trust_remote_code=True
             )
             self._status = ModelStatus.READY
         except ImportError:
@@ -99,7 +96,7 @@ class FineTunedEvaluator(BaseEvaluator):
             name=self._model_name,
             path=self._model_path or "not_loaded",
             size_mb=round(size_mb, 2),
-            status=self._status
+            status=self._status,
         )
 
     def evaluate(self, request: EvaluationSchema) -> DomainResponse:
@@ -129,10 +126,7 @@ class FineTunedEvaluator(BaseEvaluator):
 
                 inputs = self._tokenizer(prompt, return_tensors="pt").to(self._model.device)
                 outputs = self._model.generate(
-                    **inputs,
-                    max_new_tokens=512,
-                    temperature=0.1,
-                    do_sample=True
+                    **inputs, max_new_tokens=512, temperature=0.1, do_sample=True
                 )
                 response = self._tokenizer.decode(outputs[0], skip_special_tokens=True)
 
@@ -149,7 +143,9 @@ class FineTunedEvaluator(BaseEvaluator):
 
         return self._mock_evaluate(request, dimensions)
 
-    def _evaluate_with_llm(self, request: EvaluationSchema, dimensions: list[str]) -> DomainResponse:
+    def _evaluate_with_llm(
+        self, request: EvaluationSchema, dimensions: list[str]
+    ) -> DomainResponse:
         """使用 LLM Client 评估"""
         start_time = time.time()
 
@@ -178,8 +174,8 @@ class FineTunedEvaluator(BaseEvaluator):
                 "total_score": total // len(dimensions),
                 "confidence": 0.7,
                 "source": "mock",
-                "model": self._model_name
-            }
+                "model": self._model_name,
+            },
         )
 
     def _build_prompt(self, request: EvaluationSchema, dimensions: list[str]) -> str:
@@ -193,13 +189,10 @@ class FineTunedEvaluator(BaseEvaluator):
             "completeness": "完整性：是否覆盖所有要点",
             "relevance": "相关性：是否与问题相关",
             "safety": "安全性：是否包含有害内容",
-            "conciseness": "简洁性：是否简洁明了"
+            "conciseness": "简洁性：是否简洁明了",
         }
 
-        dim_str = "\n".join([
-            f"- {dim}: {dim_descriptions.get(dim, dim)}"
-            for dim in dimensions
-        ])
+        dim_str = "\n".join([f"- {dim}: {dim_descriptions.get(dim, dim)}" for dim in dimensions])
 
         expected_section = f"\n期望回答特征: {expected_output}" if expected_output else ""
 
@@ -214,7 +207,9 @@ class FineTunedEvaluator(BaseEvaluator):
 请以JSON格式输出评分:
 {{"scores": {{"<维度>": {{"score": <0-100分数>, "reason": "<理由>"}}}}, "total_score": <总分>}}"""
 
-    def _parse_response(self, response: str, dimensions: list[str], latency_ms: float) -> DomainResponse:
+    def _parse_response(
+        self, response: str, dimensions: list[str], latency_ms: float
+    ) -> DomainResponse:
         """解析评估响应"""
         try:
             start = response.find("{")
@@ -237,9 +232,11 @@ class FineTunedEvaluator(BaseEvaluator):
                     "total_score": total_score,
                     "confidence": 0.85,
                     "latency_ms": round(latency_ms, 2),
-                    "source": "local_model" if self._status == ModelStatus.READY else "llm_fallback",
-                    "model": self._model_name
-                }
+                    "source": (
+                        "local_model" if self._status == ModelStatus.READY else "llm_fallback"
+                    ),
+                    "model": self._model_name,
+                },
             )
         except Exception:
             return self._fallback_parse_response(response, dimensions)
@@ -248,12 +245,16 @@ class FineTunedEvaluator(BaseEvaluator):
         """回退解析"""
         scores = {}
         import re
+
         for dim in dimensions:
-            match = re.search(rf'{dim}[：:]\s*(\d+)', response)
+            match = re.search(rf"{dim}[：:]\s*(\d+)", response)
             score = int(match.group(1)) if match else 70
             scores[dim] = {"score": score, "reason": "解析结果"}
 
-        return {"scores": scores, "total_score": sum(s["score"] for s in scores.values()) // len(scores)}
+        return {
+            "scores": scores,
+            "total_score": sum(s["score"] for s in scores.values()) // len(scores),
+        }
 
     def _fallback_parse_response(self, response: str, dimensions: list[str]) -> DomainResponse:
         """回退响应"""
@@ -266,8 +267,8 @@ class FineTunedEvaluator(BaseEvaluator):
                 "llm_judge_scores": scores,
                 "total_score": 70,
                 "confidence": 0.5,
-                "source": "fallback"
-            }
+                "source": "fallback",
+            },
         )
 
     def reload_model(self, model_path: str):
@@ -282,7 +283,7 @@ class FineTunedEvaluator(BaseEvaluator):
             "status": self._status.value,
             "model_path": self._model_path,
             "is_loaded": self._status == ModelStatus.READY,
-            "fallback_enabled": self._fallback_to_llm
+            "fallback_enabled": self._fallback_to_llm,
         }
 
 
@@ -309,7 +310,7 @@ class ModelManager:
                         evaluator = FineTunedEvaluator(
                             model_path=model_config.get("path"),
                             model_name=name,
-                            fallback_to_llm=model_config.get("fallback", True)
+                            fallback_to_llm=model_config.get("fallback", True),
                         )
                         self._models[name] = evaluator
                         if model_config.get("default"):
@@ -340,10 +341,7 @@ class ModelManager:
     def list_models(self) -> list[dict[str, Any]]:
         """列出所有模型"""
         return [
-            {
-                "name": name,
-                **evaluator.model_info.__dict__
-            }
+            {"name": name, **evaluator.model_info.__dict__}
             for name, evaluator in self._models.items()
         ]
 
@@ -357,7 +355,7 @@ class ModelManager:
             config[name] = {
                 "path": evaluator._model_path,
                 "default": name == self._default_model,
-                "fallback": evaluator._fallback_to_llm
+                "fallback": evaluator._fallback_to_llm,
             }
 
         with open(config_file, "w", encoding="utf-8") as f:

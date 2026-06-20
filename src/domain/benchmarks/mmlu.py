@@ -18,20 +18,64 @@ class MMLUBenchmark:
     num_samples = 100
 
     SUBJECTS = [
-        "abstract_algebra", "anatomy", "astronomy", "business_ethics", "clinical_knowledge",
-        "college_biology", "college_chemistry", "college_computer_science", "college_mathematics",
-        "college_medicine", "college_physics", "computer_security", "conceptual_physics",
-        "econometrics", "electrical_engineering", "elementary_mathematics", "formal_logic",
-        "global_facts", "high_school_biology", "high_school_chemistry", "high_school_computer_science",
-        "high_school_economics", "high_school_geography", "high_school_government_and_politics",
-        "high_school_history", "high_school_mathematics", "high_school_physics", "high_school_statistics",
-        "human_aging", "human_sexuality", "international_law", "jurisprudence", "logical_fallacies",
-        "machine_learning", "management", "marketing", "medical_genetics", "miscellaneous",
-        "moral_disputes", "moral_scenarios", "nutrition", "philosophy", "prehistory",
-        "professional_accounting", "professional_law", "professional_medicine", "professional_psychology",
-        "public_relations", "security_studies", "sociology", "us_foreign_policy",
-        "virology", "world_religions", "business_management", "college_education",
-        "college_psychology", "high_school_psychology", "law"
+        "abstract_algebra",
+        "anatomy",
+        "astronomy",
+        "business_ethics",
+        "clinical_knowledge",
+        "college_biology",
+        "college_chemistry",
+        "college_computer_science",
+        "college_mathematics",
+        "college_medicine",
+        "college_physics",
+        "computer_security",
+        "conceptual_physics",
+        "econometrics",
+        "electrical_engineering",
+        "elementary_mathematics",
+        "formal_logic",
+        "global_facts",
+        "high_school_biology",
+        "high_school_chemistry",
+        "high_school_computer_science",
+        "high_school_economics",
+        "high_school_geography",
+        "high_school_government_and_politics",
+        "high_school_history",
+        "high_school_mathematics",
+        "high_school_physics",
+        "high_school_statistics",
+        "human_aging",
+        "human_sexuality",
+        "international_law",
+        "jurisprudence",
+        "logical_fallacies",
+        "machine_learning",
+        "management",
+        "marketing",
+        "medical_genetics",
+        "miscellaneous",
+        "moral_disputes",
+        "moral_scenarios",
+        "nutrition",
+        "philosophy",
+        "prehistory",
+        "professional_accounting",
+        "professional_law",
+        "professional_medicine",
+        "professional_psychology",
+        "public_relations",
+        "security_studies",
+        "sociology",
+        "us_foreign_policy",
+        "virology",
+        "world_religions",
+        "business_management",
+        "college_education",
+        "college_psychology",
+        "high_school_psychology",
+        "law",
     ]
 
     def __init__(self, data_dir: str | None = None):
@@ -51,13 +95,15 @@ class MMLUBenchmark:
                         for line in f:
                             try:
                                 item = json.loads(line.strip())
-                                dataset.append({
-                                    "subject": subject,
-                                    "question": item.get("question", ""),
-                                    "choices": item.get("choices", []),
-                                    "answer": item.get("answer", ""),
-                                    "id": item.get("id", len(dataset)),
-                                })
+                                dataset.append(
+                                    {
+                                        "subject": subject,
+                                        "question": item.get("question", ""),
+                                        "choices": item.get("choices", []),
+                                        "answer": item.get("answer", ""),
+                                        "id": item.get("id", len(dataset)),
+                                    }
+                                )
                             except json.JSONDecodeError:
                                 continue
 
@@ -72,6 +118,7 @@ class MMLUBenchmark:
         """加载真实MMLU数据（从JSONL）"""
         try:
             from src.domain.benchmarks.dataset_loader import DatasetLoader
+
             real_samples = DatasetLoader.load_mmlu(limit=self.num_samples * 2)
             if real_samples:
                 # 转换为MMLU标准格式
@@ -86,13 +133,15 @@ class MMLUBenchmark:
                             formatted_choices.append(f"{parts[0]}. {parts[1].strip()}")
                         else:
                             formatted_choices.append(c)
-                    converted.append({
-                        "id": len(converted),
-                        "subject": s.get("subject", "general"),
-                        "question": s["question"],
-                        "choices": formatted_choices,
-                        "answer": s["answer"],
-                    })
+                    converted.append(
+                        {
+                            "id": len(converted),
+                            "subject": s.get("subject", "general"),
+                            "question": s["question"],
+                            "choices": formatted_choices,
+                            "answer": s["answer"],
+                        }
+                    )
                 return converted
         except Exception:
             pass
@@ -127,7 +176,12 @@ class MMLUBenchmark:
             },
             {
                 "question": "Who wrote 'Romeo and Juliet'?",
-                "choices": ["A. Charles Dickens", "B. William Shakespeare", "C. Mark Twain", "D. Ernest Hemingway"],
+                "choices": [
+                    "A. Charles Dickens",
+                    "B. William Shakespeare",
+                    "C. Mark Twain",
+                    "D. Ernest Hemingway",
+                ],
                 "answers": {"literature": "B"},
                 "subject": "miscellaneous",
             },
@@ -136,13 +190,15 @@ class MMLUBenchmark:
         for i in range(100):
             template = templates[i % len(templates)]
             context_key = list(template["answers"].keys())[0]
-            synthetic.append({
-                "subject": template["subject"],
-                "question": template["question"].format(country="United Kingdom"),
-                "choices": template["choices"],
-                "answer": template["answers"][context_key],
-                "id": i,
-            })
+            synthetic.append(
+                {
+                    "subject": template["subject"],
+                    "question": template["question"].format(country="United Kingdom"),
+                    "choices": template["choices"],
+                    "answer": template["answers"][context_key],
+                    "id": i,
+                }
+            )
 
         return synthetic
 
@@ -164,28 +220,32 @@ class MMLUBenchmark:
                 if is_correct:
                     correct += 1
 
-                results.append({
-                    "id": sample["id"],
-                    "subject": sample["subject"],
-                    "question": sample["question"],
-                    "choices": sample["choices"],
-                    "correct_answer": sample["answer"],
-                    "predicted_answer": predicted_answer,
-                    "is_correct": is_correct,
-                })
+                results.append(
+                    {
+                        "id": sample["id"],
+                        "subject": sample["subject"],
+                        "question": sample["question"],
+                        "choices": sample["choices"],
+                        "correct_answer": sample["answer"],
+                        "predicted_answer": predicted_answer,
+                        "is_correct": is_correct,
+                    }
+                )
 
             except Exception as e:
                 errors.append(f"Sample {sample['id']}: {str(e)}")
-                results.append({
-                    "id": sample["id"],
-                    "subject": sample["subject"],
-                    "question": sample["question"],
-                    "choices": sample["choices"],
-                    "correct_answer": sample["answer"],
-                    "predicted_answer": None,
-                    "is_correct": False,
-                    "error": str(e),
-                })
+                results.append(
+                    {
+                        "id": sample["id"],
+                        "subject": sample["subject"],
+                        "question": sample["question"],
+                        "choices": sample["choices"],
+                        "correct_answer": sample["answer"],
+                        "predicted_answer": None,
+                        "is_correct": False,
+                        "error": str(e),
+                    }
+                )
 
         accuracy = correct / len(samples) if samples else 0.0
 

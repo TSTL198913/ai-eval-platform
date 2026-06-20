@@ -106,6 +106,7 @@ class MetricsCollector:
         try:
             import json
             from pathlib import Path
+
             metrics_file = Path("data/metrics_store.json")
             metrics_file.parent.mkdir(parents=True, exist_ok=True)
             data = {tid: m.to_dict() for tid, m in self._metrics_store.items()}
@@ -117,21 +118,24 @@ class MetricsCollector:
         """持久化到EvaluationRepository"""
         try:
             from src.infra.db.repository import EvaluationRepository
+
             repo = EvaluationRepository()
             metrics = self._metrics_store.get(task_id)
             if metrics:
                 # 将指标数据写入评估记录表
-                repo.save({
-                    "task_id": task_id,
-                    "evaluator_type": metrics.evaluator_type,
-                    "score": 1.0 if metrics.task_success else 0.0,
-                    "decision_accuracy": metrics.decision_accuracy,
-                    "hallucination_rate": metrics.hallucination_rate,
-                    "tool_call_accuracy": metrics.tool_call_accuracy,
-                    "total_tokens": metrics.token_consumption,
-                    "latency_ms": metrics.latency_ms,
-                    "metadata": metrics.metadata,
-                })
+                repo.save(
+                    {
+                        "task_id": task_id,
+                        "evaluator_type": metrics.evaluator_type,
+                        "score": 1.0 if metrics.task_success else 0.0,
+                        "decision_accuracy": metrics.decision_accuracy,
+                        "hallucination_rate": metrics.hallucination_rate,
+                        "tool_call_accuracy": metrics.tool_call_accuracy,
+                        "total_tokens": metrics.token_consumption,
+                        "latency_ms": metrics.latency_ms,
+                        "metadata": metrics.metadata,
+                    }
+                )
         except Exception:
             # 静默失败，不影响主流程
             pass
@@ -141,6 +145,7 @@ class MetricsCollector:
         try:
             import json
             from pathlib import Path
+
             metrics_file = Path("data/metrics_store.json")
             if metrics_file.exists():
                 data = json.loads(metrics_file.read_text(encoding="utf-8"))

@@ -48,14 +48,12 @@ class EvaluationRepository(BaseRepository):
         """获取最近的评估记录"""
         with get_db_session() as session:
             results = session.execute(
-                text(
-                    """
+                text("""
                     SELECT id, case_id, model_name, adapter_name, status, latency_ms, created_at
                     FROM eval_results
                     ORDER BY created_at DESC
                     LIMIT :limit
-                    """
-                ),
+                    """),
                 {"limit": limit},
             ).fetchall()
 
@@ -67,7 +65,9 @@ class EvaluationRepository(BaseRepository):
                     "adapter_name": row[3],
                     "status": row[4],
                     "latency_ms": row[5],
-                    "created_at": row[6].isoformat() if row[6] and hasattr(row[6], 'isoformat') else row[6],
+                    "created_at": (
+                        row[6].isoformat() if row[6] and hasattr(row[6], "isoformat") else row[6]
+                    ),
                 }
                 for row in results
             ]
@@ -102,7 +102,15 @@ class EvaluationRepository(BaseRepository):
                 query_parts.append("AND status = :status")
                 params["status"] = status
 
-            allowed_sort_fields = ["id", "case_id", "model_name", "adapter_name", "status", "latency_ms", "created_at"]
+            allowed_sort_fields = [
+                "id",
+                "case_id",
+                "model_name",
+                "adapter_name",
+                "status",
+                "latency_ms",
+                "created_at",
+            ]
             if sort_by not in allowed_sort_fields:
                 sort_by = "created_at"
 
@@ -125,7 +133,9 @@ class EvaluationRepository(BaseRepository):
                     "adapter_name": row[3],
                     "status": row[4],
                     "latency_ms": row[5],
-                    "created_at": row[6].isoformat() if row[6] and hasattr(row[6], 'isoformat') else row[6],
+                    "created_at": (
+                        row[6].isoformat() if row[6] and hasattr(row[6], "isoformat") else row[6]
+                    ),
                 }
                 for row in results
             ]
@@ -134,13 +144,11 @@ class EvaluationRepository(BaseRepository):
         """根据ID获取评估记录详情"""
         with get_db_session() as session:
             result = session.execute(
-                text(
-                    """
+                text("""
                     SELECT id, case_id, model_name, adapter_name, status, latency_ms, response_data, created_at
                     FROM eval_results
                     WHERE id = :id
-                    """
-                ),
+                    """),
                 {"id": record_id},
             ).fetchone()
 
@@ -153,7 +161,11 @@ class EvaluationRepository(BaseRepository):
                     "status": result[4],
                     "latency_ms": result[5],
                     "response_data": result[6],
-                    "created_at": result[7].isoformat() if result[7] and hasattr(result[7], 'isoformat') else result[7],
+                    "created_at": (
+                        result[7].isoformat()
+                        if result[7] and hasattr(result[7], "isoformat")
+                        else result[7]
+                    ),
                 }
             return None
 
@@ -196,7 +208,7 @@ class EvaluationRepository(BaseRepository):
                 text("DELETE FROM eval_results WHERE id IN :ids").bindparams(
                     bindparam("ids", expanding=True)
                 ),
-                {"ids": list(record_ids)}
+                {"ids": list(record_ids)},
             )
             session.commit()
             return result.rowcount
@@ -218,9 +230,9 @@ class EvaluationRepository(BaseRepository):
             if not set_parts:
                 return 0
 
-            query = text(f"UPDATE eval_results SET {', '.join(set_parts)} WHERE id IN :ids").bindparams(
-                bindparam("ids", expanding=True)
-            )
+            query = text(
+                f"UPDATE eval_results SET {', '.join(set_parts)} WHERE id IN :ids"
+            ).bindparams(bindparam("ids", expanding=True))
             result = session.execute(query, params)
             session.commit()
             return result.rowcount
@@ -228,6 +240,7 @@ class EvaluationRepository(BaseRepository):
     def create(self, data: dict) -> int:
         """创建评估记录（用于配置管理等场景）"""
         import json
+
         with get_db_session() as session:
             response_data = data.get("response_data", {})
             # 确保response_data是字典或可JSON序列化的
@@ -253,16 +266,15 @@ class EvaluationRepository(BaseRepository):
     def get_all(self, limit: int = 100) -> list[dict]:
         """获取所有评估记录"""
         import json
+
         with get_db_session() as session:
             results = session.execute(
-                text(
-                    """
+                text("""
                     SELECT id, case_id, model_name, adapter_name, status, latency_ms, response_data, created_at
                     FROM eval_results
                     ORDER BY created_at DESC
                     LIMIT :limit
-                    """
-                ),
+                    """),
                 {"limit": limit},
             ).fetchall()
 
@@ -275,30 +287,32 @@ class EvaluationRepository(BaseRepository):
                         response_data = json.loads(response_data)
                     except Exception:
                         pass
-                records.append({
-                    "id": row[0],
-                    "case_id": row[1],
-                    "model_name": row[2],
-                    "adapter_name": row[3],
-                    "status": row[4],
-                    "latency_ms": row[5],
-                    "response_data": response_data,
-                    "created_at": row[7].isoformat() if row[7] and hasattr(row[7], 'isoformat') else row[7],
-                })
+                records.append(
+                    {
+                        "id": row[0],
+                        "case_id": row[1],
+                        "model_name": row[2],
+                        "adapter_name": row[3],
+                        "status": row[4],
+                        "latency_ms": row[5],
+                        "response_data": response_data,
+                        "created_at": (
+                            row[7].isoformat()
+                            if row[7] and hasattr(row[7], "isoformat")
+                            else row[7]
+                        ),
+                    }
+                )
             return records
 
     def get_all_for_export(self) -> list[dict]:
         """获取所有评估记录用于导出"""
         with get_db_session() as session:
-            results = session.execute(
-                text(
-                    """
+            results = session.execute(text("""
                     SELECT id, case_id, model_name, adapter_name, status, latency_ms, response_data, created_at
                     FROM eval_results
                     ORDER BY created_at DESC
-                    """
-                )
-            ).fetchall()
+                    """)).fetchall()
 
             return [
                 {
@@ -309,7 +323,9 @@ class EvaluationRepository(BaseRepository):
                     "status": row[4],
                     "latency_ms": row[5],
                     "response_data": row[6],
-                    "created_at": row[7].isoformat() if row[7] and hasattr(row[7], 'isoformat') else row[7],
+                    "created_at": (
+                        row[7].isoformat() if row[7] and hasattr(row[7], "isoformat") else row[7]
+                    ),
                 }
                 for row in results
             ]
@@ -375,25 +391,29 @@ class TrajectoryRepository:
 
     def get_trajectory(self, task_id: str) -> list[dict[str, object]]:
         with get_db_session() as session:
-            results = session.query(TrajectoryModel)\
-                .filter(TrajectoryModel.task_id == task_id)\
-                .order_by(TrajectoryModel.step_index)\
+            results = (
+                session.query(TrajectoryModel)
+                .filter(TrajectoryModel.task_id == task_id)
+                .order_by(TrajectoryModel.step_index)
                 .all()
+            )
             return [result.to_dict() for result in results]
 
     def get_recent_trajectories(self, limit: int = 10) -> list[dict[str, object]]:
         with get_db_session() as session:
-            results = session.query(TrajectoryModel)\
-                .order_by(TrajectoryModel.created_at.desc())\
-                .limit(limit)\
+            results = (
+                session.query(TrajectoryModel)
+                .order_by(TrajectoryModel.created_at.desc())
+                .limit(limit)
                 .all()
+            )
             return [result.to_dict() for result in results]
 
     def delete_trajectory(self, task_id: str) -> int:
         with get_db_session() as session:
-            count = session.query(TrajectoryModel)\
-                .filter(TrajectoryModel.task_id == task_id)\
-                .delete()
+            count = (
+                session.query(TrajectoryModel).filter(TrajectoryModel.task_id == task_id).delete()
+            )
             session.commit()
             return count
 

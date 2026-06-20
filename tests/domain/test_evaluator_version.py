@@ -9,6 +9,7 @@
 
 关键发现：（测试过程中记录）
 """
+
 import os
 import shutil
 import sys
@@ -36,7 +37,7 @@ class TestEvaluatorVersionCreation:
             version="1.0.0",
             changelog="Initial release",
             code_hash="abc123",
-            config_snapshot={"threshold": 0.8}
+            config_snapshot={"threshold": 0.8},
         )
 
         assert version.version_id == "v001"
@@ -52,7 +53,7 @@ class TestEvaluatorVersionCreation:
             version="1.0.0",
             changelog="Initial release",
             code_hash="abc123",
-            config_snapshot={}
+            config_snapshot={},
         )
 
         result = version.to_dict()
@@ -82,7 +83,7 @@ class TestEvaluatorVersionManager:
             version="1.0.0",
             code_hash="hash123",
             config={"setting": "value"},
-            changelog="First version"
+            changelog="First version",
         )
 
         assert version is not None
@@ -93,10 +94,7 @@ class TestEvaluatorVersionManager:
     def test_register_duplicate_version_raises(self, manager):
         """重复注册版本应抛出异常"""
         manager.register_version(
-            evaluator_name="test_evaluator",
-            version="1.0.0",
-            code_hash="hash1",
-            config={}
+            evaluator_name="test_evaluator", version="1.0.0", code_hash="hash1", config={}
         )
 
         with pytest.raises(ValueError, match="already exists"):
@@ -104,22 +102,16 @@ class TestEvaluatorVersionManager:
                 evaluator_name="test_evaluator",
                 version="1.0.0",  # 相同版本
                 code_hash="hash2",
-                config={}
+                config={},
             )
 
     def test_register_multiple_versions_same_evaluator(self, manager):
         """同一评估器可注册多个版本"""
         v1 = manager.register_version(
-            evaluator_name="test_evaluator",
-            version="1.0.0",
-            code_hash="hash1",
-            config={}
+            evaluator_name="test_evaluator", version="1.0.0", code_hash="hash1", config={}
         )
         v2 = manager.register_version(
-            evaluator_name="test_evaluator",
-            version="1.1.0",
-            code_hash="hash2",
-            config={}
+            evaluator_name="test_evaluator", version="1.1.0", code_hash="hash2", config={}
         )
 
         assert v1.version != v2.version
@@ -128,16 +120,10 @@ class TestEvaluatorVersionManager:
     def test_get_current_version(self, manager):
         """获取当前版本"""
         manager.register_version(
-            evaluator_name="test_evaluator",
-            version="1.0.0",
-            code_hash="hash1",
-            config={}
+            evaluator_name="test_evaluator", version="1.0.0", code_hash="hash1", config={}
         )
         manager.register_version(
-            evaluator_name="test_evaluator",
-            version="1.1.0",
-            code_hash="hash2",
-            config={}
+            evaluator_name="test_evaluator", version="1.1.0", code_hash="hash2", config={}
         )
 
         current = manager.get_current_version("test_evaluator")
@@ -184,10 +170,7 @@ class TestCalibrationStatusCheck:
     def test_check_calibration_status_not_calibrated(self, manager):
         """未校准时应返回not_calibrated"""
         manager.register_version(
-            evaluator_name="test_evaluator",
-            version="1.0.0",
-            code_hash="hash1",
-            config={}
+            evaluator_name="test_evaluator", version="1.0.0", code_hash="hash1", config={}
         )
 
         status = manager.check_calibration_status("test_evaluator")
@@ -198,10 +181,7 @@ class TestCalibrationStatusCheck:
     def test_check_calibration_status_calibrated(self, manager):
         """校准通过时应返回calibrated"""
         manager.register_version(
-            evaluator_name="test_evaluator",
-            version="1.0.0",
-            code_hash="hash1",
-            config={}
+            evaluator_name="test_evaluator", version="1.0.0", code_hash="hash1", config={}
         )
         manager.update_calibration("test_evaluator", 94.0)  # 接近基线95
 
@@ -213,10 +193,7 @@ class TestCalibrationStatusCheck:
     def test_check_calibration_status_drifted(self, manager):
         """漂移时应返回drifted"""
         manager.register_version(
-            evaluator_name="test_evaluator",
-            version="1.0.0",
-            code_hash="hash1",
-            config={}
+            evaluator_name="test_evaluator", version="1.0.0", code_hash="hash1", config={}
         )
         manager.update_calibration("test_evaluator", 80.0)  # 偏离基线95
 
@@ -231,7 +208,7 @@ class TestCalibrationStatusCheck:
             evaluator_name="test_evaluator",
             version="1.0.0",
             code_hash="hash1",
-            config={}  # 使用默认阈值（5%）
+            config={},  # 使用默认阈值（5%）
         )
         # 基线95，评估器85，偏差10.5%
         manager.update_calibration("test_evaluator", 85.0)
@@ -260,10 +237,7 @@ class TestVersionDeprecation:
     def test_deprecate_version(self, manager):
         """废弃版本"""
         version = manager.register_version(
-            evaluator_name="test_evaluator",
-            version="1.0.0",
-            code_hash="hash1",
-            config={}
+            evaluator_name="test_evaluator", version="1.0.0", code_hash="hash1", config={}
         )
 
         result = manager.deprecate_version(version.version_id)
@@ -328,10 +302,7 @@ class TestCalibrationUpdate:
     def test_update_calibration(self, manager):
         """更新校准分数"""
         manager.register_version(
-            evaluator_name="test_evaluator",
-            version="1.0.0",
-            code_hash="hash1",
-            config={}
+            evaluator_name="test_evaluator", version="1.0.0", code_hash="hash1", config={}
         )
 
         updated = manager.update_calibration("test_evaluator", 90.0)
@@ -342,17 +313,10 @@ class TestCalibrationUpdate:
     def test_update_calibration_by_code_hash(self, manager):
         """通过code_hash更新校准"""
         manager.register_version(
-            evaluator_name="test_evaluator",
-            version="1.0.0",
-            code_hash="hash1",
-            config={}
+            evaluator_name="test_evaluator", version="1.0.0", code_hash="hash1", config={}
         )
 
-        updated = manager.update_calibration(
-            "test_evaluator",
-            92.0,
-            code_hash="hash1"
-        )
+        updated = manager.update_calibration("test_evaluator", 92.0, code_hash="hash1")
 
         assert updated.calibration_score == 92.0
 

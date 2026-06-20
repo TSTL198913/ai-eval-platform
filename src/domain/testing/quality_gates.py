@@ -42,21 +42,25 @@ R = TypeVar("R")
 
 class QualityGateLevel(str, Enum):
     """质量门禁级别"""
-    STRICT = "strict"      # 严格模式：Red Team通过率≥90%，变异杀死率≥80%
-    NORMAL = "normal"      # 正常模式：Red Team通过率≥80%，变异杀死率≥60%
-    RELAXED = "relaxed"    # 宽松模式：Red Team通过率≥70%，变异杀死率≥50%
+
+    STRICT = "strict"  # 严格模式：Red Team通过率≥90%，变异杀死率≥80%
+    NORMAL = "normal"  # 正常模式：Red Team通过率≥80%，变异杀死率≥60%
+    RELAXED = "relaxed"  # 宽松模式：Red Team通过率≥70%，变异杀死率≥50%
     DISABLED = "disabled"  # 禁用质量门禁
 
 
 @dataclass
 class QualityGateConfig:
     """质量门禁配置"""
+
     level: QualityGateLevel = QualityGateLevel.NORMAL
     enable_red_blue: bool = True
     enable_mutation: bool = True
     min_trust_score: float = 0.8
     min_mutation_kill_rate: float = 0.6
-    red_test_types: list[TestType] = field(default_factory=lambda: [TestType.EDGE_CASE, TestType.SECURITY])
+    red_test_types: list[TestType] = field(
+        default_factory=lambda: [TestType.EDGE_CASE, TestType.SECURITY]
+    )
     max_mutations: int = 10
     fail_on_quality_gate: bool = True  # 质量门禁失败时是否抛出异常
 
@@ -64,6 +68,7 @@ class QualityGateConfig:
 @dataclass
 class QualityGateResult:
     """质量门禁检查结果"""
+
     passed: bool
     trust_score: float = 0.0
     mutation_kill_rate: float = 0.0
@@ -260,6 +265,7 @@ def quality_gate(
         min_mutation_kill_rate: 最小变异杀死率
         fail_on_gate: 质量门禁失败时是否抛出异常
     """
+
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
         @functools.wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
@@ -297,6 +303,7 @@ def quality_gate(
             return func(*args, **kwargs)
 
         return wrapper
+
     return decorator
 
 
@@ -313,6 +320,7 @@ def red_team_test(
         def test_sql_injection():
             ...
     """
+
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
         func._red_team_test = True
         func._test_type = test_type
@@ -325,6 +333,7 @@ def red_team_test(
             return func(*args, **kwargs)
 
         return wrapper
+
     return decorator
 
 
@@ -341,6 +350,7 @@ def blue_team_test(
         def test_normal_function():
             ...
     """
+
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
         func._blue_team_test = True
         func._test_type = test_type
@@ -353,6 +363,7 @@ def blue_team_test(
             return func(*args, **kwargs)
 
         return wrapper
+
     return decorator
 
 

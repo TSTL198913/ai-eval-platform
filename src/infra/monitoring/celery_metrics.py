@@ -94,6 +94,7 @@ RUNNING_TASKS = Gauge(
 # 任务状态跟踪
 # ============================================================================
 
+
 class TaskMetricsTracker:
     """任务指标跟踪器"""
 
@@ -113,7 +114,9 @@ class TaskMetricsTracker:
             cls._instance = TaskMetricsTracker()
         return cls._instance
 
-    def record_submitted(self, task_name: str, task_id: str, timestamp: float, queue: str = "default"):
+    def record_submitted(
+        self, task_name: str, task_id: str, timestamp: float, queue: str = "default"
+    ):
         """记录任务提交"""
         self._task_timestamps[task_id] = timestamp
         logger.debug(f"Task {task_name}[{task_id}] submitted at {timestamp}")
@@ -146,7 +149,9 @@ class TaskMetricsTracker:
 
         logger.debug(f"Task {task_name}[{task_id}] completed in {runtime:.2f}s")
 
-    def record_failed(self, task_name: str, task_id: str, timestamp: float, runtime: float, error_type: str):
+    def record_failed(
+        self, task_name: str, task_id: str, timestamp: float, runtime: float, error_type: str
+    ):
         """记录任务失败"""
         TASK_EXECUTION_TIME.labels(task_name=task_name, status="failure").observe(runtime)
         TASK_FAILURES.labels(task_name=task_name, error_type=error_type).inc()
@@ -167,9 +172,7 @@ class TaskMetricsTracker:
     def record_state_transition(self, task_name: str, state_from: str, state_to: str):
         """记录状态转换"""
         TASK_STATE_TRANSITIONS.labels(
-            task_name=task_name,
-            state_from=state_from,
-            state_to=state_to
+            task_name=task_name, state_from=state_from, state_to=state_to
         ).inc()
 
 
@@ -180,6 +183,7 @@ _tracker = TaskMetricsTracker.get_instance()
 # ============================================================================
 # Celery Signals 处理器
 # ============================================================================
+
 
 @signals.task_prerun.connect
 def on_task_prerun(sender=None, task_id=None, task=None, *args, **kwargs):
@@ -225,6 +229,7 @@ def on_task_unknown(sender=None, task_id=None, message=None, *args, **kwargs):
 # 任务包装器（用于自动记录执行时间）
 # ============================================================================
 
+
 class TrackedTask:
     """包装Celery任务以自动记录指标"""
 
@@ -269,6 +274,7 @@ def wrap_task_with_metrics(task_func):
 # Pushgateway 集成
 # ============================================================================
 
+
 class CeleryMetricsExporter:
     """
     Celery指标导出器
@@ -298,7 +304,7 @@ class CeleryMetricsExporter:
             response = httpx.post(
                 f"{self.pushgateway_url}/metrics/job/celery_tasks",
                 data=data,
-                headers={"Content-Type": "text/plain"}
+                headers={"Content-Type": "text/plain"},
             )
             response.raise_for_status()
             logger.debug("Metrics pushed to Pushgateway")
@@ -321,12 +327,14 @@ def get_celery_exporter() -> CeleryMetricsExporter:
 def expose_celery_metrics() -> str:
     """暴露Celery指标（用于Pull模式）"""
     from prometheus_client import generate_latest
+
     return generate_latest(CELERY_REGISTRY).decode("utf-8")
 
 
 # ============================================================================
 # 队列深度监控
 # ============================================================================
+
 
 def update_queue_depth(queue_name: str, depth: int):
     """更新队列深度"""

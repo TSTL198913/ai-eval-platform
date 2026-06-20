@@ -48,9 +48,7 @@ class MetaEvaluator:
             try:
                 with open(conflicts_file, encoding="utf-8") as f:
                     data = json.load(f)
-                    self._conflict_queue = [
-                        ConflictRecord(**c) for c in data
-                    ]
+                    self._conflict_queue = [ConflictRecord(**c) for c in data]
             except Exception:
                 pass
 
@@ -60,7 +58,9 @@ class MetaEvaluator:
         with open(conflicts_file, "w", encoding="utf-8") as f:
             json.dump([vars(c) for c in self._conflict_queue], f, ensure_ascii=False, indent=2)
 
-    def detect_conflicts(self, new_result: dict[str, Any], baseline: dict[str, Any]) -> ConflictRecord | None:
+    def detect_conflicts(
+        self, new_result: dict[str, Any], baseline: dict[str, Any]
+    ) -> ConflictRecord | None:
         new_score = new_result.get("total_score", 0)
         baseline_score = baseline.get("total_score", 0)
         score_diff = new_score - baseline_score
@@ -74,7 +74,7 @@ class MetaEvaluator:
             score_before=baseline_score,
             score_after=new_score,
             score_diff=score_diff,
-            reason=self._generate_conflict_reason(new_result, baseline)
+            reason=self._generate_conflict_reason(new_result, baseline),
         )
 
         self._conflict_queue.append(conflict)
@@ -82,7 +82,9 @@ class MetaEvaluator:
 
         return conflict
 
-    def _generate_conflict_reason(self, new_result: dict[str, Any], baseline: dict[str, Any]) -> str:
+    def _generate_conflict_reason(
+        self, new_result: dict[str, Any], baseline: dict[str, Any]
+    ) -> str:
         reasons = []
         new_scores = new_result.get("llm_judge_scores", {})
         base_scores = baseline.get("llm_judge_scores", {})
@@ -96,7 +98,9 @@ class MetaEvaluator:
 
         return "; ".join(reasons) if reasons else "评分整体偏差较大"
 
-    def detect_multi_model_conflicts(self, results: list[dict[str, Any]]) -> list[tuple[str, float, float]]:
+    def detect_multi_model_conflicts(
+        self, results: list[dict[str, Any]]
+    ) -> list[tuple[str, float, float]]:
         conflicts = []
         if len(results) < 2:
             return conflicts

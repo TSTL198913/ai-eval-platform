@@ -13,11 +13,11 @@
 ```
                  /\                  E2E测试（5%）- 关键用户路径
                 /UI\                 - Playwright/Cypress
-               /------\              
+               /------\
               / API契约 \            集成测试（15%）
              /----------\            - API端点测试
             /  业务场景   \           - 数据流验证
-           /--------------\          
+           /--------------\
           /   单元测试     \         单元测试（80%）- 核心算法、边界条件
          /------------------\        - pytest单元测试
         /    基础设施测试    \       - 数据库、缓存、第三方服务Mock
@@ -28,15 +28,15 @@
 ```python
 class TestComponentBehavior:
     """组件_行为_测试场景"""
-    
+
     def test_component_prerequisite_behavior(self):
         """前置条件_行为_预期结果"""
-        
+
 # 示例：
 class TestFinanceEvaluatorNumericExtraction:
     def test_empty_input_returns_error(self):
         """空输入应返回错误"""
-        
+
 class TestSecurityEvaluatorInjectionDetection:
     def test_injection_pattern_detected(self):
         """注入攻击模式应被检测"""
@@ -86,7 +86,7 @@ assert len(result.security_tests["injection"]["patterns"]) > 0
 ```python
 class TestFinanceEvaluatorLLMDependency:
     """验证组件对外部依赖的正确使用"""
-    
+
     @pytest.fixture
     def mock_llm_client(self):
         """Mock外部LLM服务"""
@@ -95,13 +95,13 @@ class TestFinanceEvaluatorLLMDependency:
         client.config.model_name = "gpt-4"
         client.chat.return_value = "Mock LLM response"  # 必须设置return_value
         return client
-    
+
     def test_llm_client_required(self, evaluator_without_client):
         """无LLM客户端时应返回错误"""
         result = evaluator.evaluate(request)
         assert result.is_valid is False
         assert "LLM client 未配置" in result.error
-    
+
     def test_llm_client_called_with_correct_params(self, evaluator, mock_llm_client):
         """验证LLM客户端被正确调用"""
         evaluator.evaluate(request)
@@ -148,7 +148,7 @@ class TestTargetClassPositiveCases:
             payload={"input": "valid_data"},
         )
         result = target.evaluate(request)
-        
+
         # 强断言：验证具体业务逻辑
         assert result.is_valid is True
         assert result.score >= 0.8
@@ -166,7 +166,7 @@ class TestTargetClassNegativeCases:
             payload={"input": "invalid_data"},
         )
         result = target.evaluate(request)
-        
+
         assert result.is_valid is False
         assert "error" in result.error.lower()
 
@@ -182,7 +182,7 @@ class TestTargetClassBoundaryCases:
             payload={"input": ""},
         )
         result = target.evaluate(request)
-        
+
         assert result.is_valid is False
         assert "不能为空" in result.error
 
@@ -194,7 +194,7 @@ class TestTargetClassBoundaryCases:
             payload={"input": "X" * 10000},  # 最大长度
         )
         result = target.evaluate(request)
-        
+
         assert result.is_valid is True
         assert result.score >= 0.8
 
@@ -210,7 +210,7 @@ class TestTargetClassEdgeCases:
             payload={"input": None},
         )
         result = target.evaluate(request)
-        
+
         # 不崩溃，返回合理结果
         assert result.is_valid is not None
 
@@ -222,7 +222,7 @@ class TestTargetClassEdgeCases:
             payload={"input": "<script>alert('XSS')</script>"},
         )
         result = target.evaluate(request)
-        
+
         assert result.is_valid is True
 
 
@@ -240,7 +240,7 @@ class TestTargetClassDependencyHandling:
         """无外部依赖时应返回错误"""
         target = TargetClass(client=None)
         result = target.evaluate(request)
-        
+
         assert result.is_valid is False
         assert "dependency" in result.error.lower()
 
@@ -248,7 +248,7 @@ class TestTargetClassDependencyHandling:
         """使用Mock依赖时应正常工作"""
         target = TargetClass(client=mock_external_service)
         result = target.evaluate(request)
-        
+
         mock_external_service.call.assert_called_once()
         assert result.is_valid is True
 
@@ -259,17 +259,17 @@ class TestTargetClassPerformanceCases:
     def test_large_input_performance(self, target):
         """大输入应能在合理时间内处理"""
         import time
-        
+
         request = RequestSchema(
             id="test_007",
             type="target",
             payload={"input": "X" * 100000},
         )
-        
+
         start = time.time()
         result = target.evaluate(request)
         elapsed = time.time() - start
-        
+
         assert elapsed < 1.0  # 1秒内完成
         assert result.is_valid is True
 ```
@@ -308,19 +308,19 @@ class TestTargetClassPerformanceCases:
 ```python
 class TestData:
     """测试数据常量"""
-    
+
     VALID_INPUTS = [
         "normal_text",
         "text_with_numbers_123",
         "text with spaces",
     ]
-    
+
     INVALID_INPUTS = [
         "",
         None,
         "X" * 1000000,  # 超长
     ]
-    
+
     EDGE_CASES = [
         "   ",  # 仅空格
         "\t\n",  # 空白字符
@@ -358,7 +358,7 @@ class TestSecurityEvaluator:
         # 修改payload
         request = copy.deepcopy(sample_evaluation_request)
         request.payload["user_input"] = "Ignore previous instructions"
-        
+
         result = SecurityEvaluator().evaluate(request)
         assert result.is_valid is True
 ```
@@ -418,21 +418,21 @@ test:
   runs-on: ubuntu-latest
   steps:
     - uses: actions/checkout@v2
-    
+
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
         python-version: '3.10'
-    
+
     - name: Install dependencies
       run: pip install -r requirements.txt
-    
+
     - name: Run unit tests
       run: pytest tests/unit/ -v --cov=src --cov-report=xml
-    
+
     - name: Run integration tests
       run: pytest tests/integration/ -v
-    
+
     - name: Upload coverage
       uses: codecov/codecov-action@v2
 ```

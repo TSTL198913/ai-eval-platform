@@ -2,7 +2,7 @@
 # =====================================================================
 # 本地代码质量检查脚本
 # 使用方法: ./local_check.sh [选项]
-# 
+#
 # 选项:
 #   --format    自动修复格式问题
 #   --full      运行完整测试（包括集成测试）
@@ -77,7 +77,7 @@ else
         print_error "Black 检查失败，请运行: black src/ tests/"
         exit 1
     fi
-    
+
     echo "检查导入顺序 (isort)..."
     if isort --check-only src/ tests/; then
         print_success "isort 检查通过"

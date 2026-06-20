@@ -48,12 +48,14 @@ class EvaluationRepository(BaseRepository):
         """获取最近的评估记录"""
         with get_db_session() as session:
             results = session.execute(
-                text("""
+                text(
+                    """
                     SELECT id, case_id, model_name, adapter_name, status, latency_ms, created_at
                     FROM eval_results
                     ORDER BY created_at DESC
                     LIMIT :limit
-                    """),
+                    """
+                ),
                 {"limit": limit},
             ).fetchall()
 
@@ -144,11 +146,13 @@ class EvaluationRepository(BaseRepository):
         """根据ID获取评估记录详情"""
         with get_db_session() as session:
             result = session.execute(
-                text("""
+                text(
+                    """
                     SELECT id, case_id, model_name, adapter_name, status, latency_ms, response_data, created_at
                     FROM eval_results
                     WHERE id = :id
-                    """),
+                    """
+                ),
                 {"id": record_id},
             ).fetchone()
 
@@ -269,12 +273,14 @@ class EvaluationRepository(BaseRepository):
 
         with get_db_session() as session:
             results = session.execute(
-                text("""
+                text(
+                    """
                     SELECT id, case_id, model_name, adapter_name, status, latency_ms, response_data, created_at
                     FROM eval_results
                     ORDER BY created_at DESC
                     LIMIT :limit
-                    """),
+                    """
+                ),
                 {"limit": limit},
             ).fetchall()
 
@@ -308,11 +314,15 @@ class EvaluationRepository(BaseRepository):
     def get_all_for_export(self) -> list[dict]:
         """获取所有评估记录用于导出"""
         with get_db_session() as session:
-            results = session.execute(text("""
+            results = session.execute(
+                text(
+                    """
                     SELECT id, case_id, model_name, adapter_name, status, latency_ms, response_data, created_at
                     FROM eval_results
                     ORDER BY created_at DESC
-                    """)).fetchall()
+                    """
+                )
+            ).fetchall()
 
             return [
                 {

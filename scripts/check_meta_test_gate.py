@@ -49,7 +49,7 @@ def check_meta_test_gate():
         print(f"元测试总体评分: {results.get('overall_score', 0.0):.2f}")
     else:
         print("❌ 质量门禁未通过")
-        print(f"失败的门禁:")
+        print("失败的门禁:")
         for gate_name, actual, threshold in failed_gates:
             print(f"  - {gate_name}: {actual:.2f} < {threshold:.2f}")
         print("\n建议:")

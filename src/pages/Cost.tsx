@@ -165,8 +165,8 @@ const Cost: React.FC = () => {
               {budgetUsage.toFixed(1)}%
             </span>
           </div>
-          <Progress 
-            percent={budgetUsage} 
+          <Progress
+            percent={budgetUsage}
             status={budgetUsage > 90 ? 'exception' : budgetUsage > 70 ? 'active' : 'success'}
             showInfo={false}
             strokeColor={{
@@ -200,11 +200,11 @@ const Cost: React.FC = () => {
             <div key={index} className='flex-1 flex flex-col items-center gap-2'>
               <div className='relative w-full flex flex-col items-center'>
                 <span className='text-xs font-medium text-gray-600 mb-1'>${day.cost_usd.toFixed(2)}</span>
-                <div 
+                <div
                   className={`w-full rounded-t-lg transition-all duration-500 ${
                     index === dailyTrend.length - 1 ? 'bg-green-500' : 'bg-blue-400'
                   }`}
-                  style={{ 
+                  style={{
                     height: `${(day.cost_usd / maxCost) * 200}px`,
                     minHeight: '8px'
                   }}
@@ -244,7 +244,7 @@ const Cost: React.FC = () => {
                     <span className='text-sm text-gray-500'>${item.total_cost.toFixed(4)}</span>
                   </div>
                   <div className='w-full bg-gray-100 rounded-full h-2'>
-                    <div 
+                    <div
                       className='bg-blue-500 h-2 rounded-full transition-all'
                       style={{ width: `${Math.min(item.total_cost * 10, 100)}%` }}
                     />

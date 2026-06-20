@@ -328,11 +328,11 @@ docker-compose up -d --build
 2. **API Key加密存储**：
    ```python
    from src.infra.security import encrypt_api_key, save_key
-   
+
    # 生成加密密钥
    key = generate_key("your-password")
    save_key(key, "data/.key")
-   
+
    # 加密API Key
    encrypted = encrypt_api_key("sk-your-key", key)
    ```

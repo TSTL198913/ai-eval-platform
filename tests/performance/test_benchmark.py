@@ -426,7 +426,18 @@ class APIBenchmark:
                     "payload": {"user_input": "测试文本"},
                 },
             )
-            response.raise_for_status()
+            try:
+                response.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                try:
+                    error_detail = response.json()
+                except Exception:
+                    error_detail = response.text
+                raise httpx.HTTPStatusError(
+                    f"{e.message} - Response: {error_detail}",
+                    request=e.request,
+                    response=e.response,
+                )
             return response.json()
 
         benchmark = PerformanceBenchmark("api_evaluate")

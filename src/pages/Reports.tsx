@@ -114,16 +114,16 @@ const Reports: React.FC = () => {
       key: 'action',
       render: (_: any, record: Report) => (
         <Space>
-          <Button 
-            type='link' 
-            icon={<Eye />} 
+          <Button
+            type='link'
+            icon={<Eye />}
             onClick={() => handlePreview(record.path)}
           >
             预览
           </Button>
-          <Button 
-            type='link' 
-            icon={<Download />} 
+          <Button
+            type='link'
+            icon={<Download />}
             onClick={() => handleDownload(record.path)}
           >
             下载
@@ -135,20 +135,20 @@ const Reports: React.FC = () => {
 
   return (
     <div>
-      <Card 
+      <Card
         title='报告管理'
         extra={
           <Space>
-            <Button 
-              icon={<RefreshCw />} 
+            <Button
+              icon={<RefreshCw />}
               onClick={fetchReports}
               loading={loading}
             >
               刷新
             </Button>
-            <Button 
-              type='primary' 
-              icon={<Plus />} 
+            <Button
+              type='primary'
+              icon={<Plus />}
               onClick={handleGenerateReport}
               loading={generating}
             >

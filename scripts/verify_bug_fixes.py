@@ -1,7 +1,6 @@
 """验证Bug修复"""
 
 import sys
-from pathlib import Path
 
 
 def verify_bug_fixes():

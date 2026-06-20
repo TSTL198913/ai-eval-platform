@@ -100,10 +100,10 @@ class Test{ClassName}PositiveCases:
         """合法输入应返回预期输出"""
         # Arrange
         request = {SchemaName}(...)
-        
+
         # Act
         result = target.evaluate(request)
-        
+
         # Assert - 强断言
         assert result.is_valid is True
         assert result.score >= 0.8

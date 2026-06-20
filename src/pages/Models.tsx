@@ -96,40 +96,40 @@ const Models: React.FC = () => {
   const colors = ['#667eea', '#764ba2', '#f59e0b', '#10b981', '#ef4444'];
 
   const columns = [
-    { 
-      title: '模型', 
-      dataIndex: 'model', 
+    {
+      title: '模型',
+      dataIndex: 'model',
       key: 'model',
       render: (text: string) => <span className='font-semibold'>{text}</span>
     },
-    { 
-      title: '提供商', 
-      dataIndex: 'provider', 
+    {
+      title: '提供商',
+      dataIndex: 'provider',
       key: 'provider',
       render: (text: string) => <Tag color='blue'>{text}</Tag>
     },
-    { 
-      title: '准确率', 
-      dataIndex: 'avg_accuracy', 
-      key: 'avg_accuracy', 
+    {
+      title: '准确率',
+      dataIndex: 'avg_accuracy',
+      key: 'avg_accuracy',
       render: (a: number) => (
         <div>
-          <span className='font-semibold'>{(a * 100).toFixed(1)}%</span>
-          <Progress percent={a * 100} size='small' strokeColor='#10b981' />
+          <span className='font-semibold'>{a != null ? (a * 100).toFixed(1) : '--'}%</span>
+          <Progress percent={a != null ? a * 100 : 0} size='small' strokeColor='#10b981' />
         </div>
       )
     },
-    { 
-      title: '延迟(ms)', 
-      dataIndex: 'avg_latency_ms', 
-      key: 'avg_latency_ms', 
-      render: (l: number) => <span>{l.toFixed(0)} ms</span>
+    {
+      title: '延迟(ms)',
+      dataIndex: 'avg_latency_ms',
+      key: 'avg_latency_ms',
+      render: (l: number) => <span>{l != null ? l.toFixed(0) : '--'} ms</span>
     },
-    { 
-      title: '成本($)', 
-      dataIndex: 'total_cost_usd', 
-      key: 'total_cost_usd', 
-      render: (c: number) => <span>${c.toFixed(4)}</span>
+    {
+      title: '成本($)',
+      dataIndex: 'total_cost_usd',
+      key: 'total_cost_usd',
+      render: (c: number) => <span>${c != null ? c.toFixed(4) : '--'}</span>
     },
     {
       title: '排名',
@@ -142,7 +142,7 @@ const Models: React.FC = () => {
     },
   ];
 
-  const sortedResults = [...comparisonResults].sort((a, b) => b.avg_accuracy - a.avg_accuracy);
+  const sortedResults = [...comparisonResults].sort((a, b) => (b.avg_accuracy ?? 0) - (a.avg_accuracy ?? 0));
 
   const getBestModel = () => {
     if (sortedResults.length === 0) return null;
@@ -153,7 +153,7 @@ const Models: React.FC = () => {
 
   const avgData = history.map(h => ({
     time: new Date(h.timestamp).toLocaleTimeString(),
-    avg_accuracy: h.results.reduce((sum, r) => sum + r.avg_accuracy, 0) / h.results.length,
+    avg_accuracy: h.results.length > 0 ? h.results.reduce((sum, r) => sum + (r.avg_accuracy ?? 0), 0) / h.results.length : 0,
   }));
 
   return (
@@ -184,18 +184,18 @@ const Models: React.FC = () => {
               <Option value='humaneval'>HumanEval（代码生成）</Option>
             </Select>
           </div>
-          <Button 
-            type='primary' 
-            onClick={handleCompare} 
+          <Button
+            type='primary'
+            onClick={handleCompare}
             loading={loading}
             icon={<Play />}
             disabled={selectedModels.length < 2}
           >
             开始对比
           </Button>
-          <Button 
-            type='default' 
-            onClick={handleEvaluate} 
+          <Button
+            type='default'
+            onClick={handleEvaluate}
             loading={loading}
             icon={<RefreshCw />}
             disabled={selectedModels.length === 0}
@@ -217,15 +217,15 @@ const Models: React.FC = () => {
             </div>
             <div className='ml-auto flex gap-8'>
               <div className='text-center'>
-                <p className='text-2xl font-bold text-green-600'>{(bestModel.avg_accuracy * 100).toFixed(1)}%</p>
+                <p className='text-2xl font-bold text-green-600'>{bestModel.avg_accuracy != null ? (bestModel.avg_accuracy * 100).toFixed(1) : '--'}%</p>
                 <p className='text-sm text-gray-500'>准确率</p>
               </div>
               <div className='text-center'>
-                <p className='text-2xl font-bold text-blue-600'>{bestModel.avg_latency_ms.toFixed(0)}ms</p>
+                <p className='text-2xl font-bold text-blue-600'>{bestModel.avg_latency_ms != null ? bestModel.avg_latency_ms.toFixed(0) : '--'}ms</p>
                 <p className='text-sm text-gray-500'>延迟</p>
               </div>
               <div className='text-center'>
-                <p className='text-2xl font-bold text-orange-600'>${bestModel.total_cost_usd.toFixed(4)}</p>
+                <p className='text-2xl font-bold text-orange-600'>${bestModel.total_cost_usd != null ? bestModel.total_cost_usd.toFixed(4) : '--'}</p>
                 <p className='text-sm text-gray-500'>成本</p>
               </div>
             </div>
@@ -278,7 +278,7 @@ const Models: React.FC = () => {
               <Descriptions.Item label='数据集'>{dataset.toUpperCase()}</Descriptions.Item>
               <Descriptions.Item label='样本数量'>10</Descriptions.Item>
               <Descriptions.Item label='评测类型'>{
-                dataset === 'mmlu' ? '多学科知识理解' : 
+                dataset === 'mmlu' ? '多学科知识理解' :
                 dataset === 'gsm8k' ? '小学数学推理' : '代码生成能力'
               }</Descriptions.Item>
             </Descriptions>

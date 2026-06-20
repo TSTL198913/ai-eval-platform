@@ -10,7 +10,7 @@ export default defineConfig({
       maxDiffPixelRatio: 0.1,
     },
   },
-  
+
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

@@ -1,13 +1,13 @@
 
 import React from 'react';
 import { Layout, Menu, Avatar, Dropdown, Button, Typography } from 'antd';
-import { 
-  LayoutDashboard, 
-  Settings2, 
-  BarChart3, 
-  FileText, 
-  DollarSign, 
-  Activity, 
+import {
+  LayoutDashboard,
+  Settings2,
+  BarChart3,
+  FileText,
+  DollarSign,
+  Activity,
   LogOut,
   User,
   ChevronDown,
@@ -57,10 +57,10 @@ const AppLayout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider 
-        theme='dark' 
-        width={250} 
-        style={{ 
+      <Sider
+        theme='dark'
+        width={250}
+        style={{
           background: 'linear-gradient(180deg, #1e3a5f 0%, #2d1b69 100%)',
           boxShadow: '2px 0 20px rgba(0,0,0,0.1)'
         }}
@@ -76,7 +76,7 @@ const AppLayout: React.FC<LayoutProps> = ({ children }) => {
           selectedKeys={[location.pathname]}
           items={menuItems}
           onClick={handleMenuClick}
-          style={{ 
+          style={{
             borderRight: 'none',
             color: '#fff'
           }}
@@ -84,12 +84,12 @@ const AppLayout: React.FC<LayoutProps> = ({ children }) => {
         />
       </Sider>
       <Layout>
-        <Header 
-          style={{ 
-            background: '#fff', 
-            padding: '0 24px', 
-            display: 'flex', 
-            alignItems: 'center', 
+        <Header
+          style={{
+            background: '#fff',
+            padding: '0 24px',
+            display: 'flex',
+            alignItems: 'center',
             justifyContent: 'space-between',
             boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
           }}
@@ -99,8 +99,8 @@ const AppLayout: React.FC<LayoutProps> = ({ children }) => {
           </div>
           <div className='flex items-center gap-4'>
             <Dropdown menu={{ items: [] }} trigger={['click']}>
-              <Button 
-                type='text' 
+              <Button
+                type='text'
                 icon={<Avatar size={32} icon={<User className='w-5 h-5' />} />}
                 onClick={(e) => e.preventDefault()}
               >
@@ -109,8 +109,8 @@ const AppLayout: React.FC<LayoutProps> = ({ children }) => {
             </Dropdown>
           </div>
         </Header>
-        <Content 
-          style={{ 
+        <Content
+          style={{
             padding: '24px',
             background: '#f5f7fa'
           }}

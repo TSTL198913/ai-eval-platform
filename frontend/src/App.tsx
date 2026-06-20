@@ -12,7 +12,7 @@ import { HealthPage } from '@/pages/Health';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, checkAuth } = useAuthStore();
-  
+
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
@@ -46,7 +46,7 @@ export const App = () => {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      
+
       <Route
         path="/"
         element={
@@ -57,7 +57,7 @@ export const App = () => {
           </ProtectedRoute>
         }
       />
-      
+
       <Route
         path="/evaluators"
         element={
@@ -68,7 +68,7 @@ export const App = () => {
           </ProtectedRoute>
         }
       />
-      
+
       <Route
         path="/models"
         element={
@@ -79,7 +79,7 @@ export const App = () => {
           </ProtectedRoute>
         }
       />
-      
+
       <Route
         path="/records"
         element={
@@ -90,7 +90,7 @@ export const App = () => {
           </ProtectedRoute>
         }
       />
-      
+
       <Route
         path="/cost"
         element={
@@ -101,7 +101,7 @@ export const App = () => {
           </ProtectedRoute>
         }
       />
-      
+
       <Route
         path="/health"
         element={
@@ -112,7 +112,7 @@ export const App = () => {
           </ProtectedRoute>
         }
       />
-      
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

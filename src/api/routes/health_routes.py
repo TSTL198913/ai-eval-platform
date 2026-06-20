@@ -4,6 +4,7 @@
 """
 
 import logging
+import time
 
 from fastapi import APIRouter
 from fastapi.responses import PlainTextResponse
@@ -60,6 +61,59 @@ async def api_v1_health_check():
             "status": overall_status,
             "service": "ai-eval-platform",
             "components": checks,
+        }
+    )
+
+
+@router.get("/api/v1/health/detailed")
+async def api_v1_health_detailed():
+    """详细健康检查端点"""
+    checks = {}
+
+    try:
+        repo = _get_repository()
+        count = repo.count()
+        checks["database"] = {"status": "healthy", "record_count": count}
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}")
+        checks["database"] = {"status": "unhealthy", "error": str(e)}
+
+    try:
+        from src.infra.cache import get_redis
+
+        redis_client = get_redis()
+        redis_client.ping()
+        checks["redis"] = {"status": "healthy"}
+    except Exception as e:
+        logger.error(f"Redis health check failed: {e}")
+        checks["redis"] = {"status": "unhealthy", "error": str(e)}
+
+    try:
+        _get_celery_app()
+        checks["celery"] = {"status": "healthy"}
+    except Exception as e:
+        logger.error(f"Celery health check failed: {e}")
+        checks["celery"] = {"status": "unhealthy", "error": str(e)}
+
+    overall_status = (
+        "healthy" if all(c["status"] == "healthy" for c in checks.values()) else "unhealthy"
+    )
+
+    return success_response(
+        {
+            "service": {
+                "name": "ai-eval-platform",
+                "version": "2.0.0",
+                "timestamp": int(time.time()),
+            },
+            "status": overall_status,
+            "components": checks,
+            "metrics": {
+                "requests_total": 0,
+                "avg_latency_ms": 0,
+                "error_rate": 0,
+                "cache_hit_rate": 0,
+            },
         }
     )
 

@@ -102,12 +102,14 @@ class TestCodeEvaluationScenario:
         client = MagicMock()
         client.config = MagicMock()
         client.config.model_name = "gpt-4"
-        client.chat = MagicMock(return_value="""
+        client.chat = MagicMock(
+            return_value="""
         审查结果:
         1. 第15行: 未处理空指针异常
         2. 第23行: 资源未关闭，存在内存泄漏风险
         评分: 65/100
-        """)
+        """
+        )
 
         result = run_evaluation_service(
             {
@@ -129,12 +131,14 @@ class TestCodeEvaluationScenario:
         client = MagicMock()
         client.config = MagicMock()
         client.config.model_name = "gpt-4"
-        client.chat = MagicMock(return_value="""
+        client.chat = MagicMock(
+            return_value="""
         def fibonacci(n):
             if n <= 1:
                 return n
             return fibonacci(n-1) + fibonacci(n-2)
-        """)
+        """
+        )
 
         result = run_evaluation_service(
             {

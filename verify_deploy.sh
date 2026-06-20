@@ -2,7 +2,7 @@
 # =====================================================================
 # AI Evaluation Platform - 部署验证脚本
 # =====================================================================
-# 
+#
 # 功能�?# 1. 检查服务状�?# 2. 功能测试（API、任务队列）
 # 3. 查看日志
 # 4. 健康检�?#
@@ -64,13 +64,13 @@ print_info() {
 
 # 检查容器健康状�?check_container_health() {
     print_header "容器健康检�?
-    
+
     containers=$(docker compose ps -q)
     for container_id in $containers; do
         container_name=$(docker inspect --format='{{.Name}}' $container_id | sed 's/^\///')
         health=$(docker inspect --format='{{.State.Health.Status}}' $container_id 2>/dev/null || echo "none")
         status=$(docker inspect --format='{{.State.Status}}' $container_id)
-        
+
         echo -n "容器: $container_name | 状�? $status"
         if [ "$health" != "none" ]; then
             echo -e " | 健康: $health"
@@ -82,10 +82,10 @@ print_info() {
 
 # API 健康检�?check_api_health() {
     print_header "API 健康检�?
-    
+
     echo "测试: GET /health"
     response=$(curl -s -w "\nHTTP_CODE:%{http_code}" $API_URL/health 2>/dev/null || echo "HTTP_CODE:000")
-    
+
     if echo "$response" | grep -q "HTTP_CODE:200"; then
         print_success "API 服务正常"
         echo "$response" | grep -v "HTTP_CODE"
@@ -98,7 +98,7 @@ print_info() {
 # API 功能测试
 test_api() {
     print_header "API 功能测试"
-    
+
     # 测试 1: 契约拦截
     echo ""
     echo "测试 1: 契约拦截（无效输入应返回 CONTRACT_ERROR�?
@@ -106,7 +106,7 @@ test_api() {
     response=$(curl -s -X POST $API_URL/api/v1/evaluate \
         -H "Content-Type: application/json" \
         -d '{"wrong": "data"}' 2>/dev/null)
-    
+
     if echo "$response" | grep -q "CONTRACT_ERROR"; then
         print_success "契约拦截正常"
         echo "$response" | python3 -m json.tool 2>/dev/null || echo "$response"
@@ -114,7 +114,7 @@ test_api() {
         print_error "契约拦截异常"
         echo "$response"
     fi
-    
+
     # 测试 2: 业务路由
     echo ""
     echo "测试 2: 业务路由（finance 类型�?
@@ -131,7 +131,7 @@ test_api() {
                 "metadata": {"rate": 0.03}
             }
         }' 2>/dev/null)
-    
+
     if echo "$response" | grep -q "evaluation_status"; then
         print_success "业务路由正常"
         echo "$response" | python3 -m json.tool 2>/dev/null || echo "$response"
@@ -139,7 +139,7 @@ test_api() {
         print_warning "业务路由响应异常，请检�?LLM 配置"
         echo "$response"
     fi
-    
+
     # 测试 3: 异步任务提交
     echo ""
     echo "测试 3: 异步任务提交"
@@ -155,7 +155,7 @@ test_api() {
                 "expected_output": "你好"
             }
         }' 2>/dev/null)
-    
+
     if echo "$response" | grep -q "task_id"; then
         print_success "异步任务提交正常"
         echo "$response" | python3 -m json.tool 2>/dev/null || echo "$response"
@@ -168,7 +168,7 @@ test_api() {
 # 任务队列测试
 test_task_queue() {
     print_header "任务队列测试"
-    
+
     # 检�?Redis 连接
     echo ""
     echo "检�?Redis 连接..."
@@ -178,7 +178,7 @@ test_task_queue() {
     else
         print_error "Redis 连接失败"
     fi
-    
+
     # 检�?Celery Worker
     echo ""
     echo "检�?Celery Worker..."
@@ -187,7 +187,7 @@ test_task_queue() {
     else
         print_warning "Celery Worker 可能未运行或无法连接"
     fi
-    
+
     # 检查任务队�?    echo ""
     echo "检查任务队�?.."
     redis-cli llen celery 2>/dev/null || echo "无法获取队列长度"
@@ -197,7 +197,7 @@ test_task_queue() {
 # 查看日志
 view_logs() {
     print_header "查看日志"
-    
+
     # API 日志
     if [ -f "$LOG_DIR/api.log" ]; then
         echo ""
@@ -205,7 +205,7 @@ view_logs() {
         echo "-------------------------------------------"
         tail -100 "$LOG_DIR/api.log"
     fi
-    
+
     # Worker 日志
     if [ -f "$LOG_DIR/worker.log" ]; then
         echo ""
@@ -213,13 +213,13 @@ view_logs() {
         echo "-------------------------------------------"
         tail -100 "$LOG_DIR/worker.log"
     fi
-    
+
     # Docker 日志
     echo ""
     echo -e "${YELLOW}Docker 容器日志 (API):${NC}"
     echo "-------------------------------------------"
     docker compose logs --tail=100 api 2>/dev/null || echo "无法获取 API 日志"
-    
+
     echo ""
     echo -e "${YELLOW}Docker 容器日志 (Worker):${NC}"
     echo "-------------------------------------------"
@@ -229,26 +229,26 @@ view_logs() {
 # 完整功能测试
 full_test() {
     print_header "完整功能测试"
-    
+
     echo ""
     echo "开始全面测�?.."
     echo ""
-    
+
     # 1. 服务状�?    check_docker_status
-    
+
     # 2. 健康检�?    check_container_health
     check_api_health
-    
+
     # 3. API 测试
     test_api
-    
+
     # 4. 任务队列测试
     test_task_queue
-    
+
     # 5. 日志检�?    echo ""
     echo "最近日�?"
     docker compose logs --tail=20 2>/dev/null || echo "无法获取日志"
-    
+
     print_header "测试完成"
 }
 

@@ -43,7 +43,7 @@ const Evaluators: React.FC = () => {
     fetchData();
   }, []);
 
-  const filteredEvaluators = evaluators.filter(e => 
+  const filteredEvaluators = evaluators.filter(e =>
     e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     e.class_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -106,14 +106,14 @@ const Evaluators: React.FC = () => {
       const values = await configForm.validateFields();
       const payloadStr = values.payload || '{}';
       const payload = JSON.parse(payloadStr);
-      
+
       await evalConfigApi.save({
         name: values.name,
         evaluator_type: values.evaluator_type,
         config: payload,
         enabled: true,
       });
-      
+
       message.success('配置保存成功');
       // 刷新配置列表
       const configsData = await evalConfigApi.getAll();
@@ -151,7 +151,7 @@ const Evaluators: React.FC = () => {
       const values = await batchForm.validateFields();
       const casesStr = values.cases || '[]';
       const cases = JSON.parse(casesStr);
-      
+
       if (!Array.isArray(cases) || cases.length === 0) {
         message.error('请输入有效的评测用例数组');
         return;
@@ -265,7 +265,7 @@ const Evaluators: React.FC = () => {
             </div>
           </div>
           <div className='flex gap-3'>
-            <Button 
+            <Button
               type='default'
               icon={<Settings className='w-4 h-4' />}
               onClick={handleOpenConfig}
@@ -273,7 +273,7 @@ const Evaluators: React.FC = () => {
             >
               配置管理
             </Button>
-            <Button 
+            <Button
               type='primary'
               icon={<Zap className='w-4 h-4' />}
               onClick={handleOpenBatch}
@@ -317,7 +317,7 @@ const Evaluators: React.FC = () => {
               summary: 'from-violet-50 to-purple-50 border-violet-100',
             };
             const bgClass = gradientColors[evaluator.name] || 'from-gray-50 to-slate-50 border-gray-100';
-            
+
             const iconBgColors: Record<string, string> = {
               security: 'bg-red-100 text-red-600',
               factuality: 'bg-amber-100 text-amber-600',
@@ -341,15 +341,15 @@ const Evaluators: React.FC = () => {
               summary: 'bg-violet-100 text-violet-600',
             };
             const iconBgClass = iconBgColors[evaluator.name] || 'bg-gray-100 text-gray-600';
-            
+
             return (
               <Card
                 key={evaluator.name}
                 hoverable
                 className={`cursor-pointer transition-all duration-300 ease-out bg-gradient-to-br ${bgClass} border hover:shadow-xl hover:-translate-y-1 overflow-hidden group`}
                 extra={
-                  <Button 
-                    type='primary' 
+                  <Button
+                    type='primary'
                     size='small'
                     icon={<Play className='w-4 h-4' />}
                     onClick={(e) => {
@@ -409,8 +409,8 @@ const Evaluators: React.FC = () => {
               <p className='text-gray-700 whitespace-pre-wrap'>{selectedEvaluator.docstring || '暂无描述'}</p>
             </div>
             <div className='mt-4'>
-              <Button 
-                type='primary' 
+              <Button
+                type='primary'
                 icon={<Play />}
                 onClick={() => {
                   setModalVisible(false);
@@ -442,8 +442,8 @@ const Evaluators: React.FC = () => {
             </div>
 
             <Form form={form} layout='vertical'>
-              <Form.Item 
-                name='payload' 
+              <Form.Item
+                name='payload'
                 label='评测参数 (JSON格式)'
                 rules={[{ required: true, message: '请输入评测参数' }]}
               >
@@ -458,8 +458,8 @@ const Evaluators: React.FC = () => {
 
             <div className='flex justify-end gap-2 mt-4'>
               <Button onClick={() => setTestModalVisible(false)}>取消</Button>
-              <Button 
-                type='primary' 
+              <Button
+                type='primary'
                 loading={testLoading}
                 icon={<TestTube />}
                 onClick={handleRunTest}
@@ -513,8 +513,8 @@ const Evaluators: React.FC = () => {
           <div className='w-1/3 border-r pr-4'>
             <div className='flex items-center justify-between mb-4'>
               <h4 className='font-semibold'>我的配置</h4>
-              <Button 
-                type='link' 
+              <Button
+                type='link'
                 icon={<Plus className='w-4 h-4' />}
                 onClick={() => configForm.resetFields()}
               >
@@ -526,8 +526,8 @@ const Evaluators: React.FC = () => {
                 <p className='text-gray-400 text-sm text-center py-8'>暂无配置</p>
               ) : (
                 configs.map((config) => (
-                  <Card 
-                    key={config.id} 
+                  <Card
+                    key={config.id}
                     size='small'
                     className='hover:shadow-md transition-shadow'
                     actions={[
@@ -565,15 +565,15 @@ const Evaluators: React.FC = () => {
           <div className='w-2/3 pl-4'>
             <h4 className='font-semibold mb-4'>配置详情</h4>
             <Form form={configForm} layout='vertical'>
-              <Form.Item 
-                name='name' 
+              <Form.Item
+                name='name'
                 label='配置名称'
                 rules={[{ required: true, message: '请输入配置名称' }]}
               >
                 <Input placeholder='例如：金融分析配置' />
               </Form.Item>
-              <Form.Item 
-                name='evaluator_type' 
+              <Form.Item
+                name='evaluator_type'
                 label='评估器类型'
                 rules={[{ required: true, message: '请选择评估器类型' }]}
               >
@@ -586,8 +586,8 @@ const Evaluators: React.FC = () => {
                   ))}
                 </Select>
               </Form.Item>
-              <Form.Item 
-                name='payload' 
+              <Form.Item
+                name='payload'
                 label='配置参数 (JSON)'
               >
                 <Input.TextArea
@@ -619,8 +619,8 @@ const Evaluators: React.FC = () => {
         </div>
 
         <Form form={batchForm} layout='vertical'>
-          <Form.Item 
-            name='cases' 
+          <Form.Item
+            name='cases'
             label='评测用例 (JSON数组)'
             rules={[{ required: true, message: '请输入评测用例' }]}
           >
@@ -635,8 +635,8 @@ const Evaluators: React.FC = () => {
 
         <div className='flex justify-end gap-2'>
           <Button onClick={() => setBatchModalVisible(false)}>关闭</Button>
-          <Button 
-            type='primary' 
+          <Button
+            type='primary'
             loading={batchLoading}
             icon={<Zap />}
             onClick={handleRunBatch}
@@ -656,23 +656,23 @@ const Evaluators: React.FC = () => {
               pagination={false}
               columns={[
                 { title: 'Case ID', dataIndex: 'case_id', key: 'case_id' },
-                { 
-                  title: '状态', 
-                  dataIndex: 'status', 
+                {
+                  title: '状态',
+                  dataIndex: 'status',
                   key: 'status',
                   render: (status: string) => (
                     <Tag color={status === 'passed' ? 'green' : 'red'}>{status}</Tag>
                   )
                 },
-                { 
-                  title: '分数', 
-                  dataIndex: 'score', 
+                {
+                  title: '分数',
+                  dataIndex: 'score',
                   key: 'score',
                   render: (score?: number) => score?.toFixed(2) ?? '-'
                 },
-                { 
-                  title: '延迟', 
-                  dataIndex: 'latency_ms', 
+                {
+                  title: '延迟',
+                  dataIndex: 'latency_ms',
                   key: 'latency_ms',
                   render: (ms?: number) => ms ? `${ms.toFixed(0)}ms` : '-'
                 },

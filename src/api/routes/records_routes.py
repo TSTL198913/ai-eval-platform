@@ -57,6 +57,7 @@ async def get_recent_records(response: Response, limit: int = 10):
 async def search_records(
     response: Response,
     evaluator: str | None = None,
+    status: str | None = None,
     record_status: str | None = None,
     limit: int = 10,
     offset: int = 0,
@@ -72,11 +73,13 @@ async def search_records(
         response.status_code = status.HTTP_400_BAD_REQUEST
         return error_response(400, "offset must be between 0 and 10000")
 
+    actual_status = status or record_status
+
     try:
         repo = _get_repository()
         records = repo.search(
             evaluator=evaluator,
-            status=record_status,
+            status=actual_status,
             limit=limit,
             offset=offset,
             sort_by=sort_by,
@@ -89,7 +92,7 @@ async def search_records(
                 "total": total,
                 "filters": {
                     "evaluator": evaluator,
-                    "status": record_status,
+                    "status": actual_status,
                     "limit": limit,
                     "offset": offset,
                     "sort_by": sort_by,

@@ -45,9 +45,9 @@ function Write-Header($msg) {
 
 # 检�?API 健康状�?function Test-ApiHealth {
     Write-Header "API 健康检�?
-    
+
     Write-Host "测试: GET /health" -ForegroundColor Gray
-    
+
     try {
         $response = Invoke-WebRequest -Uri "$API_URL/health" -UseBasicParsing -TimeoutSec 10
         if ($response.StatusCode -eq 200) {
@@ -64,12 +64,12 @@ function Write-Header($msg) {
 # API 功能测试
 function Test-ApiFunction {
     Write-Header "API 功能测试"
-    
+
     # 测试 1: 契约拦截
     Write-Host ""
     Write-Host "测试 1: 契约拦截（无效输入应返回 CONTRACT_ERROR�? -ForegroundColor Yellow
     Write-Host "-------------------------------------------" -ForegroundColor DarkGray
-    
+
     try {
         $body = '{"wrong": "data"}'
         $response = Invoke-WebRequest -Uri "$API_URL/api/v1/evaluate" `
@@ -78,7 +78,7 @@ function Test-ApiFunction {
             -Body $body `
             -UseBasicParsing `
             -TimeoutSec 10
-        
+
         $content = $response.Content | ConvertFrom-Json
         if ($content.error.code -eq "CONTRACT_ERROR") {
             Write-Success "契约拦截正常"
@@ -87,12 +87,12 @@ function Test-ApiFunction {
     } catch {
         Write-Warning "契约拦截测试失败: $_"
     }
-    
+
     # 测试 2: 业务路由
     Write-Host ""
     Write-Host "测试 2: 业务路由（finance 类型�? -ForegroundColor Yellow
     Write-Host "-------------------------------------------" -ForegroundColor DarkGray
-    
+
     try {
         $body = @{
             id = "TEST_001"
@@ -104,14 +104,14 @@ function Test-ApiFunction {
                 metadata = @{ rate = 0.03 }
             }
         } | ConvertTo-Json -Depth 10
-        
+
         $response = Invoke-WebRequest -Uri "$API_URL/api/v1/evaluate" `
             -Method POST `
             -ContentType "application/json" `
             -Body $body `
             -UseBasicParsing `
             -TimeoutSec 30
-        
+
         $content = $response.Content | ConvertFrom-Json
         if ($content.evaluation_status) {
             Write-Success "业务路由正常"
@@ -120,12 +120,12 @@ function Test-ApiFunction {
     } catch {
         Write-Warning "业务路由测试失败（可能需要配�?LLM�? $_"
     }
-    
+
     # 测试 3: 异步任务提交
     Write-Host ""
     Write-Host "测试 3: 异步任务提交" -ForegroundColor Yellow
     Write-Host "-------------------------------------------" -ForegroundColor DarkGray
-    
+
     try {
         $body = @{
             id = "ASYNC_001"
@@ -136,14 +136,14 @@ function Test-ApiFunction {
                 expected_output = "你好"
             }
         } | ConvertTo-Json -Depth 10
-        
+
         $response = Invoke-WebRequest -Uri "$API_URL/api/v1/evaluate/async" `
             -Method POST `
             -ContentType "application/json" `
             -Body $body `
             -UseBasicParsing `
             -TimeoutSec 10
-        
+
         $content = $response.Content | ConvertFrom-Json
         if ($content.task_id) {
             Write-Success "异步任务提交正常"
@@ -157,11 +157,11 @@ function Test-ApiFunction {
 # 任务队列测试
 function Test-TaskQueue {
     Write-Header "任务队列测试"
-    
+
     # 检�?Redis
     Write-Host ""
     Write-Host "检�?Redis 连接..." -ForegroundColor Gray
-    
+
     try {
         $redisResult = docker compose exec -T redis redis-cli ping 2>$null
         if ($redisResult -match "PONG") {
@@ -171,11 +171,11 @@ function Test-TaskQueue {
     } catch {
         Write-Error "Redis 连接失败: $_"
     }
-    
+
     # 检�?Celery Worker
     Write-Host ""
     Write-Host "检�?Celery Worker..." -ForegroundColor Gray
-    
+
     try {
         $workerStats = docker compose exec -T worker celery -A src.workers.celery_app inspect stats 2>$null
         if ($LASTEXITCODE -eq 0) {
@@ -189,9 +189,9 @@ function Test-TaskQueue {
 # 查看日志
 function Get-Logs {
     param([switch]$All)
-    
+
     Write-Header "查看日志"
-    
+
     if ($All) {
         docker compose logs
     } else {
@@ -202,19 +202,19 @@ function Get-Logs {
 # 完整测试
 function Start-FullTest {
     Write-Header "完整功能测试"
-    
+
     Write-Host "开始全面测�?.." -ForegroundColor Gray
     Write-Host ""
-    
+
     Get-DockerStatus
     Test-ApiHealth
     Test-ApiFunction
     Test-TaskQueue
-    
+
     Write-Host ""
     Write-Host "最近日�?" -ForegroundColor Yellow
     docker compose logs --tail=20 2>$null
-    
+
     Write-Header "测试完成"
 }
 

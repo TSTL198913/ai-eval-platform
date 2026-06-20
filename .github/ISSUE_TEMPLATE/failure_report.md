@@ -31,7 +31,7 @@ assignees: ""
    ```bash
    # For unit tests
    pytest tests/unit/ -v --tb=short
-   
+
    # For integration tests (requires Redis/PostgreSQL)
    pytest tests/integration/ -v --tb=short
    ```

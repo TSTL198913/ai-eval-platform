@@ -49,7 +49,7 @@
 
 ### 2.1 API Layer (FastAPI)
 - **职责**: 接收评测请求，验证Schema，提交任务到队列
-- **特性**: 
+- **特性**:
   - 限流 (Rate Limiting)
   - 请求验证 (Pydantic)
   - 异步任务提交

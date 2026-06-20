@@ -59,7 +59,7 @@ const Records: React.FC = () => {
   };
 
   const handleExport = () => {
-    const data = selectedRecords.length > 0 
+    const data = selectedRecords.length > 0
       ? records.filter(r => selectedRecords.includes(r.id))
       : records;
     const csv = [['ID', 'Case ID', '评估器', '模型', '状态', '分数', '延迟(ms)', '时间']]
@@ -80,7 +80,7 @@ const Records: React.FC = () => {
   };
 
   const handleSelectRecord = (id: number, checked: boolean) => {
-    setSelectedRecords(prev => 
+    setSelectedRecords(prev =>
       checked ? [...prev, id] : prev.filter(i => i !== id)
     );
   };
@@ -99,9 +99,9 @@ const Records: React.FC = () => {
     { title: 'Case ID', dataIndex: 'case_id', key: 'case_id' },
     { title: '评估器', dataIndex: 'adapter_name', key: 'adapter_name' },
     { title: '模型', dataIndex: 'model_name', key: 'model_name' },
-    { 
-      title: '状态', 
-      dataIndex: 'status', 
+    {
+      title: '状态',
+      dataIndex: 'status',
       key: 'status',
       render: (status: string) => {
         const color = status === 'passed' ? 'green' : status === 'failed' ? 'red' : 'orange';

@@ -177,7 +177,7 @@ if echo "$TABLE_LIST" | grep -q "eval_results"; then
     print_status "数据库表结构正常"
 else
     print_warning "数据库表结构异常 - 未找到 eval_results 表，尝试重新创建..."
-    
+
     echo "尝试手动创建表..."
     CREATE_RESULT=$(docker exec ai-eval-postgres psql -U eval -d ai_eval -c "
         CREATE TABLE IF NOT EXISTS eval_results (
@@ -191,7 +191,7 @@ else
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     " 2>/dev/null)
-    
+
     if [ $? -eq 0 ]; then
         print_status "表结构创建成功"
         TABLE_LIST=$(docker exec ai-eval-postgres psql -U eval -d ai_eval -c "\dt" 2>/dev/null)

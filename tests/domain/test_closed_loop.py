@@ -216,7 +216,8 @@ class TestOptimizeStage:
 
         # 2. 更新校准分数（模拟优化）
         updated = version_manager.update_calibration(
-            "test_evaluator", calibration_score=94.0  # 接近基线95
+            "test_evaluator",
+            calibration_score=94.0,  # 接近基线95
         )
 
         # 验证

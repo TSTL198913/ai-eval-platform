@@ -417,20 +417,20 @@ const testSuites: TestSuite[] = [
           await page.goto('/security');
           await page.waitForLoadState('networkidle');
           await page.waitForTimeout(2000);
-          
+
           // 检查页面标题
           const hasTitle = await page.locator('h2:has-text("安全测试")').count() > 0;
-          
+
           // 检查输入框
-          const hasInput = await page.locator('textarea').count() > 0 || 
+          const hasInput = await page.locator('textarea').count() > 0 ||
                           await page.locator('.ant-input-textarea').count() > 0;
-          
+
           // 检查测试卡片
           const cards = await page.locator('.ant-card').count();
-          
+
           if (!hasTitle) return { valid: false, error: '缺少页面标题' };
           if (!hasInput) return { valid: false, error: '缺少输入框' };
-          
+
           return { valid: true, error: `页面正常，显示${cards}个卡片` };
         }
       },
@@ -570,7 +570,7 @@ class TestRunner {
       );
 
       status = apiResponse.status();
-      
+
       try {
         response = await apiResponse.json();
       } catch {
@@ -610,10 +610,10 @@ class TestRunner {
 
     for (const testCase of suite.tests) {
       const startTime = Date.now();
-      
+
       // 执行API测试
       const { response, duration, status } = await this.executeAPITest(testCase);
-      
+
       // 验证响应
       let isValid = true;
       let validationError = '';
@@ -665,11 +665,11 @@ class TestRunner {
       // 输出结果
       const icon = result.passed ? '✅' : '❌';
       const statusColor = status >= 400 ? '🔴' : status >= 300 ? '⚠️' : '🟢';
-      
+
       console.log(`\n${icon} ${testCase.name}`);
       console.log(`   ⏱️ 耗时: ${duration}ms`);
       console.log(`   📡 API: ${statusColor} ${testCase.method} ${testCase.apiEndpoint} -> ${status}`);
-      
+
       if (response.error) {
         console.log(`   ❌ 错误: ${response.error}`);
       } else if (response.data) {
@@ -722,7 +722,7 @@ class TestRunner {
     // 数据一致性统计
     const consistent = this.results.filter(r => r.dataConsistency === true).length;
     const inconsistent = this.results.filter(r => r.dataConsistency === false).length;
-    
+
     console.log(`\n🔄 前后端数据一致性:`);
     console.log(`   ✅ 一致: ${consistent}`);
     console.log(`   ❌ 不一致: ${inconsistent}`);
@@ -747,7 +747,7 @@ class TestRunner {
     const avgDuration = apiResults.reduce((sum, r) => sum + r.duration, 0) / apiResults.length;
     const maxDuration = Math.max(...apiResults.map(r => r.duration));
     const minDuration = Math.min(...apiResults.map(r => r.duration));
-    
+
     console.log(`   平均响应时间: ${avgDuration.toFixed(0)}ms`);
     console.log(`   最快响应时间: ${minDuration}ms`);
     console.log(`   最慢响应时间: ${maxDuration}ms`);
@@ -771,7 +771,7 @@ class TestRunner {
     }
 
     console.log('\n' + '='.repeat(100));
-    
+
     if (failed === 0) {
       console.log('✅ 所有测试通过！前后端交互正常。');
     } else {

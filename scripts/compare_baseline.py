@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 性能基线比较脚本
 
@@ -9,15 +8,15 @@
 
 import json
 import os
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 
 def load_json_file(filepath):
     """加载 JSON 文件"""
     if not os.path.exists(filepath):
         return None
-    with open(filepath, 'r', encoding='utf-8') as f:
+    with open(filepath, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -142,9 +141,21 @@ def main():
     print("汇总")
     print("-" * 60)
     print(f"总指标数: {total_metrics}")
-    print(f"稳定: {stable_metrics} ({stable_metrics/total_metrics*100:.1f}%)" if total_metrics else "稳定: 0")
-    print(f"回归: {regressed_metrics} ({regressed_metrics/total_metrics*100:.1f}%)" if total_metrics else "回归: 0")
-    print(f"改善: {improved_metrics} ({improved_metrics/total_metrics*100:.1f}%)" if total_metrics else "改善: 0")
+    print(
+        f"稳定: {stable_metrics} ({stable_metrics/total_metrics*100:.1f}%)"
+        if total_metrics
+        else "稳定: 0"
+    )
+    print(
+        f"回归: {regressed_metrics} ({regressed_metrics/total_metrics*100:.1f}%)"
+        if total_metrics
+        else "回归: 0"
+    )
+    print(
+        f"改善: {improved_metrics} ({improved_metrics/total_metrics*100:.1f}%)"
+        if total_metrics
+        else "改善: 0"
+    )
     print()
 
     if regressed_metrics > 0:

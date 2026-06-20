@@ -27,11 +27,11 @@ description: "Writes comprehensive test cases following best practices. Invoke w
 ```
                  /\                  E2E测试（5%）
                 /UI\                 - Playwright
-               /------\              
+               /------\
               / API契约 \            集成测试（15%）
              /----------\            - API端点测试
             /  业务场景   \           - 数据流验证
-           /--------------\          
+           /--------------\
           /   单元测试     \         单元测试（80%）
          /------------------\        - 核心算法
         /    边界条件测试    \       - 评估器
@@ -88,7 +88,7 @@ class TestComponentDependency:
 ```python
 class TestComponentBehavior:
     """组件_行为_测试"""
-    
+
     def test_component_prerequisite_behavior_expected(self):
         """前置_行为_预期"""
         # 命名格式：test_<功能>_<场景>_<预期>
@@ -97,7 +97,7 @@ class TestComponentBehavior:
 class TestFinanceEvaluatorLLMDependency:
     def test_llm_client_required(self):
         """无LLM客户端时应返回错误"""
-        
+
 class TestSecurityEvaluatorInjectionDetection:
     def test_injection_pattern_detected(self):
         """注入攻击模式应被检测"""
@@ -139,7 +139,7 @@ class TestTargetClassPositiveCases:
             payload={"input": "valid_data"},
         )
         result = target.evaluate(request)
-        
+
         # 强断言：验证具体业务逻辑
         assert result.is_valid is True
         assert result.score >= 0.8
@@ -157,7 +157,7 @@ class TestTargetClassNegativeCases:
             payload={"input": "invalid_data"},
         )
         result = target.evaluate(request)
-        
+
         assert result.is_valid is False
         assert "error" in result.error.lower()
 
@@ -173,7 +173,7 @@ class TestTargetClassBoundaryCases:
             payload={"input": ""},
         )
         result = target.evaluate(request)
-        
+
         assert result.is_valid is False
         assert "不能为空" in result.error
 
@@ -292,10 +292,10 @@ def evaluate_test_code_quality(test_code: str):
         },
         metadata={"language": "python", "style_guide": "pep8"},
     )
-    
+
     evaluator = CodeEvaluator()  # 无LLM时仅语法检查
     result = evaluator.evaluate(request)
-    
+
     return {
         "syntax_valid": result.metadata.get("syntax_valid"),
         "score": result.score,
@@ -337,10 +337,10 @@ def evaluate_test_case_quality(test_description: str, test_code: str):
             "dimensions": ["correctness", "completeness", "relevance", "conciseness"],
         },
     )
-    
+
     evaluator = LLMAJudgeEvaluator(client=mock_llm_client)
     result = evaluator.evaluate(request)
-    
+
     return {
         "scores": result.data["llm_judge_scores"],
         "total_score": result.data["total_score"],
@@ -371,10 +371,10 @@ def check_test_code_security(test_code: str):
             "tests": ["injection", "data_leak"],
         },
     )
-    
+
     evaluator = SecurityEvaluator()
     result = evaluator.evaluate(request)
-    
+
     return {
         "risk_level": result.data["risk_level"],
         "injection_detected": result.data["security_tests"]["injection"]["detected"],
@@ -410,10 +410,10 @@ def check_test_drift(historical_results: list, current_result: dict):
             "current_data": current_result,
         },
     )
-    
+
     evaluator = DriftEvaluator()
     result = evaluator.evaluate(request)
-    
+
     return {
         "drift_detected": result.data["drift_detected"],
         "drift_score": result.data["drift_score"],
@@ -437,12 +437,12 @@ def check_test_drift(historical_results: list, current_result: dict):
 #### 测试质量评分公式
 
 ```
-测试质量总分 = 
-    代码质量(20%) + 
-    完整性(25%) + 
-    正确性(25%) + 
-    安全性(15%) + 
-    鲁棒性(10%) + 
+测试质量总分 =
+    代码质量(20%) +
+    完整性(25%) +
+    正确性(25%) +
+    安全性(15%) +
+    鲁棒性(10%) +
     稳定性(5%)
 
 最低合格分数: 70分
@@ -463,26 +463,26 @@ from src.schemas.evaluation import EvaluationSchema
 
 class TestQualityEvaluator:
     """测试质量评估器 - 元测试"""
-    
+
     def __init__(self, llm_client=None):
         self.code_evaluator = CodeEvaluator()
         self.security_evaluator = SecurityEvaluator()
         self.llm_judge = LLMAJudgeEvaluator(client=llm_client)
-    
+
     def evaluate_test_file(self, test_file_path: str) -> dict:
         """评估整个测试文件的质量"""
         with open(test_file_path, 'r') as f:
             test_code = f.read()
-        
+
         # 1. 代码质量评估
         code_quality = self._evaluate_code_quality(test_code)
-        
+
         # 2. 安全性评估
         security = self._evaluate_security(test_code)
-        
+
         # 3. 测试完整性评估（需要LLM）
         completeness = self._evaluate_completeness(test_code)
-        
+
         # 4. 计算总分
         total_score = (
             code_quality["score"] * 0.20 +
@@ -492,7 +492,7 @@ class TestQualityEvaluator:
             0.7 * 0.10 +  # 鲁棒性默认值
             0.8 * 0.05    # 稳定性默认值
         )
-        
+
         return {
             "test_file": test_file_path,
             "total_score": total_score,
@@ -502,7 +502,7 @@ class TestQualityEvaluator:
             "passed": total_score >= 0.70,
             "grade": self._get_grade(total_score),
         }
-    
+
     def _evaluate_code_quality(self, test_code: str) -> dict:
         request = EvaluationSchema(
             id="meta_code",
@@ -516,7 +516,7 @@ class TestQualityEvaluator:
             "score": result.score,
             "error": result.error,
         }
-    
+
     def _evaluate_security(self, test_code: str) -> dict:
         request = EvaluationSchema(
             id="meta_security",
@@ -529,7 +529,7 @@ class TestQualityEvaluator:
             "injection_detected": result.data["security_tests"]["injection"]["detected"],
             "data_leak_detected": result.data["security_tests"]["data_leak"]["detected"],
         }
-    
+
     def _evaluate_completeness(self, test_code: str) -> dict:
         request = EvaluationSchema(
             id="meta_judge",
@@ -542,7 +542,7 @@ class TestQualityEvaluator:
         )
         result = self.llm_judge.evaluate(request)
         return result.data
-    
+
     def _get_grade(self, score: float) -> str:
         if score >= 0.85:
             return "优秀"

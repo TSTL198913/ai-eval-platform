@@ -130,9 +130,9 @@ const SecurityTest: React.FC = () => {
 
   const columns = [
     { title: '测试类型', dataIndex: 'testType', key: 'testType' },
-    { 
-      title: '结果', 
-      dataIndex: 'detected', 
+    {
+      title: '结果',
+      dataIndex: 'detected',
       key: 'detected',
       render: (detected: boolean) => (
         <Tag color={detected ? 'red' : 'green'}>
@@ -161,8 +161,8 @@ const SecurityTest: React.FC = () => {
           onChange={(e) => setInputText(e.target.value)}
           className='mb-4'
         />
-        <Button 
-          type='primary' 
+        <Button
+          type='primary'
           loading={loading}
           onClick={handleAllTests}
           icon={<Zap />}
@@ -174,8 +174,8 @@ const SecurityTest: React.FC = () => {
 
       <div className='grid grid-cols-1 md:grid-cols-2 gap-4 mb-6'>
         {testCases.map((testCase) => (
-          <Card 
-            key={testCase.name} 
+          <Card
+            key={testCase.name}
             hoverable
             className='cursor-pointer hover:shadow-lg transition-shadow'
             onClick={() => {
@@ -192,8 +192,8 @@ const SecurityTest: React.FC = () => {
                 <p className='text-sm text-gray-500'>{testCase.description}</p>
               </div>
             </div>
-            <Button 
-              type='link' 
+            <Button
+              type='link'
               onClick={(e) => {
                 e.stopPropagation();
                 handleTest(testCase.name);

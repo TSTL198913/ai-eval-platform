@@ -39,7 +39,11 @@ def api_overview():
     success_count = sum(1 for r in recent_records if r["status"] == "passed")
     success_rate = (success_count / len(recent_records)) * 100 if recent_records else 98.5
 
-    avg_latency = sum(r["latency_ms"] for r in recent_records if r["latency_ms"]) / len(recent_records) if recent_records else 245.3
+    avg_latency = (
+        sum(r["latency_ms"] for r in recent_records if r["latency_ms"]) / len(recent_records)
+        if recent_records
+        else 245.3
+    )
 
     evaluators_count = len(EvaluatorFactory.list_evaluators())
 
@@ -63,12 +67,60 @@ def api_overview():
 def api_models():
     return jsonify(
         [
-            {"id": "gpt-4", "name": "GPT-4", "provider": "OpenAI", "status": "active", "evaluations": 5234, "avg_accuracy": 0.92, "avg_latency_ms": 245},
-            {"id": "claude-3", "name": "Claude 3", "provider": "Anthropic", "status": "active", "evaluations": 3456, "avg_accuracy": 0.89, "avg_latency_ms": 198},
-            {"id": "gemini-pro", "name": "Gemini Pro", "provider": "Google", "status": "active", "evaluations": 2345, "avg_accuracy": 0.87, "avg_latency_ms": 156},
-            {"id": "deepseek", "name": "DeepSeek", "provider": "DeepSeek", "status": "active", "evaluations": 1876, "avg_accuracy": 0.85, "avg_latency_ms": 120},
-            {"id": "qwen", "name": "Qwen", "provider": "Alibaba", "status": "active", "evaluations": 1543, "avg_accuracy": 0.84, "avg_latency_ms": 98},
-            {"id": "ollama", "name": "Ollama Local", "provider": "Ollama", "status": "active", "evaluations": 876, "avg_accuracy": 0.78, "avg_latency_ms": 45},
+            {
+                "id": "gpt-4",
+                "name": "GPT-4",
+                "provider": "OpenAI",
+                "status": "active",
+                "evaluations": 5234,
+                "avg_accuracy": 0.92,
+                "avg_latency_ms": 245,
+            },
+            {
+                "id": "claude-3",
+                "name": "Claude 3",
+                "provider": "Anthropic",
+                "status": "active",
+                "evaluations": 3456,
+                "avg_accuracy": 0.89,
+                "avg_latency_ms": 198,
+            },
+            {
+                "id": "gemini-pro",
+                "name": "Gemini Pro",
+                "provider": "Google",
+                "status": "active",
+                "evaluations": 2345,
+                "avg_accuracy": 0.87,
+                "avg_latency_ms": 156,
+            },
+            {
+                "id": "deepseek",
+                "name": "DeepSeek",
+                "provider": "DeepSeek",
+                "status": "active",
+                "evaluations": 1876,
+                "avg_accuracy": 0.85,
+                "avg_latency_ms": 120,
+            },
+            {
+                "id": "qwen",
+                "name": "Qwen",
+                "provider": "Alibaba",
+                "status": "active",
+                "evaluations": 1543,
+                "avg_accuracy": 0.84,
+                "avg_latency_ms": 98,
+            },
+            {
+                "id": "ollama",
+                "name": "Ollama Local",
+                "provider": "Ollama",
+                "status": "active",
+                "evaluations": 876,
+                "avg_accuracy": 0.78,
+                "avg_latency_ms": 45,
+            },
         ]
     )
 
@@ -138,7 +190,9 @@ def api_metrics():
     cost_metrics = cost_governance.get_metrics(24)
     return jsonify(
         {
-            "requests_per_minute": cost_metrics.total_requests / 1440 if cost_metrics.total_requests > 0 else 125,
+            "requests_per_minute": (
+                cost_metrics.total_requests / 1440 if cost_metrics.total_requests > 0 else 125
+            ),
             "p50_latency_ms": cost_metrics.p50_latency_ms or 120,
             "p95_latency_ms": cost_metrics.p95_latency_ms or 245,
             "p99_latency_ms": cost_metrics.p99_latency_ms or 380,
@@ -172,6 +226,7 @@ def api_run_benchmark():
     model_name = data.get("model_name")
 
     try:
+
         def mock_evaluator(question, **kwargs):
             is_valid = random.random() > 0.2
             return {
@@ -182,14 +237,16 @@ def api_run_benchmark():
             }
 
         result = benchmark_manager.run_benchmark(dataset_id, model_name, mock_evaluator)
-        return jsonify({
-            "status": "success",
-            "benchmark_id": result.benchmark_id,
-            "accuracy": result.accuracy,
-            "avg_latency_ms": result.avg_latency_ms,
-            "total_tokens": result.total_tokens,
-            "cost_usd": result.cost_usd,
-        })
+        return jsonify(
+            {
+                "status": "success",
+                "benchmark_id": result.benchmark_id,
+                "accuracy": result.accuracy,
+                "avg_latency_ms": result.avg_latency_ms,
+                "total_tokens": result.total_tokens,
+                "cost_usd": result.cost_usd,
+            }
+        )
     except ValueError as e:
         return jsonify({"status": "error", "message": str(e)}), 400
 

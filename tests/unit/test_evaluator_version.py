@@ -122,7 +122,8 @@ class TestEvaluatorVersionManager:
             evaluator_name="test_evaluator", version="1.0.0", code_hash="abc123", config={}
         )
         self.manager.update_calibration(
-            evaluator_name="test_evaluator", calibration_score=94.0  # 接近基准95
+            evaluator_name="test_evaluator",
+            calibration_score=94.0,  # 接近基准95
         )
 
         status = self.manager.check_calibration_status("test_evaluator")
@@ -135,7 +136,8 @@ class TestEvaluatorVersionManager:
             evaluator_name="test_evaluator", version="1.0.0", code_hash="abc123", config={}
         )
         self.manager.update_calibration(
-            evaluator_name="test_evaluator", calibration_score=70.0  # 远离基准95
+            evaluator_name="test_evaluator",
+            calibration_score=70.0,  # 远离基准95
         )
 
         status = self.manager.check_calibration_status("test_evaluator")

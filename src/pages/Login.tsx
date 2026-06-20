@@ -40,7 +40,7 @@ const Login: React.FC = () => {
         <div className='absolute -top-40 -right-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse' />
         <div className='absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse' style={{ animationDelay: '1s' }} />
       </div>
-      
+
       <Card className='w-full max-w-md shadow-2xl bg-white/10 backdrop-blur-lg border-white/20' styles={{ body: { padding: '32px' } }}>
         <div className='text-center mb-8'>
           <div className='w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center'>

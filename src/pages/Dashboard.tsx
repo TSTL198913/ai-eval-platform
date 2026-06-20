@@ -104,9 +104,9 @@ const Dashboard: React.FC = () => {
     { title: 'Case ID', dataIndex: 'case_id', key: 'case_id' },
     { title: '评估器', dataIndex: 'adapter_name', key: 'adapter_name' },
     { title: '模型', dataIndex: 'model_name', key: 'model_name' },
-    { 
-      title: '状态', 
-      dataIndex: 'status', 
+    {
+      title: '状态',
+      dataIndex: 'status',
       key: 'status',
       render: (status: string) => {
         const color = status === 'passed' ? 'green' : status === 'failed' ? 'red' : 'orange';
@@ -119,16 +119,16 @@ const Dashboard: React.FC = () => {
   ];
 
   const qualityColumns = [
-    { 
-      title: '场景', 
-      dataIndex: 'name', 
+    {
+      title: '场景',
+      dataIndex: 'name',
       key: 'name',
       width: 120,
       render: (name: string) => <span className='font-semibold'>{name}</span>,
     },
-    { 
-      title: '质量得分', 
-      dataIndex: 'score', 
+    {
+      title: '质量得分',
+      dataIndex: 'score',
       key: 'score',
       width: 150,
       render: (score: number) => (
@@ -145,18 +145,18 @@ const Dashboard: React.FC = () => {
         </div>
       ),
     },
-    { 
-      title: 'Token成本', 
-      dataIndex: 'tokenCost', 
+    {
+      title: 'Token成本',
+      dataIndex: 'tokenCost',
       key: 'tokenCost',
       width: 120,
       render: (cost: number) => (
         <div className='text-blue-600 font-semibold'>{cost.toLocaleString()}</div>
       ),
     },
-    { 
-      title: '延迟(ms)', 
-      dataIndex: 'latency', 
+    {
+      title: '延迟(ms)',
+      dataIndex: 'latency',
       key: 'latency',
       width: 120,
       render: (latency: number) => (
@@ -165,9 +165,9 @@ const Dashboard: React.FC = () => {
         </div>
       ),
     },
-    { 
-      title: '结论', 
-      dataIndex: 'conclusion', 
+    {
+      title: '结论',
+      dataIndex: 'conclusion',
       key: 'conclusion',
       render: (conclusion: string) => (
         <Tag color={conclusion.includes('需要') ? 'red' : conclusion.includes('可考虑') ? 'orange' : 'green'}>
@@ -175,9 +175,9 @@ const Dashboard: React.FC = () => {
         </Tag>
       ),
     },
-    { 
-      title: '更新时间', 
-      dataIndex: 'lastUpdated', 
+    {
+      title: '更新时间',
+      dataIndex: 'lastUpdated',
       key: 'lastUpdated',
       width: 140,
       render: (time: string) => <span className='text-gray-400 text-sm'>{time}</span>,

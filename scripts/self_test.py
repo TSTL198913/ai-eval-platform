@@ -5,15 +5,18 @@
 import os
 import sys
 
-# 添加项目根目录到 Python 路径
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+src_path = os.path.join(project_root, "src")
+
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
+if src_path not in sys.path:
+    sys.path.insert(0, src_path)
+
 
 from src.domain.evaluators.code import CodeEvaluator
 from src.domain.evaluators.security import SecurityEvaluator
 from src.schemas.evaluation import EvaluationSchema
-import json
 
 
 def test_code_evaluation():
@@ -32,7 +35,7 @@ def test_code_evaluation():
 
     all_passed = True
     for filepath in files:
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             code = f.read()
 
         request = EvaluationSchema(
@@ -78,7 +81,7 @@ def test_security_evaluation():
         if not os.path.exists(filepath):
             continue
 
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             code = f.read()
 
         request = EvaluationSchema(
@@ -125,14 +128,14 @@ def test_statistical_module():
             scores_a=scores_a, scores_b=scores_b, model_a_name="Model A", model_b_name="Model B"
         )
 
-        print(f"AB测试: PASS")
+        print("AB测试: PASS")
         print(f"  - p值: {result.p_value:.4f}")
         print(f"  - 显著差异: {result.is_significant}")
         print(f"  - 胜出模型: {result.winner}")
 
         # 测试置信区间
         ci = analyzer.calculate_confidence_interval(scores_a)
-        print(f"置信区间: PASS")
+        print("置信区间: PASS")
         print(f"  - 估计值: {ci.estimate:.4f}")
         print(f"  - 区间: [{ci.lower:.4f}, {ci.upper:.4f}]")
 
@@ -149,7 +152,6 @@ def test_version_control_module():
     print("=" * 60)
 
     import tempfile
-    import os
 
     from src.domain.evaluator_version import EvaluatorVersionManager
 
@@ -207,8 +209,6 @@ def test_version_control_module():
 
 if __name__ == "__main__":
     import os
-    import tempfile
-    import shutil
 
     results = []
 

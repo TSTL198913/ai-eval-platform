@@ -7,40 +7,109 @@
 # =====================================================================
 
 repos:
-  # Python 代码格式化
   - repo: https://github.com/psf/black
     rev: 24.1.0
     hooks:
       - id: black
         language_version: python3.10
         description: "格式化 Python 代码 (black)"
+        exclude: |
+          (?x)^(
+            \.venv/
+          | \.git/
+          | node_modules/
+          | dist/
+          | build/
+          | __pycache__/
+          | \.pytest_cache/
+          | \.mypy_cache/
+          | \.ruff_cache/
+          | \.eggs/
+          | .*\.egg-info/
+          )$
 
-  # Python import 排序
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.1.9
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
+        exclude: |
+          (?x)^(
+            \.venv/
+          | \.git/
+          | node_modules/
+          | dist/
+          | build/
+          | __pycache__/
+          | \.pytest_cache/
+          | \.mypy_cache/
+          | \.ruff_cache/
+          | \.eggs/
+          | .*\.egg-info/
+          )$
       - id: ruff-format
+        exclude: |
+          (?x)^(
+            \.venv/
+          | \.git/
+          | node_modules/
+          | dist/
+          | build/
+          | __pycache__/
+          | \.pytest_cache/
+          | \.mypy_cache/
+          | \.ruff_cache/
+          | \.eggs/
+          | .*\.egg-info/
+          )$
 
-  # 避免大文件
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
       - id: check-yaml
         name: check-yaml
         description: "验证 YAML 文件"
+        exclude: |
+          (?x)^(
+            \.venv/
+          | \.git/
+          | node_modules/
+          | dist/
+          | build/
+          )$
 
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
-    hooks:
       - id: end-of-file-fixer
         name: end-of-file-fixer
         description: "确保文件以换行符结尾"
+        exclude: |
+          (?x)^(
+            \.venv/
+          | \.git/
+          | node_modules/
+          | dist/
+          | build/
+          | __pycache__/
+          | \.pytest_cache/
+          | \.mypy_cache/
+          | \.ruff_cache/
+          | \.eggs/
+          | .*\.egg-info/
+          )$
 
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
-    hooks:
       - id: trailing-whitespace
         name: trailing-whitespace
         description: "去除尾部空白"
+        exclude: |
+          (?x)^(
+            \.venv/
+          | \.git/
+          | node_modules/
+          | dist/
+          | build/
+          | __pycache__/
+          | \.pytest_cache/
+          | \.mypy_cache/
+          | \.ruff_cache/
+          | \.eggs/
+          | .*\.egg-info/
+          )$

@@ -13,7 +13,6 @@ import json
 import os
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional
 
 
 class ReportFormat(Enum):
@@ -33,21 +32,21 @@ class EvaluationReport:
     def __init__(self, title: str = "AI评测报告"):
         self.title = title
         self.generated_at = datetime.now().isoformat()
-        self.summary: Dict = {}
-        self.detailed_results: List[Dict] = []
-        self.metrics: Dict = {}
-        self.charts: List[Dict] = []
+        self.summary: dict = {}
+        self.detailed_results: list[dict] = []
+        self.metrics: dict = {}
+        self.charts: list[dict] = []
 
     def add_summary(self, key: str, value):
         self.summary[key] = value
 
-    def add_result(self, result: Dict):
+    def add_result(self, result: dict):
         self.detailed_results.append(result)
 
     def add_metric(self, name: str, value, unit: str = ""):
         self.metrics[name] = {"value": value, "unit": unit}
 
-    def add_chart(self, chart_type: str, title: str, data: Dict):
+    def add_chart(self, chart_type: str, title: str, data: dict):
         self.charts.append(
             {
                 "type": chart_type,
@@ -201,7 +200,7 @@ class ReportGenerator:
     """报告生成器"""
 
     @classmethod
-    def generate(cls, results: List[Dict], format: ReportFormat = ReportFormat.HTML) -> str:
+    def generate(cls, results: list[dict], format: ReportFormat = ReportFormat.HTML) -> str:
         """从评测结果生成报告"""
         report = EvaluationReport(title="AI Evaluation Report")
 
@@ -244,7 +243,7 @@ class ReportGenerator:
 
     @classmethod
     def generate_and_save(
-        cls, results: List[Dict], file_path: str, format: ReportFormat = ReportFormat.HTML
+        cls, results: list[dict], file_path: str, format: ReportFormat = ReportFormat.HTML
     ):
         """生成并保存报告"""
         report = EvaluationReport(title="AI Evaluation Report")
@@ -264,7 +263,7 @@ class ReportGenerator:
         report.save(file_path, format)
 
 
-def _get_score_from_record(record: Dict) -> float:
+def _get_score_from_record(record: dict) -> float:
     """从记录中获取分数，处理response_data嵌套情况"""
     score = record.get("score")
     if score is not None:
@@ -281,7 +280,7 @@ def _get_score_from_record(record: Dict) -> float:
         return 0.0
 
 
-def generate_report_from_records(records: List[Dict], output_path: str = "reports/") -> str:
+def generate_report_from_records(records: list[dict], output_path: str = "reports/") -> str:
     """从数据库记录生成报告"""
     os.makedirs(output_path, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

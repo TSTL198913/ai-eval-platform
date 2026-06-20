@@ -48,7 +48,6 @@ export const getEvaluationRecordColumns = (options: {
           onChange={(e) => options.onCheckboxChange?.(record.id, e.target.checked)}
         />
       ),
-      width: 60,
     });
   }
 
@@ -66,7 +65,6 @@ export const getEvaluationRecordColumns = (options: {
           重新评估
         </Button>
       ),
-      width: 100,
     });
   }
 

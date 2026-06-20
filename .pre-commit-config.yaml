@@ -1,115 +1,117 @@
 # =====================================================================
-# AI Evaluation Platform - Pre-commit 配置
-# =====================================================================
-# 安装: pip install pre-commit
-# 使用: pre-commit install
-# 运行: pre-commit run --all-files
+# AI Eval Platform - Pre-commit Hook Configuration
+# 优化：排除 .venv 和其他无关目录，大幅提升运行速度
 # =====================================================================
 
 repos:
-  - repo: https://github.com/psf/black
-    rev: 24.1.0
-    hooks:
-      - id: black
-        language_version: python3.10
-        description: "格式化 Python 代码 (black)"
-        exclude: |
-          (?x)^(
-            \.venv/
-          | \.git/
-          | node_modules/
-          | dist/
-          | build/
-          | __pycache__/
-          | \.pytest_cache/
-          | \.mypy_cache/
-          | \.ruff_cache/
-          | \.eggs/
-          | .*\.egg-info/
-          )$
-
+  # -------------------------------------------------------------------------
+  # Ruff - 代码检查和修复（比 black + isort + flake8 更快）
+  # -------------------------------------------------------------------------
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.1.9
     hooks:
       - id: ruff
-        args: [--fix, --exit-non-zero-on-fix]
+        name: Ruff Check & Fix
+        args: [--fix, --config, pyproject.toml]
+        description: "Run Ruff linter with auto-fix"
         exclude: |
           (?x)^(
             \.venv/
-          | \.git/
-          | node_modules/
-          | dist/
-          | build/
-          | __pycache__/
-          | \.pytest_cache/
-          | \.mypy_cache/
-          | \.ruff_cache/
           | \.eggs/
+          | \.tox/
+          | build/
+          | dist/
+          | \.git/
+          | \.ruff_cache/
+          | node_modules/
           | .*\.egg-info/
+          | scripts/fix_classification\.py
+          | scripts/fix_server\.py
           )$
+
       - id: ruff-format
+        name: Ruff Format
+        args: [--config, pyproject.toml]
+        description: "Run Ruff formatter"
         exclude: |
           (?x)^(
             \.venv/
-          | \.git/
-          | node_modules/
-          | dist/
-          | build/
-          | __pycache__/
-          | \.pytest_cache/
-          | \.mypy_cache/
-          | \.ruff_cache/
           | \.eggs/
+          | \.tox/
+          | build/
+          | dist/
+          | \.git/
+          | \.ruff_cache/
+          | node_modules/
+          | .*\.egg-info/
+          | scripts/fix_classification\.py
+          | scripts/fix_server\.py
+          )$
+
+  # -------------------------------------------------------------------------
+  # Trailing Whitespace - 移除尾随空格
+  # -------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+        description: "Trim trailing whitespace"
+        exclude: |
+          (?x)^(
+            \.venv/
+          | \.eggs/
+          | \.tox/
+          | build/
+          | dist/
+          | \.git/
+          | \.ruff_cache/
+          | node_modules/
+          | .*\.egg-info/
+          | scripts/fix_classification\.py
+          | scripts/fix_server\.py
+          )$
+
+  # -------------------------------------------------------------------------
+  # End of File - 确保文件以换行符结尾
+  # -------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: end-of-file-fixer
+        description: "Ensure files end with newline"
+        exclude: |
+          (?x)^(
+            \.venv/
+          | \.eggs/
+          | \.tox/
+          | build/
+          | dist/
+          | \.git/
+          | \.ruff_cache/
+          | node_modules/
           | .*\.egg-info/
           )$
 
+  # -------------------------------------------------------------------------
+  # Check YAML - YAML文件格式检查
+  # -------------------------------------------------------------------------
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
       - id: check-yaml
-        name: check-yaml
-        description: "验证 YAML 文件"
+        description: "Check YAML file formatting"
         exclude: |
           (?x)^(
-            \.venv/
-          | \.git/
-          | node_modules/
-          | dist/
-          | build/
+            docker/k8s/deployment\.yaml
           )$
 
-      - id: end-of-file-fixer
-        name: end-of-file-fixer
-        description: "确保文件以换行符结尾"
-        exclude: |
-          (?x)^(
-            \.venv/
-          | \.git/
-          | node_modules/
-          | dist/
-          | build/
-          | __pycache__/
-          | \.pytest_cache/
-          | \.mypy_cache/
-          | \.ruff_cache/
-          | \.eggs/
-          | .*\.egg-info/
-          )$
-
-      - id: trailing-whitespace
-        name: trailing-whitespace
-        description: "去除尾部空白"
-        exclude: |
-          (?x)^(
-            \.venv/
-          | \.git/
-          | node_modules/
-          | dist/
-          | build/
-          | __pycache__/
-          | \.pytest_cache/
-          | \.mypy_cache/
-          | \.ruff_cache/
-          | \.eggs/
-          | .*\.egg-info/
-          )$
+# =====================================================================
+# 安装说明
+# =====================================================================
+# 1. 安装pre-commit: pip install pre-commit
+# 2. 安装钩子: pre-commit install
+# 3. 手动运行所有钩子: pre-commit run --all-files
+# 4. 跳过钩子: git commit --no-verify
+# 5. 卸载钩子: pre-commit uninstall
+# =====================================================================

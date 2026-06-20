@@ -1,0 +1,237 @@
+# =====================================================================
+# AI Eval Platform - Code Quality CI Workflow
+# 专注于代码质量和格式检查的CI流程
+# =====================================================================
+
+name: Code Quality CI
+
+on:
+  push:
+    branches: [main, develop, develop_06]
+  pull_request:
+    branches: [main, develop, develop_06]
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  # =====================================================================
+  # Job 1: 代码质量检查
+  # =====================================================================
+  code-quality:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install linting tools
+        run: |
+          pip install black ruff isort
+
+      # ===================================================================
+      # Ruff 代码检查
+      # ===================================================================
+      - name: Run Ruff checks
+        run: |
+          ruff check src/ tests/
+        id: ruff
+
+      # ===================================================================
+      # Black 格式检查
+      # ===================================================================
+      - name: Check Black formatting
+        run: |
+          black --check src/ tests/
+        id: black
+
+      # ===================================================================
+      # isort 导入排序检查
+      # ===================================================================
+      - name: Check isort formatting
+        run: |
+          isort --check src/ tests/
+        id: isort
+
+      # ===================================================================
+      # 自动修复并创建PR
+      # ===================================================================
+      - name: Auto-format code
+        if: github.event_name == 'pull_request'
+        run: |
+          black src/ tests/
+          isort src/ tests/
+          ruff check --fix src/ tests/
+
+      - name: Create Pull Request with fixes
+        if: github.event_name == 'pull_request'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          title: 'style: Auto-format code'
+          commit-message: 'style: Auto-format code'
+          branch: auto-format/code-quality
+          delete-branch: true
+          labels: |
+            automated pr
+            code quality
+          title-prefix: '[Auto] '
+
+  # =====================================================================
+  # Job 2: 预提交钩子检查
+  # =====================================================================
+  pre-commit:
+    name: Pre-commit Hooks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install pre-commit
+        run: |
+          pip install pre-commit
+
+      - name: Run pre-commit hooks
+        run: |
+          pre-commit run --all-files
+
+  # =====================================================================
+  # Job 3: 类型检查
+  # =====================================================================
+  type-check:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install mypy types-requests types-PyYAML
+
+      - name: Run mypy type checker
+        run: |
+          mypy src/ --ignore-missing-imports || true
+
+  # =====================================================================
+  # Job 4: 安全扫描
+  # =====================================================================
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install safety
+        run: |
+          pip install safety bandit
+
+      - name: Run Safety security check
+        run: |
+          safety check || true
+
+      - name: Run Bandit security scan
+        run: |
+          bandit -r src/ || true
+
+  # =====================================================================
+  # Job 5: 代码复杂度检查
+  # =====================================================================
+  complexity-check:
+    name: Complexity Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install radon
+
+      - name: Run Radon complexity check
+        run: |
+          radon cc src/ -a -s || true
+
+      - name: Run Radon maintainability check
+        run: |
+          radon mi src/ -s || true
+
+  # =====================================================================
+  # Job 6: 生成代码质量报告
+  # =====================================================================
+  quality-report:
+    name: Code Quality Report
+    runs-on: ubuntu-latest
+    needs: [code-quality, pre-commit, security-scan]
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install tools
+        run: |
+          pip install black ruff isort
+
+      - name: Generate quality report
+        run: |
+          echo "# AI Eval Platform - 代码质量报告" > CODE_QUALITY_REPORT.md
+          echo "" >> CODE_QUALITY_REPORT.md
+          echo "生成时间: $(date)" >> CODE_QUALITY_REPORT.md
+          echo "" >> CODE_QUALITY_REPORT.md
+          echo "## 代码统计" >> CODE_QUALITY_REPORT.md
+          echo "" >> CODE_QUALITY_REPORT.md
+          echo "### 代码行数统计" >> CODE_QUALITY_REPORT.md
+          echo '```bash' >> CODE_QUALITY_REPORT.md
+          find src/ -name "*.py" -type f -exec wc -l {} + | tail -1 >> CODE_QUALITY_REPORT.md
+          echo '```' >> CODE_QUALITY_REPORT.md
+          echo "" >> CODE_QUALITY_REPORT.md
+          echo "### 文件数量统计" >> CODE_QUALITY_REPORT.md
+          echo '```bash' >> CODE_QUALITY_REPORT.md
+          find src/ -name "*.py" -type f | wc -l >> CODE_QUALITY_REPORT.md
+          echo '```' >> CODE_QUALITY_REPORT.md
+          cat CODE_QUALITY_REPORT.md
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-quality-report
+          path: CODE_QUALITY_REPORT.md
+          retention-days: 30

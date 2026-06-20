@@ -53,15 +53,15 @@ jobs:
 
       - name: Run Ruff (Fast Python Linter)
         run: |
-          ruff check src/ tests/ --output-format=github || true  # [门禁已注释] 暂不强制
+          ruff check src/ tests/ --output-format=github
 
       - name: Run Black (Code Formatter Check)
         run: |
-          black --check src/ tests/ || true  # [门禁已注释] 暂不强制
+          black --check src/ tests/
 
       - name: Run isort (Import Sorter Check)
         run: |
-          isort --check src/ tests/ || true  # [门禁已注释] 暂不强制
+          isort --check src/ tests/
 
   # =====================================================================
   # Job 2: 单元测试 + 覆盖率
@@ -215,7 +215,9 @@ jobs:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop_06')
     outputs:
       backend-tag: ${{ steps.meta-backend.outputs.tags }}
+      backend-image: ${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/ai-eval-platform-backend
       frontend-tag: ${{ steps.meta-frontend.outputs.tags }}
+      frontend-image: ${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/ai-eval-platform-frontend
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -237,14 +239,16 @@ jobs:
         id: meta-backend
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/ai-eval-platform
+          images: |
+            ${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/ai-eval-platform-backend
           tags: |
             type=sha,prefix=
             type=ref,event=branch
             type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push Backend Docker image
-        id: build
+        id: build-backend
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -262,13 +266,16 @@ jobs:
         id: meta-frontend
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/ai-eval-platform
+          images: |
+            ${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/ai-eval-platform-frontend
           tags: |
-            type=sha,prefix=,suffix=-frontend
-            type=ref,event=branch,suffix=-frontend
-            type=semver,pattern={{version}},suffix=-frontend
+            type=sha,prefix=
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push Frontend Docker image
+        id: build-frontend
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -278,13 +285,6 @@ jobs:
           labels: ${{ steps.meta-frontend.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@v1
-        with:
-          subject-name: ${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/ai-eval-platform
-          subject-digest: ${{ steps.build.outputs.digest }}
-          push-to-registry: true
 
   # =====================================================================
   # Job 6: 部署到生产环境

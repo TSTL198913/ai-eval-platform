@@ -53,15 +53,15 @@ jobs:
 
       - name: Run Ruff (Fast Python Linter)
         run: |
-          ruff check src/ tests/ --output-format=github || true  # [门禁已注释] 暂不强制
+          ruff check src/ tests/ --output-format=github
 
       - name: Run Black (Code Formatter Check)
         run: |
-          black --check src/ tests/ || true  # [门禁已注释] 暂不强制
+          black --check src/ tests/
 
       - name: Run isort (Import Sorter Check)
         run: |
-          isort --check src/ tests/ || true  # [门禁已注释] 暂不强制
+          isort --check src/ tests/
 
   # =====================================================================
   # Job 2: 单元测试 + 覆盖率
@@ -245,7 +245,7 @@ jobs:
             type=sha,prefix=
             type=ref,event=branch
             type=semver,pattern={{version}}
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop_06' }}
 
       - name: Build and push Backend Docker image
         id: build-backend
@@ -256,6 +256,7 @@ jobs:
           push: true
           tags: ${{ steps.meta-backend.outputs.tags }}
           labels: ${{ steps.meta-backend.outputs.labels }}
+          platforms: linux/amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -272,7 +273,7 @@ jobs:
             type=sha,prefix=
             type=ref,event=branch
             type=semver,pattern={{version}}
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop_06' }}
 
       - name: Build and push Frontend Docker image
         id: build-frontend
@@ -283,6 +284,7 @@ jobs:
           push: true
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
+          platforms: linux/amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

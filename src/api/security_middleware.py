@@ -2,11 +2,12 @@
 安全中间件 - 在API Gateway层进行安全检测
 毫秒级响应，只拦截高风险请求
 """
-from fastapi import Request, HTTPException
+import re
+import time
+
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
-import time
-import re
 
 INJECTION_PATTERNS = [
     re.compile(r"ignore\s+all\s+previous\s+instructions?", re.IGNORECASE),
@@ -58,7 +59,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         try:
             if request.method in ["POST", "PUT", "PATCH"]:
                 body = await request.json()
-        except:
+        except Exception:
             pass
 
         user_input = ""

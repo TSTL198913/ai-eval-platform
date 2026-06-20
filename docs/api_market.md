@@ -29,6 +29,33 @@ Authorization: Bearer your-api-key
 
 ---
 
+## API 架构
+
+### 路由模块结构（v2.0）
+
+API端点按业务领域拆分为独立路由模块：
+
+| 路由模块 | 端点前缀 | 功能描述 |
+|---------|---------|---------|
+| `auth_routes.py` | `/api/v1/auth` | 用户认证（登录、刷新令牌） |
+| `health_routes.py` | `/` | 健康检查与监控指标 |
+| `evaluation_routes.py` | `/api/v1/evaluate` | 模型评测执行 |
+| `records_routes.py` | `/api/v1/records` | 评测记录CRUD管理 |
+| `evaluator_routes.py` | `/api/v1/evaluators` | 评估器配置与版本管理 |
+| `model_routes.py` | `/api/v1/models` | 模型列表与对比分析 |
+| `report_routes.py` | `/api/v1/reports` | 评测报告生成与导出 |
+| `dataset_routes.py` | `/api/v1/datasets` | 数据集管理 |
+| `calibration_routes.py` | `/api/v1/calibration` | 黄金数据集与校准 |
+| `finetune_routes.py` | `/api/v1/finetune` | 模型微调训练管理 |
+| `statistics_routes.py` | `/api/v1/statistics` | 统计分析与A/B测试 |
+| `dashboard_routes.py` | `/api/v1/dashboard` | 仪表盘数据聚合 |
+
+**路由聚合器**: `src/api/server.py` 负责注册所有路由模块，保持中间件和异常处理全局统一。
+
+**公共模块**: `src/api/common.py` 提供共享函数（响应格式、输入验证、资源获取），避免循环依赖。
+
+---
+
 ## API 端点
 
 ### 1. 评测 API

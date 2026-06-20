@@ -8,7 +8,8 @@ API版本迁移管理
 提供版本适配器，处理字段映射和默认值。
 """
 
-from typing import Any, Dict
+from typing import Any
+
 from fastapi import APIRouter
 
 
@@ -17,7 +18,7 @@ def create_versioned_router(prefix: str, tags: list[str]) -> APIRouter:
     return APIRouter(prefix=prefix, tags=tags)
 
 
-def migrate_v1_to_v2(data: Dict[str, Any]) -> Dict[str, Any]:
+def migrate_v1_to_v2(data: dict[str, Any]) -> dict[str, Any]:
     """V1字段映射到V2"""
     if "user_input" in data:
         data["input"] = data.pop("user_input")
@@ -26,7 +27,7 @@ def migrate_v1_to_v2(data: Dict[str, Any]) -> Dict[str, Any]:
     return data
 
 
-def migrate_v2_to_v1(data: Dict[str, Any]) -> Dict[str, Any]:
+def migrate_v2_to_v1(data: dict[str, Any]) -> dict[str, Any]:
     """V2字段映射到V1"""
     if "input" in data:
         data["user_input"] = data.pop("input")

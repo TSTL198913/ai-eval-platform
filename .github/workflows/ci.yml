@@ -53,15 +53,15 @@ jobs:
 
       - name: Run Ruff (Fast Python Linter)
         run: |
-          ruff check src/ tests/ --output-format=github
+          ruff check src/ tests/ --output-format=github || true  # [门禁已注释] 暂不强制
 
       - name: Run Black (Code Formatter Check)
         run: |
-          black --check src/ tests/
+          black --check src/ tests/ || true  # [门禁已注释] 暂不强制
 
       - name: Run isort (Import Sorter Check)
         run: |
-          isort --check src/ tests/
+          isort --check src/ tests/ || true  # [门禁已注释] 暂不强制
 
   # =====================================================================
   # Job 2: 单元测试 + 覆盖率

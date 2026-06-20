@@ -5,7 +5,6 @@ AI Eval Platform Mock API Server
 
 import random
 from datetime import datetime
-from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,16 +29,16 @@ class LoginRequest(BaseModel):
 
 # 修复：修改评估请求模型以匹配前端发送的数据格式
 class EvaluationPayload(BaseModel):
-    user_input: Optional[str] = ""
-    tests: Optional[list[str]] = None
-    text: Optional[str] = None
-    context: Optional[str] = None
-    expected_output: Optional[str] = None
+    user_input: str | None = ""
+    tests: list[str] | None = None
+    text: str | None = None
+    context: str | None = None
+    expected_output: str | None = None
 
 
 class EvaluationRequest(BaseModel):
-    id: Optional[str] = None
-    type: Optional[str] = "security"
+    id: str | None = None
+    type: str | None = "security"
     payload: EvaluationPayload = EvaluationPayload()
 
 
@@ -169,10 +168,10 @@ async def list_models():
 async def list_records(
     page: int = Query(1, ge=1, description="页码，从1开始"),
     page_size: int = Query(10, ge=1, le=100, description="每页数量，最大100"),
-    evaluator: Optional[str] = None,
-    model: Optional[str] = None,
-    status: Optional[str] = None,
-    limit: Optional[int] = Query(None, ge=1, le=1000, description="记录数量限制（兼容性）"),
+    evaluator: str | None = None,
+    model: str | None = None,
+    status: str | None = None,
+    limit: int | None = Query(None, ge=1, le=1000, description="记录数量限制（兼容性）"),
 ):
     filtered = MOCK_RECORDS.copy()
     if evaluator:
@@ -260,7 +259,7 @@ async def get_cost():
 
 @app.get("/api/v1/cost/analysis")
 async def get_cost_analysis(
-    start_date: Optional[str] = None, end_date: Optional[str] = None, granularity: str = "day"
+    start_date: str | None = None, end_date: str | None = None, granularity: str = "day"
 ):
     return {
         "code": 0,

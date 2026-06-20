@@ -431,13 +431,13 @@ class APIBenchmark:
             except httpx.HTTPStatusError as e:
                 try:
                     error_detail = response.json()
-                except Exception:
+                except Exception:  # noqa: B904
                     error_detail = response.text
                 raise httpx.HTTPStatusError(
                     f"{e.message} - Response: {error_detail}",
                     request=e.request,
                     response=e.response,
-                )
+                ) from e
             return response.json()
 
         benchmark = PerformanceBenchmark("api_evaluate")

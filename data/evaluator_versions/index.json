@@ -10,7 +10,7 @@
     "calibration_threshold": 5.0,
     "status": "active",
     "created_at": "2026-06-19T03:14:37.384568",
-    "updated_at": "2026-06-20T12:46:12.304612",
+    "updated_at": "2026-06-20T14:04:09.873245",
     "created_by": "system"
   },
   "00bdcc34": {
@@ -361,6 +361,20 @@
     "status": "active",
     "created_at": "2026-06-20T12:46:12.324293",
     "updated_at": "2026-06-20T12:46:12.338125",
+    "created_by": "system"
+  },
+  "dc9de622": {
+    "version_id": "dc9de622",
+    "evaluator_name": "llm_as_judge_fabd249c",
+    "version": "1.0.0",
+    "changelog": "",
+    "code_hash": "hash123",
+    "config_snapshot": {},
+    "calibration_score": 72.5,
+    "calibration_threshold": 5.0,
+    "status": "active",
+    "created_at": "2026-06-20T14:04:09.885380",
+    "updated_at": "2026-06-20T14:04:09.895950",
     "created_by": "system"
   }
 }

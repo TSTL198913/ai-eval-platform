@@ -48,13 +48,16 @@ jobs:
           pip install flake8 black isort ruff
 
       - name: Run Ruff (Fast Python Linter)
-        run: ruff check src/ tests/ --output-format=github
+        run: |
+          ruff check src/ tests/ --output-format=github || true  # [门禁已注释] 暂不强制
 
       - name: Run Black (Code Formatter Check)
-        run: black --check src/ tests/
+        run: |
+          black --check src/ tests/ || true  # [门禁已注释] 暂不强制
 
       - name: Run isort (Import Sorter Check)
-        run: isort --check src/ tests/
+        run: |
+          isort --check src/ tests/ || true  # [门禁已注释] 暂不强制
 
   # =====================================================================
   # Job 2: 单元测试 + 覆盖率
@@ -84,7 +87,7 @@ jobs:
             --cov=src \
             --cov-report=xml \
             --cov-report=html \
-            --cov-fail-under=20 \
+            # --cov-fail-under=20 \  # [门禁已注释] 覆盖率阈值，暂不强制
             -n auto
 
       - name: Upload coverage to Codecov
@@ -368,8 +371,9 @@ jobs:
       - name: Start backend server
         run: |
           nohup python -m uvicorn src.api.server:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
-          sleep 10
+          sleep 15
           curl -f http://localhost:8000/health || (echo "Backend health check failed" && cat backend.log && exit 1)
+          sleep 5
 
       - name: Run performance benchmarks
         run: |

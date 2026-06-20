@@ -19,6 +19,7 @@ permissions:
   security-events: write
   actions: read
   id-token: write
+  attestations: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

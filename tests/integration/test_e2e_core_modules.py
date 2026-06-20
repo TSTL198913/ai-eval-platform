@@ -104,12 +104,12 @@ class TestE2EEvaluationFlow:
 
     def test_evaluate_and_verify_record(self, client):
         """评测后验证记录是否正确存储"""
-        with patch("src.services.evaluator_svc.create_llm_client") as mock_create:
+        with patch("src.domain.model_routing.model_router.create_llm_client") as mock_create:
             mock_llm = MagicMock()
             mock_llm.config = MagicMock()
             mock_llm.config.model_name = "test-model"
             mock_llm.chat = MagicMock(return_value="测试响应内容")
-            mock_create.return_value = mock_llm
+            mock_create.return_value = (mock_llm, {"model": "test-model"})
 
             eval_resp = client.post(
                 "/api/v1/evaluate",
@@ -388,12 +388,12 @@ class TestE2ECrossModuleConsistency:
 
     def test_end_to_end_status_consistency(self, client):
         """端到端状态一致性: evaluation_status 决定 status"""
-        with patch("src.services.evaluator_svc.create_llm_client") as mock_create:
+        with patch("src.domain.model_routing.model_router.create_llm_client") as mock_create:
             mock_llm = MagicMock()
             mock_llm.config = MagicMock()
             mock_llm.config.model_name = "test"
             mock_llm.chat = MagicMock(return_value="ok")
-            mock_create.return_value = mock_llm
+            mock_create.return_value = (mock_llm, {"model": "test"})
 
             response = client.post(
                 "/api/v1/evaluate",

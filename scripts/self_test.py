@@ -1,6 +1,14 @@
 """
 使用评估器进行自测
 """
+import os
+import sys
+
+# 添加项目根目录到 Python 路径
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 from src.domain.evaluators.code import CodeEvaluator
 from src.domain.evaluators.security import SecurityEvaluator
 from src.schemas.evaluation import EvaluationSchema

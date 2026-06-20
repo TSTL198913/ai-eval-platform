@@ -41,6 +41,8 @@ export const getEvaluationRecordColumns = (options: {
   if (options.showCheckbox) {
     baseColumns.unshift({
       title: '选择',
+      dataIndex: 'checkbox',
+      key: 'checkbox',
       render: (record: any) => (
         <Checkbox
           onChange={(e) => options.onCheckboxChange?.(record.id, e.target.checked)}
@@ -54,6 +56,8 @@ export const getEvaluationRecordColumns = (options: {
   if (options.showActions) {
     baseColumns.push({
       title: '操作',
+      dataIndex: 'actions',
+      key: 'actions',
       render: (record: any) => (
         <Button
           type='link'

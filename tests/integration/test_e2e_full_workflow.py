@@ -6,7 +6,7 @@
 
 import os
 import sys
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -55,18 +55,25 @@ class TestE2EFullWorkflow:
         assert login_data["code"] == 0
         assert "access_token" in login_data["data"]
 
-        # Step 2: 执行同步评测
-        eval_response = client.post(
-            "/api/v1/evaluate",
-            json={
-                "id": "e2e_test_case_001",
-                "type": "general",
-                "payload": {
-                    "user_input": "测试用户输入",
-                    "expected_output": "测试预期输出",
+        # Step 2: 执行同步评测（mock LLM 客户端）
+        with patch("src.domain.model_routing.model_router.create_llm_client") as mock_create:
+            mock_llm = MagicMock()
+            mock_llm.config = MagicMock()
+            mock_llm.config.model_name = "test-model"
+            mock_llm.chat = MagicMock(return_value="测试响应")
+            mock_create.return_value = (mock_llm, {"model": "test-model"})
+
+            eval_response = client.post(
+                "/api/v1/evaluate",
+                json={
+                    "id": "e2e_test_case_001",
+                    "type": "general",
+                    "payload": {
+                        "user_input": "测试用户输入",
+                        "expected_output": "测试预期输出",
+                    },
                 },
-            },
-        )
+            )
         assert eval_response.status_code == 200
         eval_data = eval_response.json()
         assert eval_data["code"] == 0
@@ -359,14 +366,21 @@ class TestSecurityMiddleware:
 
         client = TestClient(app)
 
-        response = client.post(
-            "/api/v1/evaluate",
-            json={
-                "id": "normal_test",
-                "type": "general",
-                "payload": {"user_input": "正常的用户问题"},
-            },
-        )
+        with patch("src.domain.model_routing.model_router.create_llm_client") as mock_create:
+            mock_llm = MagicMock()
+            mock_llm.config = MagicMock()
+            mock_llm.config.model_name = "test-model"
+            mock_llm.chat = MagicMock(return_value="正常响应")
+            mock_create.return_value = (mock_llm, {"model": "test-model"})
+
+            response = client.post(
+                "/api/v1/evaluate",
+                json={
+                    "id": "normal_test",
+                    "type": "general",
+                    "payload": {"user_input": "正常的用户问题"},
+                },
+            )
         assert response.status_code == 200
 
 

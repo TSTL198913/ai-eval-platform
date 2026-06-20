@@ -60,6 +60,15 @@ pytest-timeout==2.2.0
 # UI
 streamlit>=1.32.0
 
+# Authentication
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.0
+
+# Math & Statistics
+scipy>=1.10.0
+numpy>=1.24.0
+pandas>=2.0.0
+
 # Code Quality
 ruff>=0.3.0
 

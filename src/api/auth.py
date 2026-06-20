@@ -20,7 +20,11 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=F
 
 
 def _hash_password(password: str) -> str:
-    salt = os.environ.get("PASSWORD_SALT", "ai-eval-platform-default-salt-v1")
+    salt = os.environ.get("PASSWORD_SALT", "")
+    if not salt:
+        import uuid
+        salt = uuid.uuid4().hex
+        os.environ["PASSWORD_SALT"] = salt
     return hashlib.sha256(f"{salt}:{password}".encode()).hexdigest()
 
 
@@ -46,13 +50,6 @@ def _init_users_db():
             "full_name": "Regular User",
             "email": "user@example.com",
             "hashed_password": _hash_password(os.environ.get("USER_PASSWORD", "user123")),
-            "disabled": False,
-        },
-        "demo": {
-            "username": "demo",
-            "full_name": "Demo User",
-            "email": "demo@example.com",
-            "hashed_password": _hash_password("password"),
             "disabled": False,
         },
     }

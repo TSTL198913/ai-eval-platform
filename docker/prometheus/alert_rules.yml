@@ -1,0 +1,293 @@
+# =====================================================================
+# AI Evaluation Platform - Prometheus 告警规则
+# 用于 Prometheus + Alertmanager 的告警配置
+# =====================================================================
+
+groups:
+  # =====================================================================
+  # 服务可用性告警
+  # =====================================================================
+  - name: ai_eval_availability
+    interval: 30s
+    rules:
+      # 服务完全不可用
+      - alert: AIEvalServiceDown
+        expr: up{job="ai-eval-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "AI评测服务不可用"
+          description: "AI评测服务已经宕机超过1分钟，请立即检查！"
+          runbook_url: "https://docs.example.com/runbooks/service-down"
+
+      # API 响应错误
+      - alert: AIEvalAPIErrorRateHigh
+        expr: |
+          (
+            rate(http_requests_total{job="ai-eval-api", status=~"5.."}[5m])
+            /
+            rate(http_requests_total{job="ai-eval-api"}[5m])
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "API 5xx 错误率过高"
+          description: "过去5分钟内 API 5xx 错误率超过 5%，当前值: {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.example.com/runbooks/high-error-rate"
+
+      # Worker 不可用
+      - alert: AIEvalWorkerDown
+        expr: up{job="ai-eval-worker"} == 0
+        for: 2m
+        labels:
+          severity: high
+          category: availability
+        annotations:
+          summary: "评测 Worker 不可用"
+          description: "评测 Worker 已经宕机超过2分钟"
+
+  # =====================================================================
+  # 性能告警
+  # =====================================================================
+  - name: ai_eval_performance
+    interval: 30s
+    rules:
+      # P99 延迟过高
+      - alert: AIEvalLatencyP99High
+        expr: |
+          histogram_quantile(0.99,
+            rate(http_request_duration_seconds_bucket{job="ai-eval-api"}[5m])
+          ) > 10
+        for: 5m
+        labels:
+          severity: critical
+          category: performance
+        annotations:
+          summary: "P99 延迟过高"
+          description: "P99 延迟已超过 10 秒，当前值: {{ $value | humanizeDuration }}"
+          runbook_url: "https://docs.example.com/runbooks/high-latency"
+
+      # P95 延迟过高
+      - alert: AIEvalLatencyP95High
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_request_duration_seconds_bucket{job="ai-eval-api"}[5m])
+          ) > 5
+        for: 10m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "P95 延迟较高"
+          description: "P95 延迟已超过 5 秒，当前值: {{ $value | humanizeDuration }}"
+
+      # 吞吐量过低
+      - alert: AIEvalThroughputLow
+        expr: |
+          rate(http_requests_total{job="ai-eval-api"}[5m]) < 10
+        for: 15m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "服务吞吐量过低"
+          description: "过去15分钟内吞吐量持续低于 10 req/s"
+
+  # =====================================================================
+  # 资源使用告警
+  # =====================================================================
+  - name: ai_eval_resources
+    interval: 30s
+    rules:
+      # CPU 使用率过高
+      - alert: AIEvalCPUUsageHigh
+        expr: |
+          (
+            rate(process_cpu_seconds_total{job="ai-eval-api"}[5m])
+            /
+            rate(process_cpu_seconds_total{job="ai-eval-api"}[5m] offset 1h)
+          ) > 1.5
+        for: 10m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "CPU 使用率异常增长"
+          description: "CPU 使用率相比1小时前增长超过 50%"
+
+      # 内存使用率过高
+      - alert: AIEvalMemoryUsageHigh
+        expr: |
+          process_resident_memory_bytes{job="ai-eval-api"}
+          /
+          (container_spec_memory_limit_bytes{job="ai-eval-api"} > 0)
+          > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "内存使用率过高"
+          description: "内存使用率已超过 80%，当前值: {{ $value | humanizePercentage }}"
+
+      # 数据库连接池耗尽
+      - alert: AIEvalDBConnectionPoolExhausted
+        expr: |
+          sum(db_pool_connections{job="ai-eval-api", state="in_use"})
+          /
+          sum(db_pool_connections{job="ai-eval-api"})
+          > 0.9
+        for: 5m
+        labels:
+          severity: high
+          category: resources
+        annotations:
+          summary: "数据库连接池接近耗尽"
+          description: "数据库连接池使用率已超过 90%"
+
+  # =====================================================================
+  # 业务指标告警
+  # =====================================================================
+  - name: ai_eval_business
+    interval: 60s
+    rules:
+      # 评测失败率过高
+      - alert: AIEvalFailureRateHigh
+        expr: |
+          (
+            rate(evaluation_total{job="ai-eval-api", status="failed"}[10m])
+            /
+            rate(evaluation_total{job="ai-eval-api"}[10m])
+          ) > 0.1
+        for: 15m
+        labels:
+          severity: warning
+          category: business
+        annotations:
+          summary: "评测失败率过高"
+          description: "过去15分钟内评测失败率超过 10%"
+
+      # 任务队列积压
+      - alert: AIEvalTaskQueueBacklog
+        expr: queue_size{job="ai-eval-queue"} > 1000
+        for: 30m
+        labels:
+          severity: warning
+          category: business
+        annotations:
+          summary: "任务队列积压"
+          description: "等待处理的任务数量已超过 1000，请检查 Worker 状态"
+
+      # 熔断器打开
+      - alert: AIEvalCircuitBreakerOpen
+        expr: circuit_breaker_state{job="ai-eval-api"} == 2
+        for: 1m
+        labels:
+          severity: high
+          category: business
+        annotations:
+          summary: "熔断器已打开"
+          description: "检测到下游服务故障，熔断器已打开，请检查 LLM 服务状态"
+
+  # =====================================================================
+  # 成本告警
+  # =====================================================================
+  - name: ai_eval_cost
+    interval: 300s
+    rules:
+      # 日成本接近预算
+      - alert: AIEvalDailyBudgetApproaching
+        expr: |
+          (
+            evaluation_cost_total{job="ai-eval-api"}
+            /
+            daily_cost_limit{job="ai-eval-api"}
+          ) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          category: cost
+        annotations:
+          summary: "日成本接近预算"
+          description: "日成本已达到预算的 80%，当前值: {{ $value | humanizePercentage }}"
+
+      # 日成本超出预算
+      - alert: AIEvalDailyBudgetExceeded
+        expr: |
+          (
+            evaluation_cost_total{job="ai-eval-api"}
+            /
+            daily_cost_limit{job="ai-eval-api"}
+          ) > 1.0
+        for: 1m
+        labels:
+          severity: critical
+          category: cost
+        annotations:
+          summary: "日成本超出预算！"
+          description: "日成本已超出预算，请立即检查！"
+
+      # 成本异常增长
+      - alert: AIEvalCostAnomaly
+        expr: |
+          (
+            rate(evaluation_cost_total{job="ai-eval-api"}[1h])
+            /
+            rate(evaluation_cost_total{job="ai-eval-api"}[1h] offset 24h)
+          ) > 2.0
+        for: 10m
+        labels:
+          severity: warning
+          category: cost
+        annotations:
+          summary: "成本异常增长"
+          description: "成本相比24小时前增长超过 100%"
+
+  # =====================================================================
+  # 安全告警
+  # =====================================================================
+  - name: ai_eval_security
+    interval: 60s
+    rules:
+      # 认证失败率过高
+      - alert: AIEvalAuthFailureRateHigh
+        expr: |
+          (
+            rate(http_requests_total{job="ai-eval-api", status="401"}[5m])
+            /
+            rate(http_requests_total{job="ai-eval-api"}[5m])
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "认证失败率过高"
+          description: "认证失败率超过 10%，可能存在暴力破解尝试"
+
+      # 检测到注入攻击
+      - alert: AIEvalInjectionAttackDetected
+        expr: |
+          increase(security_injection_blocked_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: high
+          category: security
+        annotations:
+          summary: "检测到注入攻击"
+          description: "系统检测并拦截了 {{ $value }} 次注入攻击"
+
+      # 限流触发
+      - alert: AIEvalRateLimitTriggered
+        expr: rate_limiter_requests_rejected_total > 100
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "限流规则被触发"
+          description: "过去5分钟内已拒绝 {{ $value }} 个请求，可能存在滥用"

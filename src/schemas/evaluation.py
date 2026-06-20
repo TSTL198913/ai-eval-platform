@@ -108,3 +108,21 @@ DomainType = Literal[
     "function_call",
     "multi_agent",
 ]
+
+
+class LoginRequest(BaseModel):
+    username: str = Field(..., description="用户名", min_length=1)
+    password: str = Field(..., description="密码", min_length=1)
+
+
+class BatchDeleteRequest(BaseModel):
+    ids: list[int] = Field(..., description="要删除的记录ID列表", min_length=1)
+
+
+class BatchUpdateRequest(BaseModel):
+    ids: list[int] = Field(..., description="要更新的记录ID列表", min_length=1)
+    data: dict = Field(..., description="更新数据")
+
+
+class BatchEvaluateRequest(BaseModel):
+    cases: list[dict] = Field(..., description="评估用例列表", min_length=1)

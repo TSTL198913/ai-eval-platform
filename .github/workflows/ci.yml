@@ -344,7 +344,139 @@ jobs:
           sarif_file: 'trivy-results.sarif'
 
   # =====================================================================
-  # Job 8: 自测验证
+  # Job 8: 性能基准测试
+  # =====================================================================
+  performance-benchmark:
+    name: Performance Benchmark
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest httpx
+
+      - name: Start backend server
+        run: |
+          nohup python -m uvicorn src.api.server:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
+          sleep 10
+          curl -f http://localhost:8000/health || (echo "Backend health check failed" && cat backend.log && exit 1)
+
+      - name: Run performance benchmarks
+        run: |
+          pytest tests/performance/ -v --tb=short
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: tests/benchmark_results/
+          retention-days: 30
+
+      - name: Stop server
+        if: always()
+        run: pkill -f "uvicorn src.api.server" || true
+
+  # =====================================================================
+  # Job 9: 安全渗透测试
+  # =====================================================================
+  security-pentest:
+    name: Security Penetration Test
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest httpx
+
+      - name: Start backend server
+        run: |
+          nohup python -m uvicorn src.api.server:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
+          sleep 10
+          curl -f http://localhost:8000/health || (echo "Backend health check failed" && cat backend.log && exit 1)
+
+      - name: Run OWASP Top 10 tests
+        run: |
+          pytest tests/security/ -v --tb=short
+
+      - name: Upload security test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-test-results
+          path: tests/security_results/
+          retention-days: 30
+
+      - name: Stop server
+        if: always()
+        run: pkill -f "uvicorn src.api.server" || true
+
+  # =====================================================================
+  # Job 10: 混沌工程测试
+  # =====================================================================
+  chaos-engineering:
+    name: Chaos Engineering Tests
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest httpx
+
+      - name: Start backend server
+        run: |
+          nohup python -m uvicorn src.api.server:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
+          sleep 10
+          curl -f http://localhost:8000/health || (echo "Backend health check failed" && cat backend.log && exit 1)
+
+      - name: Run chaos engineering tests
+        run: |
+          pytest tests/chaos/ -v --tb=short
+
+      - name: Upload chaos test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chaos-test-results
+          path: tests/chaos_results/
+          retention-days: 30
+
+      - name: Stop server
+        if: always()
+        run: pkill -f "uvicorn src.api.server" || true
+
+  # =====================================================================
+  # Job 11: 自测验证
   # =====================================================================
   self-test:
     name: Self Test Validation

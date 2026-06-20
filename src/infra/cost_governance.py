@@ -1,4 +1,5 @@
 import time
+import threading
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -50,6 +51,7 @@ class CostGovernance:
 
     def __init__(self, daily_cost_limit=None, weekly_cost_limit=None, monthly_cost_limit=None):
         self.records: List[CostRecord] = []
+        self._records_lock = threading.Lock()
         self.daily_cost_limit = daily_cost_limit if daily_cost_limit is not None else settings.__dict__.get("daily_cost_limit", 100.0)
         self.weekly_cost_limit = weekly_cost_limit if weekly_cost_limit is not None else settings.__dict__.get("weekly_cost_limit", 500.0)
         self.monthly_cost_limit = monthly_cost_limit if monthly_cost_limit is not None else settings.__dict__.get("monthly_cost_limit", 2000.0)
@@ -84,17 +86,19 @@ class CostGovernance:
             request_type=request_type,
         )
 
-        self.records.append(record)
+        with self._records_lock:
+            self.records.append(record)
         return record
 
     def get_metrics(self, hours: Optional[int] = None) -> CostMetrics:
-        if hours is not None:
-            if hours <= 0:
-                return CostMetrics()
-            cutoff_time = time.time() - (hours * 3600)
-            filtered_records = [r for r in self.records if r.timestamp > cutoff_time]
-        else:
-            filtered_records = self.records
+        with self._records_lock:
+            if hours is not None:
+                if hours <= 0:
+                    return CostMetrics()
+                cutoff_time = time.time() - (hours * 3600)
+                filtered_records = [r for r in self.records if r.timestamp > cutoff_time]
+            else:
+                filtered_records = list(self.records)
 
         if not filtered_records:
             return CostMetrics()
@@ -150,12 +154,15 @@ class CostGovernance:
             cost_usd=cost_usd,
             latency_ms=latency_ms,
         )
-        self.records.append(record)
+        with self._records_lock:
+            self.records.append(record)
         return record
 
     def get_top_models_by_cost(self, limit: int = 5) -> List[Dict[str, float]]:
+        with self._records_lock:
+            records = list(self.records)
         model_costs: Dict[str, float] = {}
-        for record in self.records:
+        for record in records:
             model_costs[record.model_name] = model_costs.get(record.model_name, 0) + record.cost_usd
 
         return sorted(
@@ -165,8 +172,10 @@ class CostGovernance:
         )[:limit]
 
     def get_top_requests_by_latency(self, limit: int = 10) -> List[CostRecord]:
+        with self._records_lock:
+            records = list(self.records)
         return sorted(
-            self.records,
+            records,
             key=lambda r: r.latency_ms,
             reverse=True,
         )[:limit]

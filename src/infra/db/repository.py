@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 
-from sqlalchemy import text
+from sqlalchemy import text, bindparam
 
+from src.exceptions import InfrastructureError
 from src.infra.db.models import EvaluationResultModel, TrajectoryModel
 from src.infra.db.session import get_db_session
 from src.schemas.schemas import EvaluationResult
@@ -18,9 +19,8 @@ class BaseRepository(ABC):
 # 2. 完美的工业级 Postgres/SQLAlchemy 仓储实现
 class EvaluationRepository(BaseRepository):
     def save(self, result: EvaluationResult) -> int:
-        # 1. 安全校验：防止漏掉关键键（包括空白字符）
         if not result.case_id or not result.case_id.strip():
-            raise ValueError("持久化失败：评估结果缺少核心 case_id")
+            raise InfrastructureError("持久化失败：评估结果缺少核心 case_id")
 
         db_record = EvaluationResultModel(
             case_id=result.case_id,
@@ -192,9 +192,11 @@ class EvaluationRepository(BaseRepository):
         if not record_ids:
             return 0
         with get_db_session() as session:
-            placeholders = ",".join(str(id) for id in record_ids)
             result = session.execute(
-                text(f"DELETE FROM eval_results WHERE id IN ({placeholders})")
+                text("DELETE FROM eval_results WHERE id IN :ids").bindparams(
+                    bindparam("ids", expanding=True)
+                ),
+                {"ids": list(record_ids)}
             )
             session.commit()
             return result.rowcount
@@ -206,7 +208,7 @@ class EvaluationRepository(BaseRepository):
         with get_db_session() as session:
             allowed_fields = ["model_name", "adapter_name", "status"]
             set_parts = []
-            params = {}
+            params = {"ids": list(record_ids)}
 
             for field in allowed_fields:
                 if field in update_data:
@@ -216,9 +218,10 @@ class EvaluationRepository(BaseRepository):
             if not set_parts:
                 return 0
 
-            placeholders = ",".join(str(id) for id in record_ids)
-            query = f"UPDATE eval_results SET {', '.join(set_parts)} WHERE id IN ({placeholders})"
-            result = session.execute(text(query), params)
+            query = text(f"UPDATE eval_results SET {', '.join(set_parts)} WHERE id IN :ids").bindparams(
+                bindparam("ids", expanding=True)
+            )
+            result = session.execute(query, params)
             session.commit()
             return result.rowcount
 
@@ -335,7 +338,7 @@ class TrajectoryRepository:
         is_correct: bool = False,
     ) -> int:
         if not task_id or not task_id.strip():
-            raise ValueError("持久化失败：轨迹缺少核心 task_id")
+            raise InfrastructureError("持久化失败：轨迹缺少核心 task_id")
 
         db_record = TrajectoryModel(
             task_id=task_id,

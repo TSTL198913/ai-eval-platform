@@ -4,7 +4,7 @@
 """
 from fastapi import Request, HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 import time
 import re
 
@@ -38,31 +38,43 @@ DATA_LEAK_PATTERNS = [
     re.compile(r"secret\s*[:=]\s*['\"]?[^'\"]{16,}", re.IGNORECASE),
 ]
 
+# 安全响应头
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "X-XSS-Protection": "1; mode=block",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+}
+
+
 class SecurityMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         start_time = time.time()
-        
+
         body = {}
         try:
             if request.method in ["POST", "PUT", "PATCH"]:
                 body = await request.json()
         except:
             pass
-        
+
         user_input = ""
         if isinstance(body, dict):
             user_input = str(body.get("user_input", "")) + str(body.get("payload", "")) + str(body.get("input", ""))
-        
+
         if isinstance(body, list):
             user_input = str(body)
-        
+
         user_input += str(request.query_params)
-        
+
         risk_level, risk_details = self.detect_risk(user_input)
         response_time = (time.time() - start_time) * 1000
-        
+
         if risk_level == "high":
-            return JSONResponse(
+            response = JSONResponse(
                 status_code=403,
                 content={
                     "code": 403,
@@ -74,22 +86,31 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                     }
                 }
             )
-        
+            # 添加安全头
+            for header_name, header_value in SECURITY_HEADERS.items():
+                response.headers[header_name] = header_value
+            return response
+
         response = await call_next(request)
-        
+
+        # 添加安全头到所有响应
+        if isinstance(response, Response):
+            for header_name, header_value in SECURITY_HEADERS.items():
+                response.headers[header_name] = header_value
+
         return response
-    
+
     def detect_risk(self, text: str) -> tuple[str, list]:
         risk_details = []
-        
+
         for pattern in INJECTION_PATTERNS:
             if pattern.search(text):
                 risk_details.append(f"Injection: {pattern.pattern[:30]}...")
-        
+
         for pattern in DATA_LEAK_PATTERNS:
             if pattern.search(text):
                 risk_details.append(f"Data leak: {pattern.pattern[:30]}...")
-        
+
         if len(risk_details) >= 1:
             return "high", risk_details
         else:

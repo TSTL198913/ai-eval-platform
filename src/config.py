@@ -72,6 +72,9 @@ class Settings(BaseSettings):
     # Prometheus
     prometheus_enabled: bool = Field(default=True, description="是否启用指标")
 
+    # CORS
+    cors_origins: str = Field(default="http://localhost:3000,http://localhost:8000", description="允许的CORS来源，逗号分隔")
+
 
 @lru_cache
 def get_settings() -> Settings:

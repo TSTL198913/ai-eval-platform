@@ -159,30 +159,27 @@ class TestLoginEndpointBusinessScenarios:
     """登录：用户身份认证"""
 
     def test_login_missing_body(self):
-        """场景：客户端未传 body（业务期望：400 请求体缺失）"""
+        """场景：客户端未传 body（Pydantic 验证失败返回 422）"""
         from src.api.server import app
         client = TestClient(app)
         response = client.post("/api/v1/auth/login", json={})
-        # 当前实现：空 body 返回 400（Request body is required）
-        # 这是合理行为（不是认证问题，是请求格式问题）
-        assert response.status_code == 400
+        assert response.status_code == 422
         data = response.json()
-        assert data["code"] == 400
-        assert "body" in data["message"].lower() or "required" in data["message"].lower()
+        assert "detail" in data
 
     def test_login_missing_username(self):
-        """场景：缺少用户名"""
+        """场景：缺少用户名（Pydantic 验证失败返回 422）"""
         from src.api.server import app
         client = TestClient(app)
         response = client.post("/api/v1/auth/login", json={"password": "test"})
-        assert response.status_code == 401
+        assert response.status_code == 422
 
     def test_login_missing_password(self):
-        """场景：缺少密码"""
+        """场景：缺少密码（Pydantic 验证失败返回 422）"""
         from src.api.server import app
         client = TestClient(app)
         response = client.post("/api/v1/auth/login", json={"username": "alice"})
-        assert response.status_code == 401
+        assert response.status_code == 422
 
     def test_login_with_demo_mode_succeeds(self):
         """场景：演示模式（无 auth 模块）"""

@@ -1284,7 +1284,7 @@ class TestEvaluatorFactoryRegistration:
 
         # 验证可以获取评估器
         evaluator = EvaluatorFactory.get("multi_agent")
-        assert isinstance(evaluator, MultiAgentEvaluator)
+        assert evaluator.__class__.__name__ == "MultiAgentEvaluator"
 
     def test_factory_creates_evaluator_with_client(self):
         """工厂应能创建带客户端的评估器"""

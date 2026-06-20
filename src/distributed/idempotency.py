@@ -38,12 +38,14 @@ class IdempotencyConfig:
     strategy: IdempotencyStrategy = IdempotencyStrategy.REQUEST_ID
 
 
-class IdempotencyError(Exception):
+from src.exceptions import BasePlatformError
+
+
+class IdempotencyError(BasePlatformError):
     """幂等性检查失败异常"""
 
     def __init__(self, message: str = "Duplicate request detected"):
-        self.message = message
-        super().__init__(self.message)
+        super().__init__(message, code="DUPLICATE_REQUEST")
 
 
 class IdempotencyChecker:

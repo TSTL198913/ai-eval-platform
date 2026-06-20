@@ -11,12 +11,18 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 os.environ["TESTING"] = "1"
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
-from src.infra.db.session import init_tables
-init_tables()
-
+from src.infra.db.session import init_tables, get_engine
 from src.infra.db.repository import EvaluationRepository, TrajectoryRepository
 from src.schemas.schemas import EvaluationResult, EvaluationStatus
 from src.schemas.evaluation import DomainResponse
+from src.exceptions import InfrastructureError
+
+
+@pytest.fixture(autouse=True)
+def setup_database():
+    """自动为每个测试设置数据库表结构"""
+    init_tables()
+    yield
 
 
 @pytest.fixture
@@ -55,7 +61,7 @@ class TestRepositorySave:
         assert id2 > id1
 
     def test_save_empty_case_id_raises(self, repo):
-        """空 case_id 应抛出 ValueError"""
+        """空 case_id 应抛出 InfrastructureError"""
         result = EvaluationResult(
             case_id="",
             status=EvaluationStatus.PASSED,
@@ -64,12 +70,12 @@ class TestRepositorySave:
             response=DomainResponse(is_valid=True),
             latency_ms=0.0,
         )
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(InfrastructureError) as exc_info:
             repo.save(result)
         assert "case_id" in str(exc_info.value)
 
     def test_save_whitespace_case_id_raises(self, repo):
-        """纯空白 case_id 应抛出 ValueError"""
+        """纯空白 case_id 应抛出 InfrastructureError"""
         result = EvaluationResult(
             case_id="   ",
             status=EvaluationStatus.PASSED,
@@ -78,7 +84,7 @@ class TestRepositorySave:
             response=DomainResponse(is_valid=True),
             latency_ms=0.0,
         )
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(InfrastructureError) as exc_info:
             repo.save(result)
         assert "case_id" in str(exc_info.value)
 
@@ -340,9 +346,9 @@ class TestTrajectoryRepository:
         assert step_id > 0
 
     def test_save_step_empty_task_id_raises(self):
-        """空 task_id 应抛出 ValueError"""
+        """空 task_id 应抛出 InfrastructureError"""
         traj_repo = TrajectoryRepository()
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(InfrastructureError) as exc_info:
             traj_repo.save_step(task_id="", step_index=0, step_type="test", prompt="p", response="r")
         assert "task_id" in str(exc_info.value)
 

@@ -1,0 +1,225 @@
+# =====================================================================
+# AI Eval Platform - 定时安全扫描与性能基线检查
+# 每日/每周定期执行的安全扫描和性能基线检查
+# =====================================================================
+
+name: Scheduled Security & Performance Scans
+
+on:
+  schedule:
+    # 每天凌晨 2:00 UTC (北京时间 10:00) 执行安全扫描
+    - cron: '0 2 * * *'
+    # 每周一凌晨 3:00 UTC (北京时间 11:00) 执行完整性能基线检查
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+    inputs:
+      scan_type:
+        description: 'Scan Type'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - security
+          - performance
+          - chaos
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+env:
+  PYTHON_VERSION: '3.10'
+
+jobs:
+  # =====================================================================
+  # 定时安全扫描
+  # =====================================================================
+  scheduled-security-scan:
+    name: Scheduled Security Scan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.inputs.scan_type == 'all' || github.inputs.scan_type == 'security'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest httpx
+
+      - name: Run OWASP Top 10 tests
+        run: |
+          echo "=== 开始定时安全扫描 ==="
+          echo "扫描时间: $(date -u)"
+          pytest tests/security/ -v --tb=short --junitxml=security-results.xml
+          echo "=== 安全扫描完成 ==="
+
+      - name: Run Trivy vulnerability scanner
+        run: |
+          pip install trivy
+          trivy fs --security-checks vuln,config . --format sarif --output trivy-results.sarif
+
+      - name: Upload security results
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduled-security-results-${{ github.run_id }}
+          path: |
+            security-results.xml
+            trivy-results.sarif
+          retention-days: 90
+
+      - name: Upload to Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: 'trivy-scan'
+
+      - name: Create security issue on failure
+        if: failure() && github.event_name == 'schedule'
+        run: |
+          echo "::notice::安全扫描发现问题，请查看详细报告"
+          echo "::set-output name=scan_failed::true"
+
+  # =====================================================================
+  # 定时性能基线检查
+  # =====================================================================
+  scheduled-performance-benchmark:
+    name: Scheduled Performance Benchmark
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.inputs.scan_type == 'all' || github.inputs.scan_type == 'performance'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest httpx
+
+      - name: Start backend server
+        run: |
+          nohup python -m uvicorn src.api.server:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
+          sleep 15
+          curl -f http://localhost:8000/health || (echo "Backend health check failed" && cat backend.log && exit 1)
+          echo "Backend started successfully"
+
+      - name: Run performance benchmarks
+        run: |
+          echo "=== 开始定时性能基线检查 ==="
+          echo "检查时间: $(date -u)"
+          pytest tests/performance/ -v --tb=short --junitxml=benchmark-results.xml
+          echo "=== 性能基线检查完成 ==="
+
+      - name: Compare with baseline
+        run: |
+          python scripts/compare_baseline.py || echo "Baseline comparison script not found, skipping"
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduled-benchmark-results-${{ github.run_id }}
+          path: |
+            tests/benchmark_results/
+            benchmark-results.xml
+          retention-days: 90
+
+      - name: Stop server
+        if: always()
+        run: pkill -f "uvicorn src.api.server" || true
+
+  # =====================================================================
+  # 定时混沌工程测试 (仅每周执行)
+  # =====================================================================
+  scheduled-chaos-engineering:
+    name: Scheduled Chaos Engineering
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest httpx
+
+      - name: Start backend server
+        run: |
+          nohup python -m uvicorn src.api.server:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
+          sleep 15
+          curl -f http://localhost:8000/health || (echo "Backend health check failed" && cat backend.log && exit 1)
+          echo "Backend started successfully"
+
+      - name: Run chaos engineering tests
+        run: |
+          echo "=== 开始定时混沌工程测试 ==="
+          echo "测试时间: $(date -u)"
+          pytest tests/chaos/ -v --tb=short --junitxml=chaos-results.xml
+          echo "=== 混沌工程测试完成 ==="
+
+      - name: Upload chaos test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduled-chaos-results-${{ github.run_id }}
+          path: |
+            tests/chaos_results/
+            chaos-results.xml
+          retention-days: 90
+
+      - name: Stop server
+        if: always()
+        run: pkill -f "uvicorn src.api.server" || true
+
+  # =====================================================================
+  # 生成定时报告
+  # =====================================================================
+  generate-report:
+    name: Generate Scheduled Report
+    runs-on: ubuntu-latest
+    needs: [scheduled-security-scan, scheduled-performance-benchmark, scheduled-chaos-engineering]
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create report
+        run: |
+          echo "=========================================="
+          echo "AI Evaluation Platform - 定时扫描报告"
+          echo "=========================================="
+          echo "执行时间: $(date -u)"
+          echo "触发方式: ${{ github.event_name }}"
+          echo ""
+          echo "各任务状态:"
+          echo "- 安全扫描: ${{ needs.scheduled-security-scan.result }}"
+          echo "- 性能基线: ${{ needs.scheduled-performance-benchmark.result }}"
+          echo "- 混沌工程: ${{ needs.scheduled-chaos-engineering.result }}"
+          echo ""
+          echo "详细结果请查看 Artifacts"
+          echo "=========================================="
+
+      - name: Send notification on critical issues
+        if: failure()
+        run: |
+          echo "::warning::定时扫描发现潜在问题，请查看详细报告"

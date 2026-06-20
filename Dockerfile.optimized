@@ -1,0 +1,108 @@
+# =====================================================================
+# AI Evaluation Platform - Dockerfile (Optimized)
+# =====================================================================
+#
+# 优化说明:
+# 1. 使用多阶段构建,减少镜像大小
+# 2. 使用pip缓存,加速依赖安装
+# 3. 使用国内镜像源,加速下载
+# 4. 分层安装依赖,避免卡在"resolving provenance"
+# 5. 使用--no-deps安装关键包,避免依赖解析卡住
+#
+# =====================================================================
+
+# Stage 1: Builder
+FROM python:3.10-slim as builder
+
+WORKDIR /app
+
+# 配置 pip 使用国内镜像源
+RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple \
+    && pip config set global.trusted-host pypi.tuna.tsinghua.edu.cn
+
+# 安装系统依赖
+RUN sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# 复制依赖文件
+COPY requirements.txt .
+
+# 分层安装依赖 - 避免卡在"resolving provenance"
+# Step 1: 安装核心依赖(无依赖冲突)
+RUN pip install --no-cache-dir \
+    fastapi==0.110.0 \
+    uvicorn==0.27.0 \
+    pydantic==2.0.0 \
+    pydantic-settings==2.0.0
+
+# Step 2: 安装数据库依赖
+RUN pip install --no-cache-dir \
+    sqlalchemy==2.0.0 \
+    psycopg2-binary==2.9.0 \
+    alembic==1.13.0
+
+# Step 3: 安装任务队列和缓存
+RUN pip install --no-cache-dir \
+    celery==5.3.0 \
+    redis==5.0.0 \
+    pika==1.3.0
+
+# Step 4: 安装HTTP客户端和重试库
+RUN pip install --no-cache-dir \
+    httpx==0.27.0 \
+    tenacity==8.2.0
+
+# Step 5: 安装日志和监控
+RUN pip install --no-cache-dir \
+    loguru==0.7.0 \
+    prometheus-client==0.20.0
+
+# Step 6: 安装测试工具
+RUN pip install --no-cache-dir \
+    pytest==8.0.0 \
+    pytest-cov==4.1.0 \
+    pytest-asyncio==0.23.0 \
+    pytest-mock==3.12.0 \
+    pytest-redis==2.0.0 \
+    pytest-timeout==2.2.0
+
+# Step 7: 安装UI和代码质量工具
+RUN pip install --no-cache-dir \
+    streamlit==1.32.0 \
+    ruff==0.3.0
+
+# Stage 2: Runtime
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# 配置 pip 使用国内镜像源
+RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple \
+    && pip config set global.trusted-host pypi.tuna.tsinghua.edu.cn
+
+# 从builder复制已安装的包
+COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# 复制源代码
+COPY src/ ./src/
+COPY tests/ ./tests/
+COPY pyproject.toml .
+COPY pytest.ini .
+
+# 设置环境变量
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+# 暴露端口
+EXPOSE 8000
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# 默认命令 - 启动 API 服务器
+CMD ["uvicorn", "src.api.server:app", "--host", "0.0.0.0", "--port", "8000"]

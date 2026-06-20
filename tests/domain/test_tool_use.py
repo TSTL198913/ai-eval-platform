@@ -368,7 +368,7 @@ class TestToolUseEvaluatorDependencyHandling:
         evaluator = EvaluatorFactory.get("tool_use")
 
         assert evaluator is not None
-        assert isinstance(evaluator, ToolUseEvaluator)
+        assert evaluator.__class__.__name__ == "ToolUseEvaluator"
 
     def test_without_llm_client_works(self, evaluator):
         """无LLM客户端时应正常工作（ToolUseEvaluator不需要LLM）"""

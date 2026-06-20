@@ -46,3 +46,34 @@ class BaseEvaluator(ABC):
             logger = __import__('logging').getLogger(__name__)
             logger.error(f"Evaluation execution error for {request.type}: {e}", exc_info=True)
             return DomainResponse(is_valid=False, error=f"EVALUATION_ERROR: {str(e)}")
+
+    def create_error_response(
+        self,
+        error_message: str,
+        error_code: str | None = None,
+        metadata: dict | None = None
+    ) -> DomainResponse:
+        """创建统一的错误响应"""
+        response_metadata = metadata or {}
+        if error_code:
+            response_metadata["error_code"] = error_code
+
+        return DomainResponse(
+            is_valid=False,
+            error=error_message,
+            metadata=response_metadata
+        )
+
+    def create_success_response(
+        self,
+        text: str = "评估完成",
+        score: float = 1.0,
+        data: dict | None = None
+    ) -> DomainResponse:
+        """创建统一的成功响应"""
+        return DomainResponse(
+            is_valid=True,
+            text=text,
+            score=score,
+            data=data or {}
+        )

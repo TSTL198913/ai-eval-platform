@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, Protocol
 
 
 class BaseBenchmark(Protocol):
@@ -8,13 +8,13 @@ class BaseBenchmark(Protocol):
     category: str
     num_samples: int
 
-    def load_dataset(self) -> List[Dict[str, Any]]:
+    def load_dataset(self) -> list[dict[str, Any]]:
         ...
 
-    def evaluate(self, llm_client, samples: Optional[List[Dict[str, Any]]] = None) -> "BenchmarkResult":
+    def evaluate(self, llm_client, samples: list[dict[str, Any]] | None = None) -> "BenchmarkResult":
         ...
 
-    def calculate_score(self, results: List[Dict[str, Any]]) -> float:
+    def calculate_score(self, results: list[dict[str, Any]]) -> float:
         ...
 
 
@@ -24,12 +24,12 @@ class BenchmarkResult:
     total_samples: int
     correct_samples: int
     accuracy: float
-    scores: List[Dict[str, Any]] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    scores: list[dict[str, Any]] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
     error_count: int = 0
-    error_messages: List[str] = field(default_factory=list)
+    error_messages: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "benchmark_name": self.benchmark_name,
             "total_samples": self.total_samples,

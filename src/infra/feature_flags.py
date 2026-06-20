@@ -1,5 +1,5 @@
-from typing import Any, Dict, Optional
 from enum import Enum
+from typing import Any, Optional
 
 
 class FeatureFlag(Enum):
@@ -17,7 +17,7 @@ class FeatureFlag(Enum):
 
 class FeatureManager:
     _instance: Optional["FeatureManager"] = None
-    _features: Dict[str, bool] = {}
+    _features: dict[str, bool] = {}
 
     def __new__(cls):
         if cls._instance is None:
@@ -53,10 +53,10 @@ class FeatureManager:
     def set(self, feature: FeatureFlag, value: bool) -> None:
         self._features[feature.value] = value
 
-    def get_all_features(self) -> Dict[str, bool]:
+    def get_all_features(self) -> dict[str, bool]:
         return dict(self._features)
 
-    def load_from_config(self, config: Dict[str, Any]) -> None:
+    def load_from_config(self, config: dict[str, Any]) -> None:
         for key, value in config.items():
             if key in self._features:
                 self._features[key] = bool(value)

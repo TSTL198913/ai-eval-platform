@@ -1,6 +1,5 @@
-import time
 import threading
-from typing import Dict, List, Optional
+import time
 
 from pydantic import BaseModel, Field
 
@@ -37,7 +36,7 @@ class CostMetrics(BaseModel):
 
 class CostGovernance:
     """成本治理模块
-    
+
     监控和控制 LLM API 调用的成本和延迟。
     """
 
@@ -50,7 +49,7 @@ class CostGovernance:
     }
 
     def __init__(self, daily_cost_limit=None, weekly_cost_limit=None, monthly_cost_limit=None):
-        self.records: List[CostRecord] = []
+        self.records: list[CostRecord] = []
         self._records_lock = threading.Lock()
         self.daily_cost_limit = daily_cost_limit if daily_cost_limit is not None else settings.__dict__.get("daily_cost_limit", 100.0)
         self.weekly_cost_limit = weekly_cost_limit if weekly_cost_limit is not None else settings.__dict__.get("weekly_cost_limit", 500.0)
@@ -90,7 +89,7 @@ class CostGovernance:
             self.records.append(record)
         return record
 
-    def get_metrics(self, hours: Optional[int] = None) -> CostMetrics:
+    def get_metrics(self, hours: int | None = None) -> CostMetrics:
         with self._records_lock:
             if hours is not None:
                 if hours <= 0:
@@ -129,7 +128,7 @@ class CostGovernance:
             avg_tokens_per_request=total_tokens / len(filtered_records),
         )
 
-    def check_budget(self) -> Dict[str, bool | float]:
+    def check_budget(self) -> dict[str, bool | float]:
         metrics = self.get_metrics()
         if self.daily_cost_limit <= 0:
             return {
@@ -158,10 +157,10 @@ class CostGovernance:
             self.records.append(record)
         return record
 
-    def get_top_models_by_cost(self, limit: int = 5) -> List[Dict[str, float]]:
+    def get_top_models_by_cost(self, limit: int = 5) -> list[dict[str, float]]:
         with self._records_lock:
             records = list(self.records)
-        model_costs: Dict[str, float] = {}
+        model_costs: dict[str, float] = {}
         for record in records:
             model_costs[record.model_name] = model_costs.get(record.model_name, 0) + record.cost_usd
 
@@ -171,7 +170,7 @@ class CostGovernance:
             reverse=True,
         )[:limit]
 
-    def get_top_requests_by_latency(self, limit: int = 10) -> List[CostRecord]:
+    def get_top_requests_by_latency(self, limit: int = 10) -> list[CostRecord]:
         with self._records_lock:
             records = list(self.records)
         return sorted(

@@ -3,12 +3,10 @@
 使用 t-test 和 Mann-Whitney U 检验确保模型能力提升的统计显著性
 """
 
-import json
-import os
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
 from enum import Enum
+from typing import Any
 
 import numpy as np
 from scipy import stats
@@ -54,7 +52,7 @@ class ABTestResult:
 
     timestamp: datetime = field(default_factory=datetime.utcnow)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "model_a_name": self.model_a_name,
             "model_b_name": self.model_b_name,
@@ -87,7 +85,7 @@ class ConfidenceInterval:
     confidence: float  # 0.95 = 95%
     method: str  # "bootstrap" / "t-distribution"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "estimate": round(self.estimate, 4),
             "lower": round(self.lower, 4),
@@ -107,8 +105,8 @@ class StatisticalSignificanceAnalyzer:
 
     def run_ab_test(
         self,
-        scores_a: List[float],
-        scores_b: List[float],
+        scores_a: list[float],
+        scores_b: list[float],
         model_a_name: str = "Model A",
         model_b_name: str = "Model B",
         significance_level: float = 0.05,
@@ -223,7 +221,7 @@ class StatisticalSignificanceAnalyzer:
 
     def calculate_confidence_interval(
         self,
-        scores: List[float],
+        scores: list[float],
         confidence: float = 0.95,
         method: str = "t-distribution"
     ) -> ConfidenceInterval:
@@ -269,10 +267,10 @@ class StatisticalSignificanceAnalyzer:
 
     def compare_multiple_models(
         self,
-        model_scores: Dict[str, List[float]],
+        model_scores: dict[str, list[float]],
         baseline_model: str = None,
         significance_level: float = 0.05
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """多模型比较（与基线或两两比较）"""
         results = {}
         model_names = list(model_scores.keys())
@@ -312,7 +310,7 @@ class StatisticalSignificanceAnalyzer:
         effect_size: float = 0.5,
         significance_level: float = 0.05,
         power: float = 0.8
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """统计功效分析 - 计算所需样本量"""
         from scipy.stats import norm
 

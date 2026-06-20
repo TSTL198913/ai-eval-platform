@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Optional
 
-from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.exceptions import BasePlatformError
 from src.schemas.evaluation import DomainResponse, EvaluationSchema
 

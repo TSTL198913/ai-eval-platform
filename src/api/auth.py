@@ -107,8 +107,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict | None:
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
-    except JWTError:
-        raise credentials_exception
+    except JWTError as err:
+        raise credentials_exception from err
     user = fake_users_db.get(username)
     if user is None:
         raise credentials_exception

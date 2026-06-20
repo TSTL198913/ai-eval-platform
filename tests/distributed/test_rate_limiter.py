@@ -1,15 +1,16 @@
 """分布式速率限制器测试"""
 
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
+
 from src.distributed.rate_limiter import (
-    RateLimiter,
-    RateLimitStrategy,
     RateLimitConfig,
+    RateLimiter,
     RateLimitResult,
-    TokenBucket,
+    RateLimitStrategy,
     SlidingWindowLog,
+    TokenBucket,
 )
 
 

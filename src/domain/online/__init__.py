@@ -1,8 +1,8 @@
 from .evaluator import (
-    OnlineEvaluator,
     OnlineEvaluationPipeline,
     OnlineEvaluationResult,
     OnlineEvaluationStats,
+    OnlineEvaluator,
     ProductionSampler,
     SampledRequest,
 )

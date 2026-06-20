@@ -6,12 +6,18 @@ CodeEvaluator 专项测试
 
 import os
 import sys
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from src.domain.evaluators.code import CodeEvaluator, create_code_evaluator, SYNTAX_WEIGHT, SEMANTIC_WEIGHT
+from src.domain.evaluators.code import (
+    SEMANTIC_WEIGHT,
+    SYNTAX_WEIGHT,
+    CodeEvaluator,
+    create_code_evaluator,
+)
 from src.schemas.evaluation import EvaluationSchema
 
 

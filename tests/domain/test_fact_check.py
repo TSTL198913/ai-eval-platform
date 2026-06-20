@@ -9,13 +9,14 @@ FactCheckEvaluator 专项测试
 
 import os
 import sys
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from src.domain.evaluators.fact_check import FactCheckEvaluator
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import EvaluationSchema
 
 
 class TestFactCheckEvaluatorPositiveCases:
@@ -398,7 +399,7 @@ class TestFactCheckEvaluatorEdgeCases:
         )
 
         # Act
-        result = evaluator.evaluate(request)
+        evaluator.evaluate(request)
 
         # Assert - 验证使用了user_input字段
         call_args = mock_llm_client.chat.call_args[0][0]

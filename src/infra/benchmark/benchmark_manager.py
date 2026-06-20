@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -12,7 +12,7 @@ class BenchmarkDataset(BaseModel):
     name: str = Field(..., description="数据集名称")
     category: str = Field(..., description="数据集类别")
     description: str = Field("", description="数据集描述")
-    questions: List[Dict[str, Any]] = Field(default_factory=list)
+    questions: list[dict[str, Any]] = Field(default_factory=list)
     version: str = Field("1.0", description="版本号")
     created_at: str = Field("", description="创建时间")
     source: str = Field("", description="数据源")
@@ -28,19 +28,19 @@ class BenchmarkResult(BaseModel):
     avg_latency_ms: float = Field(0.0, description="平均延迟")
     total_tokens: int = Field(0, description="总Token数")
     cost_usd: float = Field(0.0, description="成本")
-    detailed_results: List[Dict[str, Any]] = Field(default_factory=list)
+    detailed_results: list[dict[str, Any]] = Field(default_factory=list)
     timestamp: str = Field("", description="评测时间")
 
 
 class BenchmarkManager:
     """Benchmark 基准测试管理器
-    
+
     管理评测数据集、运行基准测试、生成报告。
     """
 
     def __init__(self):
-        self.datasets: Dict[str, BenchmarkDataset] = {}
-        self.results: Dict[str, BenchmarkResult] = {}
+        self.datasets: dict[str, BenchmarkDataset] = {}
+        self.results: dict[str, BenchmarkResult] = {}
         self.datasets_dir = os.path.join(settings.app_name, "benchmark_datasets")
         os.makedirs(self.datasets_dir, exist_ok=True)
         self._load_datasets()
@@ -50,7 +50,7 @@ class BenchmarkManager:
             if filename.endswith(".json"):
                 filepath = os.path.join(self.datasets_dir, filename)
                 try:
-                    with open(filepath, "r", encoding="utf-8") as f:
+                    with open(filepath, encoding="utf-8") as f:
                         data = json.load(f)
                         dataset = BenchmarkDataset(**data)
                         self.datasets[dataset.dataset_id] = dataset
@@ -64,10 +64,10 @@ class BenchmarkManager:
             json.dump(dataset.model_dump(), f, ensure_ascii=False, indent=2)
         return True
 
-    def get_dataset(self, dataset_id: str) -> Optional[BenchmarkDataset]:
+    def get_dataset(self, dataset_id: str) -> BenchmarkDataset | None:
         return self.datasets.get(dataset_id)
 
-    def list_datasets(self) -> List[Dict[str, Any]]:
+    def list_datasets(self) -> list[dict[str, Any]]:
         return [
             {
                 "dataset_id": ds.dataset_id,
@@ -90,8 +90,8 @@ class BenchmarkManager:
         if not dataset:
             raise ValueError(f"数据集 {dataset_id} 不存在")
 
-        import uuid
         import time
+        import uuid
 
         benchmark_id = f"benchmark-{uuid.uuid4().hex[:8]}"
         detailed_results = []
@@ -150,10 +150,10 @@ class BenchmarkManager:
         self.results[benchmark_id] = result
         return result
 
-    def get_result(self, benchmark_id: str) -> Optional[BenchmarkResult]:
+    def get_result(self, benchmark_id: str) -> BenchmarkResult | None:
         return self.results.get(benchmark_id)
 
-    def list_results(self) -> List[Dict[str, Any]]:
+    def list_results(self) -> list[dict[str, Any]]:
         return [
             {
                 "benchmark_id": r.benchmark_id,

@@ -1,9 +1,10 @@
 """分布式锁测试"""
 
-import pytest
 from unittest.mock import MagicMock
 
-from src.distributed.lock import DistributedLock, LockState, LockResult
+import pytest
+
+from src.distributed.lock import DistributedLock, LockResult, LockState
 
 
 class TestDistributedLockBasic:
@@ -31,7 +32,7 @@ class TestDistributedLockBasic:
     def test_release_success(self, mock_redis):
         mock_redis.set = MagicMock(return_value=True)
         mock_redis.eval = MagicMock(return_value=1)
-        
+
         lock = DistributedLock(mock_redis, "test-lock")
         lock.acquire()
         result = lock.release()
@@ -46,19 +47,19 @@ class TestDistributedLockBasic:
     def test_context_manager_success(self, mock_redis):
         mock_redis.set = MagicMock(return_value=True)
         mock_redis.eval = MagicMock(return_value=1)
-        
+
         lock = DistributedLock(mock_redis, "test-lock")
-        
+
         with lock:
             assert lock.is_acquired is True
-        
+
         assert lock.is_acquired is False
 
     def test_context_manager_failure(self, mock_redis):
         mock_redis.set = MagicMock(return_value=False)
-        
+
         lock = DistributedLock(mock_redis, "test-lock", retry_times=1)
-        
+
         with pytest.raises(RuntimeError):
             with lock:
                 pass

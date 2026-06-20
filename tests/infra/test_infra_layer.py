@@ -4,9 +4,8 @@ Infra 层综合测试 - 真实业务场景
 """
 import os
 import sys
-import time
 import threading
-import pytest
+import time
 from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -214,8 +213,8 @@ class TestStubLLMClientBusinessScenarios:
 
     def test_stub_returns_chinese_for_code_review(self):
         """场景：代码审查请求（中文输出）"""
-        from src.domain.models.stub import StubLLMClient
         from src.domain.models.base import ModelConfig
+        from src.domain.models.stub import StubLLMClient
         client = StubLLMClient(ModelConfig(api_key="stub", model_name="stub"))
         result = client.chat("请审查这段代码：def hello(): pass")
         assert "代码审查" in result
@@ -223,8 +222,8 @@ class TestStubLLMClientBusinessScenarios:
 
     def test_stub_returns_finance_for_default(self):
         """场景：金融计算（默认返回）"""
-        from src.domain.models.stub import StubLLMClient
         from src.domain.models.base import ModelConfig
+        from src.domain.models.stub import StubLLMClient
         client = StubLLMClient(ModelConfig(api_key="stub", model_name="stub"))
         result = client.chat("评估投资回报率")
         assert "模拟金融" in result or "本金" in result
@@ -232,8 +231,9 @@ class TestStubLLMClientBusinessScenarios:
     def test_stub_achat_returns_same_as_chat(self):
         """场景：异步调用应与同步一致"""
         import asyncio
-        from src.domain.models.stub import StubLLMClient
+
         from src.domain.models.base import ModelConfig
+        from src.domain.models.stub import StubLLMClient
         client = StubLLMClient(ModelConfig(api_key="stub", model_name="stub"))
         sync_result = client.chat("test prompt")
         async_result = asyncio.run(client.achat("test prompt"))
@@ -260,8 +260,9 @@ class TestDatabaseModelsBusinessScenarios:
 
     def test_evaluation_result_to_dict(self):
         """场景：模型转字典（API 序列化）"""
-        from src.infra.db.models import EvaluationResultModel
         from datetime import datetime
+
+        from src.infra.db.models import EvaluationResultModel
         m = EvaluationResultModel(
             id=1,
             case_id="case_001",
@@ -279,8 +280,9 @@ class TestDatabaseModelsBusinessScenarios:
 
     def test_trajectory_model_to_dict(self):
         """场景：轨迹模型（多步 Agent 评测）"""
-        from src.infra.db.models import TrajectoryModel
         from datetime import datetime
+
+        from src.infra.db.models import TrajectoryModel
         m = TrajectoryModel(
             id=1,
             task_id="task_001",
@@ -336,7 +338,7 @@ class TestConcurrentSafetyBusinessScenarios:
         已知 BUG: refill_rate=0 时会触发 ZeroDivisionError（rate_limiter.py:128）
         生产环境不应配置 refill_rate=0（业务上不合理），但代码应优雅处理
         """
-        from src.distributed.rate_limiter import TokenBucket, RateLimitConfig
+        from src.distributed.rate_limiter import RateLimitConfig, TokenBucket
 
         bucket = TokenBucket(
             fake_redis,

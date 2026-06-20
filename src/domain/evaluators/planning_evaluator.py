@@ -8,12 +8,12 @@ Planning Evaluator - 任务拆解与计划生成评估器
 - 顺序正确性：评估子任务执行顺序的合理性
 - 完整性：确保计划覆盖所有必要步骤
 """
-from typing import Any, Dict, List, Optional
-from difflib import SequenceMatcher
 import re
+from difflib import SequenceMatcher
+from typing import Any
 
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.schemas.evaluation import EvaluationSchema, DomainResponse
+from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
 
 @EvaluatorFactory.register("planning")
@@ -30,7 +30,7 @@ class PlanningEvaluator:
     }
     """
 
-    def __init__(self, client: Optional[Any] = None):
+    def __init__(self, client: Any | None = None):
         self.client = client
 
     def evaluate(self, request: EvaluationSchema) -> DomainResponse:
@@ -193,14 +193,14 @@ class PlanningEvaluator:
 
     # ===================== 评分算法 =====================
 
-    def _calc_completeness(self, generated: List[str], expected: List[str]) -> float:
+    def _calc_completeness(self, generated: list[str], expected: list[str]) -> float:
         """计算计划完整性（覆盖度）"""
         if not expected:
             return 1.0
         matched = self._match_steps(generated, expected)
         return len(matched) / len(expected)
 
-    def _calc_ordering(self, generated: List[str], expected: List[str]) -> float:
+    def _calc_ordering(self, generated: list[str], expected: list[str]) -> float:
         """计算步骤顺序正确性（Kendall tau距离的简化版）"""
         if not generated or not expected:
             return 0.0
@@ -230,7 +230,7 @@ class PlanningEvaluator:
             return 1.0
         return 1.0 - inversions / total_pairs
 
-    def _calc_granularity(self, generated: List[str], expected: List[str]) -> float:
+    def _calc_granularity(self, generated: list[str], expected: list[str]) -> float:
         """计算步骤粒度合理性"""
         if not expected:
             return 1.0
@@ -243,7 +243,7 @@ class PlanningEvaluator:
         else:
             return max(0.0, 0.5 - abs(ratio - 1.0) * 0.2)
 
-    def _calc_relevance(self, generated: List[str], task: str) -> float:
+    def _calc_relevance(self, generated: list[str], task: str) -> float:
         """计算计划与任务的相关性"""
         if not task or not generated:
             return 0.0
@@ -257,7 +257,7 @@ class PlanningEvaluator:
                 match_count += 1
         return match_count / len(generated)
 
-    def _calc_redundancy(self, generated: List[str]) -> float:
+    def _calc_redundancy(self, generated: list[str]) -> float:
         """计算冗余度惩罚（越低分表示冗余越少）"""
         if len(generated) <= 1:
             return 1.0
@@ -272,7 +272,7 @@ class PlanningEvaluator:
         avg_sim = sum(similarities) / len(similarities)
         return max(0.0, 1.0 - avg_sim * 2)
 
-    def _match_steps(self, generated: List[str], expected: List[str]) -> List[str]:
+    def _match_steps(self, generated: list[str], expected: list[str]) -> list[str]:
         """匹配生成步骤和期望步骤"""
         matched = []
         for exp in expected:
@@ -291,7 +291,7 @@ class PlanningEvaluator:
         # 使用SequenceMatcher计算文本相似度
         return SequenceMatcher(None, s1, s2).ratio()
 
-    def _extract_keywords(self, text: str) -> List[str]:
+    def _extract_keywords(self, text: str) -> list[str]:
         """提取关键词（简单实现）"""
         # 移除标点符号并分词
         words = re.findall(r"[\w\u4e00-\u9fff]+", text.lower())

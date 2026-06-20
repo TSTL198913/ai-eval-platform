@@ -8,11 +8,11 @@ import json
 import os
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
 from enum import Enum
+from typing import Any
 
+from src.domain.evaluator_version import evaluator_version_manager
 from src.domain.golden_dataset import golden_dataset_manager
-from src.domain.evaluator_version import evaluator_version_manager, VersionStatus
 from src.domain.statistical_analysis import statistical_analyzer
 
 
@@ -35,8 +35,8 @@ class CalibrationResult:
 
     # 校准数据
     n_samples: int
-    gold_scores: List[float]      # 专家标准分数
-    eval_scores: List[float]      # 评估器预测分数
+    gold_scores: list[float]      # 专家标准分数
+    eval_scores: list[float]      # 评估器预测分数
 
     # 偏差分析
     mean_gold: float
@@ -49,14 +49,14 @@ class CalibrationResult:
     correlation: float           # 与专家评分相关性
     is_calibrated: bool          # 是否通过校准
     deviation_threshold: float   # 偏差阈值
-    confidence_interval: Tuple[float, float]  # 95%置信区间
+    confidence_interval: tuple[float, float]  # 95%置信区间
 
     # 建议
-    suggestions: List[str]
+    suggestions: list[str]
 
     timestamp: datetime = field(default_factory=datetime.utcnow)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "evaluator_name": self.evaluator_name,
             "evaluator_version": self.evaluator_version,
@@ -81,15 +81,15 @@ class CalibrationResult:
 class PreExecutionCheck:
     """执行前检查结果"""
     evaluator_name: str
-    evaluator_version: Optional[str]
+    evaluator_version: str | None
     can_proceed: bool
     status: CalibrationStatus
 
-    calibration_result: Optional[CalibrationResult] = None
+    calibration_result: CalibrationResult | None = None
     message: str = ""
-    warnings: List[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         result = {
             "evaluator_name": self.evaluator_name,
             "evaluator_version": self.evaluator_version,
@@ -115,7 +115,7 @@ class AdaptiveCalibrator:
         self._default_threshold = default_threshold
         self._min_calibration_samples = min_calibration_samples
         self._calibration_interval = calibration_interval
-        self._calibration_cache: Dict[str, Dict[str, Any]] = {}
+        self._calibration_cache: dict[str, dict[str, Any]] = {}
         self._load_cache()
 
     def _load_cache(self):
@@ -123,7 +123,7 @@ class AdaptiveCalibrator:
         cache_file = "data/calibration_cache.json"
         if os.path.exists(cache_file):
             try:
-                with open(cache_file, "r", encoding="utf-8") as f:
+                with open(cache_file, encoding="utf-8") as f:
                     self._calibration_cache = json.load(f)
             except Exception:
                 pass
@@ -201,11 +201,11 @@ class AdaptiveCalibrator:
         mean_gold = sum(gold_scores) / len(gold_scores)
         mean_eval = sum(eval_scores) / len(eval_scores)
         mean_deviation = abs(mean_eval - mean_gold)
-        max_deviation = max(abs(e - g) for e, g in zip(eval_scores, gold_scores))
+        max_deviation = max(abs(e - g) for e, g in zip(eval_scores, gold_scores, strict=False))
 
         # RMSE
         import numpy as np
-        rmse = np.sqrt(sum((e - g) ** 2 for e, g in zip(eval_scores, gold_scores)) / len(eval_scores))
+        rmse = np.sqrt(sum((e - g) ** 2 for e, g in zip(eval_scores, gold_scores, strict=False)) / len(eval_scores))
 
         # 相关性
         if len(gold_scores) > 1:
@@ -214,7 +214,7 @@ class AdaptiveCalibrator:
             correlation = 1.0
 
         # 计算置信区间
-        deviations = [abs(e - g) for e, g in zip(eval_scores, gold_scores)]
+        deviations = [abs(e - g) for e, g in zip(eval_scores, gold_scores, strict=True)]
         ci_result = statistical_analyzer.calculate_confidence_interval(deviations, confidence=0.95)
         confidence_interval = (ci_result.lower, ci_result.upper)
 
@@ -276,7 +276,6 @@ class AdaptiveCalibrator:
         Returns:
             PreExecutionCheck: 检查结果，决定是否允许执行评估
         """
-        warnings = []
 
         # 检查是否有版本注册
         version_info = evaluator_version_manager.get_current_version(evaluator_name)
@@ -358,7 +357,7 @@ class AdaptiveCalibrator:
             message="校准检查通过"
         )
 
-    def get_calibration_report(self, evaluator_name: str) -> Dict[str, Any]:
+    def get_calibration_report(self, evaluator_name: str) -> dict[str, Any]:
         """获取校准报告"""
         version_info = evaluator_version_manager.get_current_version(evaluator_name)
 
@@ -380,7 +379,7 @@ class AdaptiveCalibrator:
             "recommendations": self._generate_recommendations(evaluator_name)
         }
 
-    def _generate_recommendations(self, evaluator_name: str) -> List[str]:
+    def _generate_recommendations(self, evaluator_name: str) -> list[str]:
         """生成校准建议"""
         recommendations = []
         status = evaluator_version_manager.check_calibration_status(evaluator_name)

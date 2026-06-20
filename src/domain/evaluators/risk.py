@@ -1,4 +1,3 @@
-from typing import Any, Optional
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory

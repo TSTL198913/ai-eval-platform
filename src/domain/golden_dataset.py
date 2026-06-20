@@ -1,27 +1,27 @@
-import json
 import os
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import uuid4
+
 
 @dataclass
 class GoldenSample:
     id: str
     user_input: str
     actual_output: str
-    expected_output: Optional[str] = None
-    dimensions: List[str] = field(default_factory=lambda: ['correctness'])
-    scores: Dict[str, float] = field(default_factory=dict)
+    expected_output: str | None = None
+    dimensions: list[str] = field(default_factory=lambda: ['correctness'])
+    scores: dict[str, float] = field(default_factory=dict)
     human_corrected: bool = False
-    corrected_by: Optional[str] = None
-    corrected_at: Optional[datetime] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    corrected_by: str | None = None
+    corrected_at: datetime | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {k: v for k, v in vars(self).items()}
+    def to_dict(self) -> dict[str, Any]:
+        return dict(vars(self).items())
 
     def to_few_shot_example(self) -> str:
         scores_str = ', '.join([f'{k}: {v}/100' for k, v in self.scores.items()])
@@ -34,7 +34,7 @@ class GoldenDataset:
     name: str
     description: str
     category: str
-    samples: List[GoldenSample] = field(default_factory=list)
+    samples: list[GoldenSample] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
 
@@ -44,8 +44,8 @@ class GoldenDataset:
 
 class GoldenDatasetManager:
     def __init__(self, data_dir: str = 'data/golden_datasets'):
-        self._datasets: Dict[str, GoldenDataset] = {}
-        self._sample_index: Dict[str, GoldenSample] = {}
+        self._datasets: dict[str, GoldenDataset] = {}
+        self._sample_index: dict[str, GoldenSample] = {}
         self._data_dir = data_dir
         os.makedirs(data_dir, exist_ok=True)
 
@@ -55,7 +55,7 @@ class GoldenDatasetManager:
         self._datasets[dataset_id] = dataset
         return dataset
 
-    def add_sample(self, dataset_id: str, sample_data: Dict[str, Any]) -> Optional[GoldenSample]:
+    def add_sample(self, dataset_id: str, sample_data: dict[str, Any]) -> GoldenSample | None:
         dataset = self._datasets.get(dataset_id)
         if not dataset:
             return None
@@ -71,7 +71,7 @@ class GoldenDatasetManager:
         self._sample_index[sample.id] = sample
         return sample
 
-    def correct_sample(self, sample_id: str, corrected_scores: Dict[str, float], corrected_by: str) -> Optional[GoldenSample]:
+    def correct_sample(self, sample_id: str, corrected_scores: dict[str, float], corrected_by: str) -> GoldenSample | None:
         """校正样本评分 - 合并而非覆盖，避免数据丢失"""
         sample = self._sample_index.get(sample_id)
         if not sample:
@@ -84,17 +84,17 @@ class GoldenDatasetManager:
         sample.updated_at = datetime.utcnow()
         return sample
 
-    def get_few_shot_examples(self, dataset_id: str, limit: int = 5) -> List[str]:
+    def get_few_shot_examples(self, dataset_id: str, limit: int = 5) -> list[str]:
         dataset = self._datasets.get(dataset_id)
         if not dataset:
             return []
         candidates = sorted([s for s in dataset.samples if s.human_corrected], key=lambda x: x.updated_at, reverse=True)[:limit]
         return [s.to_few_shot_example() for s in candidates]
 
-    def get_dataset(self, dataset_id: str) -> Optional[GoldenDataset]:
+    def get_dataset(self, dataset_id: str) -> GoldenDataset | None:
         return self._datasets.get(dataset_id)
 
-    def list_datasets(self) -> List[GoldenDataset]:
+    def list_datasets(self) -> list[GoldenDataset]:
         return list(self._datasets.values())
 
 golden_dataset_manager = GoldenDatasetManager()

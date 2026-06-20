@@ -11,12 +11,13 @@ Prompt回归测试评估器测试
 """
 import os
 import sys
+
 import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from src.domain.evaluators.prompt_regression import PromptRegressionEvaluator
-from src.schemas.evaluation import EvaluationSchema, DomainResponse
+from src.schemas.evaluation import EvaluationSchema
 
 
 class TestPromptRegressionCompare:

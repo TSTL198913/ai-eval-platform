@@ -10,18 +10,18 @@
 4. 数据持久化
 """
 import os
-import sys
-import pytest
-import tempfile
 import shutil
-from unittest.mock import MagicMock
+import sys
+import tempfile
+
+import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from src.domain.golden_dataset import (
-    GoldenSample,
     GoldenDataset,
     GoldenDatasetManager,
+    GoldenSample,
 )
 
 
@@ -228,7 +228,7 @@ class TestGoldenDatasetManagerCorrection:
 
     def test_corrected_count_property(self, manager_with_sample):
         """校正计数属性应正确反映已校正样本数"""
-        manager, dataset = manager_with_dataset = manager_with_sample
+        manager, dataset = manager_with_sample
 
         assert dataset.corrected_count == 0
 

@@ -3,24 +3,24 @@ Engine 层测试 - 评测引擎
 真实业务场景：评测请求执行、异常处理、状态映射、性能指标
 """
 import time
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-from src.engine import EvaluationEngine
-from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+import pytest
+
 from src.domain.evaluators.base import BaseEvaluator
+from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+from src.engine import EvaluationEngine
+from src.exceptions import (
+    ContractValidationError,
+    DomainLogicError,
+    InfrastructureError,
+)
 from src.schemas.evaluation import (
     DomainResponse,
     EvaluationSchema,
     EvaluationStatus,
 )
 from src.schemas.schemas import EvaluationResult
-from src.exceptions import (
-    BasePlatformError,
-    ContractValidationError,
-    DomainLogicError,
-    InfrastructureError,
-)
 
 
 @pytest.fixture(autouse=True)
@@ -327,8 +327,8 @@ class TestEvaluatorAutoDiscoveryBusiness:
 
     def test_factory_supports_runtime_registration(self):
         """场景：业务方在运行时动态注册新评估器"""
-        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
         from src.domain.evaluators.base import BaseEvaluator
+        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
         from src.schemas.evaluation import DomainResponse
 
         @EvaluatorFactory.register("runtime_new_evaluator")

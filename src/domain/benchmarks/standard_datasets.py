@@ -10,7 +10,6 @@
 
 import json
 import os
-from typing import Dict, List, Optional
 from abc import ABC, abstractmethod
 from enum import Enum
 
@@ -26,15 +25,15 @@ class BaseDataset(ABC):
     """数据集基类"""
 
     @abstractmethod
-    def load(self) -> List[Dict]:
+    def load(self) -> list[dict]:
         pass
 
     @abstractmethod
-    def get_sample(self, index: int) -> Dict:
+    def get_sample(self, index: int) -> dict:
         pass
 
     @abstractmethod
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         pass
 
 
@@ -43,18 +42,18 @@ class MTBenchDataset(BaseDataset):
 
     def __init__(self, data_dir: str = "data/datasets"):
         self.data_dir = data_dir
-        self.data: List[Dict] = []
+        self.data: list[dict] = []
 
-    def load(self) -> List[Dict]:
+    def load(self) -> list[dict]:
         file_path = os.path.join(self.data_dir, "mt_bench.json")
         if os.path.exists(file_path):
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 self.data = json.load(f)
         else:
             self.data = self._generate_sample_data()
         return self.data
 
-    def _generate_sample_data(self) -> List[Dict]:
+    def _generate_sample_data(self) -> list[dict]:
         return [
             {
                 "id": "mt_bench_001",
@@ -91,10 +90,10 @@ class MTBenchDataset(BaseDataset):
             },
         ]
 
-    def get_sample(self, index: int) -> Dict:
+    def get_sample(self, index: int) -> dict:
         return self.data[index]
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         categories = {}
         for item in self.data:
             cat = item.get("category", "other")
@@ -111,18 +110,18 @@ class GAIADataset(BaseDataset):
 
     def __init__(self, data_dir: str = "data/datasets"):
         self.data_dir = data_dir
-        self.data: List[Dict] = []
+        self.data: list[dict] = []
 
-    def load(self) -> List[Dict]:
+    def load(self) -> list[dict]:
         file_path = os.path.join(self.data_dir, "gaia.json")
         if os.path.exists(file_path):
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 self.data = json.load(f)
         else:
             self.data = self._generate_sample_data()
         return self.data
 
-    def _generate_sample_data(self) -> List[Dict]:
+    def _generate_sample_data(self) -> list[dict]:
         return [
             {
                 "id": "gaia_001",
@@ -147,10 +146,10 @@ class GAIADataset(BaseDataset):
             },
         ]
 
-    def get_sample(self, index: int) -> Dict:
+    def get_sample(self, index: int) -> dict:
         return self.data[index]
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         levels = {}
         for item in self.data:
             level = item.get("level", "unknown")
@@ -166,18 +165,18 @@ class MMLUDataset(BaseDataset):
 
     def __init__(self, data_dir: str = "data/datasets"):
         self.data_dir = data_dir
-        self.data: List[Dict] = []
+        self.data: list[dict] = []
 
-    def load(self) -> List[Dict]:
+    def load(self) -> list[dict]:
         file_path = os.path.join(self.data_dir, "mmlu.json")
         if os.path.exists(file_path):
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 self.data = json.load(f)
         else:
             self.data = self._generate_sample_data()
         return self.data
 
-    def _generate_sample_data(self) -> List[Dict]:
+    def _generate_sample_data(self) -> list[dict]:
         return [
             {
                 "id": "mmlu_001",
@@ -205,10 +204,10 @@ class MMLUDataset(BaseDataset):
             },
         ]
 
-    def get_sample(self, index: int) -> Dict:
+    def get_sample(self, index: int) -> dict:
         return self.data[index]
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         subjects = {}
         for item in self.data:
             subject = item.get("subject", "other")
@@ -224,9 +223,9 @@ class HumanEvalDataset(BaseDataset):
 
     def __init__(self, data_dir: str = "data/datasets"):
         self.data_dir = data_dir
-        self.data: List[Dict] = []
+        self.data: list[dict] = []
 
-    def load(self) -> List[Dict]:
+    def load(self) -> list[dict]:
         # 优先尝试从真实数据集加载
         try:
             from src.domain.benchmarks.dataset_loader import DatasetLoader
@@ -250,13 +249,13 @@ class HumanEvalDataset(BaseDataset):
 
         file_path = os.path.join(self.data_dir, "humaneval.json")
         if os.path.exists(file_path):
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 self.data = json.load(f)
         else:
             self.data = self._generate_sample_data()
         return self.data
 
-    def _generate_sample_data(self) -> List[Dict]:
+    def _generate_sample_data(self) -> list[dict]:
         return [
             {
                 "id": "humaneval_001",
@@ -274,10 +273,10 @@ class HumanEvalDataset(BaseDataset):
             },
         ]
 
-    def get_sample(self, index: int) -> Dict:
+    def get_sample(self, index: int) -> dict:
         return self.data[index]
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         return {
             "total_samples": len(self.data),
         }
@@ -286,7 +285,7 @@ class HumanEvalDataset(BaseDataset):
 class DatasetManager:
     """数据集管理器"""
 
-    _datasets: Dict[BenchmarkDataset, BaseDataset] = {}
+    _datasets: dict[BenchmarkDataset, BaseDataset] = {}
 
     @classmethod
     def register(cls, dataset_type: BenchmarkDataset, dataset: BaseDataset):
@@ -310,11 +309,11 @@ class DatasetManager:
             cls._datasets[dataset_type] = HumanEvalDataset()
 
     @classmethod
-    def list_datasets(cls) -> List[str]:
+    def list_datasets(cls) -> list[str]:
         return [ds.value for ds in BenchmarkDataset]
 
     @classmethod
-    def get_all_stats(cls) -> Dict[str, Dict]:
+    def get_all_stats(cls) -> dict[str, dict]:
         stats = {}
         for ds_type in BenchmarkDataset:
             ds = cls.get_dataset(ds_type)
@@ -323,7 +322,7 @@ class DatasetManager:
         return stats
 
 
-def load_all_datasets() -> Dict[str, List[Dict]]:
+def load_all_datasets() -> dict[str, list[dict]]:
     """加载所有数据集"""
     results = {}
     for ds_type in BenchmarkDataset:

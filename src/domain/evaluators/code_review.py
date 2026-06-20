@@ -1,5 +1,6 @@
-from src.domain.evaluators.base import BaseEvaluator, EvaluatorFactory
+from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.code import CodeEvaluator
+from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 
 
 @EvaluatorFactory.register("code_review")

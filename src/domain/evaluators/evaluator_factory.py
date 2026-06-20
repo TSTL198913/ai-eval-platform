@@ -1,9 +1,8 @@
 import threading
 import warnings
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import Any, Protocol
 
 from src.domain.models.base import BaseLLMClient
-from src.exceptions import DomainLogicError
 
 # 质量保障集成
 from src.domain.testing.quality_gates import (
@@ -12,15 +11,16 @@ from src.domain.testing.quality_gates import (
     QualityGateLevel,
     QualityGateResult,
 )
+from src.exceptions import DomainLogicError
 
 
 class EvaluatorProtocol(Protocol):
     """评估器协议 - 定义评估器必须实现的接口"""
-    
+
     def evaluate(self, request: Any) -> Any:
         """评估方法"""
         ...
-    
+
     def safe_evaluate(self, request: Any) -> Any:
         """安全评估方法"""
         ...
@@ -29,9 +29,9 @@ class EvaluatorProtocol(Protocol):
 class EvaluatorFactory:
     _registry: dict[str, type[EvaluatorProtocol]] = {}
     _lock = threading.Lock()  # 线程锁保护注册表
-    
+
     # 质量保障管理器
-    _qa_manager: Optional[QualityAssuranceManager] = None
+    _qa_manager: QualityAssuranceManager | None = None
     _quality_gate_enabled: bool = False
     _quality_gate_level: QualityGateLevel = QualityGateLevel.NORMAL
 
@@ -39,7 +39,7 @@ class EvaluatorFactory:
     def enable_quality_gate(cls, level: QualityGateLevel = QualityGateLevel.NORMAL):
         """
         启用质量门禁
-        
+
         Args:
             level: 质量门禁级别 (STRICT/NORMAL/RELAXED)
         """
@@ -48,7 +48,7 @@ class EvaluatorFactory:
         cls._qa_manager = QualityAssuranceManager(
             config=QualityGateConfig(level=level)
         )
-    
+
     @classmethod
     def disable_quality_gate(cls):
         """禁用质量门禁"""
@@ -74,7 +74,7 @@ class EvaluatorFactory:
         return decorator
 
     @classmethod
-    def get(cls, case_type: str, client: Optional[BaseLLMClient] = None) -> EvaluatorProtocol:
+    def get(cls, case_type: str, client: BaseLLMClient | None = None) -> EvaluatorProtocol:
         with cls._lock:
             if case_type not in cls._registry:
                 available_types = list(cls._registry.keys())
@@ -94,22 +94,22 @@ class EvaluatorFactory:
     def get_with_quality_check(
         cls,
         case_type: str,
-        client: Optional[BaseLLMClient] = None,
-        quality_gate_level: Optional[QualityGateLevel] = None,
-    ) -> tuple[EvaluatorProtocol, Optional[QualityGateResult]]:
+        client: BaseLLMClient | None = None,
+        quality_gate_level: QualityGateLevel | None = None,
+    ) -> tuple[EvaluatorProtocol, QualityGateResult | None]:
         """
         获取评估器并执行质量检查
-        
+
         Args:
             case_type: 评估器类型
             client: LLM客户端
             quality_gate_level: 质量门禁级别（可选，默认使用工厂级别）
-            
+
         Returns:
             tuple: (评估器实例, 质量检查结果)
         """
         evaluator = cls.get(case_type, client)
-        
+
         if cls._quality_gate_enabled and cls._qa_manager:
             # 执行质量检查（简化实现）
             quality_result = QualityGateResult(
@@ -117,13 +117,13 @@ class EvaluatorFactory:
                 recommendations=[f"评估器 '{case_type}' 已通过质量检查"]
             )
             return evaluator, quality_result
-        
+
         return evaluator, None
 
     @classmethod
     def list_evaluators(cls) -> list[str]:
         with cls._lock:
-            return sorted(list(cls._registry.keys()))
+            return sorted(cls._registry.keys())
 
     @classmethod
     def get_evaluator_info(cls) -> list[dict]:
@@ -139,7 +139,7 @@ class EvaluatorFactory:
                 "quality_gate_level": cls._quality_gate_level.value if cls._quality_gate_enabled else "disabled",
             })
         return info
-    
+
     @classmethod
     def get_quality_status(cls) -> dict:
         """获取质量门禁状态"""

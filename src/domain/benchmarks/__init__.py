@@ -3,11 +3,11 @@ from .gsm8k import GSM8KBenchmark
 from .mmlu import MMLUBenchmark
 from .registry import BenchmarkRegistry
 from .scenario import (
-    CustomerServiceBenchmark,
-    FinanceBenchmark,
     CodeDevelopmentBenchmark,
-    HealthcareBenchmark,
+    CustomerServiceBenchmark,
     EducationBenchmark,
+    FinanceBenchmark,
+    HealthcareBenchmark,
     ScenarioBenchmark,
 )
 

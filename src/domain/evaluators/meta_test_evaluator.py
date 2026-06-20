@@ -1,6 +1,5 @@
 """元测试评估器 - 使用系统自身的评估器评估测试代码"""
 
-from typing import Any
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
@@ -64,7 +63,7 @@ class MetaTestEvaluator(BaseEvaluator):
 
     def _evaluate_code_quality(self, test_code: str) -> dict:
         """评估测试代码质量"""
-        calculator = ScoreCalculator(initial_score=1.0)
+        ScoreCalculator(initial_score=1.0)
 
         # 评估维度
         dimensions = {
@@ -178,7 +177,7 @@ class MetaTestEvaluator(BaseEvaluator):
 
         # 简单检查: 是否有重复的代码块
         lines = test_code.split('\n')
-        unique_lines = set(line.strip() for line in lines if line.strip())
+        unique_lines = {line.strip() for line in lines if line.strip()}
 
         # 重复率 = (总行数 - 唯一行数) / 总行数
         duplication_rate = (len(lines) - len(unique_lines)) / len(lines) if lines else 0
@@ -204,7 +203,7 @@ class MetaTestEvaluator(BaseEvaluator):
 
     def _evaluate_logic_quality(self, test_code: str) -> dict:
         """评估测试逻辑合理性"""
-        calculator = ScoreCalculator(initial_score=1.0)
+        ScoreCalculator(initial_score=1.0)
 
         # 评估维度
         dimensions = {

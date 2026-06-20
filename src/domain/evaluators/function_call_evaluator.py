@@ -7,7 +7,7 @@
 - 执行结果验证
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
@@ -25,7 +25,7 @@ class FunctionCallEvaluator(BaseEvaluator):
     - 执行结果验证
     """
 
-    def __init__(self, client: Optional[Any] = None):
+    def __init__(self, client: Any | None = None):
         super().__init__(client)
 
     def evaluate(self, request: EvaluationSchema) -> DomainResponse:
@@ -271,7 +271,7 @@ class FunctionCallEvaluator(BaseEvaluator):
         self,
         expected: dict,
         actual: dict,
-        tool_def: Optional[dict],
+        tool_def: dict | None,
     ) -> tuple[float, dict]:
         """验证单个工具的参数"""
         if not expected:
@@ -385,14 +385,14 @@ class FunctionCallEvaluator(BaseEvaluator):
             "average_score": avg_score,
         }
 
-    def _find_tool_definition(self, tool_name: str, definitions: list) -> Optional[dict]:
+    def _find_tool_definition(self, tool_name: str, definitions: list) -> dict | None:
         """查找工具定义"""
         for definition in definitions:
             if definition.get("name") == tool_name:
                 return definition
         return None
 
-    def _get_param_schema(self, param_name: str, tool_def: dict) -> Optional[dict]:
+    def _get_param_schema(self, param_name: str, tool_def: dict) -> dict | None:
         """获取参数的 schema 定义"""
         parameters = tool_def.get("parameters", {})
         properties = parameters.get("properties", {})
@@ -437,7 +437,7 @@ class FunctionCallEvaluator(BaseEvaluator):
             if len(expected) != len(actual):
                 return False
             return all(
-                self._compare_values(e, a) for e, a in zip(expected, actual)
+                self._compare_values(e, a) for e, a in zip(expected, actual, strict=False)
             )
 
         # 字符串比较（忽略大小写和首尾空格）

@@ -2,7 +2,6 @@
 
 import difflib
 import re
-from typing import Any
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
@@ -358,7 +357,7 @@ class MemoryEvaluator(BaseEvaluator):
             "ought", "used", "to", "of", "in", "for", "on", "with", "at", "by",
             "from", "up", "about", "into", "over", "after", "and", "but", "or",
             "as", "if", "when", "than", "because", "while", "although", "though",
-            "that", "which", "who", "whom", "what", "how", "where", "why",
+            "which", "who", "whom", "what", "how", "where", "why",
             "a", "an", "the", "its", "they", "their", "them", "he", "she", "him",
             "her", "his", "i", "me", "my", "we", "us", "our", "you", "your",
         }

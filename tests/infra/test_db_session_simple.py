@@ -1,15 +1,14 @@
 """数据库会话管理简化测试"""
 
 import os
-import pytest
 
 from src.infra.db.session import (
-    _get_env_int,
-    _get_env_bool,
-    ConnectionPoolConfig,
     ConnectionLeakDetector,
-    get_pool_config,
+    ConnectionPoolConfig,
+    _get_env_bool,
+    _get_env_int,
     get_leak_detector,
+    get_pool_config,
 )
 
 

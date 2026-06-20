@@ -3,7 +3,7 @@ import logging
 import random
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .base import BenchmarkResult
 from .registry import BenchmarkRegistry
@@ -18,18 +18,18 @@ class GSM8KBenchmark:
     category = "reasoning"
     num_samples = 50
 
-    def __init__(self, data_dir: Optional[str] = None):
+    def __init__(self, data_dir: str | None = None):
         self.data_dir = Path(data_dir) if data_dir else Path(__file__).parent / "data" / "gsm8k"
-        self._dataset: Optional[List[Dict[str, Any]]] = None
+        self._dataset: list[dict[str, Any]] | None = None
 
-    def load_dataset(self) -> List[Dict[str, Any]]:
+    def load_dataset(self) -> list[dict[str, Any]]:
         if self._dataset is not None:
             return self._dataset
 
         dataset = []
         if self.data_dir.exists() and self.data_dir.is_dir():
             for filename in self.data_dir.glob("*.jsonl"):
-                with open(filename, "r", encoding="utf-8") as f:
+                with open(filename, encoding="utf-8") as f:
                     for line in f:
                         try:
                             item = json.loads(line.strip())
@@ -48,7 +48,7 @@ class GSM8KBenchmark:
         self._dataset = random.sample(dataset, min(self.num_samples, len(dataset)))
         return self._dataset
 
-    def _load_real_data(self) -> List[Dict[str, Any]]:
+    def _load_real_data(self) -> list[dict[str, Any]]:
         """加载真实GSM8K数据（从JSONL）"""
         try:
             from src.domain.benchmarks.dataset_loader import DatasetLoader
@@ -67,7 +67,7 @@ class GSM8KBenchmark:
             pass
         return []
 
-    def _generate_synthetic_data(self) -> List[Dict[str, Any]]:
+    def _generate_synthetic_data(self) -> list[dict[str, Any]]:
         synthetic = [
             {
                 "question": "John has 5 apples. He buys 3 more apples from the store. How many apples does John have now?",
@@ -132,7 +132,7 @@ class GSM8KBenchmark:
 
         return extended
 
-    def evaluate(self, llm_client, samples: Optional[List[Dict[str, Any]]] = None) -> BenchmarkResult:
+    def evaluate(self, llm_client, samples: list[dict[str, Any]] | None = None) -> BenchmarkResult:
         if samples is None:
             samples = self.load_dataset()
 
@@ -183,7 +183,7 @@ class GSM8KBenchmark:
             error_messages=errors,
         )
 
-    def _build_prompt(self, sample: Dict[str, Any]) -> str:
+    def _build_prompt(self, sample: dict[str, Any]) -> str:
         return f"""Solve the following math problem:
 
 {sample['question']}
@@ -202,7 +202,7 @@ Please provide only the numerical answer."""
         except ValueError:
             return predicted.strip() == expected.strip()
 
-    def calculate_score(self, results: List[Dict[str, Any]]) -> float:
+    def calculate_score(self, results: list[dict[str, Any]]) -> float:
         if not results:
             return 0.0
         correct = sum(1 for r in results if r.get("is_correct", False))

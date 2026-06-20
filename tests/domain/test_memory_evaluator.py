@@ -9,14 +9,15 @@ MemoryEvaluator 专项测试
 
 import os
 import sys
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from src.domain.evaluators.memory import MemoryEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.schemas.evaluation import EvaluationSchema, DomainResponse
+from src.domain.evaluators.memory import MemoryEvaluator
+from src.schemas.evaluation import EvaluationSchema
 
 
 @pytest.fixture(autouse=True)

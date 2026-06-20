@@ -117,8 +117,8 @@ class FakeRedis:
     def _eval_token_bucket(self, *args):
         # args: capacity, refill_rate, now, requested
         capacity = float(args[0])
-        refill_rate = float(args[1])
-        now = float(args[2])
+        _ = float(args[1])
+        _ = float(args[2])
         requested = float(args[3])
         # 简单实现：每次都按满桶计算（生产场景应追踪 last_update）
         tokens = capacity
@@ -196,13 +196,11 @@ class FakeScript:
     def _token_bucket(self, keys, args):
         key = keys[0] if keys else "default"
         capacity = float(args[0])
-        refill_rate = float(args[1])
-        now = float(args[2])
+        _ = float(args[1])
+        _ = float(args[2])
         requested = float(args[3])
         # 简化：每次按容量重置（生产环境应按 last_update 补充）
         current = self._token_state.get(key, capacity)
-        # 根据时间差补充令牌
-        elapsed = 0  # 简化：忽略时间差
         tokens = min(capacity, current)
         allowed = 0
         if tokens >= requested:
@@ -260,17 +258,10 @@ def reset_evaluator_registry():
     自动为每个测试重置 EvaluatorFactory 注册表。
     解决测试隔离问题：EvaluatorFactory._registry 是全局单例，
     前一个测试的注册状态会污染后续测试。
-    
+
     使用 force=True 强制重新导入模块，确保每次测试都有干净的注册表。
     """
     from src.domain.evaluators.evaluator_factory import EvaluatorFactory as EF
 
     # 重置注册表和缓存标志
     EF._registry = {}
-    from src.domain.evaluators import auto_discover, _EVALUATOR_REGISTRY
-    auto_discover._EVALUATOR_REGISTRY = None
-    
-    # 强制重新发现（清除 sys.modules 缓存后重新导入）
-    auto_discover(force=True)
-    
-    yield EF._registry

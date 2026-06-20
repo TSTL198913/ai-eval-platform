@@ -10,13 +10,14 @@ TrajectoryEvaluator 专项测试
 
 import os
 import sys
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from src.domain.evaluators.trajectory import TrajectoryEvaluator
-from src.schemas.evaluation import EvaluationSchema, AgentTrajectory, TrajectoryStep
+from src.schemas.evaluation import EvaluationSchema
 
 
 @pytest.fixture(autouse=True)

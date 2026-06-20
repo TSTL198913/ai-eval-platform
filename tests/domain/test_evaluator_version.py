@@ -10,12 +10,11 @@
 关键发现：（测试过程中记录）
 """
 import os
-import sys
-import pytest
-import tempfile
 import shutil
-from unittest.mock import MagicMock, patch
-from datetime import datetime
+import sys
+import tempfile
+
+import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
@@ -198,7 +197,7 @@ class TestCalibrationStatusCheck:
 
     def test_check_calibration_status_calibrated(self, manager):
         """校准通过时应返回calibrated"""
-        version = manager.register_version(
+        manager.register_version(
             evaluator_name="test_evaluator",
             version="1.0.0",
             code_hash="hash1",
@@ -213,7 +212,7 @@ class TestCalibrationStatusCheck:
 
     def test_check_calibration_status_drifted(self, manager):
         """漂移时应返回drifted"""
-        version = manager.register_version(
+        manager.register_version(
             evaluator_name="test_evaluator",
             version="1.0.0",
             code_hash="hash1",
@@ -228,7 +227,7 @@ class TestCalibrationStatusCheck:
 
     def test_check_calibration_status_threshold_calculation(self, manager):
         """校准阈值计算 - 使用默认阈值"""
-        version = manager.register_version(
+        manager.register_version(
             evaluator_name="test_evaluator",
             version="1.0.0",
             code_hash="hash1",
@@ -342,7 +341,7 @@ class TestCalibrationUpdate:
 
     def test_update_calibration_by_code_hash(self, manager):
         """通过code_hash更新校准"""
-        version = manager.register_version(
+        manager.register_version(
             evaluator_name="test_evaluator",
             version="1.0.0",
             code_hash="hash1",

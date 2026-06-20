@@ -3,35 +3,29 @@ Distributed 层测试 - 分布式原语
 真实业务场景：评测任务去重（锁）、LLM 故障保护（熔断器）、API 限流、重复请求去重
 """
 import asyncio
-import time
-import pytest
-from unittest.mock import MagicMock, AsyncMock
 
-from src.distributed.lock import (
-    DistributedLock,
-    LockState,
-    distributed_lock,
-    RedLock,
-)
+import pytest
+
 from src.distributed.circuit_breaker import (
     CircuitBreaker,
     CircuitBreakerConfig,
     CircuitBreakerError,
     CircuitState,
 )
-from src.distributed.rate_limiter import (
-    TokenBucket,
-    SlidingWindowLog,
-    RateLimiter,
-    MultiDimensionRateLimiter,
-    RateLimitConfig,
-    RateLimitStrategy,
-)
 from src.distributed.idempotency import (
     IdempotencyChecker,
-    IdempotencyError,
     IdempotencyConfig,
-    IdempotencyStrategy,
+)
+from src.distributed.lock import (
+    DistributedLock,
+    LockState,
+    distributed_lock,
+)
+from src.distributed.rate_limiter import (
+    MultiDimensionRateLimiter,
+    RateLimitConfig,
+    SlidingWindowLog,
+    TokenBucket,
 )
 
 

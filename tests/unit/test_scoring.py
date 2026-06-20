@@ -4,16 +4,17 @@
 """
 import os
 import sys
+
 import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from src.domain.evaluators.scoring import (
+    PASS_THRESHOLD,
+    is_passing,
+    score_keyword_overlap,
     score_numeric_match,
     score_text_similarity,
-    score_keyword_overlap,
-    is_passing,
-    PASS_THRESHOLD,
 )
 
 

@@ -7,10 +7,8 @@ import json
 import os
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
 from enum import Enum
-
-from src.infra.db.repository import EvaluationRepository
+from typing import Any
 
 
 class VersionStatus(Enum):
@@ -27,15 +25,15 @@ class EvaluatorVersion:
     version: str  # 语义化版本，如 "1.0.0"
     changelog: str
     code_hash: str  # 代码哈希，用于唯一标识
-    config_snapshot: Dict[str, Any]  # 配置快照
-    calibration_score: Optional[float] = None  # 最后校准分数
+    config_snapshot: dict[str, Any]  # 配置快照
+    calibration_score: float | None = None  # 最后校准分数
     calibration_threshold: float = 5.0  # 校准偏差阈值(%)
     status: VersionStatus = VersionStatus.ACTIVE
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
     created_by: str = "system"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "version_id": self.version_id,
             "evaluator_name": self.evaluator_name,
@@ -56,9 +54,9 @@ class EvaluatorVersionManager:
     """评估器版本管理器"""
 
     def __init__(self, storage_path: str = "data/evaluator_versions"):
-        self._versions: Dict[str, EvaluatorVersion] = {}
+        self._versions: dict[str, EvaluatorVersion] = {}
         self._storage_path = storage_path
-        self._current_codes: Dict[str, str] = {}  # evaluator_name -> code_hash
+        self._current_codes: dict[str, str] = {}  # evaluator_name -> code_hash
         os.makedirs(storage_path, exist_ok=True)
         self._load_versions()
 
@@ -67,7 +65,7 @@ class EvaluatorVersionManager:
         index_file = os.path.join(self._storage_path, "index.json")
         if os.path.exists(index_file):
             try:
-                with open(index_file, "r", encoding="utf-8") as f:
+                with open(index_file, encoding="utf-8") as f:
                     data = json.load(f)
                     for vid, vdata in data.items():
                         vdata["created_at"] = datetime.fromisoformat(vdata["created_at"])
@@ -78,7 +76,7 @@ class EvaluatorVersionManager:
                 # 加载当前代码哈希
                 hash_file = os.path.join(self._storage_path, "codes.json")
                 if os.path.exists(hash_file):
-                    with open(hash_file, "r", encoding="utf-8") as f:
+                    with open(hash_file, encoding="utf-8") as f:
                         self._current_codes = json.load(f)
             except Exception as e:
                 print(f"Failed to load versions: {e}")
@@ -99,7 +97,7 @@ class EvaluatorVersionManager:
         evaluator_name: str,
         version: str,
         code_hash: str,
-        config: Dict[str, Any],
+        config: dict[str, Any],
         changelog: str = "",
         created_by: str = "system"
     ) -> EvaluatorVersion:
@@ -128,7 +126,7 @@ class EvaluatorVersionManager:
 
         return evaluator_version
 
-    def get_current_version(self, evaluator_name: str) -> Optional[EvaluatorVersion]:
+    def get_current_version(self, evaluator_name: str) -> EvaluatorVersion | None:
         """获取评估器当前版本"""
         code_hash = self._current_codes.get(evaluator_name)
         if not code_hash:
@@ -143,11 +141,11 @@ class EvaluatorVersionManager:
                 return v
         return None
 
-    def get_version_by_id(self, version_id: str) -> Optional[EvaluatorVersion]:
+    def get_version_by_id(self, version_id: str) -> EvaluatorVersion | None:
         """通过ID获取版本"""
         return self._versions.get(version_id)
 
-    def get_all_versions(self, evaluator_name: str = None) -> List[EvaluatorVersion]:
+    def get_all_versions(self, evaluator_name: str = None) -> list[EvaluatorVersion]:
         """获取所有版本"""
         versions = list(self._versions.values())
         if evaluator_name:
@@ -159,7 +157,7 @@ class EvaluatorVersionManager:
         evaluator_name: str,
         calibration_score: float,
         code_hash: str = None
-    ) -> Optional[EvaluatorVersion]:
+    ) -> EvaluatorVersion | None:
         """更新校准分数"""
         if code_hash:
             for v in self._versions.values():
@@ -177,7 +175,7 @@ class EvaluatorVersionManager:
                 return current
         return None
 
-    def check_calibration_status(self, evaluator_name: str) -> Dict[str, Any]:
+    def check_calibration_status(self, evaluator_name: str) -> dict[str, Any]:
         """检查校准状态"""
         current = self.get_current_version(evaluator_name)
         if not current:
@@ -219,7 +217,7 @@ class EvaluatorVersionManager:
             return True
         return False
 
-    def get_version_history(self, evaluator_name: str, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_version_history(self, evaluator_name: str, limit: int = 10) -> list[dict[str, Any]]:
         """获取版本历史"""
         versions = self.get_all_versions(evaluator_name)[:limit]
         return [

@@ -10,13 +10,13 @@ FunctionCallEvaluator 专项测试
 
 import os
 import sys
+
 import pytest
-from unittest.mock import MagicMock
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from src.domain.evaluators.function_call_evaluator import FunctionCallEvaluator
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import EvaluationSchema
 
 
 class TestFunctionCallEvaluatorPositiveCases:

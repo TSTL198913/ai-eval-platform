@@ -2,7 +2,7 @@ import json
 import logging
 import random
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .base import BenchmarkResult
 from .registry import BenchmarkRegistry
@@ -34,11 +34,11 @@ class MMLUBenchmark:
         "college_psychology", "high_school_psychology", "law"
     ]
 
-    def __init__(self, data_dir: Optional[str] = None):
+    def __init__(self, data_dir: str | None = None):
         self.data_dir = Path(data_dir) if data_dir else Path(__file__).parent / "data" / "mmlu"
-        self._dataset: Optional[List[Dict[str, Any]]] = None
+        self._dataset: list[dict[str, Any]] | None = None
 
-    def load_dataset(self) -> List[Dict[str, Any]]:
+    def load_dataset(self) -> list[dict[str, Any]]:
         if self._dataset is not None:
             return self._dataset
 
@@ -47,7 +47,7 @@ class MMLUBenchmark:
             for subject in self.SUBJECTS[:5]:
                 subject_file = self.data_dir / f"{subject}_test.jsonl"
                 if subject_file.exists():
-                    with open(subject_file, "r", encoding="utf-8") as f:
+                    with open(subject_file, encoding="utf-8") as f:
                         for line in f:
                             try:
                                 item = json.loads(line.strip())
@@ -68,7 +68,7 @@ class MMLUBenchmark:
         self._dataset = random.sample(dataset, min(self.num_samples, len(dataset)))
         return self._dataset
 
-    def _load_real_data(self) -> List[Dict[str, Any]]:
+    def _load_real_data(self) -> list[dict[str, Any]]:
         """加载真实MMLU数据（从JSONL）"""
         try:
             from src.domain.benchmarks.dataset_loader import DatasetLoader
@@ -98,7 +98,7 @@ class MMLUBenchmark:
             pass
         return []
 
-    def _generate_synthetic_data(self) -> List[Dict[str, Any]]:
+    def _generate_synthetic_data(self) -> list[dict[str, Any]]:
         synthetic = []
         templates = [
             {
@@ -146,7 +146,7 @@ class MMLUBenchmark:
 
         return synthetic
 
-    def evaluate(self, llm_client, samples: Optional[List[Dict[str, Any]]] = None) -> BenchmarkResult:
+    def evaluate(self, llm_client, samples: list[dict[str, Any]] | None = None) -> BenchmarkResult:
         if samples is None:
             samples = self.load_dataset()
 
@@ -200,7 +200,7 @@ class MMLUBenchmark:
             error_messages=errors,
         )
 
-    def _build_prompt(self, sample: Dict[str, Any]) -> str:
+    def _build_prompt(self, sample: dict[str, Any]) -> str:
         choices_text = "\n".join(sample["choices"])
         return f"""Question: {sample['question']}
 
@@ -217,7 +217,7 @@ Please provide only the letter (A, B, C, or D) corresponding to the correct answ
                 found.append(char)
         return found[-1] if found else ""
 
-    def calculate_score(self, results: List[Dict[str, Any]]) -> float:
+    def calculate_score(self, results: list[dict[str, Any]]) -> float:
         if not results:
             return 0.0
         correct = sum(1 for r in results if r.get("is_correct", False))

@@ -5,13 +5,14 @@
 """
 import os
 import sys
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from src.domain.evaluators.finance import FinanceEvaluator
-from src.domain.evaluators.scoring import score_numeric_match, is_passing
+from src.domain.evaluators.scoring import is_passing, score_numeric_match
 from src.schemas.evaluation import EvaluationSchema
 
 
@@ -85,7 +86,7 @@ class TestFinanceEvaluatorLLMClientDependency:
 
 class TestFinanceEvaluatorScoringLogic:
     """评分逻辑测试 - 验证score_numeric_match集成
-    
+
     关键发现：score_numeric_match只支持精确数字匹配，不支持部分匹配
     例如：expected="100万元"，output="95万元"，score=0.0（因为100不在95中）
     """
@@ -213,7 +214,7 @@ class TestFinanceEvaluatorInputValidation:
 
 class TestFinanceEvaluatorMetadataHandling:
     """元数据处理测试
-    
+
     关键发现：FinanceMetadata.target是字符串类型，不是整数
     """
 
@@ -309,8 +310,8 @@ class TestFinanceEvaluatorEdgeCases:
 
 
 class TestScoreNumericMatchIntegration:
-    """score_numeric_match集成测试 - 验证评分算法
-    
+    r"""score_numeric_match集成测试 - 验证评分算法
+
     关键发现：score_numeric_match只支持精确数字匹配
     - expected_nums = re.findall(r"-?\d+\.?\d*", expected)
     - matched = sum(1 for num in expected_nums if num in output)

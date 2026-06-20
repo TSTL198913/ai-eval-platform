@@ -1,8 +1,8 @@
 import json
 import os
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from typing import Any
 
 from src.infra.db.repository import EvaluationRepository
 
@@ -38,7 +38,7 @@ class ConflictRecord:
 class MetaEvaluator:
     def __init__(self):
         self._repository = EvaluationRepository()
-        self._conflict_queue: List[ConflictRecord] = []
+        self._conflict_queue: list[ConflictRecord] = []
         self._calibration_threshold = 15.0
         self._load_pending_conflicts()
 
@@ -46,7 +46,7 @@ class MetaEvaluator:
         conflicts_file = "data/meta_evaluator/conflicts.json"
         if os.path.exists(conflicts_file):
             try:
-                with open(conflicts_file, "r", encoding="utf-8") as f:
+                with open(conflicts_file, encoding="utf-8") as f:
                     data = json.load(f)
                     self._conflict_queue = [
                         ConflictRecord(**c) for c in data
@@ -60,7 +60,7 @@ class MetaEvaluator:
         with open(conflicts_file, "w", encoding="utf-8") as f:
             json.dump([vars(c) for c in self._conflict_queue], f, ensure_ascii=False, indent=2)
 
-    def detect_conflicts(self, new_result: Dict[str, Any], baseline: Dict[str, Any]) -> Optional[ConflictRecord]:
+    def detect_conflicts(self, new_result: dict[str, Any], baseline: dict[str, Any]) -> ConflictRecord | None:
         new_score = new_result.get("total_score", 0)
         baseline_score = baseline.get("total_score", 0)
         score_diff = new_score - baseline_score
@@ -82,7 +82,7 @@ class MetaEvaluator:
 
         return conflict
 
-    def _generate_conflict_reason(self, new_result: Dict[str, Any], baseline: Dict[str, Any]) -> str:
+    def _generate_conflict_reason(self, new_result: dict[str, Any], baseline: dict[str, Any]) -> str:
         reasons = []
         new_scores = new_result.get("llm_judge_scores", {})
         base_scores = baseline.get("llm_judge_scores", {})
@@ -96,7 +96,7 @@ class MetaEvaluator:
 
         return "; ".join(reasons) if reasons else "评分整体偏差较大"
 
-    def detect_multi_model_conflicts(self, results: List[Dict[str, Any]]) -> List[Tuple[str, float, float]]:
+    def detect_multi_model_conflicts(self, results: list[dict[str, Any]]) -> list[tuple[str, float, float]]:
         conflicts = []
         if len(results) < 2:
             return conflicts
@@ -119,7 +119,7 @@ class MetaEvaluator:
 
         return conflicts
 
-    def get_pending_conflicts(self, status: str = None, limit: int = 50) -> List[Dict[str, Any]]:
+    def get_pending_conflicts(self, status: str = None, limit: int = 50) -> list[dict[str, Any]]:
         conflicts = self._conflict_queue
         if status:
             conflicts = [c for c in conflicts if c.status == status]
@@ -147,7 +147,7 @@ class MetaEvaluator:
                 conflict.status = resolution
         self._save_pending_conflicts()
 
-    def get_conflict_stats(self) -> Dict[str, Any]:
+    def get_conflict_stats(self) -> dict[str, Any]:
         total = len(self._conflict_queue)
         by_level = {"critical": 0, "high": 0, "medium": 0, "low": 0}
         by_status = {"pending": 0, "reviewed": 0, "resolved": 0}
@@ -163,7 +163,7 @@ class MetaEvaluator:
             "high_priority_count": by_level["high"] + by_level["critical"],
         }
 
-    def analyze_evaluator_drift(self, days: int = 7) -> Dict[str, Any]:
+    def analyze_evaluator_drift(self, days: int = 7) -> dict[str, Any]:
         all_records = self._repository.search(limit=1000)
         cutoff_date = datetime.utcnow() - timedelta(days=days)
 

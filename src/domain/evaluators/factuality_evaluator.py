@@ -7,11 +7,11 @@ Factuality Evaluator - 幻觉率独立评估器
 - 实体验证：人物/地点/数字等实体验证
 - 引用追溯：信息来源可追溯性
 """
-from typing import Any, Dict, List, Optional
 import re
+from typing import Any
 
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.schemas.evaluation import EvaluationSchema, DomainResponse
+from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
 
 @EvaluatorFactory.register("factuality")
@@ -28,7 +28,7 @@ class FactualityEvaluator:
     }
     """
 
-    def __init__(self, client: Optional[Any] = None):
+    def __init__(self, client: Any | None = None):
         self.client = client
 
     def evaluate(self, request: EvaluationSchema) -> DomainResponse:
@@ -181,18 +181,18 @@ class FactualityEvaluator:
     # ===================== 内部算法 =====================
 
     def _detect_hallucination_internals(
-        self, response: str, reference: List[str], context: str, strict_mode: bool
-    ) -> Dict[str, Any]:
+        self, response: str, reference: list[str], context: str, strict_mode: bool
+    ) -> dict[str, Any]:
         """内部幻觉检测实现"""
         issues = []
 
         # 1. 检测与参考信息的冲突
         if reference:
             ref_text = " ".join(reference).lower()
-            response_lower = response.lower()
+            response.lower()
             # 提取关键数字
             response_numbers = self._extract_numbers(response)
-            ref_numbers = self._extract_numbers(" ".join(reference))
+            self._extract_numbers(" ".join(reference))
             conflicting_numbers = []
             for n in response_numbers:
                 if str(n["value"]) not in ref_text:
@@ -238,7 +238,7 @@ class FactualityEvaluator:
         else:
             # 有参考时，根据冲突数量计算
             ref_text = " ".join(reference).lower()
-            response_lower = response.lower()
+            response.lower()
             # 简单的事实对齐：检查关键词覆盖率
             ref_words = set(self._tokenize(" ".join(reference)))
             response_words = set(self._tokenize(response))
@@ -257,7 +257,7 @@ class FactualityEvaluator:
             "has_reference": bool(reference),
         }
 
-    def _score_against_reference(self, claims: List[str], reference: List[str]) -> float:
+    def _score_against_reference(self, claims: list[str], reference: list[str]) -> float:
         """与参考信息对齐评分"""
         if not reference or not claims:
             return 0.0
@@ -272,7 +272,7 @@ class FactualityEvaluator:
                 matched += 1
         return matched / len(claims)
 
-    def _check_entity_consistency(self, entities: List[Dict], reference: List[str]) -> float:
+    def _check_entity_consistency(self, entities: list[dict], reference: list[str]) -> float:
         """检查实体一致性"""
         if not reference or not entities:
             return 1.0
@@ -283,7 +283,7 @@ class FactualityEvaluator:
                 matched += 1
         return matched / len(entities)
 
-    def _check_number_consistency(self, numbers: List[Dict], reference: List[str]) -> float:
+    def _check_number_consistency(self, numbers: list[dict], reference: list[str]) -> float:
         """检查数字一致性"""
         if not reference or not numbers:
             return 1.0
@@ -294,7 +294,7 @@ class FactualityEvaluator:
                 matched += 1
         return matched / len(numbers)
 
-    def _find_contradictions(self, claims: List[str]) -> List[Dict[str, Any]]:
+    def _find_contradictions(self, claims: list[str]) -> list[dict[str, Any]]:
         """查找内部矛盾（简化版）"""
         contradictions = []
         # 简单的矛盾检测：如果两个claim包含相反的含义
@@ -323,13 +323,13 @@ class FactualityEvaluator:
                             })
         return contradictions
 
-    def _extract_claims(self, text: str) -> List[str]:
+    def _extract_claims(self, text: str) -> list[str]:
         """提取事实声明（按句子分割）"""
         # 按句号、问号、感叹号分句
         sentences = re.split(r"[。！？.!?]", text)
         return [s.strip() for s in sentences if len(s.strip()) > 5]
 
-    def _extract_entities(self, text: str) -> List[Dict[str, str]]:
+    def _extract_entities(self, text: str) -> list[dict[str, str]]:
         """提取实体（简化版：人名、地名、组织等）"""
         entities = []
         # 提取大写开头的英文词组（可能是人名/组织名）
@@ -343,7 +343,7 @@ class FactualityEvaluator:
                 entities.append({"text": word, "type": "person"})
         return entities
 
-    def _extract_numbers(self, text: str) -> List[Dict[str, Any]]:
+    def _extract_numbers(self, text: str) -> list[dict[str, Any]]:
         """提取数字"""
         numbers = []
         # 阿拉伯数字
@@ -362,7 +362,7 @@ class FactualityEvaluator:
                 pass
         return numbers
 
-    def _tokenize(self, text: str) -> List[str]:
+    def _tokenize(self, text: str) -> list[str]:
         """分词"""
         # 简单的分词：英文按空格，中文按字
         words = re.findall(r"[\w\u4e00-\u9fff]+", text.lower())

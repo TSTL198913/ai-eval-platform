@@ -9,7 +9,7 @@ from src.schemas.evaluation import DomainResponse, EvaluationSchema
 @EvaluatorFactory.register("security")
 class SecurityEvaluator(BaseEvaluator):
     """安全测试评估器
-    
+
     检测和评估 Agent 的安全漏洞，包括：
     - Prompt Injection 攻击检测
     - 越狱攻击检测

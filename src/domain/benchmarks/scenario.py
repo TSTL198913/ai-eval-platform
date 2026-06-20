@@ -1,6 +1,4 @@
-import json
-import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from src.domain.benchmarks.base import BaseBenchmark, BenchmarkResult
 from src.domain.benchmarks.registry import BenchmarkRegistry
@@ -17,7 +15,7 @@ class ScenarioBenchmark(BaseBenchmark):
         self.samples = self._load_scenario_samples()
         self.num_samples = len(self.samples)
 
-    def _load_scenario_samples(self) -> List[Dict[str, Any]]:
+    def _load_scenario_samples(self) -> list[dict[str, Any]]:
         if self.scenario_type == "customer_service":
             return self._load_customer_service_samples()
         elif self.scenario_type == "finance":
@@ -31,7 +29,7 @@ class ScenarioBenchmark(BaseBenchmark):
         else:
             return []
 
-    def _load_customer_service_samples(self) -> List[Dict[str, Any]]:
+    def _load_customer_service_samples(self) -> list[dict[str, Any]]:
         return [
             {
                 "id": "cs_001",
@@ -90,7 +88,7 @@ class ScenarioBenchmark(BaseBenchmark):
             },
         ]
 
-    def _load_finance_samples(self) -> List[Dict[str, Any]]:
+    def _load_finance_samples(self) -> list[dict[str, Any]]:
         return [
             {
                 "id": "fin_001",
@@ -149,7 +147,7 @@ class ScenarioBenchmark(BaseBenchmark):
             },
         ]
 
-    def _load_code_samples(self) -> List[Dict[str, Any]]:
+    def _load_code_samples(self) -> list[dict[str, Any]]:
         return [
             {
                 "id": "code_001",
@@ -208,7 +206,7 @@ class ScenarioBenchmark(BaseBenchmark):
             },
         ]
 
-    def _load_healthcare_samples(self) -> List[Dict[str, Any]]:
+    def _load_healthcare_samples(self) -> list[dict[str, Any]]:
         return [
             {
                 "id": "hc_001",
@@ -245,7 +243,7 @@ class ScenarioBenchmark(BaseBenchmark):
             },
         ]
 
-    def _load_education_samples(self) -> List[Dict[str, Any]]:
+    def _load_education_samples(self) -> list[dict[str, Any]]:
         return [
             {
                 "id": "edu_001",
@@ -282,10 +280,10 @@ class ScenarioBenchmark(BaseBenchmark):
             },
         ]
 
-    def load_dataset(self) -> List[Dict[str, Any]]:
+    def load_dataset(self) -> list[dict[str, Any]]:
         return self.samples
 
-    def evaluate(self, llm_client=None, samples: Optional[List[Dict[str, Any]]] = None) -> BenchmarkResult:
+    def evaluate(self, llm_client=None, samples: list[dict[str, Any]] | None = None) -> BenchmarkResult:
         if samples is None:
             samples = self.samples
 
@@ -309,9 +307,9 @@ class ScenarioBenchmark(BaseBenchmark):
             metadata={"scenario_type": self.scenario_type},
         )
 
-    def _evaluate_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
+    def _evaluate_sample(self, sample: dict[str, Any]) -> dict[str, Any]:
         actual_output = sample.get("actual_output", "")
-        expected_output = sample.get("expected_output", "")
+        sample.get("expected_output", "")
         expected_steps = sample.get("expected_steps", [])
         success_criteria = sample.get("success_criteria", [])
 
@@ -378,7 +376,7 @@ class ScenarioBenchmark(BaseBenchmark):
 
         return False
 
-    def calculate_score(self, results: List[Dict[str, Any]]) -> float:
+    def calculate_score(self, results: list[dict[str, Any]]) -> float:
         if not results:
             return 0.0
 
@@ -390,7 +388,7 @@ class ScenarioBenchmark(BaseBenchmark):
 
         return total_score / len(results)
 
-    def build_prompt(self, sample: Dict[str, Any]) -> str:
+    def build_prompt(self, sample: dict[str, Any]) -> str:
         prompt = f"""你是一个专业的{self._get_scenario_name()}助手。
 
 任务：{sample['task']}

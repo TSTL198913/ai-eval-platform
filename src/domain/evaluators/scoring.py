@@ -1,5 +1,4 @@
 import re
-from difflib import SequenceMatcher
 
 PASS_THRESHOLD = 0.8
 
@@ -33,7 +32,7 @@ def score_text_similarity(output: str, expected: str | None) -> float:
     expected_chars = list(expected_lower)
     matched = 0
     all_matched = True
-    
+
     for char in output_lower:
         if char in expected_chars:
             matched += 1

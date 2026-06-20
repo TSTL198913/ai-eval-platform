@@ -8,7 +8,8 @@
 """
 
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Any, Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -17,17 +18,17 @@ class ModelVersion(BaseModel):
     version_id: str
     model_name: str
     version: str
-    base_model: Optional[str] = None
-    training_data: Optional[str] = None
+    base_model: str | None = None
+    training_data: str | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ModelVersionRegistry:
     """模型版本注册表"""
 
     _instance: Optional["ModelVersionRegistry"] = None
-    _models: Dict[str, List[ModelVersion]] = {}
+    _models: dict[str, list[ModelVersion]] = {}
 
     def __new__(cls):
         if cls._instance is None:
@@ -40,18 +41,18 @@ class ModelVersionRegistry:
             self._models[model_version.model_name] = []
         self._models[model_version.model_name].append(model_version)
 
-    def get_versions(self, model_name: str) -> List[ModelVersion]:
+    def get_versions(self, model_name: str) -> list[ModelVersion]:
         """获取模型所有版本"""
         return self._models.get(model_name, [])
 
-    def get_latest(self, model_name: str) -> Optional[ModelVersion]:
+    def get_latest(self, model_name: str) -> ModelVersion | None:
         """获取最新版本"""
         versions = self.get_versions(model_name)
         if not versions:
             return None
         return max(versions, key=lambda v: v.created_at)
 
-    def compare_versions(self, model_name: str, v1: str, v2: str) -> Dict[str, Any]:
+    def compare_versions(self, model_name: str, v1: str, v2: str) -> dict[str, Any]:
         """对比两个版本"""
         versions = {v.version: v for v in self.get_versions(model_name)}
         if v1 not in versions or v2 not in versions:
@@ -63,7 +64,7 @@ class ModelVersionRegistry:
             "differences": self._compute_diff(versions[v1], versions[v2]),
         }
 
-    def _compute_diff(self, v1: ModelVersion, v2: ModelVersion) -> Dict[str, Any]:
+    def _compute_diff(self, v1: ModelVersion, v2: ModelVersion) -> dict[str, Any]:
         """计算版本差异"""
         return {
             "version_changed": v1.version != v2.version,

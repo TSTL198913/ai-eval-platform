@@ -4,11 +4,12 @@
 """
 import os
 import sys
+
 import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from src.infra.cost_governance import CostGovernance, CostMetrics, CostRecord, TokenUsage
+from src.infra.cost_governance import CostGovernance, CostMetrics, CostRecord
 
 
 class TestCostCalculation:
@@ -107,7 +108,6 @@ class TestMetricsCalculation:
 
     def test_get_metrics_daily_cost(self):
         """日成本应只统计 24 小时内记录"""
-        import time
         cg = CostGovernance()
         # 添加一条当前记录
         cg.record_request(1000, 500, 1.0, "gpt-4", 100.0)
@@ -136,7 +136,6 @@ class TestMetricsCalculation:
 
     def test_get_metrics_with_hours_filter(self):
         """小时过滤应生效"""
-        import time
         cg = CostGovernance()
         cg.record_request(100, 100, 1.0, "gpt-4", 100.0)
         metrics = cg.get_metrics(hours=1)

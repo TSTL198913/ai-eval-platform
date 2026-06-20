@@ -5,11 +5,12 @@ import os
 import threading
 import time
 import traceback
+from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Generator, Optional
+from typing import Any
 
-from sqlalchemy import create_engine, event, pool
+from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.pool import QueuePool, StaticPool
@@ -146,7 +147,7 @@ class ConnectionLeakDetector:
             )
             return conn_id
 
-    def track_checkin(self, dbapi_conn: Any) -> Optional[ConnectionLeakInfo]:
+    def track_checkin(self, dbapi_conn: Any) -> ConnectionLeakInfo | None:
         """
         跟踪连接归还
 
@@ -238,7 +239,7 @@ class Base(DeclarativeBase):
 
 
 # 全局连接池配置（可自定义）
-_pool_config: Optional[ConnectionPoolConfig] = None
+_pool_config: ConnectionPoolConfig | None = None
 _config_lock = threading.Lock()
 
 
@@ -293,13 +294,13 @@ def _create_engine() -> Engine:
 
 
 # 使用惰性初始化模式，避免模块导入时创建引擎
-_engine: Optional[Engine] = None
-_session_local: Optional[sessionmaker] = None
+_engine: Engine | None = None
+_session_local: sessionmaker | None = None
 _pool_metrics = ConnectionPoolMetrics()
 _metrics_lock = threading.Lock()
 
 # 全局连接泄漏检测器
-_leak_detector: Optional[ConnectionLeakDetector] = None
+_leak_detector: ConnectionLeakDetector | None = None
 _leak_detector_lock = threading.Lock()
 
 
@@ -339,7 +340,7 @@ def get_session_local() -> sessionmaker:
 
 
 # 为了保持向后兼容，提供可调用的 SessionLocal
-SessionLocal: Optional[sessionmaker] = None  # 占位符，将在首次调用时初始化
+SessionLocal: sessionmaker | None = None  # 占位符，将在首次调用时初始化
 
 
 def _update_pool_metrics() -> None:

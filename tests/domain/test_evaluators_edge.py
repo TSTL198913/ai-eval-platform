@@ -4,8 +4,9 @@ Domain 层深度补充测试 - 业务边界场景
 """
 import os
 import sys
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -118,8 +119,8 @@ class TestBaseEvaluatorEdgeCases:
         已知问题: 当前实现中 BasePlatformError 直接 raise，不记录
         """
         from src.domain.evaluators.base import BaseEvaluator
-        from src.schemas.evaluation import EvaluationSchema, DomainResponse
         from src.exceptions import DomainLogicError
+        from src.schemas.evaluation import EvaluationSchema
 
         class TestEvaluator(BaseEvaluator):
             def evaluate(self, request):

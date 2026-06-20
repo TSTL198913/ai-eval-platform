@@ -5,13 +5,13 @@
 使用 JSON Schema 自动生成验证器，确保数据契约的一致性。
 """
 
-import json
+from unittest.mock import MagicMock
+
 import pytest
-from unittest.mock import MagicMock, patch
-from src.services.evaluator_svc import run_evaluation_service
-from src.engine import EvaluationEngine
+
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.domain.evaluators.general import GeneralEvaluator
+from src.engine import EvaluationEngine
+from src.services.evaluator_svc import run_evaluation_service
 
 
 class TestFrontendBackendContract:
@@ -184,8 +184,6 @@ class TestFrontendBackendContract:
     def test_error_response_structure(self):
         """场景: 错误响应结构必须与前端错误处理一致"""
         # 直接使用 evaluator 来触发错误
-        from src.engine import EvaluationEngine
-        from src.domain.evaluators.general import GeneralEvaluator
         from src.schemas.evaluation import EvaluationSchema
 
         client = MagicMock()
@@ -291,10 +289,8 @@ class TestBusinessLogicConsistency:
 
     def test_score_range_is_0_to_1(self):
         """场景: 评分必须在 0-1 范围内，与前端图表展示一致"""
-        from src.engine import EvaluationEngine
         from src.domain.evaluators.base import BaseEvaluator
-        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-        from src.schemas.evaluation import EvaluationSchema, DomainResponse
+        from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
         @EvaluatorFactory.register("score_test")
         class MockScoreEvaluator(BaseEvaluator):

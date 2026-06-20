@@ -1,8 +1,10 @@
 """SemanticEvaluator单元测试"""
+
 import pytest
-from unittest.mock import MagicMock
+
 from src.domain.evaluators.semantic import SemanticEvaluator
 from src.schemas.evaluation import EvaluationSchema
+
 
 @pytest.fixture
 def evaluator():

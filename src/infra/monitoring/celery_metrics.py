@@ -8,11 +8,12 @@ Celery任务监控模块
 4. 任务执行时间和重试统计
 """
 
-import time
 import logging
-from typing import Optional, Dict, Any
+import time
+from typing import Optional
+
 from celery import signals
-from prometheus_client import CollectorRegistry, Counter, Histogram, Gauge
+from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram
 
 logger = logging.getLogger(__name__)
 
@@ -97,8 +98,8 @@ class TaskMetricsTracker:
     """任务指标跟踪器"""
 
     _instance: Optional["TaskMetricsTracker"] = None
-    _task_timestamps: Dict[str, float] = {}
-    _running_tasks: Dict[str, int] = {}
+    _task_timestamps: dict[str, float] = {}
+    _running_tasks: dict[str, int] = {}
 
     def __new__(cls):
         if cls._instance is None:
@@ -229,7 +230,7 @@ class TrackedTask:
 
     def __init__(self, task_func):
         self._task_func = task_func
-        self._start_time: Optional[float] = None
+        self._start_time: float | None = None
 
     def __call__(self, *args, **kwargs):
         self._start_time = time.time()
@@ -280,7 +281,7 @@ class CeleryMetricsExporter:
     - CELERY_PUSHGATEWAY_URL: Pushgateway地址，如 http://pushgateway:9091
     """
 
-    def __init__(self, pushgateway_url: Optional[str] = None):
+    def __init__(self, pushgateway_url: str | None = None):
         self.pushgateway_url = pushgateway_url or os.getenv("CELERY_PUSHGATEWAY_URL")
         self.use_push = self.pushgateway_url is not None
 
@@ -306,7 +307,7 @@ class CeleryMetricsExporter:
 
 
 # 全局导出器实例
-_exporter: Optional[CeleryMetricsExporter] = None
+_exporter: CeleryMetricsExporter | None = None
 
 
 def get_celery_exporter() -> CeleryMetricsExporter:

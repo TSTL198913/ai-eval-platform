@@ -2,16 +2,13 @@
 评估器版本控制模块测试
 """
 
-import pytest
 import os
-import tempfile
 import shutil
-from datetime import datetime
-from src.domain.evaluator_version import (
-    EvaluatorVersionManager,
-    EvaluatorVersion,
-    VersionStatus
-)
+import tempfile
+
+import pytest
+
+from src.domain.evaluator_version import EvaluatorVersion, EvaluatorVersionManager, VersionStatus
 
 
 class TestEvaluatorVersionManager:
@@ -136,7 +133,7 @@ class TestEvaluatorVersionManager:
 
         status = self.manager.check_calibration_status("test_evaluator")
         assert status["status"] == "not_calibrated"
-        assert status["can_proceed"] == True  # 允许执行但会提示
+        assert status["can_proceed"]  # 允许执行但会提示
 
     def test_check_calibration_status_calibrated(self):
         """测试检查校准状态 - 已校准"""
@@ -153,7 +150,7 @@ class TestEvaluatorVersionManager:
 
         status = self.manager.check_calibration_status("test_evaluator")
         assert status["status"] == "calibrated"
-        assert status["can_proceed"] == True
+        assert status["can_proceed"]
 
     def test_check_calibration_status_drifted(self):
         """测试检查校准状态 - 已偏离"""
@@ -170,7 +167,7 @@ class TestEvaluatorVersionManager:
 
         status = self.manager.check_calibration_status("test_evaluator")
         assert status["status"] == "drifted"
-        assert status["can_proceed"] == False
+        assert not status["can_proceed"]
 
     def test_deprecate_version(self):
         """测试废弃版本"""
@@ -182,7 +179,7 @@ class TestEvaluatorVersionManager:
         )
 
         result = self.manager.deprecate_version(version.version_id)
-        assert result == True
+        assert result
 
         deprecated = self.manager.get_version_by_id(version.version_id)
         assert deprecated.status == VersionStatus.DEPRECATED

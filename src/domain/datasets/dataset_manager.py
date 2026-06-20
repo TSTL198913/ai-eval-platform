@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import uuid4
 
 
@@ -8,13 +8,13 @@ from uuid import uuid4
 class DatasetSample:
     id: str
     question: str
-    choices: Optional[List[str]] = None
-    answer: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    choices: list[str] | None = None
+    answer: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "question": self.question,
@@ -31,12 +31,12 @@ class DatasetVersion:
     version_id: str
     dataset_id: str
     version_number: str
-    samples: List[DatasetSample] = field(default_factory=list)
+    samples: list[DatasetSample] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.utcnow)
     description: str = ""
     is_active: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "version_id": self.version_id,
             "dataset_id": self.dataset_id,
@@ -54,17 +54,17 @@ class Dataset:
     name: str
     description: str
     category: str
-    versions: List[DatasetVersion] = field(default_factory=list)
+    versions: list[DatasetVersion] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
 
     @property
-    def latest_version(self) -> Optional[DatasetVersion]:
+    def latest_version(self) -> DatasetVersion | None:
         if not self.versions:
             return None
         return sorted(self.versions, key=lambda v: int(v.version_number[1:]), reverse=True)[0]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -79,8 +79,8 @@ class Dataset:
 
 class DatasetManager:
     def __init__(self):
-        self._datasets: Dict[str, Dataset] = {}
-        self._sample_index: Dict[str, DatasetSample] = {}
+        self._datasets: dict[str, Dataset] = {}
+        self._sample_index: dict[str, DatasetSample] = {}
 
     def create_dataset(self, name: str, description: str, category: str) -> Dataset:
         dataset_id = str(uuid4())[:8]
@@ -93,10 +93,10 @@ class DatasetManager:
         self._datasets[dataset_id] = dataset
         return dataset
 
-    def get_dataset(self, dataset_id: str) -> Optional[Dataset]:
+    def get_dataset(self, dataset_id: str) -> Dataset | None:
         return self._datasets.get(dataset_id)
 
-    def list_datasets(self) -> List[Dataset]:
+    def list_datasets(self) -> list[Dataset]:
         return list(self._datasets.values())
 
     def delete_dataset(self, dataset_id: str) -> bool:
@@ -108,9 +108,9 @@ class DatasetManager:
     def create_version(
         self,
         dataset_id: str,
-        samples: List[Dict[str, Any]],
+        samples: list[dict[str, Any]],
         description: str = "",
-    ) -> Optional[DatasetVersion]:
+    ) -> DatasetVersion | None:
         dataset = self._datasets.get(dataset_id)
         if not dataset:
             return None
@@ -145,19 +145,19 @@ class DatasetManager:
 
         return version
 
-    def get_version(self, dataset_id: str, version_id: str) -> Optional[DatasetVersion]:
+    def get_version(self, dataset_id: str, version_id: str) -> DatasetVersion | None:
         dataset = self._datasets.get(dataset_id)
         if not dataset:
             return None
         return next((v for v in dataset.versions if v.version_id == version_id), None)
 
-    def get_active_version(self, dataset_id: str) -> Optional[DatasetVersion]:
+    def get_active_version(self, dataset_id: str) -> DatasetVersion | None:
         dataset = self._datasets.get(dataset_id)
         if not dataset:
             return None
         return next((v for v in dataset.versions if v.is_active), None)
 
-    def add_samples(self, dataset_id: str, samples: List[Dict[str, Any]]) -> List[DatasetSample]:
+    def add_samples(self, dataset_id: str, samples: list[dict[str, Any]]) -> list[DatasetSample]:
         dataset = self._datasets.get(dataset_id)
         if not dataset or not dataset.latest_version:
             return []
@@ -196,14 +196,14 @@ class DatasetManager:
             return True
         return False
 
-    def get_sample(self, sample_id: str) -> Optional[DatasetSample]:
+    def get_sample(self, sample_id: str) -> DatasetSample | None:
         return self._sample_index.get(sample_id)
 
     def recycle_failed_samples(
         self,
         dataset_id: str,
-        failed_sample_ids: List[str],
-    ) -> List[DatasetSample]:
+        failed_sample_ids: list[str],
+    ) -> list[DatasetSample]:
         dataset = self._datasets.get(dataset_id)
         if not dataset or not dataset.latest_version:
             return []
@@ -226,7 +226,7 @@ class DatasetManager:
         dataset_id: str,
         query: str,
         limit: int = 10,
-    ) -> List[DatasetSample]:
+    ) -> list[DatasetSample]:
         dataset = self._datasets.get(dataset_id)
         if not dataset or not dataset.latest_version:
             return []
@@ -238,7 +238,7 @@ class DatasetManager:
         ]
         return matched[:limit]
 
-    def get_dataset_stats(self, dataset_id: str) -> Optional[Dict[str, Any]]:
+    def get_dataset_stats(self, dataset_id: str) -> dict[str, Any] | None:
         dataset = self._datasets.get(dataset_id)
         if not dataset:
             return None
@@ -262,7 +262,7 @@ class DatasetManager:
             "version_count": len(dataset.versions),
         }
 
-    def detect_duplicates(self, dataset_id: str, similarity_threshold: float = 0.8) -> List[Dict[str, Any]]:
+    def detect_duplicates(self, dataset_id: str, similarity_threshold: float = 0.8) -> list[dict[str, Any]]:
         dataset = self._datasets.get(dataset_id)
         if not dataset or not dataset.latest_version:
             return []
@@ -325,7 +325,7 @@ class DatasetManager:
 
         return original_count - len(dataset.latest_version.samples)
 
-    def check_contamination(self, dataset_id: str, external_text: str) -> Dict[str, Any]:
+    def check_contamination(self, dataset_id: str, external_text: str) -> dict[str, Any]:
         dataset = self._datasets.get(dataset_id)
         if not dataset or not dataset.latest_version:
             return {"contaminated": False, "matches": []}
@@ -378,7 +378,7 @@ class DatasetManager:
 
         return False
 
-    def fold_memory(self, dataset_id: str, max_context_length: int = 8192) -> Dict[str, Any]:
+    def fold_memory(self, dataset_id: str, max_context_length: int = 8192) -> dict[str, Any]:
         dataset = self._datasets.get(dataset_id)
         if not dataset or not dataset.latest_version:
             return {"folded_count": 0, "original_size": 0, "folded_size": 0}
@@ -409,7 +409,7 @@ class DatasetManager:
             "reduction_ratio": (original_size - folded_size) / original_size if original_size > 0 else 0,
         }
 
-    def create_summary_memory(self, dataset_id: str) -> Optional[Dict[str, Any]]:
+    def create_summary_memory(self, dataset_id: str) -> dict[str, Any] | None:
         dataset = self._datasets.get(dataset_id)
         if not dataset or not dataset.latest_version:
             return None

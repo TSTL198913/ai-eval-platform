@@ -5,8 +5,9 @@
 """
 import os
 import sys
+from unittest.mock import MagicMock
+
 import pytest
-from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
@@ -14,12 +15,15 @@ os.environ["TESTING"] = "1"
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
 from src.infra.db.session import init_tables
+
 init_tables()
 
 from src.domain.evaluators import auto_discover
+
 auto_discover(force=True)
 
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory as EF
+
 
 @pytest.fixture(autouse=True)
 def reset_evaluators_each_test():
@@ -34,8 +38,9 @@ class TestE2EFullWorkflow:
 
     def test_e2e_login_to_report_generation(self):
         """P0 - 端到端集成测试：登录→同步评测→查看记录→生成报告"""
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
 
@@ -84,8 +89,9 @@ class TestE2EFullWorkflow:
 
     def test_e2e_async_workflow(self):
         """P1 - 端到端异步流程：异步评测→轮询任务状态"""
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
 
@@ -124,7 +130,7 @@ class TestBusinessLogicIntegration:
         from src.domain.evaluators import EVALUATOR_REGISTRY
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 
-        for evaluator_name, evaluator_cls in EVALUATOR_REGISTRY.items():
+        for evaluator_name, _evaluator_cls in EVALUATOR_REGISTRY.items():
             try:
                 evaluator = EvaluatorFactory.get(evaluator_name)
                 assert evaluator is not None
@@ -138,8 +144,8 @@ class TestBusinessLogicIntegration:
     def test_record_uniqueness_same_case_id(self):
         """P1 - 记录唯一性验证：相同case_id不应重复插入导致数据混乱"""
         from src.infra.db.repository import EvaluationRepository
-        from src.schemas.schemas import EvaluationResult, EvaluationStatus
         from src.schemas.evaluation import DomainResponse
+        from src.schemas.schemas import EvaluationResult, EvaluationStatus
 
         repo = EvaluationRepository()
 
@@ -200,7 +206,7 @@ class TestBusinessLogicIntegration:
         assert os.path.exists(report_path)
         assert report_path.endswith(".html")
 
-        with open(report_path, "r", encoding="utf-8") as f:
+        with open(report_path, encoding="utf-8") as f:
             content = f.read()
             assert "Evaluation Report" in content
             assert "passed" in content
@@ -212,12 +218,12 @@ class TestDatabaseTransactionRollback:
 
     def test_transaction_rollback_on_evaluator_failure(self):
         """P1 - 数据库事务回滚测试：评测执行失败时记录应回滚"""
-        from src.engine import EvaluationEngine
-        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
         from src.domain.evaluators.base import BaseEvaluator
-        from src.schemas.evaluation import EvaluationSchema, DomainResponse
+        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+        from src.engine import EvaluationEngine
         from src.exceptions import DomainLogicError
         from src.infra.db.repository import EvaluationRepository
+        from src.schemas.evaluation import EvaluationSchema
 
         @EvaluatorFactory.register("rollback_test")
         class RollbackTestEvaluator(BaseEvaluator):
@@ -256,8 +262,9 @@ class TestAPIParameterValidation:
 
     def test_evaluate_missing_required_fields(self):
         """P1 - evaluate端点必填字段校验"""
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
 
@@ -280,8 +287,9 @@ class TestAPIParameterValidation:
 
     def test_records_limit_boundary_validation(self):
         """P1 - 记录查询limit边界校验"""
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
 
@@ -299,8 +307,9 @@ class TestAPIParameterValidation:
 
     def test_records_search_offset_validation(self):
         """P2 - 记录搜索offset边界校验"""
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
 
@@ -319,8 +328,9 @@ class TestSecurityMiddleware:
 
     def test_security_middleware_blocks_prompt_injection(self):
         """P1 - 安全中间件拦截Prompt Injection攻击"""
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
 
@@ -346,8 +356,9 @@ class TestSecurityMiddleware:
 
     def test_security_middleware_allows_normal_requests(self):
         """P1 - 安全中间件允许正常请求通过"""
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
 
@@ -367,8 +378,9 @@ class TestBatchEvaluation:
 
     def test_batch_evaluation_large_dataset(self):
         """P1 - 大批量评测边界测试（100+用例）"""
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
 
@@ -405,7 +417,7 @@ class TestCostBudgetAlert:
             monthly_cost_limit=200.0,
         )
 
-        for i in range(200):
+        for _i in range(200):
             governance.record_request(1000, 2000, 100.0)
 
         metrics = governance.get_metrics()
@@ -421,8 +433,9 @@ class TestModelCompareBusinessValue:
 
     def test_model_compare_best_model_recommendation(self):
         """P1 - 模型对比结果的业务价值验证：最佳模型推荐逻辑"""
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
 
@@ -451,10 +464,11 @@ class TestCrossModuleIntegration:
 
     def test_cross_module_evaluator_record_report(self):
         """P1 - 跨模块集成测试：评估器+记录+报告的完整链路"""
-        from src.services.evaluator_svc import run_evaluation_service
-        from src.infra.db.repository import EvaluationRepository
-        from src.domain.reports.report_generator import generate_report_from_records
         from unittest.mock import MagicMock
+
+        from src.domain.reports.report_generator import generate_report_from_records
+        from src.infra.db.repository import EvaluationRepository
+        from src.services.evaluator_svc import run_evaluation_service
 
         client = MagicMock()
         client.config = MagicMock()

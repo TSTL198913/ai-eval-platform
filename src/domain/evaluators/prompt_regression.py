@@ -1,7 +1,6 @@
 """Prompt 回归测试评估器"""
 
 import difflib
-from typing import Any
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
@@ -130,12 +129,12 @@ class PromptRegressionEvaluator(BaseEvaluator):
 
     def _detect_prompt_changes(self, op: str, np: str) -> dict:
         diff = list(difflib.unified_diff(op.splitlines(), np.splitlines(), fromfile="old", tofile="new", lineterm="", n=3))
-        al = sum(1 for l in diff if l.startswith("+") and not l.startswith("+++"))
-        rl = sum(1 for l in diff if l.startswith("-") and not l.startswith("---"))
-        cl = al + rl
+        added = sum(1 for line in diff if line.startswith("+") and not line.startswith("+++"))
+        removed = sum(1 for line in diff if line.startswith("-") and not line.startswith("---"))
+        cl = added + removed
         return {
-            "added_lines": al,
-            "removed_lines": rl,
+            "added_lines": added,
+            "removed_lines": removed,
             "changed_lines": cl,
             "total_lines_old": len(op.splitlines()),
             "total_lines_new": len(np.splitlines()),

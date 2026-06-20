@@ -2,8 +2,8 @@
 工具使用评估器
 """
 
-from typing import List, Dict, Any
-from src.domain.evaluators.base import BaseEvaluator, EvaluatorFactory
+from src.domain.evaluators.base import BaseEvaluator
+from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
 
@@ -15,7 +15,7 @@ class ToolUseEvaluator(BaseEvaluator):
         """评估工具调用"""
         tool_calls = self.get_payload_data(request, "tool_calls", [])
         expected_tool_calls = self.get_payload_data(request, "expected_tool_calls", [])
-        
+
         if not tool_calls:
             return DomainResponse(
                 is_valid=True,

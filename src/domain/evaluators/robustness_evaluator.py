@@ -8,11 +8,11 @@ Robustness Evaluator - 鲁棒性指数综合加权评估器
 - 异常处理能力
 - 安全性（无注入/越狱触发）
 """
-from typing import Any, Dict, List, Optional
 import statistics
+from typing import Any
 
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.schemas.evaluation import EvaluationSchema, DomainResponse
+from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
 
 @EvaluatorFactory.register("robustness")
@@ -42,7 +42,7 @@ class RobustnessEvaluator:
         "stability": 0.10,           # 稳定性
     }
 
-    def __init__(self, client: Optional[Any] = None):
+    def __init__(self, client: Any | None = None):
         self.client = client
 
     def evaluate(self, request: EvaluationSchema) -> DomainResponse:
@@ -179,7 +179,7 @@ class RobustnessEvaluator:
 
     # ===================== 评分算法 =====================
 
-    def _calc_consistency(self, test_results: List[Dict]) -> float:
+    def _calc_consistency(self, test_results: list[dict]) -> float:
         """计算输出一致性"""
         if len(test_results) < 2:
             return 1.0
@@ -198,7 +198,7 @@ class RobustnessEvaluator:
         except Exception:
             return 0.5
 
-    def _calc_perturbation_resistance(self, perturbation_results: List[Dict]) -> float:
+    def _calc_perturbation_resistance(self, perturbation_results: list[dict]) -> float:
         """计算扰动抵抗能力"""
         if not perturbation_results:
             return 0.5  # 无数据时给中性评分
@@ -212,7 +212,7 @@ class RobustnessEvaluator:
             return 0.0
         return sum(scores) / len(scores)
 
-    def _calc_error_recovery(self, test_results: List[Dict]) -> float:
+    def _calc_error_recovery(self, test_results: list[dict]) -> float:
         """计算错误恢复能力"""
         error_cases = [r for r in test_results if r.get("error") or r.get("status") == "error"]
         if not error_cases:
@@ -220,7 +220,7 @@ class RobustnessEvaluator:
         recovered = sum(1 for r in error_cases if r.get("recovered", False))
         return recovered / len(error_cases)
 
-    def _calc_security_score(self, security_results: Dict) -> float:
+    def _calc_security_score(self, security_results: dict) -> float:
         """计算安全性分数"""
         if not security_results:
             return 0.5
@@ -231,7 +231,7 @@ class RobustnessEvaluator:
             return 0.5
         return passed / total_tests
 
-    def _calc_drift_resistance(self, drift_results: Dict) -> float:
+    def _calc_drift_resistance(self, drift_results: dict) -> float:
         """计算漂移抵抗能力"""
         if not drift_results:
             return 0.5
@@ -239,7 +239,7 @@ class RobustnessEvaluator:
         drift_score = drift_results.get("drift_score", 0.5)
         return max(0.0, 1.0 - drift_score)
 
-    def _calc_stability(self, test_results: List[Dict]) -> float:
+    def _calc_stability(self, test_results: list[dict]) -> float:
         """计算稳定性（响应时间稳定性）"""
         latencies = [r.get("latency_ms", 0) for r in test_results if r.get("latency_ms") is not None]
         if len(latencies) < 2:
@@ -254,7 +254,7 @@ class RobustnessEvaluator:
         except Exception:
             return 0.5
 
-    def _analyze_perturbations(self, perturbation_results: List[Dict]) -> Dict[str, Any]:
+    def _analyze_perturbations(self, perturbation_results: list[dict]) -> dict[str, Any]:
         """分析扰动结果"""
         if not perturbation_results:
             return {"total": 0}
@@ -274,7 +274,7 @@ class RobustnessEvaluator:
             "survival_rate": sum(1 for r in perturbation_results if r.get("survived", False)) / len(perturbation_results),
         }
 
-    def _generate_recommendations(self, scores: Dict[str, float]) -> List[str]:
+    def _generate_recommendations(self, scores: dict[str, float]) -> list[str]:
         """根据评分生成改进建议"""
         recommendations = []
         if scores["consistency"] < 0.7:

@@ -10,7 +10,6 @@
 
 import math
 from datetime import datetime
-from typing import Dict, List, Optional
 from enum import Enum
 
 
@@ -27,12 +26,12 @@ class ABTestResult:
         self.test_id = test_id
         self.status = ABTestStatus.RUNNING
         self.created_at = datetime.now().isoformat()
-        self.completed_at: Optional[str] = None
-        self.group_a: Dict = {"name": "", "results": [], "metrics": {}}
-        self.group_b: Dict = {"name": "", "results": [], "metrics": {}}
-        self.statistics: Dict = {}
+        self.completed_at: str | None = None
+        self.group_a: dict = {"name": "", "results": [], "metrics": {}}
+        self.group_b: dict = {"name": "", "results": [], "metrics": {}}
+        self.statistics: dict = {}
 
-    def add_result(self, group: str, result: Dict):
+    def add_result(self, group: str, result: dict):
         if group == "A":
             self.group_a["results"].append(result)
         elif group == "B":
@@ -56,7 +55,7 @@ class ABTestResult:
                 "pass_rate": sum(1 for s in scores if s >= 0.7) / len(scores),
             }
 
-    def _calculate_std(self, values: List[float]) -> float:
+    def _calculate_std(self, values: list[float]) -> float:
         """计算标准差"""
         if len(values) < 2:
             return 0.0
@@ -132,7 +131,7 @@ class ABTestResult:
         except Exception:
             return 1.0
 
-    def run_nonparametric_test(self) -> Dict:
+    def run_nonparametric_test(self) -> dict:
         """非参数检验（Mann-Whitney U）"""
         try:
             from scipy import stats
@@ -152,7 +151,7 @@ class ABTestResult:
         except Exception as e:
             return {"error": str(e), "method": "Mann-Whitney U"}
 
-    def run_wilcoxon_test(self) -> Dict:
+    def run_wilcoxon_test(self) -> dict:
         """Wilcoxon符号秩检验（配对样本）"""
         try:
             from scipy import stats
@@ -173,18 +172,18 @@ class ABTestResult:
         except Exception as e:
             return {"error": str(e), "method": "Wilcoxon"}
 
-    def apply_multiple_comparison_correction(self, p_values: List[float], method: str = "bonferroni") -> Dict:
+    def apply_multiple_comparison_correction(self, p_values: list[float], method: str = "bonferroni") -> dict:
         """多重比较校正
-        
+
         Args:
             p_values: 多个p值列表
             method: 校正方法 bonferroni/holm/fdr_bh
         """
         if not p_values:
             return {"corrected_p_values": [], "method": method, "rejected": []}
-        
+
         try:
-            from scipy import stats
+            import scipy.stats  # noqa: F401
             if method == "bonferroni":
                 corrected = [min(p * len(p_values), 1.0) for p in p_values]
             elif method == "holm":
@@ -199,7 +198,7 @@ class ABTestResult:
             else:
                 # 默认Bonferroni
                 corrected = [min(p * len(p_values), 1.0) for p in p_values]
-            
+
             rejected = [i for i, p in enumerate(corrected) if p < 0.05]
             return {
                 "method": method,
@@ -227,7 +226,7 @@ class ABTestResult:
 
     def generate_report(self) -> str:
         """生成测试报告"""
-        report = f"=== A/B测试报告 ===\n"
+        report = "=== A/B测试报告 ===\n"
         report += f"测试ID: {self.test_id}\n"
         report += f"状态: {self.status.value}\n"
         report += f"创建时间: {self.created_at}\n"
@@ -265,7 +264,7 @@ class ABTestResult:
 class ABTestManager:
     """A/B测试管理器"""
 
-    _tests: Dict[str, ABTestResult] = {}
+    _tests: dict[str, ABTestResult] = {}
 
     @classmethod
     def create_test(cls, test_id: str, group_a_name: str, group_b_name: str) -> ABTestResult:
@@ -277,12 +276,12 @@ class ABTestManager:
         return test
 
     @classmethod
-    def get_test(cls, test_id: str) -> Optional[ABTestResult]:
+    def get_test(cls, test_id: str) -> ABTestResult | None:
         """获取测试"""
         return cls._tests.get(test_id)
 
     @classmethod
-    def list_tests(cls) -> List[ABTestResult]:
+    def list_tests(cls) -> list[ABTestResult]:
         """列出所有测试"""
         return list(cls._tests.values())
 
@@ -293,7 +292,7 @@ class ABTestManager:
             del cls._tests[test_id]
 
     @classmethod
-    def run_ab_test(cls, test_id: str, group_a_model, group_b_model, test_cases: List[Dict]) -> ABTestResult:
+    def run_ab_test(cls, test_id: str, group_a_model, group_b_model, test_cases: list[dict]) -> ABTestResult:
         """执行A/B测试"""
         if test_id not in cls._tests:
             raise ValueError(f"Test '{test_id}' not found")
@@ -311,10 +310,10 @@ class ABTestManager:
         return test
 
     @staticmethod
-    def _run_single_case(model, case: Dict) -> Dict:
+    def _run_single_case(model, case: dict) -> dict:
         """运行单个测试用例"""
         try:
-            result = model.chat(case.get("input", case.get("user_input", "")))
+            model.chat(case.get("input", case.get("user_input", "")))
             score = case.get("expected_score", 0.7)
             return {
                 "score": score,
@@ -334,7 +333,7 @@ class ABTestAPI:
     """A/B测试API封装"""
 
     @staticmethod
-    def create(test_id: str, model_a: str, model_b: str) -> Dict:
+    def create(test_id: str, model_a: str, model_b: str) -> dict:
         """创建A/B测试"""
         test = ABTestManager.create_test(test_id, model_a, model_b)
         return {
@@ -345,7 +344,7 @@ class ABTestAPI:
         }
 
     @staticmethod
-    def add_result(test_id: str, group: str, result: Dict) -> Dict:
+    def add_result(test_id: str, group: str, result: dict) -> dict:
         """添加测试结果"""
         test = ABTestManager.get_test(test_id)
         if not test:
@@ -355,7 +354,7 @@ class ABTestAPI:
         return {"message": "Result added", "total_results": len(test.group_a["results"]) + len(test.group_b["results"])}
 
     @staticmethod
-    def complete(test_id: str) -> Dict:
+    def complete(test_id: str) -> dict:
         """完成测试"""
         test = ABTestManager.get_test(test_id)
         if not test:
@@ -369,7 +368,7 @@ class ABTestAPI:
         }
 
     @staticmethod
-    def get_result(test_id: str) -> Dict:
+    def get_result(test_id: str) -> dict:
         """获取测试结果"""
         test = ABTestManager.get_test(test_id)
         if not test:
@@ -384,7 +383,7 @@ class ABTestAPI:
         }
 
     @staticmethod
-    def list() -> List[Dict]:
+    def list() -> list[dict]:
         """列出所有测试"""
         tests = ABTestManager.list_tests()
         return [

@@ -4,20 +4,19 @@ Auth 模块单元测试 - 带有效断言
 """
 import os
 import sys
-import pytest
 from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from src.api.auth import (
     _hash_password,
-    verify_password,
-    get_password_hash,
     authenticate_user,
     create_access_token,
     create_refresh_token,
     decode_token,
     fake_users_db,
+    get_password_hash,
+    verify_password,
 )
 
 

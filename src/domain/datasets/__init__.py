@@ -1,3 +1,3 @@
-from .dataset_manager import Dataset, DatasetSample, DatasetVersion, DatasetManager
+from .dataset_manager import Dataset, DatasetManager, DatasetSample, DatasetVersion
 
 __all__ = ["Dataset", "DatasetSample", "DatasetVersion", "DatasetManager"]

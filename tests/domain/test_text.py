@@ -1,8 +1,10 @@
 """TextEvaluator单元测试"""
+
 import pytest
-from unittest.mock import MagicMock
+
 from src.domain.evaluators.text import create_text_evaluator
 from src.schemas.evaluation import EvaluationSchema
+
 
 @pytest.fixture
 def evaluator():

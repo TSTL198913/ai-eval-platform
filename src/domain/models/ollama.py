@@ -1,7 +1,8 @@
 """Ollama 本地模型客户端"""
 
-import httpx
 import logging
+
+import httpx
 
 from src.domain.models.base import BaseLLMClient, ModelConfig
 from src.exceptions import InfrastructureError

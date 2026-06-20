@@ -21,12 +21,12 @@
     decrypted = decrypt_api_key(encrypted, key)
 """
 
-import os
 import base64
 import json
 import logging
+import os
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ except ImportError:
 # 密钥管理
 # =====================================================================
 
-def generate_key(password: str, salt: Optional[bytes] = None) -> bytes:
+def generate_key(password: str, salt: bytes | None = None) -> bytes:
     """生成加密密钥
 
     Args:
@@ -116,7 +116,7 @@ def decrypt_value(encrypted: str, key: bytes) -> str:
     return fernet.decrypt(encrypted_bytes).decode()
 
 
-def encrypt_api_key(api_key: str, key: Optional[bytes] = None) -> str:
+def encrypt_api_key(api_key: str, key: bytes | None = None) -> str:
     """加密API Key"""
     if key is None:
         # 使用默认密钥（生产环境应从安全存储加载）
@@ -128,7 +128,7 @@ def encrypt_api_key(api_key: str, key: Optional[bytes] = None) -> str:
     return encrypt_value(api_key, key)
 
 
-def decrypt_api_key(encrypted_key: str, key: Optional[bytes] = None) -> str:
+def decrypt_api_key(encrypted_key: str, key: bytes | None = None) -> str:
     """解密API Key"""
     if key is None:
         key = os.getenv("ENCRYPTION_KEY", "").encode()
@@ -204,12 +204,12 @@ def mask_url(url: str) -> str:
 class EncryptedConfig:
     """加密配置管理器"""
 
-    def __init__(self, config_file: str, key: Optional[bytes] = None):
+    def __init__(self, config_file: str, key: bytes | None = None):
         self.config_file = Path(config_file)
         self.key = key or os.getenv("ENCRYPTION_KEY", "").encode()
         if not self.key:
             raise ValueError("必须设置ENCRYPTION_KEY环境变量")
-        self._config: Dict[str, Any] = {}
+        self._config: dict[str, Any] = {}
         self._load()
 
     def _load(self):
@@ -241,7 +241,7 @@ class EncryptedConfig:
         self._config[key] = value
         self._save()
 
-    def get_api_key(self, name: str) -> Optional[str]:
+    def get_api_key(self, name: str) -> str | None:
         """获取加密的API Key"""
         encrypted = self._config.get(f"api_key_{name}")
         if encrypted:
@@ -281,7 +281,7 @@ class SecureLogger:
 # 环境变量安全加载
 # =====================================================================
 
-def safe_getenv(key: str, default: Optional[str] = None, required: bool = False) -> Optional[str]:
+def safe_getenv(key: str, default: str | None = None, required: bool = False) -> str | None:
     """安全获取环境变量
 
     Args:
@@ -300,7 +300,7 @@ def safe_getenv(key: str, default: Optional[str] = None, required: bool = False)
     return value
 
 
-def load_env_with_override(env_file: str = ".env.encrypted") -> Dict[str, str]:
+def load_env_with_override(env_file: str = ".env.encrypted") -> dict[str, str]:
     """加载加密的环境变量文件
 
     文件格式（JSON加密后）：

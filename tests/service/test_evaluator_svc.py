@@ -4,8 +4,9 @@ Service 层综合测试 - 真实业务场景
 """
 import os
 import sys
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 # 确保 src 在路径中
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -14,26 +15,25 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 @pytest.fixture(autouse=True)
 def reset_evaluator_registry():
     """确保每个测试前评估器注册表干净"""
-    from src.domain.evaluators.evaluator_factory import EvaluatorFactory as EF
     from src.domain.evaluators import auto_discover
+    from src.domain.evaluators.evaluator_factory import EvaluatorFactory as EF
     EF._registry = {}
     auto_discover(force=True)
     yield
     EF._registry = {}
 
 
-from src.services.evaluator_svc import (
-    _normalize_raw_data,
-    run_evaluation_service,
-    service_exception_handler,
-)
 from src.exceptions import (
-    BasePlatformError,
     ContractValidationError,
     DomainLogicError,
     InfrastructureError,
 )
 from src.schemas.evaluation import EvaluationSchema
+from src.services.evaluator_svc import (
+    _normalize_raw_data,
+    run_evaluation_service,
+    service_exception_handler,
+)
 
 
 # ============================================================

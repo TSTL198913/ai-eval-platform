@@ -1,7 +1,8 @@
 """分布式幂等性测试"""
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 from src.distributed.idempotency import IdempotencyChecker, IdempotencyConfig, IdempotencyError
 
@@ -33,7 +34,7 @@ class TestIdempotencyCheckerBasic:
         assert result is False
 
     def test_mark_processing(self, checker, mock_redis):
-        result = checker.mark_processing("processing-id")
+        checker.mark_processing("processing-id")
         mock_redis.setnx.assert_called_once()
 
     def test_mark_processed(self, checker, mock_redis):

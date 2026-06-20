@@ -7,12 +7,13 @@ RiskEvaluator 专项测试
 - 支持单一风险检测和综合风险检测
 """
 
-import pytest
 from unittest.mock import MagicMock
 
-from src.domain.evaluators.risk import RiskEvaluator
+import pytest
+
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.domain.evaluators.risk import RiskEvaluator
+from src.schemas.evaluation import EvaluationSchema
 
 
 @pytest.fixture(autouse=True)
@@ -53,10 +54,10 @@ class TestRiskEvaluatorPositiveCases:
                 "overall_coverage": 0.85,
             }
         )
-        
+
         # Act
         result = evaluator.evaluate(request)
-        
+
         # Assert - 强断言验证业务逻辑
         assert result.is_valid is True
         assert result.score is not None
@@ -86,10 +87,10 @@ class TestRiskEvaluatorPositiveCases:
                 "responsibility_blur": 0.8  # 高职责模糊
             }
         )
-        
+
         # Act
         result = evaluator.evaluate(request)
-        
+
         # Assert - 强断言
         assert result.is_valid is True
         assert result.data["risk_type"] == "feature_creep"
@@ -112,10 +113,10 @@ class TestRiskEvaluatorPositiveCases:
                 "documentation_gap": 0.4          # 中等文档缺失
             }
         )
-        
+
         # Act
         result = evaluator.evaluate(request)
-        
+
         # Assert - 强断言
         assert result.is_valid is True
         assert result.data["risk_type"] == "tech_debt"
@@ -137,10 +138,10 @@ class TestRiskEvaluatorPositiveCases:
                 "cross_layer_calls": 0         # 无跨层调用
             }
         )
-        
+
         # Act
         result = evaluator.evaluate(request)
-        
+
         # Assert - 强断言
         assert result.is_valid is True
         assert result.data["risk_type"] == "coupling"
@@ -164,10 +165,10 @@ class TestRiskEvaluatorPositiveCases:
                 "test_pass_rate": 0.5           # 低通过率
             }
         )
-        
+
         # Act
         result = evaluator.evaluate(request)
-        
+
         # Assert - 强断言
         assert result.is_valid is True
         assert result.data["risk_type"] == "test_coverage"
@@ -192,10 +193,10 @@ class TestRiskEvaluatorPositiveCases:
                 "error_rate_change": 0.05      # 错误率变化
             }
         )
-        
+
         # Act
         result = evaluator.evaluate(request)
-        
+
         # Assert - 强断言
         assert result.is_valid is True
         assert result.data["risk_type"] == "drift"
@@ -224,10 +225,10 @@ class TestRiskEvaluatorNegativeCases:
                 "action": "unknown_action_xyz"
             }
         )
-        
+
         # Act
         result = evaluator.evaluate(request)
-        
+
         # Assert - 强断言
         assert result.is_valid is False
         assert result.error is not None
@@ -245,10 +246,10 @@ class TestRiskEvaluatorNegativeCases:
                 "core_alignment": 0.8
             }
         )
-        
+
         # Act
         result = evaluator.evaluate(request)
-        
+
         # Assert - 应执行 detect_all
         assert result.is_valid is True
         assert "overall_risk_level" in result.data
@@ -266,10 +267,10 @@ class TestRiskEvaluatorNegativeCases:
                 "core_alignment": None
             }
         )
-        
+
         # Act & Assert - 应抛出 TypeError
         with pytest.raises(TypeError):
-            result = evaluator.evaluate(request)
+            evaluator.evaluate(request)
 
 
 # ============================================================
@@ -290,10 +291,10 @@ class TestRiskEvaluatorBoundaryCases:
             type="risk",
             payload={}
         )
-        
+
         # Act
         result = evaluator.evaluate(request)
-        
+
         # Assert - 应成功执行
         assert result.is_valid is True
         assert "overall_risk_level" in result.data
@@ -331,10 +332,10 @@ class TestRiskEvaluatorBoundaryCases:
                 "error_rate_change": 0.2
             }
         )
-        
+
         # Act
         result = evaluator.evaluate(request)
-        
+
         # Assert - 应检测到高风险
         assert result.is_valid is True
         assert result.data["overall_risk_level"] == "high"
@@ -355,10 +356,10 @@ class TestRiskEvaluatorBoundaryCases:
                 "responsibility_blur": 0.0
             }
         )
-        
+
         # Act
         result = evaluator.evaluate(request)
-        
+
         # Assert - 应为高风险
         assert result.is_valid is True
         # 风险评分: 0.5 + 0.21 = 0.71 >= 0.7
@@ -379,10 +380,10 @@ class TestRiskEvaluatorBoundaryCases:
                 "responsibility_blur": 0.0
             }
         )
-        
+
         # Act
         result = evaluator.evaluate(request)
-        
+
         # Assert - 应为中风险或低风险
         assert result.is_valid is True
         assert result.data["risk_level"] in ("medium", "low")
@@ -401,10 +402,10 @@ class TestRiskEvaluatorBoundaryCases:
                 "documentation_gap": 0
             }
         )
-        
+
         # Act
         result = evaluator.evaluate(request)
-        
+
         # Assert - 应为低风险
         assert result.is_valid is True
         assert result.data["risk_level"] == "low"
@@ -427,10 +428,10 @@ class TestRiskEvaluatorRiskLevels:
         # Arrange
         risk_score = 0.8
         threshold = 0.7
-        
+
         # Act
         result = evaluator._get_risk_level(risk_score, threshold)
-        
+
         # Assert
         assert result == "high"
 
@@ -439,10 +440,10 @@ class TestRiskEvaluatorRiskLevels:
         # Arrange
         risk_score = 0.4
         threshold = 0.7
-        
+
         # Act
         result = evaluator._get_risk_level(risk_score, threshold)
-        
+
         # Assert
         assert result == "medium"
 
@@ -451,10 +452,10 @@ class TestRiskEvaluatorRiskLevels:
         # Arrange
         risk_score = 0.2
         threshold = 0.7
-        
+
         # Act
         result = evaluator._get_risk_level(risk_score, threshold)
-        
+
         # Assert
         assert result == "low"
 
@@ -473,10 +474,10 @@ class TestRiskEvaluatorRiskLevels:
                 "overall_coverage": 0.2
             }
         )
-        
+
         # Act
         result = evaluator.evaluate(request)
-        
+
         # Assert - 应检测到多个高风险
         assert result.is_valid is True
         assert result.data["overall_risk_level"] == "high"
@@ -498,10 +499,10 @@ class TestRiskEvaluatorRiskLevels:
                 "overall_coverage": 0.65
             }
         )
-        
+
         # Act
         result = evaluator.evaluate(request)
-        
+
         # Assert
         assert result.is_valid is True
         # 如果没有高风险，应有中风险
@@ -519,9 +520,8 @@ class TestRiskEvaluatorDependencyHandling:
         """评估器应正确注册到工厂"""
         # Arrange & Act
         from src.domain.evaluators import auto_discover
-        from src.domain.evaluators.risk import RiskEvaluator as ImportedRiskEvaluator
         auto_discover(force=True)
-        
+
         # Assert
         assert "risk" in EvaluatorFactory._registry
         # 验证注册的类是 RiskEvaluator 类型
@@ -533,10 +533,10 @@ class TestRiskEvaluatorDependencyHandling:
         # Arrange
         from src.domain.evaluators import auto_discover
         auto_discover(force=True)
-        
+
         # Act
         evaluator = EvaluatorFactory.get("risk")
-        
+
         # Assert - 验证实例类型和方法
         assert evaluator is not None
         assert hasattr(evaluator, "evaluate")
@@ -550,10 +550,10 @@ class TestRiskEvaluatorDependencyHandling:
         # Arrange
         mock_client = MagicMock()
         mock_client.name = "mock_llm"
-        
+
         # Act
         evaluator = RiskEvaluator(client=mock_client)
-        
+
         # Assert
         assert evaluator.client is mock_client
         assert evaluator.client.name == "mock_llm"
@@ -567,10 +567,10 @@ class TestRiskEvaluatorDependencyHandling:
             type="risk",
             payload={"action": "feature_creep"}
         )
-        
+
         # Act
         result = evaluator.evaluate(request)
-        
+
         # Assert - 应正常工作
         assert result.is_valid is True
         assert "risk_type" in result.data
@@ -584,10 +584,10 @@ class TestRiskEvaluatorDependencyHandling:
             type="risk",
             payload={"custom_key": "custom_value"}
         )
-        
+
         # Act
         value = evaluator.get_payload_data(request, "custom_key", "default")
-        
+
         # Assert
         assert value == "custom_value"
 
@@ -600,10 +600,10 @@ class TestRiskEvaluatorDependencyHandling:
             type="risk",
             payload={}
         )
-        
+
         # Act
         value = evaluator.get_payload_data(request, "nonexistent_key", "default_value")
-        
+
         # Assert
         assert value == "default_value"
 
@@ -624,10 +624,10 @@ class TestRiskEvaluatorBusinessLogic:
         feature_complexity = 0.5
         core_alignment = 0.6
         responsibility_blur = 0.4
-        
+
         # 预期公式: (1 - core_alignment) * 0.5 + feature_complexity * 0.3 + responsibility_blur * 0.2
         expected_score = (1 - core_alignment) * 0.5 + feature_complexity * 0.3 + responsibility_blur * 0.2
-        
+
         request = EvaluationSchema(
             id="test-020",
             type="risk",
@@ -638,10 +638,10 @@ class TestRiskEvaluatorBusinessLogic:
                 "responsibility_blur": responsibility_blur
             }
         )
-        
+
         # Act
         result = evaluator.evaluate(request)
-        
+
         # Assert - 验证评分计算精度
         assert abs(result.data["risk_score"] - expected_score) < 0.001
 
@@ -659,10 +659,10 @@ class TestRiskEvaluatorBusinessLogic:
                 "documentation_gap": 0.8      # 高文档缺失
             }
         )
-        
+
         # Act
         result = evaluator.evaluate(request)
-        
+
         # Assert - 验证评分不超过1.0
         assert result.data["risk_score"] <= 1.0
         # min(500/100, 1) * 0.3 = 0.3
@@ -686,10 +686,10 @@ class TestRiskEvaluatorBusinessLogic:
                 "cross_layer_calls": 0.5
             }
         )
-        
+
         # Act
         result = evaluator.evaluate(request)
-        
+
         # Assert - 验证评分不超过1.0
         assert result.data["risk_score"] <= 1.0
         # min(50/10, 1) * 0.5 = 0.5
@@ -704,7 +704,7 @@ class TestRiskEvaluatorBusinessLogic:
         new_code_coverage = 0.6
         critical_path_coverage = 0.5
         test_pass_rate = 0.9
-        
+
         threshold = 0.8
         # 预期公式:
         # max(0, threshold - overall) * 0.25 + max(0, threshold - new) * 0.35
@@ -715,7 +715,7 @@ class TestRiskEvaluatorBusinessLogic:
             + max(0, threshold - critical_path_coverage) * 0.25
             + (1 - test_pass_rate) * 0.15
         )
-        
+
         request = EvaluationSchema(
             id="test-023",
             type="risk",
@@ -727,10 +727,10 @@ class TestRiskEvaluatorBusinessLogic:
                 "test_pass_rate": test_pass_rate
             }
         )
-        
+
         # Act
         result = evaluator.evaluate(request)
-        
+
         # Assert
         assert abs(result.data["risk_score"] - expected_score) < 0.001
 
@@ -742,7 +742,7 @@ class TestRiskEvaluatorBusinessLogic:
         format_changes = 5
         latency_increase = 30
         error_rate_change = 0.05
-        
+
         score_drift = abs(baseline_score - current_score)
         expected_score = (
             score_drift * 0.4
@@ -750,7 +750,7 @@ class TestRiskEvaluatorBusinessLogic:
             + min(latency_increase / 100, 1) * 0.2
             + min(error_rate_change / 0.1, 1) * 0.15
         )
-        
+
         request = EvaluationSchema(
             id="test-024",
             type="risk",
@@ -763,10 +763,10 @@ class TestRiskEvaluatorBusinessLogic:
                 "error_rate_change": error_rate_change
             }
         )
-        
+
         # Act
         result = evaluator.evaluate(request)
-        
+
         # Assert
         assert abs(result.data["risk_score"] - expected_score) < 0.001
         assert result.data["metrics"]["score_drift"] == score_drift
@@ -794,10 +794,10 @@ class TestRiskEvaluatorSuggestions:
                 "core_alignment": 0.1
             }
         )
-        
+
         # Act
         result = evaluator.evaluate(request)
-        
+
         # Assert
         assert result.is_valid is True
         assert result.data["risk_level"] == "high"
@@ -818,10 +818,10 @@ class TestRiskEvaluatorSuggestions:
                 "cross_layer_calls": 0
             }
         )
-        
+
         # Act
         result = evaluator.evaluate(request)
-        
+
         # Assert
         assert result.is_valid is True
         assert result.data["risk_level"] == "low"

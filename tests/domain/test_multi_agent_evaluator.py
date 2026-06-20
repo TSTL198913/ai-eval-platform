@@ -11,24 +11,25 @@ MultiAgentEvaluator 专项测试
 
 import os
 import sys
-import pytest
 import time
 from unittest.mock import MagicMock
+
+import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from src.domain.evaluators.multi_agent_evaluator import (
-    MultiAgentEvaluator,
-    sanitize_input,
-    MessageType,
-    ConflictType,
-    TaskStatus,
+    AgentInfo,
     AgentMessage,
     AgentTask,
     Conflict,
-    AgentInfo,
+    ConflictType,
+    MessageType,
+    MultiAgentEvaluator,
+    TaskStatus,
+    sanitize_input,
 )
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import EvaluationSchema
 
 
 # ============================================================

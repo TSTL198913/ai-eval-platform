@@ -10,20 +10,21 @@
 关键发现：（测试过程中记录）
 """
 import os
-import sys
-import pytest
-import tempfile
 import shutil
-from unittest.mock import MagicMock, patch
+import sys
+import tempfile
 from datetime import datetime
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from src.domain.golden_dataset import GoldenDatasetManager
 from src.domain.adaptive_calibration import AdaptiveCalibrator, CalibrationStatus
 from src.domain.evaluator_version import EvaluatorVersionManager
 from src.domain.evaluators.drift import DriftDetectionEvaluator
-from src.schemas.evaluation import EvaluationSchema, DomainResponse
+from src.domain.golden_dataset import GoldenDatasetManager
+from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
 
 class TestExecuteStage:
@@ -57,11 +58,6 @@ class TestExecuteStage:
     def test_execute_associates_version(self):
         """执行应关联版本"""
         # 这个测试验证版本追踪概念
-        request = EvaluationSchema(
-            id="case_001",
-            type="test_evaluator",
-            payload={"user_input": "测试输入"}
-        )
 
         # 模拟版本信息
         version_info = {
@@ -352,7 +348,7 @@ class TestClosedLoopIntegration:
         # 3.1 模拟评估器评分（与专家有偏差）
         mock_dataset = MagicMock()
         samples = []
-        for i in range(5):
+        for _ in range(5):
             sample = MagicMock()
             # 评估器评分比专家低10分
             sample.scores = {
@@ -470,11 +466,6 @@ class TestLoopEdgeCases:
         """无反馈时的闭环"""
         # 评估器未经过人工校正
         # 应该允许执行，但给出提示
-        request = EvaluationSchema(
-            id="case_001",
-            type="new_evaluator",
-            payload={"user_input": "测试"}
-        )
 
         # 模拟无校准的检查
         mock_check = {

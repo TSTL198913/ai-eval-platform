@@ -14,15 +14,13 @@
     python -m src.infra.testing.coverage_tracker --compare-baseline
 """
 
-import os
-import json
 import argparse
-from pathlib import Path
+import json
 from datetime import datetime
-from typing import Dict, List, Optional
+from pathlib import Path
 
 try:
-    import coverage
+    import coverage  # noqa: F401
     HAS_COV = True
 except ImportError:
     HAS_COV = False
@@ -53,7 +51,7 @@ class CoverageTracker:
         self.history_dir.mkdir(parents=True, exist_ok=True)
         self.history_file = history_dir / "trends.json"
 
-    def load_history(self) -> List[Dict]:
+    def load_history(self) -> list[dict]:
         """加载历史记录"""
         if not self.history_file.exists():
             return []
@@ -65,7 +63,7 @@ class CoverageTracker:
             print(f"历史记录加载失败: {e}")
             return []
 
-    def save_history(self, history: List[Dict]):
+    def save_history(self, history: list[dict]):
         """保存历史记录"""
         try:
             with open(self.history_file, "w") as f:
@@ -73,7 +71,7 @@ class CoverageTracker:
         except Exception as e:
             print(f"历史记录保存失败: {e}")
 
-    def get_current_coverage(self) -> Optional[Dict]:
+    def get_current_coverage(self) -> dict | None:
         """获取当前覆盖率"""
         if not HAS_COV:
             print("coverage库未安装")
@@ -101,7 +99,7 @@ class CoverageTracker:
             print(f"覆盖率数据解析失败: {e}")
             return None
 
-    def record_coverage(self) -> Dict:
+    def record_coverage(self) -> dict:
         """记录当前覆盖率到历史"""
         current = self.get_current_coverage()
         if not current:
@@ -121,7 +119,7 @@ class CoverageTracker:
 
         return current
 
-    def compare_baseline(self, current: Dict) -> Dict:
+    def compare_baseline(self, current: dict) -> dict:
         """与基准对比"""
         if not BASELINE_FILE.exists():
             print("基准文件不存在，跳过对比")
@@ -215,7 +213,7 @@ class CoverageTracker:
 
         # 简单柱状图
         max_val = 100
-        for i, record in enumerate(recent):
+        for _i, record in enumerate(recent):
             line = record.get("line_coverage", 0) * 100
             bar_len = int(line / max_val * 40)
             bar = "█" * bar_len + "░" * (40 - bar_len)
@@ -226,7 +224,7 @@ class CoverageTracker:
 
         return report
 
-    def check_regression(self, current: Dict, thresholds: Dict = None) -> List[Dict]:
+    def check_regression(self, current: dict, thresholds: dict = None) -> list[dict]:
         """检查覆盖率下降"""
         if thresholds is None:
             thresholds = {

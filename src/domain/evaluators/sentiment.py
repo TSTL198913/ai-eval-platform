@@ -1,18 +1,19 @@
-from src.domain.evaluators.base import BaseEvaluator, EvaluatorFactory
+from src.domain.evaluators.base import BaseEvaluator
+from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
 
 @EvaluatorFactory.register("sentiment")
 class SentimentEvaluator(BaseEvaluator):
     """情感分析评估器"""
-    
+
     POSITIVE_WORDS = ["好", "喜欢", "爱", "棒", "优秀", "满意", "开心", "高兴", "happy", "love", "good", "great", "excellent", "wonderful"]
     NEGATIVE_WORDS = ["坏", "讨厌", "恨", "差", "糟糕", "不满", "伤心", "难过", "sad", "hate", "bad", "terrible", "awful", "poor"]
 
     def evaluate(self, request: EvaluationSchema) -> DomainResponse:
         user_input = self.get_input_text(request)
         expected_sentiment = self.get_payload_data(request, "expected_sentiment")
-        
+
         if not user_input:
             return DomainResponse(is_valid=False, error="user_input/text 不能为空")
 
@@ -42,10 +43,10 @@ class SentimentEvaluator(BaseEvaluator):
     def _simple_sentiment_analysis(self, text: str) -> str:
         """简单的关键词情感分析"""
         text_lower = text.lower()
-        
+
         positive_count = sum(1 for word in self.POSITIVE_WORDS if word in text_lower)
         negative_count = sum(1 for word in self.NEGATIVE_WORDS if word in text_lower)
-        
+
         if positive_count > negative_count:
             return "positive"
         elif negative_count > positive_count:

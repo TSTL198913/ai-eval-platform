@@ -8,15 +8,15 @@ Runtime Agent Framework - 运行时Agent调度框架
 - 记忆管理：短期+长期记忆
 - 轨迹记录：完整执行轨迹
 """
-from typing import Any, Dict, List, Optional, Callable
-from enum import Enum
-from dataclasses import dataclass, field
 import time
-import json
 import uuid
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any
 
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.schemas.evaluation import EvaluationSchema, DomainResponse
+from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
 
 class AgentMode(Enum):
@@ -29,17 +29,17 @@ class AgentMode(Enum):
 class AgentState:
     """Agent运行时状态"""
     task: str
-    plan: List[str] = field(default_factory=list)
-    history: List[Dict[str, Any]] = field(default_factory=list)
+    plan: list[str] = field(default_factory=list)
+    history: list[dict[str, Any]] = field(default_factory=list)
     current_step: int = 0
     max_steps: int = 10
     completed: bool = False
     success: bool = False
     result: Any = None
-    error: Optional[str] = None
+    error: str | None = None
     total_tokens: int = 0
     started_at: float = field(default_factory=time.time)
-    finished_at: Optional[float] = None
+    finished_at: float | None = None
 
 
 @dataclass
@@ -47,16 +47,16 @@ class ToolSpec:
     """工具规格定义"""
     name: str
     description: str
-    parameters: Dict[str, Any]
+    parameters: dict[str, Any]
     handler: Callable[..., Any]
 
 
 class ToolRegistry:
     """工具注册中心（运行时）"""
-    _tools: Dict[str, ToolSpec] = {}
+    _tools: dict[str, ToolSpec] = {}
 
     @classmethod
-    def register(cls, name: str, description: str, parameters: Dict[str, Any]):
+    def register(cls, name: str, description: str, parameters: dict[str, Any]):
         """工具注册装饰器"""
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             cls._tools[name] = ToolSpec(
@@ -69,11 +69,11 @@ class ToolRegistry:
         return decorator
 
     @classmethod
-    def get_tool(cls, name: str) -> Optional[ToolSpec]:
+    def get_tool(cls, name: str) -> ToolSpec | None:
         return cls._tools.get(name)
 
     @classmethod
-    def list_tools(cls) -> List[str]:
+    def list_tools(cls) -> list[str]:
         return list(cls._tools.keys())
 
     @classmethod
@@ -92,9 +92,9 @@ class RuntimeAgentEvaluator:
     支持ReAct和Plan-and-Execute两种模式，用于真实运行Agent并评估其表现
     """
 
-    def __init__(self, client: Optional[Any] = None):
+    def __init__(self, client: Any | None = None):
         self.client = client
-        self._agents: Dict[str, AgentState] = {}
+        self._agents: dict[str, AgentState] = {}
 
     def evaluate(self, request: EvaluationSchema) -> DomainResponse:
         action = request.payload.get("action", "run_agent")
@@ -269,7 +269,7 @@ class RuntimeAgentEvaluator:
     def _list_tools(self, request: EvaluationSchema) -> DomainResponse:
         """列出所有注册工具"""
         tools = []
-        for name, spec in ToolRegistry._tools.items():
+        for _name, spec in ToolRegistry._tools.items():
             tools.append({
                 "name": spec.name,
                 "description": spec.description,
@@ -289,7 +289,7 @@ class RuntimeAgentEvaluator:
             return f"观察到: {last_obs.get('content', '')}, 继续推进任务"
         return f"开始处理任务: {state.task}"
 
-    def _select_action(self, state: AgentState, available_tools: List[str]) -> Dict[str, Any]:
+    def _select_action(self, state: AgentState, available_tools: list[str]) -> dict[str, Any]:
         """选择行动（简化版）"""
         # 演示逻辑：每3步调用一次工具
         if state.current_step % 3 == 0 and available_tools:
@@ -304,7 +304,7 @@ class RuntimeAgentEvaluator:
         else:
             return {"type": "think", "content": "分析当前情况"}
 
-    def _generate_plan(self, task: str, available_tools: List[str]) -> List[str]:
+    def _generate_plan(self, task: str, available_tools: list[str]) -> list[str]:
         """生成计划（简化版）"""
         return [
             f"分析任务: {task}",
@@ -314,7 +314,7 @@ class RuntimeAgentEvaluator:
             "验证结果",
         ]
 
-    def _infer_tool(self, plan_step: str) -> Optional[str]:
+    def _infer_tool(self, plan_step: str) -> str | None:
         """从计划步骤推断所需工具"""
         step_lower = plan_step.lower()
         if "搜索" in plan_step or "search" in step_lower or "查询" in plan_step:
@@ -325,7 +325,7 @@ class RuntimeAgentEvaluator:
             return "analyzer"
         return None
 
-    def _execute_action(self, action: Dict, state: AgentState) -> Dict[str, Any]:
+    def _execute_action(self, action: dict, state: AgentState) -> dict[str, Any]:
         """执行行动"""
         try:
             if action.get("type") == "tool_call":
@@ -343,7 +343,7 @@ class RuntimeAgentEvaluator:
         except Exception as e:
             return {"success": False, "content": str(e)}
 
-    def _serialize_state(self, state: AgentState) -> Dict[str, Any]:
+    def _serialize_state(self, state: AgentState) -> dict[str, Any]:
         """序列化状态"""
         return {
             "task": state.task,

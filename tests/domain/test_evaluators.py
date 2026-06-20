@@ -2,20 +2,21 @@
 Domain 层测试 - 评估器业务逻辑
 真实业务场景：金融评估、安全评估、评分、漂移检测
 """
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
+
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+from src.domain.evaluators.general import GeneralEvaluator
 from src.domain.evaluators.scoring import (
+    PASS_THRESHOLD,
+    is_passing,
+    score_keyword_overlap,
     score_numeric_match,
     score_text_similarity,
-    score_keyword_overlap,
-    is_passing,
-    PASS_THRESHOLD,
 )
-from src.domain.evaluators.general import GeneralEvaluator
-from src.schemas.evaluation import EvaluationSchema, DomainResponse
 from src.exceptions import DomainLogicError
+from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
 
 @pytest.fixture(autouse=True)
@@ -314,9 +315,7 @@ class TestExceptionHierarchyBusinessScenarios:
 
     def test_domain_logic_error_distinct(self):
         """场景：业务规则违规（与契约错误区分）"""
-        from src.exceptions import DomainLogicError
-        from src.exceptions import ContractValidationError
-        from src.exceptions import BasePlatformError
+        from src.exceptions import BasePlatformError, ContractValidationError, DomainLogicError
 
         err = DomainLogicError("adapter missing")
         assert err.code == "DOMAIN_ERROR"
@@ -325,8 +324,7 @@ class TestExceptionHierarchyBusinessScenarios:
 
     def test_infrastructure_error_distinct(self):
         """场景：DB/Cache 故障"""
-        from src.exceptions import InfrastructureError
-        from src.exceptions import BasePlatformError
+        from src.exceptions import BasePlatformError, InfrastructureError
 
         err = InfrastructureError("redis down")
         assert err.code == "INFRA_ERROR"

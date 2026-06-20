@@ -1,31 +1,31 @@
 """数据库会话管理测试"""
 
 import os
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import MagicMock, patch
 
 from src.infra.db.session import (
-    _get_env_int,
-    _get_env_bool,
+    ConnectionLeakDetector,
     ConnectionPoolConfig,
     ConnectionPoolMetrics,
-    ConnectionLeakDetector,
-    ConnectionLeakInfo,
-    get_pool_config,
-    set_pool_config,
-    get_leak_detector,
-    set_leak_detector,
-    get_engine,
-    get_session_local,
-    get_db_session,
-    get_db,
-    get_pool_status,
+    _get_env_bool,
+    _get_env_int,
     detect_connection_leaks,
-    reset_pool_metrics,
-    register_checkout_hook,
-    register_checkin_hook,
-    invalidate_pool,
+    get_db,
+    get_db_session,
+    get_engine,
+    get_leak_detector,
+    get_pool_config,
+    get_pool_status,
+    get_session_local,
     init_tables,
+    invalidate_pool,
+    register_checkin_hook,
+    register_checkout_hook,
+    reset_pool_metrics,
+    set_leak_detector,
+    set_pool_config,
 )
 
 
@@ -162,14 +162,14 @@ class TestConnectionLeakDetector:
         hook_called = []
         def test_hook(leaks):
             hook_called.append(leaks)
-        
+
         detector.register_leak_detected_hook(test_hook)
         detector.track_checkout("fake_conn")
-        
+
         import time
         time.sleep(0.15)
         detector.detect_leaks()
-        
+
         assert len(hook_called) == 1
 
     def test_clear(self, detector):

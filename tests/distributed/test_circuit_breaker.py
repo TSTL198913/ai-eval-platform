@@ -1,15 +1,16 @@
 """分布式熔断器测试"""
 
-import pytest
 import time
 from unittest.mock import MagicMock
 
+import pytest
+
 from src.distributed.circuit_breaker import (
     CircuitBreaker,
-    CircuitState,
     CircuitBreakerConfig,
     CircuitBreakerError,
     CircuitBreakerRegistry,
+    CircuitState,
 )
 
 
@@ -260,7 +261,7 @@ class TestCircuitBreakerRegistry:
 
     def test_all_stats(self):
         registry = CircuitBreakerRegistry.get_instance()
-        breaker = registry.get_or_create("stats-breaker")
+        registry.get_or_create("stats-breaker")
         stats = registry.all_stats()
         assert "stats-breaker" in stats
 

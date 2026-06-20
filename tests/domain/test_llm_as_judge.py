@@ -8,11 +8,12 @@ LLM-as-Judge 评估器专项测试
 """
 
 import json
-import pytest
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from src.domain.evaluators.llm_as_judge import LLMAJudgeEvaluator
-from src.schemas.evaluation import EvaluationSchema, DomainResponse
+from src.schemas.evaluation import EvaluationSchema
 
 
 # ============================================================
@@ -128,7 +129,7 @@ class TestLLMAJudgeEvaluatorPositiveCases:
         )
 
         # Act
-        result = evaluator_with_client.evaluate(request)
+        evaluator_with_client.evaluate(request)
 
         # Assert - 验证LLM客户端被调用
         assert mock_llm_client.chat.called
@@ -150,7 +151,7 @@ class TestLLMAJudgeEvaluatorPositiveCases:
         )
 
         # Act
-        result = evaluator_with_client.evaluate(request)
+        evaluator_with_client.evaluate(request)
 
         # Assert - 验证标准被包含在提示词中
         call_args = mock_llm_client.chat.call_args[0][0]
@@ -190,7 +191,7 @@ class TestLLMAJudgeEvaluatorPositiveCases:
         # Assert - 验证归因数据结构
         assert "attribution" in result.data
         assert isinstance(result.data["attribution"], dict)
-        for dim, attr_data in result.data["attribution"].items():
+        for _dim, attr_data in result.data["attribution"].items():
             assert "evidence" in attr_data
             assert "citation" in attr_data
             assert isinstance(attr_data["evidence"], list)

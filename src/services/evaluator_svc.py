@@ -5,6 +5,7 @@ from typing import Any
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.domain.models.llm_factory import create_llm_client
 
+
 # 动态获取评估器注册表，避免与 EvaluatorFactory._registry 不同步
 def _get_evaluator_registry():
     from src.domain.evaluators import EVALUATOR_REGISTRY
@@ -97,7 +98,7 @@ def run_evaluation_service(raw_data: dict[str, Any], client=None) -> dict[str, A
     status = "success" if result.status.value != "error" else "error"
     code = None
     message = None
-    
+
     if result.status.value == "error":
         code = "EVALUATION_ERROR"
         message = result.error_message or "Evaluation failed"

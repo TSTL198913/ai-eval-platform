@@ -4,16 +4,17 @@
 """
 import os
 import sys
-import time
-import pytest
-import asyncio
 import threading
-from unittest.mock import MagicMock, patch
+import time
+from unittest.mock import MagicMock
+
+import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.domain.evaluators import auto_discover
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory as EF
+
 
 @pytest.fixture(autouse=True)
 def reset_evaluators_each_test():
@@ -31,8 +32,8 @@ class TestLockAndIdempotencyIntegration:
 
     def test_lock_and_idempotency_combined(self, fake_redis):
         """真实场景：用户连点提交按钮 + 多 worker 并发抢任务"""
-        from src.distributed.lock import DistributedLock
         from src.distributed.idempotency import IdempotencyChecker
+        from src.distributed.lock import DistributedLock
 
         request_id = "case_001"
         idempotency = IdempotencyChecker(fake_redis)
@@ -78,7 +79,7 @@ class TestCircuitBreakerAndRetryIntegration:
             CircuitBreakerConfig,
             CircuitState,
         )
-        from src.distributed.rate_limiter import TokenBucket, RateLimitConfig
+        from src.distributed.rate_limiter import RateLimitConfig, TokenBucket
 
         cb = CircuitBreaker("llm_svc", CircuitBreakerConfig(failure_threshold=2, timeout_seconds=60))
         bucket = TokenBucket(fake_redis, "llm_user", RateLimitConfig(max_tokens=100, refill_rate=10))
@@ -111,19 +112,19 @@ class TestEngineEndToEndIntegration:
 
     def test_general_evaluator_with_expected_passes(self):
         """场景：QA 场景，LLM 输出与预期匹配"""
-        from src.engine import EvaluationEngine
-        from src.schemas.evaluation import EvaluationSchema, EvaluationStatus
-        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-        from src.domain.evaluators.base import BaseEvaluator
-        from src.schemas.evaluation import DomainResponse
         from unittest.mock import MagicMock
+
+        from src.domain.evaluators.base import BaseEvaluator
+        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+        from src.engine import EvaluationEngine
+        from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluationStatus
 
         # 注册一个独立的评估器，避免依赖 'general' (可能已被其他测试污染)
         @EvaluatorFactory.register("qa_test_passes")
         class QAEvalPass(BaseEvaluator):
             def evaluate(self, request):
                 expected = request.payload.get("expected_output", "")
-                user_input = request.payload.get("user_input", "")
+                request.payload.get("user_input", "")
                 # 模拟 LLM 输出包含预期
                 return DomainResponse(
                     is_valid=True,
@@ -152,11 +153,10 @@ class TestEngineEndToEndIntegration:
 
     def test_general_evaluator_with_expected_fails(self):
         """场景：QA 场景，LLM 输出与预期不匹配"""
-        from src.engine import EvaluationEngine
-        from src.schemas.evaluation import EvaluationSchema, EvaluationStatus
-        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
         from src.domain.evaluators.base import BaseEvaluator
-        from src.schemas.evaluation import DomainResponse
+        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+        from src.engine import EvaluationEngine
+        from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluationStatus
 
         @EvaluatorFactory.register("qa_test_fails")
         class QAEvalFail(BaseEvaluator):
@@ -188,7 +188,7 @@ class TestEngineEndToEndIntegration:
     def test_engine_latency_for_100_requests(self):
         """场景：100 个连续评测请求（生产压测）"""
         from src.engine import EvaluationEngine
-        from src.schemas.evaluation import EvaluationSchema, EvaluationStatus
+        from src.schemas.evaluation import EvaluationSchema
 
         client = MagicMock()
         client.config = MagicMock()
@@ -220,10 +220,11 @@ class TestCrossServiceIntegration:
 
     def test_cache_then_evaluate_pattern(self):
         """真实场景：先查缓存，未命中再评测"""
-        from src.infra.cache import EvaluationCache
-        from src.engine import EvaluationEngine
-        from src.schemas.evaluation import EvaluationSchema
         from unittest.mock import MagicMock
+
+        from src.engine import EvaluationEngine
+        from src.infra.cache import EvaluationCache
+        from src.schemas.evaluation import EvaluationSchema
 
         cache = EvaluationCache(ttl_seconds=60, max_size=100)
         client = MagicMock()
@@ -251,10 +252,10 @@ class TestCrossServiceIntegration:
 
     def test_evaluator_factory_with_runtime_registration(self):
         """场景：业务方运行时注册新评估器（插件模式）"""
-        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
         from src.domain.evaluators.base import BaseEvaluator
+        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
         from src.engine import EvaluationEngine
-        from src.schemas.evaluation import EvaluationSchema, DomainResponse
+        from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
         # 业务方注册自定义评估器
         @EvaluatorFactory.register("custom_business_eval")
@@ -292,11 +293,11 @@ class TestExceptionChainIntegration:
         真实 BUG: run_evaluation_service 即便 engine 返回 ERROR
         仍返回 status="success"，掩盖了失败状态
         """
-        from src.engine import EvaluationEngine
-        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
         from src.domain.evaluators.base import BaseEvaluator
-        from src.schemas.evaluation import EvaluationSchema, EvaluationStatus
+        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+        from src.engine import EvaluationEngine
         from src.exceptions import ContractValidationError
+        from src.schemas.evaluation import EvaluationSchema, EvaluationStatus
         from src.services.evaluator_svc import run_evaluation_service
 
         @EvaluatorFactory.register("contract_err_chain")
@@ -328,9 +329,9 @@ class TestExceptionChainIntegration:
 
     def test_unexpected_error_chain_to_api(self):
         """场景：未预期异常的传播"""
-        from src.engine import EvaluationEngine
-        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
         from src.domain.evaluators.base import BaseEvaluator
+        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+        from src.engine import EvaluationEngine
         from src.schemas.evaluation import EvaluationSchema, EvaluationStatus
 
         @EvaluatorFactory.register("unexpected_err")
@@ -398,10 +399,10 @@ class TestHighConcurrencyBusinessScenarios:
 
     def test_concurrent_evaluations_different_types(self, mock_llm_client):
         """场景：50 个并发请求，混合不同 type"""
-        from src.engine import EvaluationEngine
-        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
         from src.domain.evaluators.base import BaseEvaluator
-        from src.schemas.evaluation import EvaluationSchema, DomainResponse
+        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+        from src.engine import EvaluationEngine
+        from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
         @EvaluatorFactory.register("type_a")
         class TypeAEval(BaseEvaluator):
@@ -453,11 +454,9 @@ class TestDataIntegrityBusinessScenarios:
         真实 BUG: service 层直接将 DomainResponse 放入 data 字段，
         但 DomainResponse 是 Pydantic Model，不支持 .get() 方法
         """
-        from src.schemas.evaluation import DomainResponse
-        from src.engine import EvaluationEngine
-        from src.schemas.evaluation import EvaluationSchema
-        from src.services.evaluator_svc import run_evaluation_service
         from unittest.mock import MagicMock
+
+        from src.services.evaluator_svc import run_evaluation_service
 
         client = MagicMock()
         client.config = MagicMock()
@@ -487,10 +486,11 @@ class TestDataIntegrityBusinessScenarios:
 
     def test_case_id_preserved_through_pipeline(self):
         """场景：case_id 从输入到结果全链路保持一致"""
-        from src.services.evaluator_svc import run_evaluation_service
-        from src.schemas.evaluation import EvaluationSchema, EvaluationStatus
-        from src.engine import EvaluationEngine
         from unittest.mock import MagicMock
+
+        from src.engine import EvaluationEngine
+        from src.schemas.evaluation import EvaluationSchema
+        from src.services.evaluator_svc import run_evaluation_service
 
         case_id = "preservation_test_123"
         client = MagicMock()

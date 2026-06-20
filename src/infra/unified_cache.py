@@ -21,12 +21,13 @@
 import asyncio
 import hashlib
 import json
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable, TypeVar, Union
+from typing import TypeVar
 
 from src.infra.cache import EvaluationCache
-from src.infra.performance import LRUCache
 from src.infra.logger import logger
+from src.infra.performance import LRUCache
 
 T = TypeVar("T")
 
@@ -46,7 +47,7 @@ def _generate_default_key(prefix: str, func_name: str, args: tuple, kwargs: dict
 
 
 def cached(
-    cache: Union[EvaluationCache, LRUCache, None] = None,
+    cache: EvaluationCache | LRUCache | None = None,
     *,
     key_prefix: str = "",
     key_generator: Callable[..., str] | None = None,

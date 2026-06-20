@@ -1,6 +1,7 @@
 import ast
 
-from src.domain.evaluators.base import BaseEvaluator, EvaluatorFactory
+from src.domain.evaluators.base import BaseEvaluator
+from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.domain.evaluators.metadata import CodeMetadata
 from src.domain.evaluators.scoring import (
     is_passing,

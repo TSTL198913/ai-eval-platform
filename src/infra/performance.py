@@ -2,16 +2,17 @@ import hashlib
 import json
 import os
 import time
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Callable
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
+from typing import Any
 
 
 @dataclass
 class CacheEntry:
     key: str
-    result: Dict[str, Any]
+    result: dict[str, Any]
     created_at: datetime = field(default_factory=datetime.utcnow)
     hit_count: int = 0
     avg_latency_ms: float = 0.0
@@ -19,7 +20,7 @@ class CacheEntry:
 
 class EvaluationCache:
     def __init__(self, cache_dir: str = "data/cache", ttl_seconds: int = 3600):
-        self._cache: Dict[str, CacheEntry] = {}
+        self._cache: dict[str, CacheEntry] = {}
         self._cache_dir = cache_dir
         self._ttl_seconds = ttl_seconds
         self._load_cache()
@@ -28,7 +29,7 @@ class EvaluationCache:
         cache_file = os.path.join(self._cache_dir, "evaluation_cache.json")
         if os.path.exists(cache_file):
             try:
-                with open(cache_file, "r", encoding="utf-8") as f:
+                with open(cache_file, encoding="utf-8") as f:
                     data = json.load(f)
                     for key, entry in data.items():
                         entry_obj = CacheEntry(
@@ -62,11 +63,11 @@ class EvaluationCache:
         age = (datetime.utcnow() - entry.created_at).total_seconds()
         return age > self._ttl_seconds
 
-    def _generate_key(self, request_data: Dict[str, Any]) -> str:
+    def _generate_key(self, request_data: dict[str, Any]) -> str:
         content = json.dumps(request_data, sort_keys=True, ensure_ascii=False)
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 
-    def get(self, request_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def get(self, request_data: dict[str, Any]) -> dict[str, Any] | None:
         key = self._generate_key(request_data)
         entry = self._cache.get(key)
 
@@ -77,7 +78,7 @@ class EvaluationCache:
 
         return None
 
-    def set(self, request_data: Dict[str, Any], result: Dict[str, Any], latency_ms: float = 0.0):
+    def set(self, request_data: dict[str, Any], result: dict[str, Any], latency_ms: float = 0.0):
         key = self._generate_key(request_data)
         entry = CacheEntry(
             key=key,
@@ -87,7 +88,7 @@ class EvaluationCache:
         self._cache[key] = entry
         self._save_cache()
 
-    def invalidate(self, request_data: Dict[str, Any]):
+    def invalidate(self, request_data: dict[str, Any]):
         key = self._generate_key(request_data)
         if key in self._cache:
             del self._cache[key]
@@ -97,7 +98,7 @@ class EvaluationCache:
         self._cache.clear()
         self._save_cache()
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         total_hits = sum(e.hit_count for e in self._cache.values())
         total_entries = len(self._cache)
         avg_latency = sum(e.avg_latency_ms for e in self._cache.values()) / max(total_entries, 1)
@@ -120,7 +121,7 @@ class EvaluationCache:
 class AsyncEvaluationProcessor:
     def __init__(self, max_workers: int = 4):
         self._executor = ThreadPoolExecutor(max_workers=max_workers)
-        self._pending_tasks: Dict[str, Any] = {}
+        self._pending_tasks: dict[str, Any] = {}
 
     def submit(self, task_id: str, func: Callable, *args, **kwargs) -> Any:
         future = self._executor.submit(func, *args, **kwargs)
@@ -131,7 +132,7 @@ class AsyncEvaluationProcessor:
         }
         return future
 
-    def get_result(self, task_id: str, timeout: float = None) -> Optional[Any]:
+    def get_result(self, task_id: str, timeout: float = None) -> Any | None:
         task = self._pending_tasks.get(task_id)
         if not task:
             return None
@@ -177,10 +178,10 @@ class PerformanceOptimizer:
     def __init__(self):
         self._cache = EvaluationCache()
         self._async_processor = AsyncEvaluationProcessor(max_workers=4)
-        self._metrics: List[Dict[str, Any]] = []
+        self._metrics: list[dict[str, Any]] = []
         self._max_metrics = 1000
 
-    def cached_evaluate(self, request_data: Dict[str, Any], evaluate_func: Callable) -> Dict[str, Any]:
+    def cached_evaluate(self, request_data: dict[str, Any], evaluate_func: Callable) -> dict[str, Any]:
         cached_result = self._cache.get(request_data)
         if cached_result:
             return {
@@ -201,7 +202,7 @@ class PerformanceOptimizer:
 
         return result
 
-    def async_batch_evaluate(self, requests: List[Dict[str, Any]], evaluate_func: Callable) -> List[Dict[str, Any]]:
+    def async_batch_evaluate(self, requests: list[dict[str, Any]], evaluate_func: Callable) -> list[dict[str, Any]]:
         results = []
 
         futures = {}
@@ -210,7 +211,7 @@ class PerformanceOptimizer:
             future = self._async_processor.submit(task_id, evaluate_func, req)
             futures[task_id] = (i, future)
 
-        for task_id, (idx, future) in futures.items():
+        for idx, future in futures.values():
             try:
                 result = future.result(timeout=30)
                 results.append((idx, result))
@@ -230,7 +231,7 @@ class PerformanceOptimizer:
         if len(self._metrics) > self._max_metrics:
             self._metrics = self._metrics[-self._max_metrics:]
 
-    def get_performance_report(self) -> Dict[str, Any]:
+    def get_performance_report(self) -> dict[str, Any]:
         if not self._metrics:
             return {
                 "total_requests": 0,

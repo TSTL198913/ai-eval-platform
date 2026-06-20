@@ -1,8 +1,10 @@
 """SummaryEvaluator单元测试"""
+
 import pytest
-from unittest.mock import MagicMock
+
 from src.domain.evaluators.summary import SummaryEvaluator
 from src.schemas.evaluation import EvaluationSchema
+
 
 @pytest.fixture
 def evaluator():

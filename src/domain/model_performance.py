@@ -1,19 +1,17 @@
-import json
-import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from src.infra.db.repository import EvaluationRepository
 from src.infra.cost_governance import cost_governance
+from src.infra.db.repository import EvaluationRepository
 
 
 class ModelPerformanceAnalyzer:
     def __init__(self):
         self._repository = EvaluationRepository()
-        self._performance_cache: Dict[str, Dict[str, Any]] = {}
+        self._performance_cache: dict[str, dict[str, Any]] = {}
         self._cache_updated_at: float = 0
 
-    def analyze_model_performance(self, model_name: str, evaluator_type: str = None, days: int = 7) -> Dict[str, Any]:
+    def analyze_model_performance(self, model_name: str, evaluator_type: str = None, days: int = 7) -> dict[str, Any]:
         records = self._repository.search(
             evaluator=evaluator_type,
             limit=1000,
@@ -54,7 +52,7 @@ class ModelPerformanceAnalyzer:
             'analysis_time': datetime.utcnow().isoformat(),
         }
 
-    def compare_models(self, model_names: List[str], evaluator_type: str = None) -> List[Dict[str, Any]]:
+    def compare_models(self, model_names: list[str], evaluator_type: str = None) -> list[dict[str, Any]]:
         results = []
         for model_name in model_names:
             perf = self.analyze_model_performance(model_name, evaluator_type)
@@ -63,16 +61,16 @@ class ModelPerformanceAnalyzer:
             results.append(perf)
         return sorted(results, key=lambda x: x.get('avg_score', 0), reverse=True)
 
-    def _get_model_cost(self, model_name: str) -> Dict[str, float]:
+    def _get_model_cost(self, model_name: str) -> dict[str, float]:
         top_models = cost_governance.get_top_models_by_cost(limit=10)
         for model in top_models:
             if model['model_name'] == model_name:
                 return {'total_cost_usd': model['total_cost']}
         return {'total_cost_usd': 0.0}
 
-    def get_pareto_frontier(self, evaluator_type: str = None) -> List[Dict[str, Any]]:
+    def get_pareto_frontier(self, evaluator_type: str = None) -> list[dict[str, Any]]:
         all_records = self._repository.search(evaluator=evaluator_type, limit=2000)
-        model_groups: Dict[str, Dict[str, List[float]]] = {}
+        model_groups: dict[str, dict[str, list[float]]] = {}
 
         for record in all_records:
             model_name = record.get('model_name', 'unknown')
@@ -111,7 +109,7 @@ class ModelPerformanceAnalyzer:
 
         return frontier
 
-    def get_model_recommendations(self, task_type: str, preference: str = 'balanced') -> List[Dict[str, Any]]:
+    def get_model_recommendations(self, task_type: str, preference: str = 'balanced') -> list[dict[str, Any]]:
         frontier = self.get_pareto_frontier(task_type)
         if not frontier:
             return []
@@ -138,7 +136,7 @@ class ModelPerformanceAnalyzer:
             self._performance_cache[model_name]['latencies'].append(record.get('latency_ms', 0))
         self._cache_updated_at = datetime.utcnow().timestamp()
 
-    def get_cached_performance(self, model_name: str) -> Optional[Dict[str, Any]]:
+    def get_cached_performance(self, model_name: str) -> dict[str, Any] | None:
         if (datetime.utcnow().timestamp() - self._cache_updated_at) > 3600:
             self.update_performance_cache()
 
@@ -153,9 +151,9 @@ class ModelPerformanceAnalyzer:
             'sample_count': len(data['scores']),
         }
 
-    def analyze_all_models(self, evaluator_type: str = None) -> List[Dict[str, Any]]:
+    def analyze_all_models(self, evaluator_type: str = None) -> list[dict[str, Any]]:
         all_records = self._repository.search(evaluator=evaluator_type, limit=2000)
-        model_names = set(record.get('model_name', 'unknown') for record in all_records)
+        model_names = {record.get('model_name', 'unknown') for record in all_records}
         results = []
         for model_name in model_names:
             perf = self.analyze_model_performance(model_name, evaluator_type)

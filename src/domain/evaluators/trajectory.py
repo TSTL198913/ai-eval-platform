@@ -2,7 +2,6 @@ import json
 import re
 import time
 from difflib import SequenceMatcher
-from typing import Any, List, Optional
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
@@ -12,7 +11,7 @@ from src.schemas.evaluation import AgentTrajectory, DomainResponse, EvaluationSc
 @EvaluatorFactory.register("trajectory")
 class TrajectoryEvaluator(BaseEvaluator):
     """Trajectory 轨迹评估器
-    
+
     记录和评估 Agent 的决策路径，支持：
     - 轨迹记录
     - 轨迹回放
@@ -278,7 +277,7 @@ class TrajectoryEvaluator(BaseEvaluator):
             },
         )
 
-    def _check_path_validity(self, steps: List[TrajectoryStep], expected_path: list) -> dict:
+    def _check_path_validity(self, steps: list[TrajectoryStep], expected_path: list) -> dict:
         if not expected_path:
             return {"score": 0.5, "message": "无期望路径，无法验证", "matches": []}
 
@@ -302,7 +301,7 @@ class TrajectoryEvaluator(BaseEvaluator):
             "total_expected": len(expected_path),
         }
 
-    def _check_logical_coherence(self, steps: List[TrajectoryStep]) -> dict:
+    def _check_logical_coherence(self, steps: list[TrajectoryStep]) -> dict:
         if len(steps) < 2:
             return {"score": 0.5, "message": "步骤数不足，无法评估逻辑连贯性"}
 
@@ -328,7 +327,7 @@ class TrajectoryEvaluator(BaseEvaluator):
             "coherent_pairs": int(coherence_score),
         }
 
-    def _check_goal_relevance(self, steps: List[TrajectoryStep]) -> dict:
+    def _check_goal_relevance(self, steps: list[TrajectoryStep]) -> dict:
         if not steps:
             return {"score": 0.0, "message": "无步骤可评估"}
 
@@ -393,7 +392,7 @@ class TrajectoryEvaluator(BaseEvaluator):
             data=reflection,
         )
 
-    def _perform_reflection(self, trajectory: AgentTrajectory, expected_output: Optional[str] = None) -> dict:
+    def _perform_reflection(self, trajectory: AgentTrajectory, expected_output: str | None = None) -> dict:
         steps = trajectory.steps
         actual_output = trajectory.final_output
 
@@ -499,7 +498,7 @@ class TrajectoryEvaluator(BaseEvaluator):
 
         return 1.0, details
 
-    def _evaluate_l2_semantic(self, actual_output: str, expected_output: Optional[str] = None) -> tuple[float, dict]:
+    def _evaluate_l2_semantic(self, actual_output: str, expected_output: str | None = None) -> tuple[float, dict]:
         details = {
             "relevant": True,
             "similarity": 0.0,
@@ -523,7 +522,9 @@ class TrajectoryEvaluator(BaseEvaluator):
 
         return score, details
 
-    def _evaluate_l3_goal(self, actual_output: str, expected_output: Optional[str] = None, steps_data: list = []) -> tuple[float, dict]:
+    def _evaluate_l3_goal(self, actual_output: str, expected_output: str | None = None, steps_data: list = None) -> tuple[float, dict]:
+        if steps_data is None:
+            steps_data = []
         details = {
             "goal_achieved": False,
             "evidence": [],
@@ -558,7 +559,7 @@ class TrajectoryEvaluator(BaseEvaluator):
                 score = 0.2
 
         if steps_data:
-            action_types = set(step.get("action", "") for step in steps_data)
+            action_types = {step.get("action", "") for step in steps_data}
             if "finish" in action_types or "summarize" in action_types:
                 score = min(1.0, score + 0.1)
 
@@ -627,7 +628,7 @@ class TrajectoryEvaluator(BaseEvaluator):
             },
         )
 
-    def _check_reasoning_chain_validity(self, steps: List[TrajectoryStep], expected_intermediate: dict) -> dict:
+    def _check_reasoning_chain_validity(self, steps: list[TrajectoryStep], expected_intermediate: dict) -> dict:
         if len(steps) < 2:
             return {"score": 0.5, "message": "步骤数不足，无法验证推理链"}
 
@@ -674,7 +675,7 @@ class TrajectoryEvaluator(BaseEvaluator):
             "transitions": transitions,
         }
 
-    def _check_enhanced_coherence(self, steps: List[TrajectoryStep], goal_description: str = "") -> dict:
+    def _check_enhanced_coherence(self, steps: list[TrajectoryStep], goal_description: str = "") -> dict:
         if len(steps) < 2:
             return {"score": 0.5, "message": "步骤数不足，无法评估逻辑连贯性"}
 
@@ -702,7 +703,7 @@ class TrajectoryEvaluator(BaseEvaluator):
                     coherence_issues.append(f"步骤{i}的工具结果未在步骤{i+1}的思考中体现")
 
             if current.thought and next_step.thought:
-                current_thought = str(current.thought).lower()
+                str(current.thought).lower()
                 next_thought = str(next_step.thought).lower()
 
                 if any(kw in next_thought for kw in ["因此", "所以", "于是", "then", "therefore", "thus"]):
@@ -712,7 +713,7 @@ class TrajectoryEvaluator(BaseEvaluator):
 
         if goal_description:
             goal_keywords = set(re.findall(r'\b[a-zA-Z\u4e00-\u9fff]{2,}\b', goal_description.lower())[:15])
-            for i, step in enumerate(steps):
+            for step in steps:
                 thought_keywords = set(re.findall(r'\b[a-zA-Z\u4e00-\u9fff]{2,}\b', (step.thought or "").lower())[:10])
                 if goal_keywords & thought_keywords:
                     coherence_score += 0.2
@@ -727,7 +728,7 @@ class TrajectoryEvaluator(BaseEvaluator):
             "coherent_checks": int(coherence_score),
         }
 
-    def _validate_intermediate_results(self, steps: List[TrajectoryStep], expected_intermediate: dict) -> dict:
+    def _validate_intermediate_results(self, steps: list[TrajectoryStep], expected_intermediate: dict) -> dict:
         if not expected_intermediate:
             return {"score": 0.5, "message": "无期望中间结果，无法验证"}
 
@@ -785,7 +786,7 @@ class TrajectoryEvaluator(BaseEvaluator):
             "validations": validations,
         }
 
-    def _detect_circular_reasoning(self, steps: List[TrajectoryStep]) -> dict:
+    def _detect_circular_reasoning(self, steps: list[TrajectoryStep]) -> dict:
         thought_history = []
         circular_occurrences = []
         circular_score = 0.0
@@ -819,7 +820,7 @@ class TrajectoryEvaluator(BaseEvaluator):
             "circular_detected": len(circular_occurrences) > 0,
         }
 
-    def _detect_contradictions(self, steps: List[TrajectoryStep]) -> dict:
+    def _detect_contradictions(self, steps: list[TrajectoryStep]) -> dict:
         statements = []
         contradictions = []
         contradiction_score = 0.0
@@ -829,7 +830,7 @@ class TrajectoryEvaluator(BaseEvaluator):
                 statements.append((i, str(step.thought).strip()))
 
         for i, (step_i, stmt_i) in enumerate(statements):
-            for j, (step_j, stmt_j) in enumerate(statements[i + 1:], i + 1):
+            for _j, (step_j, stmt_j) in enumerate(statements[i + 1:], i + 1):
                 similarity = SequenceMatcher(None, stmt_i, stmt_j).ratio()
 
                 if similarity < 0.3:

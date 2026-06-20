@@ -1,8 +1,10 @@
 """SentimentEvaluator单元测试"""
+
 import pytest
-from unittest.mock import MagicMock
+
 from src.domain.evaluators.sentiment import SentimentEvaluator
 from src.schemas.evaluation import EvaluationSchema
+
 
 @pytest.fixture
 def evaluator():

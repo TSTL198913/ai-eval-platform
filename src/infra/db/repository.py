@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from sqlalchemy import text, bindparam
+from sqlalchemy import bindparam, text
 
 from src.exceptions import InfrastructureError
 from src.infra.db.models import EvaluationResultModel, TrajectoryModel
@@ -234,9 +234,9 @@ class EvaluationRepository(BaseRepository):
             if not isinstance(response_data, dict):
                 try:
                     response_data = json.loads(str(response_data))
-                except:
+                except Exception:
                     response_data = {}
-            
+
             record = EvaluationResultModel(
                 case_id=data.get("case_id", ""),
                 model_name=data.get("model_name", "default"),
@@ -273,7 +273,7 @@ class EvaluationRepository(BaseRepository):
                 if isinstance(response_data, str):
                     try:
                         response_data = json.loads(response_data)
-                    except:
+                    except Exception:
                         pass
                 records.append({
                     "id": row[0],

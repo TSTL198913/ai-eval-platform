@@ -8,15 +8,15 @@ Prometheus 中间件 - FastAPI 请求自动采集
 """
 
 import time
-from typing import Callable
+from collections.abc import Callable
+
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
 from src.infra.monitoring.metrics import (
-    EVALUATION_LATENCY,
     EVALUATION_COUNTER,
-    EVALUATION_ERRORS,
+    EVALUATION_LATENCY,
 )
 
 
@@ -43,7 +43,6 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
 
         # 提取路径标签
         path = request.url.path
-        method = request.method
         status_code = response.status_code
 
         # 判断是否为评估请求

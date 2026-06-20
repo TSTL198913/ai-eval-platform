@@ -12,13 +12,14 @@
 """
 import os
 import sys
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from src.domain.evaluators.drift import DriftDetectionEvaluator
-from src.schemas.evaluation import EvaluationSchema, DomainResponse
+from src.schemas.evaluation import EvaluationSchema
 
 
 class TestDriftDetectionSimilarity:

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 
 @dataclass
@@ -15,7 +15,7 @@ class EvaluationMetrics:
     latency_ms: float = 0.0
     tool_calls: int = 0
     correct_tool_calls: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def decision_accuracy(self) -> float:
@@ -30,7 +30,7 @@ class EvaluationMetrics:
     def tool_call_accuracy(self) -> float:
         return self.correct_tool_calls / self.tool_calls if self.tool_calls > 0 else 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "task_id": self.task_id,
             "evaluator_type": self.evaluator_type,
@@ -52,7 +52,7 @@ class EvaluationMetrics:
 
 class MetricsCollector:
     def __init__(self, persist: bool = True):
-        self._metrics_store: Dict[str, EvaluationMetrics] = {}
+        self._metrics_store: dict[str, EvaluationMetrics] = {}
         self._persist = persist
         # 加载历史持久化数据
         if self._persist:
@@ -90,10 +90,10 @@ class MetricsCollector:
         if self._persist:
             self._persist_to_repository(task_id)
 
-    def get_metrics(self, task_id: str) -> Optional[EvaluationMetrics]:
+    def get_metrics(self, task_id: str) -> EvaluationMetrics | None:
         return self._metrics_store.get(task_id)
 
-    def get_all_metrics(self) -> List[EvaluationMetrics]:
+    def get_all_metrics(self) -> list[EvaluationMetrics]:
         return list(self._metrics_store.values())
 
     def clear(self):

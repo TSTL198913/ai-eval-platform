@@ -1,19 +1,18 @@
 import difflib
 import hashlib
-import json
 import re
-from typing import Any, Dict, List, Optional
+import time
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.infra.db.repository import EvaluationRepository
-from src.schemas.evaluation import DomainResponse, DriftDetectionResult, EvaluationSchema
+from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
 
 @EvaluatorFactory.register("drift")
 class DriftDetectionEvaluator(BaseEvaluator):
     """行为漂移检测评估器
-    
+
     检测 Agent 输出随时间的变化，识别模型行为漂移。
     使用方法：
     - 基于历史基准分数对比
@@ -290,7 +289,7 @@ class DriftDetectionEvaluator(BaseEvaluator):
             data=drift_result,
         )
 
-    def _analyze_semantic_drift(self, actual: str, baseline: str, context: Optional[str] = None) -> dict:
+    def _analyze_semantic_drift(self, actual: str, baseline: str, context: str | None = None) -> dict:
         actual_keywords = self._extract_keywords(actual)
         baseline_keywords = self._extract_keywords(baseline)
 
@@ -323,7 +322,7 @@ class DriftDetectionEvaluator(BaseEvaluator):
                       "have", "has", "had", "do", "does", "did", "will", "would", "could", "should",
                       "may", "might", "must", "shall", "can", "need", "dare", "ought", "used",
                       "to", "of", "in", "for", "on", "with", "at", "by", "from", "up", "about",
-                      "into", "over", "after", "and", "but", "or", "as", "if", "when", "than",
+                      "into", "over", "after", "as", "if", "when", "than",
                       "because", "while", "although", "though", "that", "which", "who", "whom",
                       "this", "these", "those", "what", "how", "where", "why"}
 
@@ -417,9 +416,9 @@ class DriftDetectionEvaluator(BaseEvaluator):
         return score / total if total > 0 else 0.0
 
     # ------------------- 基线持久化管理 -------------------
-    _BASELINE_STORE: Dict[str, float] = {}
+    _BASELINE_STORE: dict[str, float] = {}
 
-    def _get_or_create_baseline(self, case_id: str, recent_results: list) -> Optional[float]:
+    def _get_or_create_baseline(self, case_id: str, recent_results: list) -> float | None:
         """获取或创建基线分数（持久化到内存，支持导出到文件）"""
         if case_id in self._BASELINE_STORE:
             return self._BASELINE_STORE[case_id]
@@ -452,7 +451,7 @@ class DriftDetectionEvaluator(BaseEvaluator):
         except Exception:
             pass
 
-    def load_baselines(self) -> Dict[str, float]:
+    def load_baselines(self) -> dict[str, float]:
         """从持久化存储加载基线"""
         try:
             import json

@@ -1,7 +1,8 @@
 import random
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 
 @dataclass
@@ -10,7 +11,7 @@ class SampledRequest:
     user_input: str
     model_output: str
     timestamp: datetime = field(default_factory=datetime.utcnow)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -18,8 +19,8 @@ class OnlineEvaluationResult:
     request_id: str
     is_success: bool
     score: float
-    feedback: Optional[str] = None
-    error_type: Optional[str] = None
+    feedback: str | None = None
+    error_type: str | None = None
     timestamp: datetime = field(default_factory=datetime.utcnow)
 
 
@@ -29,15 +30,15 @@ class OnlineEvaluationStats:
     success_count: int = 0
     failure_count: int = 0
     avg_score: float = 0.0
-    error_types: Dict[str, int] = field(default_factory=dict)
+    error_types: dict[str, int] = field(default_factory=dict)
     start_time: datetime = field(default_factory=datetime.utcnow)
-    end_time: Optional[datetime] = None
+    end_time: datetime | None = None
 
     @property
     def success_rate(self) -> float:
         return self.success_count / self.total_samples if self.total_samples > 0 else 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "total_samples": self.total_samples,
             "success_count": self.success_count,
@@ -53,12 +54,12 @@ class OnlineEvaluationStats:
 class ProductionSampler:
     def __init__(self, sample_rate: float = 0.1):
         self.sample_rate = sample_rate
-        self._sampled_requests: List[SampledRequest] = []
+        self._sampled_requests: list[SampledRequest] = []
 
     def should_sample(self) -> bool:
         return random.random() < self.sample_rate
 
-    def sample(self, request_id: str, user_input: str, model_output: str, **metadata) -> Optional[SampledRequest]:
+    def sample(self, request_id: str, user_input: str, model_output: str, **metadata) -> SampledRequest | None:
         if not self.should_sample():
             return None
 
@@ -71,7 +72,7 @@ class ProductionSampler:
         self._sampled_requests.append(request)
         return request
 
-    def get_sampled_requests(self, limit: int = 100) -> List[SampledRequest]:
+    def get_sampled_requests(self, limit: int = 100) -> list[SampledRequest]:
         return self._sampled_requests[-limit:]
 
     def clear(self):
@@ -81,13 +82,13 @@ class ProductionSampler:
 class OnlineEvaluator:
     def __init__(
         self,
-        llm_judge: Callable[[str, str], Tuple[bool, float, Optional[str]]],
+        llm_judge: Callable[[str, str], tuple[bool, float, str | None]],
         dataset_manager=None,
     ):
         self.llm_judge = llm_judge
         self.dataset_manager = dataset_manager
-        self._results: List[OnlineEvaluationResult] = []
-        self._sampled_requests: List[SampledRequest] = []
+        self._results: list[OnlineEvaluationResult] = []
+        self._sampled_requests: list[SampledRequest] = []
 
     def evaluate(self, request: SampledRequest) -> OnlineEvaluationResult:
         is_success, score, feedback = self.llm_judge(request.user_input, request.model_output)
@@ -104,14 +105,14 @@ class OnlineEvaluator:
         self._sampled_requests.append(request)
         return result
 
-    def evaluate_batch(self, requests: List[SampledRequest]) -> List[OnlineEvaluationResult]:
+    def evaluate_batch(self, requests: list[SampledRequest]) -> list[OnlineEvaluationResult]:
         results = []
         for request in requests:
             result = self.evaluate(request)
             results.append(result)
         return results
 
-    def _classify_error(self, request: SampledRequest, feedback: Optional[str]) -> str:
+    def _classify_error(self, request: SampledRequest, feedback: str | None) -> str:
         if feedback:
             feedback_lower = feedback.lower()
             if "hallucination" in feedback_lower or "事实错误" in feedback:
@@ -130,7 +131,7 @@ class OnlineEvaluator:
         self,
         dataset_id: str,
         max_recycle: int = 10,
-    ) -> List[OnlineEvaluationResult]:
+    ) -> list[OnlineEvaluationResult]:
         if not self.dataset_manager:
             return []
 
@@ -168,7 +169,7 @@ class OnlineEvaluator:
         failure_count = total - success_count
         avg_score = sum(r.score for r in self._results) / total
 
-        error_types: Dict[str, int] = {}
+        error_types: dict[str, int] = {}
         for result in self._results:
             if result.error_type:
                 error_types[result.error_type] = error_types.get(result.error_type, 0) + 1
@@ -183,7 +184,7 @@ class OnlineEvaluator:
             end_time=self._results[-1].timestamp,
         )
 
-    def get_results(self) -> List[OnlineEvaluationResult]:
+    def get_results(self) -> list[OnlineEvaluationResult]:
         return self._results
 
     def clear(self):
@@ -204,7 +205,7 @@ class OnlineEvaluationPipeline:
         self.recycle_interval = recycle_interval
         self._count_since_last_recycle = 0
 
-    def process_request(self, request_id: str, user_input: str, model_output: str, **metadata) -> Optional[OnlineEvaluationResult]:
+    def process_request(self, request_id: str, user_input: str, model_output: str, **metadata) -> OnlineEvaluationResult | None:
         sampled = self.sampler.sample(request_id, user_input, model_output, **metadata)
         if not sampled:
             return None
@@ -217,7 +218,7 @@ class OnlineEvaluationPipeline:
 
         return result
 
-    def trigger_recycle(self, dataset_id: str) -> List[OnlineEvaluationResult]:
+    def trigger_recycle(self, dataset_id: str) -> list[OnlineEvaluationResult]:
         if not self.dataset_manager:
             return []
         return self.evaluator.recycle_failed_samples(dataset_id)

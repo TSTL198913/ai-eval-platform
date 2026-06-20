@@ -1,14 +1,15 @@
 """分布式队列测试"""
 
-import pytest
-from unittest.mock import MagicMock
 from datetime import datetime
+from unittest.mock import MagicMock
+
+import pytest
 
 from src.distributed.queue import (
-    QueueType,
     MessagePriority,
-    QueueMessage,
     QueueConfig,
+    QueueMessage,
+    QueueType,
     RedisListQueue,
 )
 
@@ -144,13 +145,13 @@ class TestRedisListQueue:
         import json
         message = QueueMessage(message_id="consume-001", payload="test")
         mock_redis.rpop = MagicMock(return_value=json.dumps(message.to_dict()))
-        
+
         received_message = []
         async def callback(msg):
             received_message.append(msg)
-        
+
         await queue.consume(callback)
-        
+
         assert len(received_message) == 1
         assert received_message[0].message_id == "consume-001"
 
@@ -158,13 +159,13 @@ class TestRedisListQueue:
     async def test_consume_empty_queue(self, queue, mock_redis):
         """空队列应短暂等待后返回"""
         mock_redis.rpop = MagicMock(return_value=None)
-        
+
         received_message = []
         async def callback(msg):
             received_message.append(msg)
-        
+
         await queue.consume(callback)
-        
+
         assert len(received_message) == 0
 
     @pytest.mark.asyncio
@@ -173,12 +174,12 @@ class TestRedisListQueue:
         import json
         message = QueueMessage(message_id="error-msg", payload="test")
         mock_redis.rpop = MagicMock(return_value=json.dumps(message.to_dict()))
-        
+
         async def callback(msg):
             raise Exception("Callback error")
-        
+
         await queue.consume(callback)
-        
+
         mock_redis.lpush.assert_called()
 
     @pytest.mark.asyncio

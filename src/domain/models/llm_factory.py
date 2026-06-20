@@ -10,20 +10,18 @@ LLM 客户端工厂 - 智能模型接入
 
 import os
 import threading
-from typing import Dict, Optional
 
 from src.domain.models.base import BaseLLMClient, ModelConfig
-
 
 # ============================================================================
 # 缓存管理 - 减少重复创建和环境变量读取
 # ============================================================================
 
 # 客户端单例缓存：key = "provider:model_name"
-_llm_client_cache: Dict[str, BaseLLMClient] = {}
+_llm_client_cache: dict[str, BaseLLMClient] = {}
 
 # 环境变量配置缓存：减少重复读取
-_env_config_cache: Dict[str, ModelConfig] = {}
+_env_config_cache: dict[str, ModelConfig] = {}
 
 # 缓存锁：保证并发安全
 _cache_lock = threading.RLock()
@@ -402,7 +400,7 @@ def get_cache_stats() -> dict:
     """
     with _cache_lock:
         client_count = len(_llm_client_cache)
-        cached_providers = list(set(k.split(":")[0] for k in _llm_client_cache.keys()))
+        cached_providers = list({k.split(":")[0] for k in _llm_client_cache.keys()})
 
     with _env_cache_lock:
         env_count = len(_env_config_cache)

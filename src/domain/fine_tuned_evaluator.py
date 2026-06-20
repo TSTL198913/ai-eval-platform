@@ -6,12 +6,11 @@
 import json
 import os
 import time
-from typing import Any, Dict, List, Optional
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 from src.domain.evaluators.base import BaseEvaluator
-from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
 
@@ -120,7 +119,7 @@ class FineTunedEvaluator(BaseEvaluator):
         else:
             return self._mock_evaluate(request, dimensions)
 
-    def _evaluate_local(self, request: EvaluationSchema, dimensions: List[str]) -> DomainResponse:
+    def _evaluate_local(self, request: EvaluationSchema, dimensions: list[str]) -> DomainResponse:
         """使用本地模型评估"""
         start_time = time.time()
 
@@ -150,7 +149,7 @@ class FineTunedEvaluator(BaseEvaluator):
 
         return self._mock_evaluate(request, dimensions)
 
-    def _evaluate_with_llm(self, request: EvaluationSchema, dimensions: List[str]) -> DomainResponse:
+    def _evaluate_with_llm(self, request: EvaluationSchema, dimensions: list[str]) -> DomainResponse:
         """使用 LLM Client 评估"""
         start_time = time.time()
 
@@ -161,7 +160,7 @@ class FineTunedEvaluator(BaseEvaluator):
 
         return self._parse_response(response, dimensions, latency_ms)
 
-    def _mock_evaluate(self, request: EvaluationSchema, dimensions: List[str]) -> DomainResponse:
+    def _mock_evaluate(self, request: EvaluationSchema, dimensions: list[str]) -> DomainResponse:
         """Mock 评估结果"""
         scores = {}
         total = 0
@@ -183,7 +182,7 @@ class FineTunedEvaluator(BaseEvaluator):
             }
         )
 
-    def _build_prompt(self, request: EvaluationSchema, dimensions: List[str]) -> str:
+    def _build_prompt(self, request: EvaluationSchema, dimensions: list[str]) -> str:
         """构建评估提示"""
         user_input = self.get_input_text(request)
         actual_output = self.get_payload_data(request, "actual_output")
@@ -215,7 +214,7 @@ class FineTunedEvaluator(BaseEvaluator):
 请以JSON格式输出评分:
 {{"scores": {{"<维度>": {{"score": <0-100分数>, "reason": "<理由>"}}}}, "total_score": <总分>}}"""
 
-    def _parse_response(self, response: str, dimensions: List[str], latency_ms: float) -> DomainResponse:
+    def _parse_response(self, response: str, dimensions: list[str], latency_ms: float) -> DomainResponse:
         """解析评估响应"""
         try:
             start = response.find("{")
@@ -245,7 +244,7 @@ class FineTunedEvaluator(BaseEvaluator):
         except Exception:
             return self._fallback_parse_response(response, dimensions)
 
-    def _fallback_parse(self, response: str, dimensions: List[str]) -> Dict[str, Any]:
+    def _fallback_parse(self, response: str, dimensions: list[str]) -> dict[str, Any]:
         """回退解析"""
         scores = {}
         import re
@@ -256,7 +255,7 @@ class FineTunedEvaluator(BaseEvaluator):
 
         return {"scores": scores, "total_score": sum(s["score"] for s in scores.values()) // len(scores)}
 
-    def _fallback_parse_response(self, response: str, dimensions: List[str]) -> DomainResponse:
+    def _fallback_parse_response(self, response: str, dimensions: list[str]) -> DomainResponse:
         """回退响应"""
         scores = {dim: {"score": 70, "reason": "解析失败"} for dim in dimensions}
         return DomainResponse(
@@ -276,7 +275,7 @@ class FineTunedEvaluator(BaseEvaluator):
         self._model_path = model_path
         self._load_model()
 
-    def get_performance_stats(self) -> Dict[str, Any]:
+    def get_performance_stats(self) -> dict[str, Any]:
         """获取性能统计"""
         return {
             "model_name": self._model_name,
@@ -295,8 +294,8 @@ class ModelManager:
     """模型管理器 - 管理多个轻量化模型"""
 
     def __init__(self):
-        self._models: Dict[str, FineTunedEvaluator] = {}
-        self._default_model: Optional[str] = None
+        self._models: dict[str, FineTunedEvaluator] = {}
+        self._default_model: str | None = None
         self._load_config()
 
     def _load_config(self):
@@ -304,7 +303,7 @@ class ModelManager:
         config_file = "config/fine_tuned_models.json"
         if os.path.exists(config_file):
             try:
-                with open(config_file, "r", encoding="utf-8") as f:
+                with open(config_file, encoding="utf-8") as f:
                     config = json.load(f)
                     for name, model_config in config.items():
                         evaluator = FineTunedEvaluator(
@@ -332,13 +331,13 @@ class ModelManager:
         self._save_config()
         return True
 
-    def get_evaluator(self, name: str = None) -> Optional[FineTunedEvaluator]:
+    def get_evaluator(self, name: str = None) -> FineTunedEvaluator | None:
         """获取评估器"""
         if name:
             return self._models.get(name)
         return self._models.get(self._default_model)
 
-    def list_models(self) -> List[Dict[str, Any]]:
+    def list_models(self) -> list[dict[str, Any]]:
         """列出所有模型"""
         return [
             {

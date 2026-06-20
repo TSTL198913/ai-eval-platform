@@ -253,8 +253,9 @@ class TestRequireClient:
 
     def test_require_client_configured(self):
         """已配置客户端应返回None"""
-        from src.domain.models.base import BaseLLMClient
         from unittest.mock import MagicMock
+
+        from src.domain.models.base import BaseLLMClient
 
         mock_client = MagicMock(spec=BaseLLMClient)
         evaluator = ConcreteEvaluator(client=mock_client)

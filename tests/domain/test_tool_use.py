@@ -10,14 +10,14 @@ ToolUseEvaluator 专项测试
 
 import os
 import sys
+
 import pytest
-from unittest.mock import MagicMock
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from src.domain.evaluators.tool_use import ToolUseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.domain.evaluators.tool_use import ToolUseEvaluator
+from src.schemas.evaluation import EvaluationSchema
 
 
 class TestToolUseEvaluatorPositiveCases:

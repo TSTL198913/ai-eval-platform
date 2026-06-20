@@ -4,8 +4,9 @@
 """
 import os
 import sys
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
@@ -13,12 +14,15 @@ os.environ["TESTING"] = "1"
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
 from src.infra.db.session import init_tables
+
 init_tables()
 
 from src.domain.evaluators import auto_discover
+
 auto_discover(force=True)
 
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory as EF
+
 
 @pytest.fixture(autouse=True)
 def reset_evaluators_each_test():
@@ -27,8 +31,9 @@ def reset_evaluators_each_test():
     auto_discover(force=True)
     yield
 
-from src.api.server import app
 from fastapi.testclient import TestClient
+
+from src.api.server import app
 
 
 @pytest.fixture

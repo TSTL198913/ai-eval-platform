@@ -2,12 +2,13 @@
 统计显著性分析模块测试
 """
 
-import pytest
 import numpy as np
+import pytest
+
 from src.domain.statistical_analysis import (
-    StatisticalSignificanceAnalyzer,
     ABTestResult,
-    ConfidenceInterval
+    ConfidenceInterval,
+    StatisticalSignificanceAnalyzer,
 )
 
 
@@ -37,7 +38,7 @@ class TestStatisticalSignificanceAnalyzer:
 
         assert isinstance(result, ABTestResult)
         assert result.mean_a < result.mean_b
-        assert result.is_significant == True
+        assert result.is_significant
         assert result.winner == "model_b"
         assert result.p_value < 0.05
 
@@ -53,7 +54,7 @@ class TestStatisticalSignificanceAnalyzer:
             test_type="ttest"
         )
 
-        assert result.is_significant == False
+        assert not result.is_significant
         assert result.winner == "no_significant_difference"
 
     def test_ab_test_mannwhitney(self):
@@ -68,7 +69,7 @@ class TestStatisticalSignificanceAnalyzer:
         )
 
         assert isinstance(result, ABTestResult)
-        assert result.is_significant == True
+        assert result.is_significant
 
     def test_ab_test_auto_selection(self):
         """测试自动选择检验方法"""

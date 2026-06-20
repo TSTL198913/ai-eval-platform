@@ -7,15 +7,14 @@
 
 目标：发现生产环境潜在 Bug、架构缺陷、安全风险
 """
+import json
 import os
 import sys
-import asyncio
-import json
-import time
 import threading
+import time
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
-from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -32,8 +31,9 @@ class TestAPIContractBugsDiscovery:
         业务风险：客户端漏传必填字段(id/type/payload)时不会返回 400
         业务方会收到 200 OK 但 evaluation_status='error'，误以为请求合法
         """
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
         # 缺 id, type, payload
@@ -51,8 +51,9 @@ class TestAPIContractBugsDiscovery:
 
     def test_evaluate_endpoint_accepts_partial_data(self):
         """BUG: 部分字段缺失仍可处理"""
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
         # 只有 id，缺 type 和 payload
@@ -70,8 +71,9 @@ class TestAPIContractBugsDiscovery:
         实际：返回 400（请求体缺失）
         HTTP 语义层面，401 才是正确的
         """
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
         response = client.post("/api/v1/auth/login", json={})
@@ -85,8 +87,9 @@ class TestAPIContractBugsDiscovery:
 
         业务风险：客户端传 record_id='abc' 时会 422，但 404 更合理
         """
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
         response = client.get("/api/v1/records/abc")
@@ -96,8 +99,9 @@ class TestAPIContractBugsDiscovery:
 
     def test_records_update_accepts_arbitrary_fields(self):
         """验证：records update 有字段白名单保护（已修复）"""
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
         response = client.put(
@@ -115,8 +119,9 @@ class TestAPIContractBugsDiscovery:
 
     def test_batch_update_validates_no_fields(self):
         """验证：批量更新已有限制（已修复）"""
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
         response = client.post(
@@ -132,8 +137,9 @@ class TestAPIContractBugsDiscovery:
 
         业务风险：恶意网站可通过 fetch 调用 API（需配合 cookie）
         """
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
         response = client.get("/health", headers={"Origin": "https://evil.com"})
@@ -147,8 +153,9 @@ class TestAPIContractBugsDiscovery:
 
     def test_evaluator_search_endpoint_validation(self):
         """安全：评估器详情查询是否正确校验路径参数"""
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
         # URL 编码的 SQL 注入
@@ -158,8 +165,9 @@ class TestAPIContractBugsDiscovery:
 
     def test_health_check_includes_critical_components(self):
         """BUG: /api/v1/health 在 Redis 失败时仍返回 healthy"""
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
         # 当前实现: 只检查 DB 和 Celery
@@ -179,8 +187,9 @@ class TestAPIContractBugsDiscovery:
 
         业务风险：低（仅返回版本号），但应确保无敏感信息泄露
         """
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
         response = client.get("/")
@@ -193,8 +202,9 @@ class TestAPIContractBugsDiscovery:
 
     def test_models_compare_returns_fake_data(self):
         """验证：/api/v1/models/compare 返回模拟数据但有明确标记（已修复）"""
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
         response = client.post(
@@ -207,15 +217,15 @@ class TestAPIContractBugsDiscovery:
         )
         data = response.json()["data"]
         # 修复后：明确标记 is_simulated=True
-        assert data.get("is_simulated") == True
+        assert data.get("is_simulated")
         assert "warning" in data
         for m in data.get("models", []):
             assert m.get("warning") == "此为演示数据，非真实评测结果"
 
     def test_evaluators_name_validation_blocks_spaces(self):
         """验证：评估器名包含空格应被拒绝"""
-        from src.api.server import validate_evaluator_name, app
-        from fastapi.testclient import TestClient
+
+        from src.api.server import validate_evaluator_name
 
         # validate_evaluator_name 应该拒绝 "name with space"
         assert validate_evaluator_name("name with space") is False
@@ -225,8 +235,9 @@ class TestAPIContractBugsDiscovery:
 
         业务风险：业务方可读取 reports 目录外的任意文件
         """
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
         # 路径遍历尝试
@@ -254,10 +265,10 @@ class TestServiceLayerBugsDiscovery:
         业务风险：业务方根据 status=='success' 判断成功，会忽略 evaluation_status='error'
         导致监控告警失效、计费错误、用户错误反馈
         """
-        from src.services.evaluator_svc import run_evaluation_service
-        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
         from src.domain.evaluators.base import BaseEvaluator
+        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
         from src.exceptions import DomainLogicError
+        from src.services.evaluator_svc import run_evaluation_service
 
         @EvaluatorFactory.register("svc_bug_test")
         class BuggyEval(BaseEvaluator):
@@ -367,8 +378,9 @@ class TestServiceLayerBugsDiscovery:
 
         业务风险：业务方不知道为什么选择特定模型，无法调优
         """
-        from src.services.evaluator_svc import run_evaluation_service
         from unittest.mock import patch
+
+        from src.services.evaluator_svc import run_evaluation_service
 
         client = MagicMock()
         client.config = MagicMock()
@@ -400,7 +412,7 @@ class TestDistributedBugsDiscovery:
         业务风险：业务方配置错（refill_rate=0）导致限流器崩溃
         应优雅返回 retry_after_ms=infinity 或 极大值
         """
-        from src.distributed.rate_limiter import TokenBucket, RateLimitConfig
+        from src.distributed.rate_limiter import RateLimitConfig, TokenBucket
 
         bucket = TokenBucket(
             MagicMock(), "user", RateLimitConfig(max_tokens=10, refill_rate=0.0)
@@ -412,7 +424,7 @@ class TestDistributedBugsDiscovery:
 
         # 下一次应触发 ZeroDivisionError
         try:
-            result = bucket.allow()
+            bucket.allow()
         except ZeroDivisionError:
             pytest.fail(
                 "BUG: refill_rate=0 触发 ZeroDivisionError！\n"
@@ -457,7 +469,9 @@ class TestDistributedBugsDiscovery:
         业务风险：读 state 改变状态，难以调试
         """
         from src.distributed.circuit_breaker import (
-            CircuitBreaker, CircuitBreakerConfig, CircuitState
+            CircuitBreaker,
+            CircuitBreakerConfig,
+            CircuitState,
         )
 
         cb = CircuitBreaker(
@@ -490,7 +504,6 @@ class TestDistributedBugsDiscovery:
         # 但 extend 的 expire 脚本未实现
         # 真实 Redis 中 extend 用 'expire' 脚本
         # 测试可能通过但生产环境有差异
-        from src.distributed.lock import DistributedLock
 
         # 这个测试是提醒：在真实 Redis 上需要验证 extend
         pass
@@ -500,7 +513,6 @@ class TestDistributedBugsDiscovery:
 
         业务风险：测试中滑动窗口清理逻辑被绕过
         """
-        from src.distributed.rate_limiter import SlidingWindowLog
 
         # 这里主要说明 FakeRedis 的 zremrangebyscore 没真实实现
         # 生产环境的窗口清理逻辑没有单元测试覆盖
@@ -642,11 +654,11 @@ class TestEngineBugsDiscovery:
 
         业务风险：业务方只看到'契约验证错误'，无法定位根因
         """
-        from src.engine import EvaluationEngine
-        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
         from src.domain.evaluators.base import BaseEvaluator
-        from src.schemas.evaluation import EvaluationSchema
+        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+        from src.engine import EvaluationEngine
         from src.exceptions import ContractValidationError
+        from src.schemas.evaluation import EvaluationSchema
 
         @EvaluatorFactory.register("err_ctx_test")
         class ErrCtxEval(BaseEvaluator):
@@ -677,11 +689,11 @@ class TestEngineBugsDiscovery:
 
         业务风险：英文系统集成时无法本地化
         """
-        from src.engine import EvaluationEngine
-        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
         from src.domain.evaluators.base import BaseEvaluator
-        from src.schemas.evaluation import EvaluationSchema
+        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+        from src.engine import EvaluationEngine
         from src.exceptions import DomainLogicError
+        from src.schemas.evaluation import EvaluationSchema
 
         @EvaluatorFactory.register("i18n_test")
         class I18nEval(BaseEvaluator):
@@ -710,11 +722,11 @@ class TestEngineBugsDiscovery:
 
         业务风险：SLA 监控被异常 case 污染
         """
-        from src.engine import EvaluationEngine
-        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
         from src.domain.evaluators.base import BaseEvaluator
-        from src.schemas.evaluation import EvaluationSchema
+        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+        from src.engine import EvaluationEngine
         from src.exceptions import ContractValidationError
+        from src.schemas.evaluation import EvaluationSchema
 
         @EvaluatorFactory.register("slow_fail_eng")
         class SlowFailEng(BaseEvaluator):
@@ -745,11 +757,11 @@ class TestEngineBugsDiscovery:
         # 系统异常(其他 Exception) → safe_evaluate 捕获并返回 FAILED
         # 两者都看似"失败"但语义不同
         # 当前实现: 依赖 safe_evaluate 的 catch-all 行为
-        from src.engine import EvaluationEngine
-        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
         from src.domain.evaluators.base import BaseEvaluator
-        from src.schemas.evaluation import EvaluationSchema
+        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+        from src.engine import EvaluationEngine
         from src.exceptions import ContractValidationError
+        from src.schemas.evaluation import EvaluationSchema
 
         @EvaluatorFactory.register("mixed_exc_test")
         class MixedExc(BaseEvaluator):
@@ -807,8 +819,9 @@ class TestSecurityBugsDiscovery:
 
     def test_user_input_passed_to_llm_without_sanitization(self):
         """验证：SecurityMiddleware 拦截敏感信息（已修复）"""
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
         sensitive_input = "请帮我看看这个 key: sk-1234567890abcdefghij"
@@ -829,8 +842,9 @@ class TestSecurityBugsDiscovery:
 
         业务风险：业务方可注入 SQL ORDER BY
         """
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
         # sort_by 注入
@@ -846,8 +860,9 @@ class TestSecurityBugsDiscovery:
 
     def test_auth_me_endpoint_always_returns_401_with_auth(self):
         """BUG: /api/v1/auth/me 即便有合法 token 也返回 401"""
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
         response = client.get(
@@ -862,8 +877,9 @@ class TestSecurityBugsDiscovery:
 
     def test_refresh_token_returns_unchanged(self):
         """BUG: /api/v1/auth/refresh 不验证 refresh_token，直接返回 access_token='demo-token'"""
-        from src.api.server import app
         from fastapi.testclient import TestClient
+
+        from src.api.server import app
 
         client = TestClient(app)
         response = client.post(
@@ -968,8 +984,8 @@ class TestPerformanceStabilityBugs:
 
         业务风险：进程退出时数据丢失
         """
-        from src.workers.tasks import EvaluationBufferService
         from src.infra.db.models import EvaluationResultModel
+        from src.workers.tasks import EvaluationBufferService
 
         svc = EvaluationBufferService(batch_size=1, flush_interval_seconds=1.0)
 

@@ -1,5 +1,4 @@
 import json
-from typing import Any, Optional
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
@@ -9,7 +8,7 @@ from src.schemas.evaluation import DomainResponse, EvaluationSchema
 @EvaluatorFactory.register("llm_as_judge")
 class LLMAJudgeEvaluator(BaseEvaluator):
     """LLM-as-a-Judge 评估器
-    
+
     使用大模型作为评判者，对 Agent 输出进行多维度评估。
     支持：正确性、完整性、相关性、简洁性、安全性等维度。
     """
@@ -96,7 +95,7 @@ class LLMAJudgeEvaluator(BaseEvaluator):
             except Exception:
                 pass
 
-        prompt = """你是一个专业的 AI 评测专家。请根据以下维度对模型的输出进行评分。
+        prompt = f"""你是一个专业的 AI 评测专家。请根据以下维度对模型的输出进行评分。
 
 【重要要求】
 1. 每个维度的评分必须有具体的文本引用作为证据支撑
@@ -119,15 +118,7 @@ class LLMAJudgeEvaluator(BaseEvaluator):
 - 最终输出为 JSON 格式，包含各维度得分、总分和置信度
 
 【输出格式】
-{json_format}""".format(
-            few_shot_section=few_shot_section,
-            user_input=user_input,
-            actual_output=actual_output,
-            expected_section=expected_section,
-            criteria_section=criteria_section,
-            dimension_str=dimension_str,
-            json_format=json_format,
-        )
+{json_format}"""
 
         return prompt
 

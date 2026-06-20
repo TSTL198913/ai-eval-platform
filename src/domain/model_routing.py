@@ -1,7 +1,6 @@
 import json
 import os
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from src.domain.model_performance import model_performance_analyzer
 from src.domain.models.llm_factory import ModelProvider, create_llm_client, load_config
@@ -19,17 +18,17 @@ class ModelRouter:
         self._routing_config = self._load_routing_config()
         self._default_provider = ModelProvider.DEEPSEEK
 
-    def _load_routing_config(self) -> Dict[str, Any]:
+    def _load_routing_config(self) -> dict[str, Any]:
         config_path = 'config/routing_config.json'
         if os.path.exists(config_path):
             try:
-                with open(config_path, 'r', encoding='utf-8') as f:
+                with open(config_path, encoding='utf-8') as f:
                     return json.load(f)
             except Exception:
                 pass
         return self._get_default_config()
 
-    def _get_default_config(self) -> Dict[str, Any]:
+    def _get_default_config(self) -> dict[str, Any]:
         return {
             'strategies': {
                 'security': {'preference': 'quality', 'providers': ['openai', 'anthropic']},
@@ -46,7 +45,7 @@ class ModelRouter:
             'confidence_threshold': 0.7,
         }
 
-    def route(self, task_type: str, strategy: str = ModelRoutingStrategy.BALANCED) -> Dict[str, Any]:
+    def route(self, task_type: str, strategy: str = ModelRoutingStrategy.BALANCED) -> dict[str, Any]:
         strategy_config = self._routing_config.get('strategies', {}).get(task_type)
         if strategy_config:
             preference = strategy_config.get('preference', strategy)
@@ -97,7 +96,7 @@ class ModelRouter:
             'source': 'fallback',
         }
 
-    def get_routing_decision(self, task_type: str, payload: Dict[str, Any] = None) -> Dict[str, Any]:
+    def get_routing_decision(self, task_type: str, payload: dict[str, Any] = None) -> dict[str, Any]:
         difficulty = self._estimate_difficulty(payload)
         if difficulty == 'high':
             return self.route(task_type, ModelRoutingStrategy.QUALITY)
@@ -106,7 +105,7 @@ class ModelRouter:
         else:
             return self.route(task_type, ModelRoutingStrategy.BALANCED)
 
-    def _estimate_difficulty(self, payload: Dict[str, Any] = None) -> str:
+    def _estimate_difficulty(self, payload: dict[str, Any] = None) -> str:
         if not payload:
             return 'medium'
 
@@ -123,7 +122,7 @@ class ModelRouter:
         else:
             return 'medium'
 
-    def create_llm_client(self, task_type: str, payload: Dict[str, Any] = None) -> Any:
+    def create_llm_client(self, task_type: str, payload: dict[str, Any] = None) -> Any:
         decision = self.get_routing_decision(task_type, payload)
         try:
             return create_llm_client(
@@ -133,17 +132,17 @@ class ModelRouter:
         except Exception:
             return create_llm_client(provider=self._default_provider), decision
 
-    def update_routing_config(self, new_config: Dict[str, Any]):
+    def update_routing_config(self, new_config: dict[str, Any]):
         self._routing_config.update(new_config)
         config_path = 'config/routing_config.json'
         os.makedirs(os.path.dirname(config_path), exist_ok=True)
         with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(self._routing_config, f, ensure_ascii=False, indent=2)
 
-    def get_routing_config(self) -> Dict[str, Any]:
+    def get_routing_config(self) -> dict[str, Any]:
         return self._routing_config
 
-    def get_available_providers(self) -> List[str]:
+    def get_available_providers(self) -> list[str]:
         return list(ModelProvider.__members__.keys())
 
 

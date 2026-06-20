@@ -5,12 +5,12 @@ LLM指标采集器
 """
 
 import time
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable, Optional
+
+from prometheus_client import Counter, Histogram
 
 from src.infra.monitoring.metrics import registry
-from prometheus_client import Counter, Histogram, Gauge
-
 
 # ============================================================================
 # LLM层指标定义
@@ -96,7 +96,7 @@ def record_llm_call(
     prompt_tokens: int = 0,
     completion_tokens: int = 0,
     latency: float = 0,
-    error: Optional[str] = None,
+    error: str | None = None,
     selection_reason: str = "quality",
 ):
     """

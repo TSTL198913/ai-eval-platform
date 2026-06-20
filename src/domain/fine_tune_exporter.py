@@ -8,8 +8,7 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
-from pathlib import Path
+from typing import Any
 
 
 class ExportFormat(Enum):
@@ -24,9 +23,9 @@ class TrainingSample:
     id: str
     prompt: str
     completion: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_openai_format(self) -> Dict[str, str]:
+    def to_openai_format(self) -> dict[str, str]:
         return {"prompt": self.prompt, "completion": self.completion}
 
     def to_llama_format(self) -> str:
@@ -44,7 +43,7 @@ class TrainingSample:
 @dataclass
 class ExportStats:
     total_samples: int = 0
-    by_dimension: Dict[str, int] = field(default_factory=dict)
+    by_dimension: dict[str, int] = field(default_factory=dict)
     avg_score: float = 0.0
     high_quality_samples: int = 0  # score >= 80
     low_quality_samples: int = 0   # score < 50
@@ -140,10 +139,10 @@ class FineTuneExporter:
 
     def _convert_to_training_samples(
         self,
-        samples: List[Any],
+        samples: list[Any],
         dataset_name: str,
         include_metadata: bool
-    ) -> List[TrainingSample]:
+    ) -> list[TrainingSample]:
         """将黄金样本转换为训练样本"""
         training_samples = []
 
@@ -203,9 +202,9 @@ AI回答: {actual_output}{expected_section}
 
     def _build_evaluation_completion(
         self,
-        scores: Dict[str, float],
+        scores: dict[str, float],
         total_score: float,
-        dimensions: List[str]
+        dimensions: list[str]
     ) -> str:
         """构建评估回复"""
         dim_scores = []
@@ -220,7 +219,7 @@ AI回答: {actual_output}{expected_section}
     def _build_prompt(self, user_input: str, actual_output: str) -> str:
         return f"评估以下回答:\n用户输入: {user_input}\n回答: {actual_output}"
 
-    def _build_completion(self, response_data: Dict[str, Any]) -> str:
+    def _build_completion(self, response_data: dict[str, Any]) -> str:
         total = response_data.get("total_score", 0)
         scores = response_data.get("llm_judge_scores", {})
         parts = [f"总分: {total:.0f}"]
@@ -229,7 +228,7 @@ AI回答: {actual_output}{expected_section}
                 parts.append(f"{dim}: {data.get('score', 0)}分")
         return "\n".join(parts)
 
-    def _get_avg_score(self, scores: Dict[str, float]) -> float:
+    def _get_avg_score(self, scores: dict[str, float]) -> float:
         if not scores:
             return 0.0
         return sum(scores.values()) / len(scores)
@@ -237,7 +236,7 @@ AI回答: {actual_output}{expected_section}
     def _write_file(
         self,
         filepath: str,
-        samples: List[TrainingSample],
+        samples: list[TrainingSample],
         format: ExportFormat
     ):
         """按指定格式写入文件"""
@@ -250,7 +249,7 @@ AI回答: {actual_output}{expected_section}
                 elif format == ExportFormat.RAW_JSONL:
                     f.write(sample.to_json() + "\n")
 
-    def _generate_stats(self, training_samples: List[TrainingSample], original_samples: List):
+    def _generate_stats(self, training_samples: list[TrainingSample], original_samples: list):
         """生成导出统计"""
         self._stats = ExportStats()
         self._stats.total_samples = len(training_samples)
@@ -279,7 +278,7 @@ AI回答: {actual_output}{expected_section}
         with open(metadata_file, "w", encoding="utf-8") as f:
             json.dump(metadata, f, ensure_ascii=False, indent=2)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         return {
             "total_samples": self._stats.total_samples,
             "avg_score": round(self._stats.avg_score, 2),
@@ -288,7 +287,7 @@ AI回答: {actual_output}{expected_section}
             "export_time": self._stats.export_time
         }
 
-    def generate_quality_report(self, samples: List[TrainingSample]) -> Dict[str, Any]:
+    def generate_quality_report(self, samples: list[TrainingSample]) -> dict[str, Any]:
         """生成训练数据质量报告"""
         if not samples:
             return {"error": "No samples to analyze"}
@@ -311,7 +310,7 @@ AI回答: {actual_output}{expected_section}
             "recommendations": self._generate_recommendations(score_distribution)
         }
 
-    def _calculate_quality_grade(self, distribution: Dict[str, int]) -> str:
+    def _calculate_quality_grade(self, distribution: dict[str, int]) -> str:
         total = sum(distribution.values())
         if total == 0:
             return "N/A"
@@ -329,7 +328,7 @@ AI回答: {actual_output}{expected_section}
         else:
             return "D (需改进)"
 
-    def _generate_recommendations(self, distribution: Dict[str, int]) -> List[str]:
+    def _generate_recommendations(self, distribution: dict[str, int]) -> list[str]:
         recommendations = []
         total = sum(distribution.values())
 

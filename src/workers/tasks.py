@@ -4,7 +4,7 @@ import os
 import signal
 import threading
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 from src.infra.db.models import EvaluationResultModel
 from src.infra.db.session import get_session_local
@@ -14,8 +14,8 @@ from src.schemas.schemas import EvaluationResult
 
 def _get_evaluation_engine(llm_client=None):
     """延迟获取EvaluationEngine"""
-    from src.engine import EvaluationEngine
     from src.domain.models.llm_factory import create_llm_client
+    from src.engine import EvaluationEngine
     return EvaluationEngine(create_llm_client(client=llm_client))
 
 logger = logging.getLogger(__name__)
@@ -43,12 +43,12 @@ TASK_DEFAULT_RETRY_DELAY = int(os.environ.get("CELERY_TASK_DEFAULT_RETRY_DELAY",
 TASK_TIME_LIMIT = int(os.environ.get("CELERY_TASK_TIME_LIMIT", "60"))
 TASK_SOFT_TIME_LIMIT = int(os.environ.get("CELERY_TASK_SOFT_TIME_LIMIT", "240"))
 
-_METRICS: Optional[Dict[str, Any]] = None
+_METRICS: dict[str, Any] | None = None
 _TASK = None
 _CELERY_APP = None
 
 
-def _get_metrics() -> Dict[str, Any]:
+def _get_metrics() -> dict[str, Any]:
     global _METRICS
     if _METRICS is None:
         from src.infra.monitoring.metrics import (
@@ -356,7 +356,7 @@ class EvaluationBufferService:
         with self._lock:
             return len(self.priority_buffer)
 
-    def get_flush_stats(self) -> Dict[str, Any]:
+    def get_flush_stats(self) -> dict[str, Any]:
         """获取flush统计信息"""
         with self._lock:
             avg_latency = self._total_flush_latency / self._total_flush_count if self._total_flush_count > 0 else 0.0
@@ -485,7 +485,7 @@ def _register_task(**kwargs):
     # 任务追踪
     track_started=True,
 )
-def eval_case_task(self, case_data: dict, priority: bool = False, llm_client=None) -> Dict[str, Any]:
+def eval_case_task(self, case_data: dict, priority: bool = False, llm_client=None) -> dict[str, Any]:
     """评测任务
 
     Args:

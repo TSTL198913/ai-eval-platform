@@ -16,12 +16,10 @@ Celery队列监控脚本
     MONITOR_INTERVAL: 监控间隔（秒），默认10
 """
 
-import os
-import sys
-import time
 import logging
+import os
 import threading
-from typing import Optional
+import time
 
 # 设置日志
 logging.basicConfig(
@@ -36,8 +34,8 @@ class CeleryQueueMonitor:
 
     def __init__(
         self,
-        broker_url: Optional[str] = None,
-        pushgateway_url: Optional[str] = None,
+        broker_url: str | None = None,
+        pushgateway_url: str | None = None,
         interval: int = 10,
     ):
         self.broker_url = broker_url or os.getenv(
@@ -46,7 +44,7 @@ class CeleryQueueMonitor:
         self.pushgateway_url = pushgateway_url or os.getenv("PUSHGATEWAY_URL")
         self.interval = interval
         self._running = False
-        self._thread: Optional[threading.Thread] = None
+        self._thread: threading.Thread | None = None
 
         # 初始化Celery检查器
         self._inspect = None
@@ -56,6 +54,7 @@ class CeleryQueueMonitor:
         """初始化Celery检查器"""
         try:
             from celery.app.control import Inspect
+
             from src.workers.celery_app import get_celery_app
 
             app = get_celery_app()

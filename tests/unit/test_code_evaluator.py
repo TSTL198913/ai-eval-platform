@@ -4,8 +4,9 @@
 """
 import os
 import sys
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
@@ -196,7 +197,7 @@ class TestCodeEvaluatorScoring:
 
     def test_score_with_syntax_and_semantic_weights(self):
         """验证评分权重计算"""
-        from src.domain.evaluators.code import SYNTAX_WEIGHT, SEMANTIC_WEIGHT
+        from src.domain.evaluators.code import SEMANTIC_WEIGHT, SYNTAX_WEIGHT
 
         assert SYNTAX_WEIGHT == 0.3
         assert SEMANTIC_WEIGHT == 0.7

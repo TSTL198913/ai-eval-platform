@@ -13,10 +13,10 @@
 
 import json
 import logging
-from pathlib import Path
-from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -41,14 +41,14 @@ class TestCase:
     team: TeamRole
     test_type: TestType
     description: str
-    input_data: Dict[str, Any]
+    input_data: dict[str, Any]
     expected_behavior: str  # 期望行为描述（自然语言）
-    assertions: List[str]   # 断言列表
+    assertions: list[str]   # 断言列表
     priority: int = 1       # 1-5, 5最高
     author: str = "unknown" # 编写者（human/ai）
     created_at: str = ""
-    
-    def to_dict(self) -> Dict:
+
+    def to_dict(self) -> dict:
         return {
             "id": self.id,
             "team": self.team.value,
@@ -70,10 +70,10 @@ class RedBlueTestResult:
     team: TeamRole
     passed: bool
     actual_output: Any
-    failure_reason: Optional[str] = None
+    failure_reason: str | None = None
     execution_time_ms: float = 0.0
-    
-    def to_dict(self) -> Dict:
+
+    def to_dict(self) -> dict:
         return {
             "test_id": self.test_id,
             "team": self.team.value,
@@ -88,30 +88,30 @@ class RedBlueTestResult:
 class RedBlueTestReport:
     """红蓝对抗测试报告"""
     module_name: str
-    blue_team_results: List[RedBlueTestResult] = field(default_factory=list)
-    red_team_results: List[RedBlueTestResult] = field(default_factory=list)
+    blue_team_results: list[RedBlueTestResult] = field(default_factory=list)
+    red_team_results: list[RedBlueTestResult] = field(default_factory=list)
     blue_pass_rate: float = 0.0
     red_pass_rate: float = 0.0
     overall_trust_score: float = 0.0  # 综合信任分数
     recommendation: str = ""
-    
+
     def compute_scores(self):
         """计算通过率和信任分数"""
         blue_passed = sum(1 for r in self.blue_team_results if r.passed)
         blue_total = len(self.blue_team_results)
         self.blue_pass_rate = blue_passed / blue_total if blue_total > 0 else 0
-        
+
         red_passed = sum(1 for r in self.red_team_results if r.passed)
         red_total = len(self.red_team_results)
         self.red_pass_rate = red_passed / red_total if red_total > 0 else 0
-        
+
         # 信任分数 = Red Team通过率 × 权重（Red Team更重要）
         # Blue Team通过率作为参考
         self.overall_trust_score = (
             self.red_pass_rate * 0.7 +  # Red Team权重70%
             self.blue_pass_rate * 0.3   # Blue Team权重30%
         )
-        
+
         # 生成推荐
         if self.red_pass_rate >= 0.9:
             self.recommendation = "✅ 高度可信：Red Team测试通过率≥90%，可以信任"
@@ -119,8 +119,8 @@ class RedBlueTestReport:
             self.recommendation = "⚠️ 中度可信：Red Team测试通过率70-90%，建议人工复核"
         else:
             self.recommendation = "❌ 不可信：Red Team测试通过率<70%，必须修复"
-    
-    def to_dict(self) -> Dict:
+
+    def to_dict(self) -> dict:
         self.compute_scores()
         return {
             "module_name": self.module_name,
@@ -135,20 +135,20 @@ class RedBlueTestReport:
 
 class RedBlueTestManager:
     """红蓝对抗测试管理器"""
-    
-    def __init__(self, test_data_dir: Optional[str] = None):
+
+    def __init__(self, test_data_dir: str | None = None):
         self.test_data_dir = Path(test_data_dir) if test_data_dir else Path(__file__).parent / "data"
-        self.blue_tests: List[TestCase] = []
-        self.red_tests: List[TestCase] = []
-    
-    def load_test_suite(self, module_name: str) -> Dict[str, List[TestCase]]:
+        self.blue_tests: list[TestCase] = []
+        self.red_tests: list[TestCase] = []
+
+    def load_test_suite(self, module_name: str) -> dict[str, list[TestCase]]:
         """加载指定模块的红蓝测试集"""
         blue_file = self.test_data_dir / f"{module_name}_blue.json"
         red_file = self.test_data_dir / f"{module_name}_red.json"
-        
+
         blue_tests = []
         if blue_file.exists():
-            with open(blue_file, "r", encoding="utf-8") as f:
+            with open(blue_file, encoding="utf-8") as f:
                 data = json.load(f)
                 for item in data.get("tests", []):
                     blue_tests.append(TestCase(
@@ -163,10 +163,10 @@ class RedBlueTestManager:
                         author=item.get("author", "ai"),
                         created_at=item.get("created_at", ""),
                     ))
-        
+
         red_tests = []
         if red_file.exists():
-            with open(red_file, "r", encoding="utf-8") as f:
+            with open(red_file, encoding="utf-8") as f:
                 data = json.load(f)
                 for item in data.get("tests", []):
                     red_tests.append(TestCase(
@@ -181,25 +181,25 @@ class RedBlueTestManager:
                         author=item.get("author", "human"),
                         created_at=item.get("created_at", ""),
                     ))
-        
+
         self.blue_tests = blue_tests
         self.red_tests = red_tests
-        
+
         return {"blue": blue_tests, "red": red_tests}
-    
+
     def execute_test(self, test_case: TestCase, target_function: callable) -> RedBlueTestResult:
         """执行单个测试用例"""
         import time
-        
+
         start_time = time.time()
         actual_output = None
         passed = False
         failure_reason = None
-        
+
         try:
             # 执行目标函数
             actual_output = target_function(**test_case.input_data)
-            
+
             # 验证断言
             for assertion in test_case.assertions:
                 if not self._evaluate_assertion(assertion, actual_output):
@@ -208,14 +208,14 @@ class RedBlueTestManager:
                     break
             else:
                 passed = True
-                
+
         except Exception as e:
             passed = False
             failure_reason = f"执行异常: {str(e)}"
             actual_output = str(e)
-        
+
         execution_time_ms = (time.time() - start_time) * 1000
-        
+
         return RedBlueTestResult(
             test_id=test_case.id,
             team=test_case.team,
@@ -224,7 +224,7 @@ class RedBlueTestManager:
             failure_reason=failure_reason,
             execution_time_ms=execution_time_ms,
         )
-    
+
     def _evaluate_assertion(self, assertion: str, actual_output: Any) -> bool:
         """评估断言"""
         # 简化实现：支持基本断言类型
@@ -248,25 +248,25 @@ class RedBlueTestManager:
         else:
             # 默认：检查输出是否包含断言文本
             return assertion in str(actual_output)
-    
+
     def run_red_blue_test(self, module_name: str, target_function: callable) -> RedBlueTestReport:
         """运行红蓝对抗测试"""
         test_suite = self.load_test_suite(module_name)
-        
+
         report = RedBlueTestReport(module_name=module_name)
-        
+
         # 执行Blue Team测试
         for test_case in test_suite["blue"]:
             result = self.execute_test(test_case, target_function)
             report.blue_team_results.append(result)
-        
+
         # 执行Red Team测试（破坏性测试）
         for test_case in test_suite["red"]:
             result = self.execute_test(test_case, target_function)
             report.red_team_results.append(result)
-        
+
         report.compute_scores()
-        
+
         return report
 
 

@@ -1,19 +1,19 @@
 """API认证模块测试"""
 
-import pytest
-from datetime import timedelta, datetime, timezone
+from datetime import timedelta
+
 from jose import jwt
 
 from src.api.auth import (
-    verify_password,
-    get_password_hash,
+    ALGORITHM,
+    SECRET_KEY,
     authenticate_user,
     create_access_token,
     create_refresh_token,
     decode_token,
     fake_users_db,
-    SECRET_KEY,
-    ALGORITHM,
+    get_password_hash,
+    verify_password,
 )
 
 
@@ -92,7 +92,7 @@ class TestTokenGeneration:
         data = {"sub": "test_user"}
         short_expiry = timedelta(seconds=1)
         token = create_access_token(data, expires_delta=short_expiry)
-        
+
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         assert "exp" in payload
         assert payload["sub"] == "test_user"

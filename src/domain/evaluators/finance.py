@@ -1,4 +1,5 @@
-from src.domain.evaluators.base import BaseEvaluator, EvaluatorFactory
+from src.domain.evaluators.base import BaseEvaluator
+from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.domain.evaluators.metadata import FinanceMetadata
 from src.domain.evaluators.scoring import is_passing, score_numeric_match
 from src.schemas.evaluation import DomainResponse

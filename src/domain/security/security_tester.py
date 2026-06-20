@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -12,10 +12,10 @@ class SecurityTestResult:
     payload: str
     response: str
     attack_vector: str
-    detection_rule: Optional[str] = None
+    detection_rule: str | None = None
     timestamp: datetime = field(default_factory=datetime.utcnow)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "test_id": self.test_id,
             "test_type": self.test_type,
@@ -35,14 +35,14 @@ class SecurityReport:
     vulnerable_tests: int = 0
     passed_tests: int = 0
     overall_score: float = 0.0
-    results: List[SecurityTestResult] = field(default_factory=list)
-    vulnerabilities_by_type: Dict[str, int] = field(default_factory=dict)
+    results: list[SecurityTestResult] = field(default_factory=list)
+    vulnerabilities_by_type: dict[str, int] = field(default_factory=dict)
 
     @property
     def vulnerability_rate(self) -> float:
         return self.vulnerable_tests / self.total_tests if self.total_tests > 0 else 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "total_tests": self.total_tests,
             "vulnerable_tests": self.vulnerable_tests,
@@ -80,7 +80,7 @@ class PromptInjectionDetector:
     def __init__(self):
         self.rules = self.INJECTION_PATTERNS
 
-    def detect(self, prompt: str) -> List[SecurityRule]:
+    def detect(self, prompt: str) -> list[SecurityRule]:
         matched_rules = []
         for rule in self.rules:
             if rule.matches(prompt):
@@ -113,7 +113,7 @@ class JailbreakDetector:
     def __init__(self):
         self.rules = self.JAILBREAK_PATTERNS
 
-    def detect(self, response: str) -> List[SecurityRule]:
+    def detect(self, response: str) -> list[SecurityRule]:
         matched_rules = []
         for rule in self.rules:
             if rule.matches(response):
@@ -147,7 +147,7 @@ class ToolPoisoningDetector:
     def __init__(self):
         self.rules = self.POISONING_PATTERNS
 
-    def detect(self, tool_params: Dict[str, Any]) -> List[SecurityRule]:
+    def detect(self, tool_params: dict[str, Any]) -> list[SecurityRule]:
         params_str = str(tool_params)
         matched_rules = []
         for rule in self.rules:
@@ -155,7 +155,7 @@ class ToolPoisoningDetector:
                 matched_rules.append(rule)
         return matched_rules
 
-    def assess_risk(self, tool_params: Dict[str, Any]) -> float:
+    def assess_risk(self, tool_params: dict[str, Any]) -> float:
         matched = self.detect(tool_params)
         if not matched:
             return 0.0
@@ -180,7 +180,7 @@ class DataLeakageDetector:
     def __init__(self):
         self.rules = self.LEAKAGE_PATTERNS
 
-    def detect(self, text: str) -> List[SecurityRule]:
+    def detect(self, text: str) -> list[SecurityRule]:
         matched_rules = []
         for rule in self.rules:
             if rule.matches(text):
@@ -242,7 +242,7 @@ class SecurityTester:
 
         return result
 
-    def test_tool_poisoning(self, tool_params: Dict[str, Any]) -> SecurityTestResult:
+    def test_tool_poisoning(self, tool_params: dict[str, Any]) -> SecurityTestResult:
         risk_score = self.tool_poisoning_detector.assess_risk(tool_params)
         matched_rules = self.tool_poisoning_detector.detect(tool_params)
 
@@ -280,7 +280,7 @@ class SecurityTester:
         self,
         prompt: str,
         response: str = "",
-        tool_params: Optional[Dict[str, Any]] = None,
+        tool_params: dict[str, Any] | None = None,
     ) -> SecurityReport:
         results = []
 
@@ -301,7 +301,7 @@ class SecurityTester:
         vulnerable = sum(1 for r in results if r.is_vulnerable)
         passed = total - vulnerable
 
-        vulnerabilities_by_type: Dict[str, int] = {}
+        vulnerabilities_by_type: dict[str, int] = {}
         for result in results:
             if result.is_vulnerable:
                 vulnerabilities_by_type[result.test_type] = vulnerabilities_by_type.get(result.test_type, 0) + 1

@@ -4,6 +4,7 @@
 """
 import os
 import sys
+
 import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
@@ -11,11 +12,11 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 os.environ["TESTING"] = "1"
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
-from src.infra.db.session import init_tables, get_engine
-from src.infra.db.repository import EvaluationRepository, TrajectoryRepository
-from src.schemas.schemas import EvaluationResult, EvaluationStatus
-from src.schemas.evaluation import DomainResponse
 from src.exceptions import InfrastructureError
+from src.infra.db.repository import EvaluationRepository, TrajectoryRepository
+from src.infra.db.session import init_tables
+from src.schemas.evaluation import DomainResponse
+from src.schemas.schemas import EvaluationResult, EvaluationStatus
 
 
 @pytest.fixture(autouse=True)

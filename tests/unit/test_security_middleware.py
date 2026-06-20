@@ -4,11 +4,10 @@
 """
 import os
 import sys
-import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from src.api.security_middleware import SecurityMiddleware, INJECTION_PATTERNS, DATA_LEAK_PATTERNS
+from src.api.security_middleware import DATA_LEAK_PATTERNS, INJECTION_PATTERNS, SecurityMiddleware
 
 
 class TestInjectionPatternDetection:

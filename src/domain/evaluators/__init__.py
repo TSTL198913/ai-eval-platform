@@ -2,11 +2,11 @@ import importlib
 import os
 import pkgutil
 import sys
-from typing import Any, Dict
+from typing import Any
 
 from .evaluator_factory import EvaluatorFactory
 
-_EVALUATOR_REGISTRY: Dict[str, Any] | None = None
+_EVALUATOR_REGISTRY: dict[str, Any] | None = None
 
 IS_TESTING = os.environ.get("TESTING", "0") == "1"
 

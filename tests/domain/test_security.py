@@ -1,8 +1,10 @@
 """SecurityEvaluator领域测试"""
+
 import pytest
-from unittest.mock import MagicMock
+
 from src.domain.evaluators.security import SecurityEvaluator
 from src.schemas.evaluation import EvaluationSchema
+
 
 @pytest.fixture
 def evaluator():

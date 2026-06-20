@@ -1,20 +1,19 @@
-from datetime import datetime, timedelta, timezone
-from typing import Optional
 import hashlib
-import secrets
 import os
+import secrets
+from datetime import datetime, timedelta, timezone
 
-from fastapi import HTTPException, status, Depends
+from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 
-SECRET_KEY = os.environ.get(
-    "JWT_SECRET_KEY",
-    secrets.token_urlsafe(32)
-)
+SECRET_KEY = os.environ.get("JWT_SECRET_KEY", secrets.token_urlsafe(32))
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.environ.get("REFRESH_TOKEN_EXPIRE_DAYS", 7))
+
+# 认证模块可用性标志（始终为True，因为auth模块已加载）
+HAS_AUTH = True
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
@@ -23,6 +22,7 @@ def _hash_password(password: str) -> str:
     salt = os.environ.get("PASSWORD_SALT", "")
     if not salt:
         import uuid
+
         salt = uuid.uuid4().hex
         os.environ["PASSWORD_SALT"] = salt
     return hashlib.sha256(f"{salt}:{password}".encode()).hexdigest()
@@ -58,7 +58,7 @@ def _init_users_db():
 fake_users_db = _init_users_db()
 
 
-def authenticate_user(fake_db: dict, username: str, password: str) -> Optional[dict]:
+def authenticate_user(fake_db: dict, username: str, password: str) -> dict | None:
     if username not in fake_db:
         return None
     user = fake_db[username]
@@ -67,7 +67,7 @@ def authenticate_user(fake_db: dict, username: str, password: str) -> Optional[d
     return user
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
@@ -86,7 +86,7 @@ def create_refresh_token(data: dict) -> str:
     return encoded_jwt
 
 
-def decode_token(token: str) -> Optional[dict]:
+def decode_token(token: str) -> dict | None:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
@@ -94,7 +94,7 @@ def decode_token(token: str) -> Optional[dict]:
         return None
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> Optional[dict]:
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict | None:
     if not token:
         return None
     credentials_exception = HTTPException(

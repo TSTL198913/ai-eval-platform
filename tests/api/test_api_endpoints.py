@@ -2,10 +2,12 @@
 API 层综合测试 - 真实业务场景
 重点：HTTP 契约、状态码、错误信息、安全防护
 """
+
 import os
 import sys
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -20,7 +22,8 @@ class TestInputValidationBusinessScenarios:
 
     def test_validate_evaluator_name_accepts_valid(self):
         """场景：合法评估器名"""
-        from src.api.server import validate_evaluator_name
+        from src.api.common import validate_evaluator_name
+
         assert validate_evaluator_name("general") is True
         assert validate_evaluator_name("llm_as_judge") is True
         assert validate_evaluator_name("risk-v2") is True
@@ -28,7 +31,8 @@ class TestInputValidationBusinessScenarios:
 
     def test_validate_evaluator_name_rejects_sql_injection(self):
         """场景：SQL 注入攻击防护"""
-        from src.api.server import validate_evaluator_name
+        from src.api.common import validate_evaluator_name
+
         assert validate_evaluator_name("general; DROP TABLE users") is False
         assert validate_evaluator_name("general' OR 1=1--") is False
         assert validate_evaluator_name("name with space") is False
@@ -37,14 +41,16 @@ class TestInputValidationBusinessScenarios:
 
     def test_validate_evaluator_name_rejects_empty(self):
         """场景：空值/单字符边界"""
-        from src.api.server import validate_evaluator_name
+        from src.api.common import validate_evaluator_name
+
         assert validate_evaluator_name("") is False
         assert validate_evaluator_name("   ") is False
         assert validate_evaluator_name("/") is False
 
     def test_validate_dataset_name_rejects_path_traversal(self):
         """场景：路径遍历防护"""
-        from src.api.server import validate_dataset_name
+        from src.api.common import validate_dataset_name
+
         assert validate_dataset_name("mmlu") is True
         assert validate_dataset_name("../../../etc/passwd") is False
         assert validate_dataset_name("dataset;rm") is False
@@ -58,7 +64,8 @@ class TestResponseFormatBusinessScenarios:
 
     def test_success_response_structure(self):
         """场景：成功响应格式"""
-        from src.api.server import success_response
+        from src.api.common import success_response
+
         resp = success_response({"key": "value"}, "操作成功")
         assert resp["code"] == 0
         assert resp["message"] == "操作成功"
@@ -66,7 +73,8 @@ class TestResponseFormatBusinessScenarios:
 
     def test_success_response_default_data(self):
         """场景：无 data 时默认为 None"""
-        from src.api.server import success_response
+        from src.api.common import success_response
+
         resp = success_response()
         assert resp["code"] == 0
         assert resp["message"] == "success"
@@ -74,7 +82,8 @@ class TestResponseFormatBusinessScenarios:
 
     def test_error_response_structure(self):
         """场景：错误响应格式"""
-        from src.api.server import error_response
+        from src.api.common import error_response
+
         resp = error_response(404, "资源不存在")
         assert resp["code"] == 404
         assert resp["message"] == "资源不存在"
@@ -90,6 +99,7 @@ class TestHealthCheckBusinessScenarios:
     def test_root_endpoint_responds(self):
         """场景：根端点可达性"""
         from src.api.server import app
+
         client = TestClient(app)
         response = client.get("/")
         assert response.status_code == 200
@@ -100,6 +110,7 @@ class TestHealthCheckBusinessScenarios:
     def test_simple_health_endpoint(self):
         """场景：基础健康检查"""
         from src.api.server import app
+
         client = TestClient(app)
         response = client.get("/health")
         assert response.status_code == 200
@@ -116,6 +127,7 @@ class TestEvaluatorsEndpointBusinessScenarios:
     def test_list_evaluators_returns_all_registered(self):
         """场景：前端展示可用评估器列表"""
         from src.api.server import app
+
         client = TestClient(app)
         response = client.get("/api/v1/evaluators")
         assert response.status_code == 200
@@ -128,6 +140,7 @@ class TestEvaluatorsEndpointBusinessScenarios:
     def test_get_evaluator_detail_valid_name(self):
         """场景：查询具体评估器详情"""
         from src.api.server import app
+
         client = TestClient(app)
         response = client.get("/api/v1/evaluators/general")
         assert response.status_code == 200
@@ -138,6 +151,7 @@ class TestEvaluatorsEndpointBusinessScenarios:
     def test_get_evaluator_detail_sql_injection_blocked(self):
         """场景：SQL 注入尝试"""
         from src.api.server import app
+
         client = TestClient(app)
         # 路径中的特殊字符在 URL 层已被处理
         response = client.get("/api/v1/evaluators/general%3B%20DROP%20TABLE")
@@ -147,6 +161,7 @@ class TestEvaluatorsEndpointBusinessScenarios:
     def test_get_evaluator_detail_not_found(self):
         """场景：查询不存在的评估器"""
         from src.api.server import app
+
         client = TestClient(app)
         response = client.get("/api/v1/evaluators/nonexistent_xyz")
         assert response.status_code == 404
@@ -161,6 +176,7 @@ class TestLoginEndpointBusinessScenarios:
     def test_login_missing_body(self):
         """场景：客户端未传 body（Pydantic 验证失败返回 422）"""
         from src.api.server import app
+
         client = TestClient(app)
         response = client.post("/api/v1/auth/login", json={})
         assert response.status_code == 422
@@ -170,6 +186,7 @@ class TestLoginEndpointBusinessScenarios:
     def test_login_missing_username(self):
         """场景：缺少用户名（Pydantic 验证失败返回 422）"""
         from src.api.server import app
+
         client = TestClient(app)
         response = client.post("/api/v1/auth/login", json={"password": "test"})
         assert response.status_code == 422
@@ -177,6 +194,7 @@ class TestLoginEndpointBusinessScenarios:
     def test_login_missing_password(self):
         """场景：缺少密码（Pydantic 验证失败返回 422）"""
         from src.api.server import app
+
         client = TestClient(app)
         response = client.post("/api/v1/auth/login", json={"username": "alice"})
         assert response.status_code == 422
@@ -184,6 +202,7 @@ class TestLoginEndpointBusinessScenarios:
     def test_login_with_demo_mode_succeeds(self):
         """场景：演示模式（无 auth 模块）"""
         from src.api.server import app
+
         client = TestClient(app)
         response = client.post(
             "/api/v1/auth/login",
@@ -200,6 +219,7 @@ class TestLoginEndpointBusinessScenarios:
     def test_login_strips_whitespace(self):
         """场景：用户名/密码全为空格"""
         from src.api.server import app
+
         client = TestClient(app)
         response = client.post(
             "/api/v1/auth/login",
@@ -217,6 +237,7 @@ class TestRecordsEndpointBusinessScenarios:
     def test_records_limit_validation(self):
         """场景：limit 越界"""
         from src.api.server import app
+
         client = TestClient(app)
         response = client.get("/api/v1/records?limit=0")
         assert response.status_code == 400
@@ -229,6 +250,7 @@ class TestRecordsEndpointBusinessScenarios:
     def test_records_search_limit_validation(self):
         """场景：搜索 limit 越界"""
         from src.api.server import app
+
         client = TestClient(app)
         response = client.get("/api/v1/records/search?limit=200")
         assert response.status_code == 400
@@ -236,6 +258,7 @@ class TestRecordsEndpointBusinessScenarios:
     def test_records_search_offset_validation(self):
         """场景：搜索 offset 越界"""
         from src.api.server import app
+
         client = TestClient(app)
         response = client.get("/api/v1/records/search?offset=-1")
         assert response.status_code == 400
@@ -248,6 +271,7 @@ class TestRecordsEndpointBusinessScenarios:
         真实业务风险：未授权用户可能通过 format 参数读取系统文件
         """
         from src.api.server import app
+
         client = TestClient(app)
         response = client.get("/api/v1/records/export?format=../../../etc/passwd")
         # 关键：应阻断路径遍历
@@ -270,6 +294,7 @@ class TestRecordsEndpointBusinessScenarios:
         真实业务风险：客户端可能请求错误格式但拿到 CSV 而不知情
         """
         from src.api.server import app
+
         client = TestClient(app)
         response = client.get("/api/v1/records/export?format=xml")
         # 期望：HTTP 400 + body code=400
@@ -278,8 +303,7 @@ class TestRecordsEndpointBusinessScenarios:
         assert data["code"] == 400
         if response.status_code == 200:
             pytest.fail(
-                "BUG: 非法 format 参数未设置 HTTP 状态码！"
-                "客户端只检查 HTTP 状态时会误判为成功"
+                "BUG: 非法 format 参数未设置 HTTP 状态码！" "客户端只检查 HTTP 状态时会误判为成功"
             )
 
 
@@ -294,8 +318,8 @@ class TestExceptionHandlersBusinessScenarios:
 
         真实 BUG：evaluate 端点接受 raw_data: dict，绕过了 Pydantic 验证
         """
-        from src.exceptions import ContractValidationError
         from src.api.server import app
+
         client = TestClient(app)
 
         # 触发 ContractValidationError（通过 evaluate 端点）
@@ -320,7 +344,6 @@ class TestEvaluateEndpointBusinessScenarios:
     def test_evaluate_with_mock_client(self):
         """场景：业务方通过 API 提交评测（mock LLM）"""
         from src.api.server import app
-        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 
         client = TestClient(app)
         # 注入 mock 客户端：直接 patch service 中的 LLM 调用
@@ -353,6 +376,7 @@ class TestEvaluateEndpointBusinessScenarios:
     def test_evaluate_missing_required_fields(self):
         """场景：缺 id 字段"""
         from src.api.server import app
+
         client = TestClient(app)
         response = client.post(
             "/api/v1/evaluate",
@@ -364,6 +388,7 @@ class TestEvaluateEndpointBusinessScenarios:
     def test_evaluate_unknown_evaluator_type(self):
         """场景：未注册的评估器类型"""
         from src.api.server import app
+
         client = TestClient(app)
         response = client.post(
             "/api/v1/evaluate",

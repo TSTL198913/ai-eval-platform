@@ -52,17 +52,20 @@ def error_response(code: int, message: str) -> dict[str, Any]:
 # 资源获取函数（延迟加载）
 # =====================================================================
 
-_repository = None
+
+def _get_data_service():
+    """获取数据服务实例（延迟加载）"""
+    from src.services.data_svc import get_data_service
+
+    return get_data_service()
 
 
+# 保留 _get_repository 作为向后兼容别名
 def _get_repository():
-    """获取数据库仓库实例（延迟加载）"""
-    global _repository
-    if _repository is None:
-        from src.infra.db.repository import EvaluationRepository
+    """获取数据库仓库实例（延迟加载）- 已弃用，请使用 _get_data_service"""
+    from src.infra.db.repository import EvaluationRepository
 
-        _repository = EvaluationRepository()
-    return _repository
+    return EvaluationRepository()
 
 
 def _get_celery_app():

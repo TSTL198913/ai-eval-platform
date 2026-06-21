@@ -3,6 +3,7 @@
 包含同步评估、异步评估、任务状态查询等端点
 """
 
+import logging
 import time
 
 from fastapi import APIRouter, Response, status
@@ -11,10 +12,35 @@ from src.api.common import error_response, success_response
 from src.schemas.evaluation import EvaluationSchema
 from src.services.evaluator_svc import _normalize_raw_data, run_evaluation_service
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/v1", tags=["评估"])
 
 # 同步任务结果缓存（用于 Celery 不可用时的降级处理）
 _sync_task_results = {}
+
+# 幂等性检查器单例
+_idempotency_checker = None
+
+
+def _get_idempotency_checker():
+    """获取幂等性检查器（延迟初始化）"""
+    global _idempotency_checker
+    if _idempotency_checker is None:
+        try:
+            from src.distributed.idempotency import IdempotencyChecker
+            from src.infra.cache import get_redis
+
+            redis_client = get_redis()
+            redis_client.ping()  # 验证连接
+            _idempotency_checker = IdempotencyChecker(redis_client)
+            logger.info("IdempotencyChecker initialized with Redis")
+        except Exception as e:
+            logger.warning(
+                f"Failed to initialize IdempotencyChecker: {e}. Idempotency will be disabled."
+            )
+            _idempotency_checker = None
+    return _idempotency_checker
 
 
 def _get_eval_case_task():
@@ -47,7 +73,30 @@ async def evaluate_endpoint(raw_data: EvaluationSchema, response: Response):
 
     注意：需要提前在环境变量中配置对应 provider 的 API Key。
     不指定时使用默认配置（LLM_PROVIDER 环境变量）。
+
+    幂等性：同一 request_id 的重复请求将返回缓存结果，防止重复扣费。
     """
+    request_id = raw_data.id
+
+    # 幂等性检查（防重复请求）
+    checker = _get_idempotency_checker()
+    if checker and request_id:
+        try:
+            # 检查是否有缓存结果
+            cached_result = checker.get_cached_result(request_id)
+            if cached_result is not None:
+                logger.info(f"Returning cached result for request {request_id}")
+                response.status_code = status.HTTP_200_OK
+                return success_response(cached_result)
+
+            # 标记正在处理
+            if not checker.mark_processing(request_id):
+                response.status_code = status.HTTP_409_CONFLICT
+                return error_response(409, "请求正在处理中，请稍后重试")
+        except Exception as e:
+            logger.warning(f"Idempotency check failed: {e}. Proceeding without idempotency.")
+            checker = None
+
     normalized = _normalize_raw_data(raw_data.model_dump())
     result = run_evaluation_service(normalized)
 
@@ -69,8 +118,20 @@ async def evaluate_endpoint(raw_data: EvaluationSchema, response: Response):
             response.status_code = status.HTTP_400_BAD_REQUEST
         else:
             response.status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+        # 失败时清除幂等性标记，允许重试
+        if checker and request_id:
+            try:
+                checker.clear(request_id)
+            except Exception:
+                pass
         return error_response(result.get("code", 400), result.get("message", "Evaluation failed"))
     else:
+        # 成功时标记为已处理，缓存结果
+        if checker and request_id:
+            try:
+                checker.mark_processed(request_id, result)
+            except Exception as e:
+                logger.warning(f"Failed to cache result: {e}")
         response.status_code = status.HTTP_200_OK
         return success_response(result)
 

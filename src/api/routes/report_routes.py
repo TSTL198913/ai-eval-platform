@@ -9,7 +9,7 @@ import os
 from fastapi import APIRouter, Response, status
 from fastapi.responses import FileResponse
 
-from src.api.common import _get_repository, error_response, success_response
+from src.api.common import _get_data_service, error_response, success_response
 
 logger = logging.getLogger(__name__)
 
@@ -67,11 +67,11 @@ async def generate_report_endpoint(filter_params: dict = None):
     try:
         from src.domain.reports.report_generator import generate_report_from_records
 
-        repo = _get_repository()
+        svc = _get_data_service()
         if filter_params:
-            records = repo.search(**filter_params)
+            records = svc.search(**filter_params)
         else:
-            records = repo.get_recent(limit=100)
+            records = svc.get_recent(limit=100)
 
         report_path = generate_report_from_records(records)
         return success_response(

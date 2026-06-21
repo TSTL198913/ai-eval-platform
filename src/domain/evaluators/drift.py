@@ -1,5 +1,6 @@
 import difflib
 import hashlib
+import logging
 import re
 import time
 
@@ -7,6 +8,8 @@ from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.infra.db.repository import EvaluationRepository
 from src.schemas.evaluation import DomainResponse, EvaluationSchema
+
+logger = logging.getLogger(__name__)
 
 
 @EvaluatorFactory.register("drift")
@@ -23,15 +26,14 @@ class DriftDetectionEvaluator(BaseEvaluator):
     def __init__(self, client=None):
         super().__init__(client)
         self.repository = EvaluationRepository()
+        self._baseline_store: dict[str, float] = {}  # 实例级别状态，避免多实例共享
 
     def evaluate(self, request: EvaluationSchema) -> DomainResponse:
-        user_input = self.get_input_text(request)
+        if error := self.validate_input(request):
+            return error
         actual_output = self.get_payload_data(request, "actual_output")
         baseline_output = self.get_payload_data(request, "baseline_output")
         case_id = self.get_payload_data(request, "case_id", request.id)
-
-        if not user_input:
-            return DomainResponse(is_valid=False, error="user_input/text 不能为空")
 
         if not actual_output:
             return DomainResponse(is_valid=False, error="actual_output 不能为空")
@@ -492,12 +494,11 @@ class DriftDetectionEvaluator(BaseEvaluator):
         return score / total if total > 0 else 0.0
 
     # ------------------- 基线持久化管理 -------------------
-    _BASELINE_STORE: dict[str, float] = {}
 
     def _get_or_create_baseline(self, case_id: str, recent_results: list) -> float | None:
         """获取或创建基线分数（持久化到内存，支持导出到文件）"""
-        if case_id in self._BASELINE_STORE:
-            return self._BASELINE_STORE[case_id]
+        if case_id in self._baseline_store:
+            return self._baseline_store[case_id]
 
         # 自动从历史记录创建基线（使用前10条记录）
         valid_scores = [
@@ -505,13 +506,13 @@ class DriftDetectionEvaluator(BaseEvaluator):
         ]
         if len(valid_scores) >= 3:
             baseline = sum(valid_scores) / len(valid_scores)
-            self._BASELINE_STORE[case_id] = baseline
+            self._baseline_store[case_id] = baseline
             return baseline
         return None
 
     def save_baseline(self, case_id: str, baseline_score: float) -> None:
         """保存基线分数到持久化存储"""
-        self._BASELINE_STORE[case_id] = baseline_score
+        self._baseline_store[case_id] = baseline_score
         # 异步持久化到磁盘
         try:
             import json
@@ -524,11 +525,11 @@ class DriftDetectionEvaluator(BaseEvaluator):
                 existing = json.loads(baseline_file.read_text(encoding="utf-8"))
             existing[case_id] = {
                 "score": baseline_score,
-                "updated_at": time.time() if "time" in dir() else 0,
+                "updated_at": time.time(),
             }
             baseline_file.write_text(json.dumps(existing, indent=2), encoding="utf-8")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"保存基线到文件失败: {e}")
 
     def load_baselines(self) -> dict[str, float]:
         """从持久化存储加载基线"""
@@ -539,8 +540,8 @@ class DriftDetectionEvaluator(BaseEvaluator):
             baseline_file = Path("data/baselines.json")
             if baseline_file.exists():
                 data = json.loads(baseline_file.read_text(encoding="utf-8"))
-                self._BASELINE_STORE = {k: v["score"] for k, v in data.items()}
-                return self._BASELINE_STORE
-        except Exception:
-            pass
+                self._baseline_store = {k: v["score"] for k, v in data.items()}
+                return self._baseline_store
+        except Exception as e:
+            logger.warning(f"加载基线文件失败: {e}")
         return {}

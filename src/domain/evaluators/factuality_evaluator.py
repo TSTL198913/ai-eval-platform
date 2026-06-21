@@ -9,14 +9,18 @@ Factuality Evaluator - 幻觉率独立评估器
 """
 
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
+if TYPE_CHECKING:
+    from src.domain.models.base import BaseLLMClient
+
 
 @EvaluatorFactory.register("factuality")
-class FactualityEvaluator:
+class FactualityEvaluator(BaseEvaluator):
     """事实性评估器
 
     输入payload格式:
@@ -29,8 +33,8 @@ class FactualityEvaluator:
     }
     """
 
-    def __init__(self, client: Any | None = None):
-        self.client = client
+    def __init__(self, client: "BaseLLMClient | None" = None):
+        super().__init__(client)
 
     def evaluate(self, request: EvaluationSchema) -> DomainResponse:
         action = request.payload.get("action", "evaluate_factuality")
@@ -53,17 +57,12 @@ class FactualityEvaluator:
                 status_code=500,
             )
 
-    def safe_evaluate(self, request: EvaluationSchema) -> DomainResponse:
-        return self.evaluate(request)
-
-    # ===================== 核心评估方法 =====================
-
     def _evaluate_factuality(self, request: EvaluationSchema) -> DomainResponse:
         """综合评估事实性"""
-        response = self._get_payload(request, "response", "")
-        reference = self._get_payload(request, "reference", [])
-        context = self._get_payload(request, "context", "")
-        strict_mode = self._get_payload(request, "strict_mode", False)
+        response = self.get_payload_data(request, "response", "")
+        reference = self.get_payload_data(request, "reference", [])
+        context = self.get_payload_data(request, "context", "")
+        strict_mode = self.get_payload_data(request, "strict_mode", False)
 
         if not response:
             return DomainResponse(
@@ -128,10 +127,10 @@ class FactualityEvaluator:
 
     def _detect_hallucination(self, request: EvaluationSchema) -> DomainResponse:
         """专门的幻觉检测"""
-        response = self._get_payload(request, "response", "")
-        reference = self._get_payload(request, "reference", [])
-        context = self._get_payload(request, "context", "")
-        strict_mode = self._get_payload(request, "strict_mode", False)
+        response = self.get_payload_data(request, "response", "")
+        reference = self.get_payload_data(request, "reference", [])
+        context = self.get_payload_data(request, "context", "")
+        strict_mode = self.get_payload_data(request, "strict_mode", False)
 
         result = self._detect_hallucination_internals(response, reference, context, strict_mode)
 
@@ -148,8 +147,8 @@ class FactualityEvaluator:
 
     def _verify_entities(self, request: EvaluationSchema) -> DomainResponse:
         """实体验证"""
-        response = self._get_payload(request, "response", "")
-        reference = self._get_payload(request, "reference", [])
+        response = self.get_payload_data(request, "response", "")
+        reference = self.get_payload_data(request, "reference", [])
 
         entities = self._extract_entities(response)
         entity_score = self._check_entity_consistency(entities, reference)
@@ -166,7 +165,7 @@ class FactualityEvaluator:
 
     def _check_consistency(self, request: EvaluationSchema) -> DomainResponse:
         """检查内部一致性"""
-        response = self._get_payload(request, "response", "")
+        response = self.get_payload_data(request, "response", "")
         claims = self._extract_claims(response)
         contradictions = self._find_contradictions(claims)
 
@@ -382,9 +381,3 @@ class FactualityEvaluator:
         # 简单的分词：英文按空格，中文按字
         words = re.findall(r"[\w\u4e00-\u9fff]+", text.lower())
         return [w for w in words if len(w) > 1]
-
-    @staticmethod
-    def _get_payload(request: EvaluationSchema, key: str, default: Any = None) -> Any:
-        if hasattr(request, "payload") and request.payload:
-            return request.payload.get(key, default)
-        return default

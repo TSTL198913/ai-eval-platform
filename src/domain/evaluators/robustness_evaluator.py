@@ -10,14 +10,18 @@ Robustness Evaluator - 鲁棒性指数综合加权评估器
 """
 
 import statistics
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
+if TYPE_CHECKING:
+    from src.domain.models.base import BaseLLMClient
+
 
 @EvaluatorFactory.register("robustness")
-class RobustnessEvaluator:
+class RobustnessEvaluator(BaseEvaluator):
     """鲁棒性指数评估器
 
     输入payload格式:
@@ -43,8 +47,8 @@ class RobustnessEvaluator:
         "stability": 0.10,  # 稳定性
     }
 
-    def __init__(self, client: Any | None = None):
-        self.client = client
+    def __init__(self, client: "BaseLLMClient | None" = None):
+        super().__init__(client)
 
     def evaluate(self, request: EvaluationSchema) -> DomainResponse:
         action = request.payload.get("action", "evaluate_robustness")
@@ -67,18 +71,13 @@ class RobustnessEvaluator:
                 status_code=500,
             )
 
-    def safe_evaluate(self, request: EvaluationSchema) -> DomainResponse:
-        return self.evaluate(request)
-
-    # ===================== 核心评估方法 =====================
-
     def _evaluate_robustness(self, request: EvaluationSchema) -> DomainResponse:
         """综合鲁棒性指数计算"""
-        test_results = self._get_payload(request, "test_results", [])
-        perturbation_results = self._get_payload(request, "perturbation_results", [])
-        security_results = self._get_payload(request, "security_results", {})
-        drift_results = self._get_payload(request, "drift_results", {})
-        weights = self._get_payload(request, "weights", self.DEFAULT_WEIGHTS)
+        test_results = self.get_payload_data(request, "test_results", [])
+        perturbation_results = self.get_payload_data(request, "perturbation_results", [])
+        security_results = self.get_payload_data(request, "security_results", {})
+        drift_results = self.get_payload_data(request, "drift_results", {})
+        weights = self.get_payload_data(request, "weights", self.DEFAULT_WEIGHTS)
 
         # 1. 输出一致性
         consistency = self._calc_consistency(test_results)
@@ -137,7 +136,7 @@ class RobustnessEvaluator:
 
     def _evaluate_perturbation(self, request: EvaluationSchema) -> DomainResponse:
         """评估对扰动的抵抗能力"""
-        perturbation_results = self._get_payload(request, "perturbation_results", [])
+        perturbation_results = self.get_payload_data(request, "perturbation_results", [])
 
         score = self._calc_perturbation_resistance(perturbation_results)
         details = self._analyze_perturbations(perturbation_results)
@@ -153,7 +152,7 @@ class RobustnessEvaluator:
 
     def _evaluate_stability(self, request: EvaluationSchema) -> DomainResponse:
         """评估输出稳定性"""
-        test_results = self._get_payload(request, "test_results", [])
+        test_results = self.get_payload_data(request, "test_results", [])
         score = self._calc_stability(test_results)
 
         return DomainResponse(
@@ -296,9 +295,3 @@ class RobustnessEvaluator:
         if not recommendations:
             recommendations.append("系统鲁棒性良好，建议持续监控关键指标")
         return recommendations
-
-    @staticmethod
-    def _get_payload(request: EvaluationSchema, key: str, default: Any = None) -> Any:
-        if hasattr(request, "payload") and request.payload:
-            return request.payload.get(key, default)
-        return default

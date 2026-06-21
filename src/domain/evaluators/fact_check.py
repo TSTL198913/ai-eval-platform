@@ -6,9 +6,9 @@ from src.schemas.evaluation import DomainResponse, EvaluationSchema
 @EvaluatorFactory.register("fact_check")
 class FactCheckEvaluator(BaseEvaluator):
     def evaluate(self, request: EvaluationSchema) -> DomainResponse:
+        if error := self.validate_input(request):
+            return error
         user_input = self.get_input_text(request)
-        if not user_input:
-            return DomainResponse(is_valid=False, error="user_input/text 不能为空")
 
         prompt = f"""请验证以下陈述的真实性，返回 true（真实）或 false（虚假），并给出理由：
 陈述：{user_input}

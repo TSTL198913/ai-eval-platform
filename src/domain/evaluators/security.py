@@ -62,13 +62,10 @@ class SecurityEvaluator(BaseEvaluator):
     ]
 
     def evaluate(self, request: EvaluationSchema) -> DomainResponse:
+        if error := self.validate_input(request):
+            return error
         user_input = self.get_input_text(request)
         actual_output = self.get_payload_data(request, "actual_output")
-
-        if not user_input:
-            return self.create_error_response(
-                error_message="user_input/text 不能为空", error_code="INVALID_INPUT"
-            )
 
         tests = self.get_payload_data(request, "tests", ["injection", "jailbreak", "data_leak"])
 

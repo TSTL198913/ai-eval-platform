@@ -358,7 +358,8 @@ def _update_pool_metrics() -> None:
             _pool_metrics.checked_in = qpool.checkedin()
             _pool_metrics.checked_out = qpool.checkedout()
             _pool_metrics.overflow = qpool.overflow()
-            _pool_metrics.queue_size = qpool.queue_size
+            # queue_size 在某些 SQLAlchemy 版本中不存在，使用 getattr 安全获取
+            _pool_metrics.queue_size = getattr(qpool, "queue_size", 0)
             _pool_metrics.total_connections = _pool_metrics.pool_size + _pool_metrics.overflow
             _pool_metrics.active_connections = _pool_metrics.checked_out
             _pool_metrics.idle_connections = _pool_metrics.checked_in

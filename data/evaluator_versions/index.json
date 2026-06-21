@@ -10,7 +10,7 @@
     "calibration_threshold": 5.0,
     "status": "active",
     "created_at": "2026-06-19T03:14:37.384568",
-    "updated_at": "2026-06-20T14:19:16.384173",
+    "updated_at": "2026-06-20T23:27:01.539178",
     "created_by": "system"
   },
   "00bdcc34": {
@@ -389,6 +389,34 @@
     "status": "active",
     "created_at": "2026-06-20T14:19:16.386169",
     "updated_at": "2026-06-20T14:19:16.388170",
+    "created_by": "system"
+  },
+  "78eea06f": {
+    "version_id": "78eea06f",
+    "evaluator_name": "llm_as_judge_7fa69fa9",
+    "version": "1.0.0",
+    "changelog": "",
+    "code_hash": "hash123",
+    "config_snapshot": {},
+    "calibration_score": 72.5,
+    "calibration_threshold": 5.0,
+    "status": "active",
+    "created_at": "2026-06-20T23:26:06.236235",
+    "updated_at": "2026-06-20T23:26:06.260081",
+    "created_by": "system"
+  },
+  "1d96f29f": {
+    "version_id": "1d96f29f",
+    "evaluator_name": "llm_as_judge_0af41b22",
+    "version": "1.0.0",
+    "changelog": "",
+    "code_hash": "hash123",
+    "config_snapshot": {},
+    "calibration_score": 72.5,
+    "calibration_threshold": 5.0,
+    "status": "active",
+    "created_at": "2026-06-20T23:27:01.554169",
+    "updated_at": "2026-06-20T23:27:01.567493",
     "created_by": "system"
   }
 }

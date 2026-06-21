@@ -72,15 +72,22 @@ class TestUserAuthentication:
     """用户认证单元测试"""
 
     def test_authenticate_user_valid_credentials(self):
-        """有效凭据应返回用户对象"""
-        user = authenticate_user(fake_users_db, "admin", "admin")
+        """有效凭据应返回用户对象（需设置环境变量密码）"""
+        import os
+
+        # 设置测试用密码
+        os.environ["ADMIN_PASSWORD"] = "test_admin_pass"
+        from src.api.auth import _init_users_db, authenticate_user
+
+        test_users_db = _init_users_db()
+        user = authenticate_user(test_users_db, "admin", "test_admin_pass")
         assert user is not None
         assert user["username"] == "admin"
         assert user["disabled"] is False
 
     def test_authenticate_user_invalid_username(self):
         """无效用户名应返回 None"""
-        user = authenticate_user(fake_users_db, "nonexistent", "admin")
+        user = authenticate_user(fake_users_db, "nonexistent", "anypassword")
         assert user is None
 
     def test_authenticate_user_invalid_password(self):
@@ -90,7 +97,7 @@ class TestUserAuthentication:
 
     def test_authenticate_user_case_sensitive_username(self):
         """用户名应区分大小写"""
-        user = authenticate_user(fake_users_db, "Admin", "admin")
+        user = authenticate_user(fake_users_db, "Admin", "anypassword")
         assert user is None
 
     def test_fake_users_db_has_required_fields(self):

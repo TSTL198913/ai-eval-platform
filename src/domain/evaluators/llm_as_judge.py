@@ -14,12 +14,11 @@ class LLMAJudgeEvaluator(BaseEvaluator):
     """
 
     def evaluate(self, request: EvaluationSchema) -> DomainResponse:
+        if error := self.validate_input(request):
+            return error
         user_input = self.get_input_text(request)
         expected_output = self.get_payload_data(request, "expected_output")
         actual_output = self.get_payload_data(request, "actual_output")
-
-        if not user_input:
-            return DomainResponse(is_valid=False, error="user_input/text 不能为空")
 
         if not actual_output:
             return DomainResponse(is_valid=False, error="actual_output 不能为空")

@@ -9,7 +9,7 @@ import time
 from fastapi import APIRouter
 from fastapi.responses import PlainTextResponse
 
-from src.api.common import _get_celery_app, _get_repository, success_response
+from src.api.common import _get_celery_app, _get_data_service, success_response
 from src.infra.monitoring.metrics import expose_metrics
 
 logger = logging.getLogger(__name__)
@@ -28,8 +28,8 @@ async def api_v1_health_check():
     checks = {}
 
     try:
-        repo = _get_repository()
-        count = repo.count()
+        svc = _get_data_service()
+        count = svc.count()
         checks["database"] = {"status": "healthy", "record_count": count}
     except Exception as e:
         logger.error(f"Database health check failed: {e}")
@@ -71,8 +71,8 @@ async def api_v1_health_detailed():
     checks = {}
 
     try:
-        repo = _get_repository()
-        count = repo.count()
+        svc = _get_data_service()
+        count = svc.count()
         checks["database"] = {"status": "healthy", "record_count": count}
     except Exception as e:
         logger.error(f"Database health check failed: {e}")

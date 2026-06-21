@@ -4,6 +4,7 @@ AI Eval Platform - 主应用入口（路由聚合器）
 """
 
 import logging
+import os
 import time
 from contextlib import asynccontextmanager
 
@@ -112,13 +113,17 @@ app = FastAPI(
 # 注册中间件
 # =====================================================================
 
-# CORS中间件
+# CORS中间件 - 支持环境变量配置的白名单
+_cors_origins = os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",")
+if not _cors_origins or _cors_origins == [""]:
+    _cors_origins = ["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
 )
 
 # Prometheus指标收集中间件

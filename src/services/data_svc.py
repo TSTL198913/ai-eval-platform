@@ -54,6 +54,9 @@ class EvaluationDataService:
     def get_all(self, limit: int = 100) -> list[dict[str, Any]]:
         return self._repository.get_all(limit=limit)
 
+    def create(self, record: dict[str, Any]) -> dict[str, Any]:
+        return self._repository.create(record)
+
     def save_config(self, config):
         return self._repository.save_config(config)
 

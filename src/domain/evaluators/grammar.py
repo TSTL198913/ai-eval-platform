@@ -6,9 +6,9 @@ from src.schemas.evaluation import DomainResponse, EvaluationSchema
 @EvaluatorFactory.register("grammar")
 class GrammarEvaluator(BaseEvaluator):
     def evaluate(self, request: EvaluationSchema) -> DomainResponse:
+        if error := self.validate_input(request):
+            return error
         user_input = self.get_input_text(request)
-        if not user_input:
-            return DomainResponse(is_valid=False, error="user_input/text 不能为空")
 
         prompt = f"""检查以下文本的语法错误，返回修正后的文本和错误数量：
 文本：{user_input}

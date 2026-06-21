@@ -10,12 +10,13 @@ import time
 from fastapi import APIRouter, Response, status
 
 from src.api.common import (
-    _get_repository,
+    _get_data_service,
     error_response,
     success_response,
     validate_evaluator_name,
 )
 from src.domain.evaluators import EVALUATOR_REGISTRY
+from src.schemas.schemas import EvalConfigRequest
 
 router = APIRouter(prefix="/api/v1", tags=["评估器"])
 
@@ -68,38 +69,34 @@ async def get_evaluator_detail(name: str, response: Response):
 
 # ==================== 评估配置管理 ====================
 @router.post("/eval-configs")
-async def save_eval_config(config_data: dict):
+async def save_eval_config(data: EvalConfigRequest):
     """保存评估配置"""
     try:
-        config_id = config_data.get("id") or f"config_{int(time.time())}"
-        name = config_data.get("name", "未命名配置")
-        evaluator_type = config_data.get("evaluator_type", "")
-        config = config_data.get("config", {})
-        enabled = config_data.get("enabled", True)
+        config_id = data.id or f"config_{int(time.time())}"
 
-        repo = _get_repository()
+        svc = _get_data_service()
         # 保存配置到数据库
         record = {
             "case_id": config_id,
-            "adapter_name": f"config:{evaluator_type}",
+            "adapter_name": f"config:{data.evaluator_type}",
             "model_name": "config",
             "status": "config",
             "latency_ms": 0,
             "response_data": {
-                "name": name,
-                "evaluator_type": evaluator_type,
-                "config": config,
-                "enabled": enabled,
+                "name": data.name,
+                "evaluator_type": data.evaluator_type,
+                "config": data.config,
+                "enabled": data.enabled,
             },
         }
-        repo.create(record)
+        svc.create(record)
 
         return success_response(
             {
                 "id": config_id,
-                "name": name,
-                "evaluator_type": evaluator_type,
-                "enabled": enabled,
+                "name": data.name,
+                "evaluator_type": data.evaluator_type,
+                "enabled": data.enabled,
             }
         )
     except Exception as e:
@@ -111,8 +108,8 @@ async def save_eval_config(config_data: dict):
 async def get_eval_configs():
     """获取所有评估配置"""
     try:
-        repo = _get_repository()
-        records = repo.get_all(limit=100)
+        svc = _get_data_service()
+        records = svc.get_all(limit=100)
         # 过滤出配置记录
         configs = []
         for r in records:
@@ -158,12 +155,12 @@ async def get_eval_configs():
 async def delete_eval_config(config_id: str, response: Response):
     """删除评估配置"""
     try:
-        repo = _get_repository()
+        svc = _get_data_service()
         # 根据case_id查找并删除
-        records = repo.get_all(limit=1000)
+        records = svc.get_all(limit=1000)
         for r in records:
             if r.get("case_id") == config_id and r.get("adapter_name", "").startswith("config:"):
-                repo.delete(r.get("id"))
+                svc.delete(r.get("id"))
                 return success_response({"deleted": True})
         response.status_code = status.HTTP_404_NOT_FOUND
         return error_response(404, "配置不存在")

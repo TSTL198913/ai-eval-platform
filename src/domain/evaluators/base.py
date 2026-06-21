@@ -63,3 +63,43 @@ class BaseEvaluator(ABC):
     ) -> DomainResponse:
         """创建统一的成功响应"""
         return DomainResponse(is_valid=True, text=text, score=score, data=data or {})
+
+    # ===================== 公共辅助方法 =====================
+    # 降低评估器代码重复率
+
+    def validate_input(self, request: EvaluationSchema) -> DomainResponse | None:
+        """验证输入文本，返回错误响应或None"""
+        user_input = self.get_input_text(request)
+        if not user_input:
+            return DomainResponse(is_valid=False, error="user_input/text 不能为空")
+        return None
+
+    def validate_expected(
+        self, request: EvaluationSchema, key: str = "expected_output"
+    ) -> DomainResponse | None:
+        """验证期望输出"""
+        expected = self.get_payload_data(request, key)
+        if not expected:
+            return DomainResponse(is_valid=False, error=f"{key} 不能为空")
+        return None
+
+    def require_client_with_error(self) -> DomainResponse | None:
+        """检查 client 是否配置，返回错误或None"""
+        if not self.client:
+            return DomainResponse(is_valid=False, error="LLM client 未配置")
+        return None
+
+    def build_prompt_response(
+        self,
+        llm_output: str,
+        score: float,
+        data_prefix: str = "result",
+        metadata: dict | None = None,
+    ) -> DomainResponse:
+        """构建标准的 Prompt 评估响应"""
+        return DomainResponse(
+            is_valid=True,
+            text=llm_output,
+            score=score,
+            data=metadata or {f"{data_prefix}": llm_output},
+        )

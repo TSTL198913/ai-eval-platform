@@ -41,10 +41,10 @@ class TestEvaluatorInstantiation:
 
     def test_code_evaluator_can_be_created(self):
         """验证可以创建代码评估器"""
-        evaluator = EvaluatorFactory.create("code")
+        evaluator = EvaluatorFactory.get("code")
         assert evaluator is not None
 
     def test_security_evaluator_can_be_created(self):
         """验证可以创建安全评估器"""
-        evaluator = EvaluatorFactory.create("security")
+        evaluator = EvaluatorFactory.get("security")
         assert evaluator is not None

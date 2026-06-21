@@ -23,14 +23,25 @@ class TestCriticalPathSmoke:
         assert request.id == "smoke_test_001"
         assert request.type == "code"
 
-    def test_success_response_creation(self):
+    def test_domain_response_valid(self):
         """验证成功响应可以正确创建"""
-        response = DomainResponse.success(data={"result": "test"})
+        response = DomainResponse(is_valid=True, score=1.0)
         assert response.is_valid is True
-        assert response.data["result"] == "test"
+        assert response.score == 1.0
 
-    def test_error_response_creation(self):
+    def test_domain_response_invalid(self):
         """验证错误响应可以正确创建"""
-        response = DomainResponse.error(message="Test error", code=400)
+        response = DomainResponse(is_valid=False, error="Test error")
         assert response.is_valid is False
         assert response.error == "Test error"
+
+    def test_evaluation_schema_with_metadata(self):
+        """验证带元数据的评估请求"""
+        request = EvaluationSchema(
+            id="smoke_test_002",
+            type="security",
+            payload={"user_input": "test"},
+            metadata={"threshold": 0.8},
+        )
+        assert request.metadata is not None
+        assert request.metadata["threshold"] == 0.8

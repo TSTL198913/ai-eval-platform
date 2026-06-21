@@ -6,7 +6,7 @@
 
 import pytest
 
-from src.schemas.evaluation import EvaluationSchema, DomainResponse
+from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
 
 @pytest.mark.smoke

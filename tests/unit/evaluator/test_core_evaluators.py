@@ -5,6 +5,7 @@
 
 import os
 import sys
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -19,32 +20,116 @@ class TestFactualityEvaluator:
 
         self.evaluator_class = FactualityEvaluator
 
+    @pytest.fixture
+    def evaluator(self):
+        return self.evaluator_class()
+
     def test_evaluator_can_be_created(self):
         """评估器可以被创建"""
         evaluator = self.evaluator_class()
         assert evaluator is not None
-
-    def test_empty_input_returns_error(self):
-        """空输入时评估器应返回有效响应"""
-        from src.schemas.evaluation import EvaluationSchema
-
-        evaluator = self.evaluator_class()
-
-        request = EvaluationSchema(
-            id="fact_001",
-            type="factuality",
-            payload={"user_input": ""},
-        )
-        result = evaluator.evaluate(request)
-        # FactualityEvaluator 将结果包装在 data 中
-        assert result.is_valid is True
-        assert result.data is not None
 
     def test_evaluator_registered(self):
         """评估器已注册到工厂"""
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 
         assert "factuality" in EvaluatorFactory._registry
+
+    def test_evaluate_factuality_with_reference(self, evaluator):
+        """有参考信息的事实性评估"""
+        from src.schemas.evaluation import EvaluationSchema
+
+        request = EvaluationSchema(
+            id="fact_001",
+            type="factuality",
+            payload={
+                "action": "evaluate_factuality",
+                "response": "北京是中国的首都。",
+                "reference": ["北京是中国的首都"],
+            },
+        )
+        result = evaluator.evaluate(request)
+        assert result.is_valid is True
+        assert result.data["overall_factuality_score"] >= 0.5
+
+    def test_evaluate_factuality_empty_response(self, evaluator):
+        """空response应返回错误"""
+        from src.schemas.evaluation import EvaluationSchema
+
+        request = EvaluationSchema(
+            id="fact_002",
+            type="factuality",
+            payload={"action": "evaluate_factuality", "response": ""},
+        )
+        result = evaluator.evaluate(request)
+        # FactualityEvaluator 将 is_valid 放在 data 中
+        assert result.data.get("is_valid") is False
+        assert "response不能为空" in str(result.data.get("error", ""))
+
+    def test_detect_hallucination_action(self, evaluator):
+        """专门的幻觉检测action"""
+        from src.schemas.evaluation import EvaluationSchema
+
+        request = EvaluationSchema(
+            id="fact_003",
+            type="factuality",
+            payload={
+                "action": "detect_hallucination",
+                "response": "北京是中国的首都。",
+                "reference": ["北京是中国的首都"],
+            },
+        )
+        result = evaluator.evaluate(request)
+        assert result.is_valid is True
+        assert "hallucination_score" in result.data
+        assert result.data["hallucination_score"] >= 0.5
+
+    def test_verify_entities_action(self, evaluator):
+        """实体验证action"""
+        from src.schemas.evaluation import EvaluationSchema
+
+        request = EvaluationSchema(
+            id="fact_004",
+            type="factuality",
+            payload={
+                "action": "verify_entities",
+                "response": "张三和李四是好朋友。",
+                "reference": ["张三和李四是好朋友"],
+            },
+        )
+        result = evaluator.evaluate(request)
+        assert result.is_valid is True
+        assert "entity_consistency_score" in result.data
+
+    def test_check_consistency_action(self, evaluator):
+        """内部一致性检查action"""
+        from src.schemas.evaluation import EvaluationSchema
+
+        request = EvaluationSchema(
+            id="fact_005",
+            type="factuality",
+            payload={
+                "action": "check_consistency",
+                "response": "北京是中国的首都。上海也是中国的首都。",
+            },
+        )
+        result = evaluator.evaluate(request)
+        assert result.is_valid is True
+        assert "internal_consistency_score" in result.data
+
+    def test_unknown_action_returns_error(self, evaluator):
+        """未知action应返回错误"""
+        from src.schemas.evaluation import EvaluationSchema
+
+        request = EvaluationSchema(
+            id="fact_006",
+            type="factuality",
+            payload={"action": "unknown_action"},
+        )
+        result = evaluator.evaluate(request)
+        # FactualityEvaluator 将 is_valid 放在 data 中
+        assert result.data.get("is_valid") is False
+        assert "Unknown action" in str(result.data.get("error", ""))
 
 
 class TestRiskEvaluator:
@@ -55,32 +140,147 @@ class TestRiskEvaluator:
 
         self.evaluator_class = RiskEvaluator
 
+    @pytest.fixture
+    def evaluator(self):
+        return self.evaluator_class()
+
     def test_evaluator_can_be_created(self):
         """评估器可以被创建"""
         evaluator = self.evaluator_class()
         assert evaluator is not None
-
-    def test_empty_input_returns_error(self):
-        """空输入时评估器应返回有效响应"""
-        from src.schemas.evaluation import EvaluationSchema
-
-        evaluator = self.evaluator_class()
-
-        request = EvaluationSchema(
-            id="risk_001",
-            type="risk",
-            payload={"text": ""},
-        )
-        result = evaluator.evaluate(request)
-        # RiskEvaluator 返回评估结果
-        assert result.is_valid is True
-        assert result.data is not None
 
     def test_evaluator_registered(self):
         """评估器已注册到工厂"""
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 
         assert "risk" in EvaluatorFactory._registry
+
+    def test_detect_all_action(self, evaluator):
+        """综合风险检测action"""
+        from src.schemas.evaluation import EvaluationSchema
+
+        request = EvaluationSchema(
+            id="risk_001",
+            type="risk",
+            payload={
+                "action": "detect_all",
+                "feature_complexity": 0.2,
+                "core_alignment": 0.9,
+                "responsibility_blur": 0.1,
+            },
+        )
+        result = evaluator.evaluate(request)
+        assert result.is_valid is True
+        assert "overall_risk_level" in result.data
+        assert result.data["overall_risk_level"] in ["low", "medium", "high"]
+
+    def test_detect_feature_creep_low_risk(self, evaluator):
+        """功能蔓延低风险检测"""
+        from src.schemas.evaluation import EvaluationSchema
+
+        request = EvaluationSchema(
+            id="risk_002",
+            type="risk",
+            payload={
+                "action": "feature_creep",
+                "feature_complexity": 0.2,
+                "core_alignment": 0.9,
+                "responsibility_blur": 0.1,
+            },
+        )
+        result = evaluator.evaluate(request)
+        assert result.is_valid is True
+        assert result.data["risk_level"] == "low"
+        assert result.data["risk_score"] < 0.7
+
+    def test_detect_tech_debt_high_risk(self, evaluator):
+        """技术债务高风险检测"""
+        from src.schemas.evaluation import EvaluationSchema
+
+        request = EvaluationSchema(
+            id="risk_003",
+            type="risk",
+            payload={
+                "action": "tech_debt",
+                "unresolved_warnings": 50,
+                "duplicate_code_ratio": 0.3,
+                "pending_refactoring": 5,
+                "documentation_gap": 0.5,
+            },
+        )
+        result = evaluator.evaluate(request)
+        assert result.is_valid is True
+        assert result.data["risk_level"] in ["low", "medium", "high"]
+
+    def test_detect_coupling_risk(self, evaluator):
+        """模块耦合风险检测"""
+        from src.schemas.evaluation import EvaluationSchema
+
+        request = EvaluationSchema(
+            id="risk_004",
+            type="risk",
+            payload={
+                "action": "coupling",
+                "external_dependencies": 5,
+                "cyclic_dependencies": 2,
+                "cross_layer_calls": 3,
+            },
+        )
+        result = evaluator.evaluate(request)
+        assert result.is_valid is True
+        assert "risk_level" in result.data
+
+    def test_detect_test_coverage_risk(self, evaluator):
+        """测试覆盖风险检测"""
+        from src.schemas.evaluation import EvaluationSchema
+
+        request = EvaluationSchema(
+            id="risk_005",
+            type="risk",
+            payload={
+                "action": "test_coverage",
+                "overall_coverage": 0.85,
+                "new_code_coverage": 0.9,
+                "critical_path_coverage": 0.8,
+                "test_pass_rate": 0.95,
+            },
+        )
+        result = evaluator.evaluate(request)
+        assert result.is_valid is True
+        assert "risk_level" in result.data
+
+    def test_detect_drift_risk(self, evaluator):
+        """行为漂移风险检测"""
+        from src.schemas.evaluation import EvaluationSchema
+
+        request = EvaluationSchema(
+            id="risk_006",
+            type="risk",
+            payload={
+                "action": "drift",
+                "baseline_score": 0.9,
+                "current_score": 0.85,
+                "format_changes": 2,
+                "latency_increase": 10,
+                "error_rate_change": 0.01,
+            },
+        )
+        result = evaluator.evaluate(request)
+        assert result.is_valid is True
+        assert "risk_level" in result.data
+
+    def test_unknown_action_returns_error(self, evaluator):
+        """未知action应返回错误"""
+        from src.schemas.evaluation import EvaluationSchema
+
+        request = EvaluationSchema(
+            id="risk_007",
+            type="risk",
+            payload={"action": "unknown_action"},
+        )
+        result = evaluator.evaluate(request)
+        assert result.is_valid is False
+        assert "Unknown risk detection action" in result.error
 
 
 class TestLLMAsJudgeEvaluator:
@@ -91,16 +291,24 @@ class TestLLMAsJudgeEvaluator:
 
         self.evaluator_class = LLMAJudgeEvaluator
 
+    @pytest.fixture
+    def evaluator(self):
+        return self.evaluator_class(client=None)
+
     def test_evaluator_can_be_created(self):
         """评估器可以被创建"""
         evaluator = self.evaluator_class()
         assert evaluator is not None
 
-    def test_empty_input_returns_error(self):
+    def test_evaluator_registered(self):
+        """评估器已注册到工厂"""
+        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+
+        assert "llm_as_judge" in EvaluatorFactory._registry
+
+    def test_empty_input_returns_error(self, evaluator):
         """空输入应返回错误"""
         from src.schemas.evaluation import EvaluationSchema
-
-        evaluator = self.evaluator_class()
 
         request = EvaluationSchema(
             id="judge_001",
@@ -110,11 +318,77 @@ class TestLLMAsJudgeEvaluator:
         result = evaluator.evaluate(request)
         assert result.is_valid is False
 
-    def test_evaluator_registered(self):
-        """评估器已注册到工厂"""
-        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+    def test_missing_actual_output_returns_error(self, evaluator):
+        """缺少actual_output应返回错误"""
+        from src.schemas.evaluation import EvaluationSchema
 
-        assert "llm_as_judge" in EvaluatorFactory._registry
+        request = EvaluationSchema(
+            id="judge_002",
+            type="llm_as_judge",
+            payload={"user_input": "你好", "actual_output": ""},
+        )
+        result = evaluator.evaluate(request)
+        assert result.is_valid is False
+        assert "actual_output 不能为空" in result.error
+
+    def test_with_mock_client(self):
+        """带Mock客户端的评估"""
+        from src.schemas.evaluation import EvaluationSchema
+
+        mock_client = MagicMock()
+        mock_client.chat.return_value = '{"scores": {"correctness": {"score": 80, "reason": "test"}}, "total_score": 80, "confidence": 0.8, "conflict_detected": false}'
+        evaluator = self.evaluator_class(client=mock_client)
+
+        request = EvaluationSchema(
+            id="judge_003",
+            type="llm_as_judge",
+            payload={
+                "user_input": "你好",
+                "actual_output": "你好，很高兴见到你",
+                "expected_output": "友好问候",
+                "dimensions": ["correctness"],
+            },
+        )
+        result = evaluator.evaluate(request)
+        assert result.is_valid is True
+        assert result.score > 0
+
+    def test_without_client_uses_mock(self, evaluator):
+        """无客户端时使用默认mock结果"""
+        from src.schemas.evaluation import EvaluationSchema
+
+        request = EvaluationSchema(
+            id="judge_004",
+            type="llm_as_judge",
+            payload={
+                "user_input": "你好",
+                "actual_output": "你好，很高兴见到你",
+            },
+        )
+        result = evaluator.evaluate(request)
+        assert result.is_valid is True
+        assert result.score > 0
+
+    def test_multiple_dimensions(self):
+        """多维度评估"""
+        from src.schemas.evaluation import EvaluationSchema
+
+        mock_client = MagicMock()
+        mock_client.chat.return_value = '{"scores": {"correctness": {"score": 80, "reason": "test"}, "relevance": {"score": 90, "reason": "test"}}, "total_score": 85, "confidence": 0.8, "conflict_detected": false}'
+        evaluator = self.evaluator_class(client=mock_client)
+
+        request = EvaluationSchema(
+            id="judge_005",
+            type="llm_as_judge",
+            payload={
+                "user_input": "你好",
+                "actual_output": "你好，很高兴见到你",
+                "dimensions": ["correctness", "relevance"],
+            },
+        )
+        result = evaluator.evaluate(request)
+        assert result.is_valid is True
+        assert "llm_judge_scores" in result.data
 
 
 class TestEvaluatorFactory:
@@ -170,6 +444,39 @@ class TestBaseEvaluator:
         evaluator = TestEvaluator()
         assert evaluator is not None
 
+    def test_validate_input(self):
+        """验证输入方法"""
+        from src.domain.evaluators.base import BaseEvaluator
+        from src.schemas.evaluation import EvaluationSchema
+
+        class TestEvaluator(BaseEvaluator):
+            def evaluate(self, request):
+                if error := self.validate_input(request):
+                    return error
+                return self.create_success_response()
+
+        evaluator = TestEvaluator()
+        request = EvaluationSchema(id="test", type="test", payload={"user_input": ""})
+        result = evaluator.evaluate(request)
+        assert result.is_valid is False
+
+    def test_require_client(self):
+        """客户端检查方法"""
+        from src.domain.evaluators.base import BaseEvaluator
+        from src.schemas.evaluation import EvaluationSchema
+
+        class TestEvaluator(BaseEvaluator):
+            def evaluate(self, request):
+                if error := self.require_client():
+                    return error
+                return self.create_success_response()
+
+        evaluator = TestEvaluator(client=None)
+        request = EvaluationSchema(id="test", type="test", payload={})
+        result = evaluator.evaluate(request)
+        assert result.is_valid is False
+        assert "LLM client 未配置" in result.error
+
 
 class TestScoringIntegration:
     """评分算法集成测试"""
@@ -182,6 +489,15 @@ class TestScoringIntegration:
         expected = "营收100万元，利润20万元"
         score = score_numeric_match(output, expected)
         assert score == 1.0
+
+    def test_score_numeric_match_partial(self):
+        """数字匹配部分匹配"""
+        from src.domain.evaluators.scoring import score_numeric_match
+
+        output = "营收100万元"
+        expected = "营收100万元 成本80万元"
+        score = score_numeric_match(output, expected)
+        assert 0.0 < score < 1.0
 
     def test_score_text_similarity_integration(self):
         """文本相似度评分集成测试"""

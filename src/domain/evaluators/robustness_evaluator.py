@@ -166,7 +166,7 @@ class RobustnessEvaluator(BaseEvaluator):
 
     def _evaluate_error_recovery(self, request: EvaluationSchema) -> DomainResponse:
         """评估错误恢复能力"""
-        test_results = self._get_payload(request, "test_results", [])
+        test_results = self.get_payload_data(request, "test_results", [])
         score = self._calc_error_recovery(test_results)
 
         return DomainResponse(

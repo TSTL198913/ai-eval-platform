@@ -6,7 +6,6 @@
 import pytest
 
 from src.domain.evaluators import EvaluatorFactory
-from src.schemas.evaluation import EvaluationSchema
 
 
 @pytest.mark.smoke

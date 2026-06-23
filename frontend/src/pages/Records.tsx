@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, Select, Button, Table, Tag, Spin, Checkbox, message, Popconfirm, Modal, Badge } from 'antd';
-import { RefreshCw, Download, Play, Trash2, Edit, CheckCircle, XCircle } from 'lucide-react';
+import { RefreshCw, Download, Play, Trash2, CheckCircle } from 'lucide-react';
 import { evaluationApi, evaluatorApi, recordsApi } from '../services/api';
 import { EvaluationRecord, Evaluator } from '../types';
 

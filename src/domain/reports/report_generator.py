@@ -118,11 +118,11 @@ class EvaluationReport:
             status = "pass" if result.get("score", 0) >= 0.7 else "fail"
             html += f"""
             <tr>
-                <td>{result.get('id', '')}</td>
-                <td>{result.get('type', '')}</td>
-                <td class='status-{status}'>{result.get('status', '')}</td>
-                <td>{result.get('score', 0):.2f}</td>
-                <td>{result.get('latency_ms', 0)}</td>
+                <td>{result.get("id", "")}</td>
+                <td>{result.get("type", "")}</td>
+                <td class='status-{status}'>{result.get("status", "")}</td>
+                <td>{result.get("score", 0):.2f}</td>
+                <td>{result.get("latency_ms", 0)}</td>
             </tr>
             """
         html += "</tbody></table></div>"
@@ -213,7 +213,7 @@ class ReportGenerator:
         report.add_summary("总测试数", total)
         report.add_summary("通过数", passed)
         report.add_summary("失败数", failed)
-        report.add_summary("通过率", f"{(passed/total)*100:.1f}%" if total > 0 else "N/A")
+        report.add_summary("通过率", f"{(passed / total) * 100:.1f}%" if total > 0 else "N/A")
         report.add_summary("平均分数", f"{avg_score:.2f}")
         report.add_summary("平均耗时", f"{avg_latency:.2f}ms")
 
@@ -254,7 +254,7 @@ class ReportGenerator:
 
         report.add_summary("总测试数", total)
         report.add_summary("通过数", passed)
-        report.add_summary("通过率", f"{(passed/total)*100:.1f}%" if total > 0 else "N/A")
+        report.add_summary("通过率", f"{(passed / total) * 100:.1f}%" if total > 0 else "N/A")
         report.add_summary("平均分数", f"{avg_score:.2f}")
 
         for result in results:
@@ -276,7 +276,7 @@ def _get_score_from_record(record: dict) -> float:
 
         response_data = json.loads(response_data)
         return response_data.get("score", 0.0)
-    except:
+    except (json.JSONDecodeError, TypeError):
         return 0.0
 
 
@@ -293,7 +293,7 @@ def generate_report_from_records(records: list[dict], output_path: str = "report
 
     report.add_summary("评测总数", total)
     report.add_summary("通过数", passed)
-    report.add_summary("通过率", f"{(passed/total)*100:.1f}%" if total > 0 else "N/A")
+    report.add_summary("通过率", f"{(passed / total) * 100:.1f}%" if total > 0 else "N/A")
     report.add_summary("平均分数", f"{avg_score:.2f}")
 
     for record in records:

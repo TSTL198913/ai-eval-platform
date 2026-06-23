@@ -12,10 +12,8 @@ import {
   Spin,
   Alert,
   Statistic,
-  DatePicker,
   Button,
   Space,
-  Select,
   Tabs,
 } from 'antd';
 import {
@@ -34,14 +32,10 @@ import {
   Legend,
   BarChart,
   Bar,
-  BoxPlot,
 } from 'recharts';
 import { RefreshCw, FileText, Download } from 'lucide-react';
 import { visualizationApi } from '../services/visualizationApi';
 import type { DashboardData } from '../types/visualization';
-
-const { RangePicker } = DatePicker;
-const { Option } = Select;
 
 interface EvaluationDashboardProps {
   title?: string;
@@ -282,12 +276,19 @@ const EvaluationDashboard: React.FC<EvaluationDashboardProps> = ({
         <Tabs.TabPane tab="离散度" key="boxplot">
           <Card title="分数离散度（箱线图）">
             <ResponsiveContainer width="100%" height={420}>
-              <BoxPlot
-                data={boxChartData}
-                xKey="name"
-                yKeys={['min', 'q1', 'median', 'q3', 'max']}
-              />
+              <BarChart data={boxChartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="median" fill="#8884d8" name="中位数" />
+                <Bar dataKey="q1" fill="#82ca9d" name="下四分位" />
+                <Bar dataKey="q3" fill="#ffc658" name="上四分位" />
+              </BarChart>
             </ResponsiveContainer>
+            <div style={{ marginTop: 8, fontSize: 12, color: '#666' }}>
+              数据说明: 显示各评估器分数的中位数、下四分位(q1)、上四分位(q3)
+            </div>
           </Card>
         </Tabs.TabPane>
 

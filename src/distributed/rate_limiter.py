@@ -7,6 +7,7 @@
 
 import asyncio
 import logging
+import threading
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -251,7 +252,7 @@ class RateLimiter:
 
 class MultiDimensionRateLimiter:
     """
-    多维度限流器
+    多维度限流器（线程安全）
 
     支持用户、API、IP等多维度限流
     """
@@ -259,12 +260,14 @@ class MultiDimensionRateLimiter:
     def __init__(self, redis_client: redis.Redis):
         self.redis = redis_client
         self._limiters: dict[str, TokenBucket] = {}
+        self._lock = threading.Lock()
 
     def _get_limiter(self, dimension: str, config: RateLimitConfig) -> TokenBucket:
-        """获取或创建维度限流器"""
-        if dimension not in self._limiters:
-            self._limiters[dimension] = TokenBucket(self.redis, dimension, config)
-        return self._limiters[dimension]
+        """获取或创建维度限流器（线程安全）"""
+        with self._lock:
+            if dimension not in self._limiters:
+                self._limiters[dimension] = TokenBucket(self.redis, dimension, config)
+            return self._limiters[dimension]
 
     def check(
         self,

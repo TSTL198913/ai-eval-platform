@@ -1,7 +1,7 @@
 {
-  "llm_as_judge:3c442c59": {
+  "llm_as_judge:d1283b62": {
     "is_calibrated": false,
     "mean_deviation": 10.0,
-    "timestamp": "2026-06-21T01:02:59.586527"
+    "timestamp": "2026-06-22T15:16:47.649821"
   }
 }

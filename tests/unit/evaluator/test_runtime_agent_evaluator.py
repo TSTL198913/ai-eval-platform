@@ -11,11 +11,8 @@ import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from src.domain.evaluators.runtime_agent_evaluator import (
-    AgentState,
-    RuntimeAgentEvaluator,
-    ToolRegistry,
-)
+from src.domain.agents.runtime_framework import AgentState
+from src.domain.evaluators.runtime_agent_evaluator import RuntimeAgentEvaluator
 from src.schemas.evaluation import EvaluationSchema
 
 
@@ -383,14 +380,16 @@ class TestRuntimeAgentEvaluatorAlgorithmTests:
     def test_tool_registry_call_registered_tool(self, target):
         """调用已注册工具应成功"""
         # calculator是预注册工具
-        result = ToolRegistry.call("calculator", input="2+2")
+        tool_registry = RuntimeAgentEvaluator.get_tool_registry()
+        result = tool_registry.call("calculator", input="2+2")
 
         assert result == "4"
 
     def test_tool_registry_call_unregistered_tool_returns_error(self, target):
         """调用未注册工具应抛出异常"""
+        tool_registry = RuntimeAgentEvaluator.get_tool_registry()
         with pytest.raises(ValueError) as exc_info:
-            ToolRegistry.call("nonexistent_tool", input="test")
+            tool_registry.call("nonexistent_tool", input="test")
 
         assert "not registered" in str(exc_info.value)
 

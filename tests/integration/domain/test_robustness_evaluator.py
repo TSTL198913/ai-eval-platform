@@ -299,15 +299,20 @@ class TestRobustnessEvaluatorBoundaryCases:
         assert consistency == 1.0
 
     def test_calc_consistency_with_zero_mean(self, evaluator):
-        """均值为0计算一致性 - 应返回0.0"""
+        """均值为0计算一致性 - 应返回1.0（完全一致）
+
+        【行为变更】原逻辑：mean=0时返回0.0，这是错误的。
+        当所有分数都是0时，表示完全一致（std=0），应返回1.0。
+        修复后：mean=0且std=0时返回1.0，mean=0且std!=0时返回0.5。
+        """
         # Arrange
         test_results = [{"score": 0}, {"score": 0}, {"score": 0}]
 
         # Act
         consistency = evaluator._calc_consistency(test_results)
 
-        # Assert
-        assert consistency == 0.0
+        # Assert - 所有分数相同（都是0），一致性应为1.0
+        assert consistency == 1.0
 
     def test_calc_perturbation_resistance_with_no_scores(self, evaluator):
         """扰动结果无分数且未存活 - 应返回0.0"""

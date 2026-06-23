@@ -1,59 +1,35 @@
+
 import { create } from 'zustand';
-import { User } from '@/types';
-import { authApi } from '@/services/api';
+import { UserInfo } from '../types';
 
 interface AuthState {
-  user: User | null;
+  user: UserInfo | null;
   accessToken: string | null;
   refreshToken: string | null;
   isAuthenticated: boolean;
-  isLoading: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (user: UserInfo, accessToken: string, refreshToken: string) => void;
   logout: () => void;
-  checkAuth: () => void;
+  setAccessToken: (token: string) => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+const useAuthStore = create<AuthState>((set) => ({
   user: null,
   accessToken: localStorage.getItem('access_token') || null,
   refreshToken: localStorage.getItem('refresh_token') || null,
   isAuthenticated: !!localStorage.getItem('access_token'),
-  isLoading: false,
-
-  login: async (username, password) => {
-    set({ isLoading: true });
-    try {
-      const response = await authApi.login({ username, password });
-      localStorage.setItem('access_token', response.access_token);
-      localStorage.setItem('refresh_token', response.refresh_token);
-      set({
-        user: response.user,
-        accessToken: response.access_token,
-        refreshToken: response.refresh_token,
-        isAuthenticated: true,
-      });
-    } finally {
-      set({ isLoading: false });
-    }
+  login: (user, accessToken, refreshToken) => {
+    localStorage.setItem('access_token', accessToken);
+    localStorage.setItem('refresh_token', refreshToken);
+    set({ user, accessToken, refreshToken, isAuthenticated: true });
   },
-
   logout: () => {
-    authApi.logout();
-    set({
-      user: null,
-      accessToken: null,
-      refreshToken: null,
-      isAuthenticated: false,
-    });
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
   },
-
-  checkAuth: () => {
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      set({ isAuthenticated: true });
-    } else {
-      set({ isAuthenticated: false });
-    }
+  setAccessToken: (token) => {
+    localStorage.setItem('access_token', token);
+    set({ accessToken: token });
   },
 }));
 
@@ -62,7 +38,10 @@ interface AppState {
   toggleSidebar: () => void;
 }
 
-export const useAppStore = create<AppState>((set) => ({
+const useAppStore = create<AppState>((set) => ({
   sidebarCollapsed: false,
   toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
 }));
+
+export { useAuthStore, useAppStore };
+export default useAuthStore;

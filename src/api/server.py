@@ -8,6 +8,13 @@ import os
 import time
 from contextlib import asynccontextmanager
 
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -28,18 +35,18 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan事件处理器 - 启动时预热关键资源"""
-    print("=" * 60, flush=True)
-    print("开始预热...", flush=True)
+    logger.info("=" * 60)
+    logger.info("开始预热...")
     warmup_start = time.time()
 
     # 1. 初始化数据库表
-    print("[1/5] 初始化数据库表...", flush=True)
+    logger.info("[1/5] 初始化数据库表...")
     t0 = time.time()
     init_tables()
-    print(f"      数据库表初始化完成: {time.time()-t0:.0f}s", flush=True)
+    logger.info(f"[1/5] 数据库表初始化完成: {time.time()-t0:.0f}s")
 
     # 2. 预热数据库连接池
-    print("[2/5] 预热数据库连接池...", flush=True)
+    logger.info("[2/5] 预热数据库连接池...")
     t0 = time.time()
     try:
         from sqlalchemy import text
@@ -52,46 +59,46 @@ async def lifespan(app: FastAPI):
         db.commit()
         time.sleep(0.5)
         next(db_gen, None)
-        print(f"      连接池预热完成: {time.time()-t0:.0f}s", flush=True)
+        logger.info(f"[2/5] 连接池预热完成: {time.time()-t0:.0f}s")
     except Exception as e:
-        print(f"      连接池预热失败: {e}", flush=True)
+        logger.warning(f"[2/5] 连接池预热失败: {e}")
 
     # 3. 预热评估器注册表
-    print("[3/5] 预热评估器注册表...", flush=True)
+    logger.info("[3/5] 预热评估器注册表...")
     t0 = time.time()
     try:
         evaluators = list(EVALUATOR_REGISTRY.keys())
-        print(f"      已注册评估器: {evaluators}", flush=True)
-        print(f"      评估器预热完成: {time.time()-t0:.0f}s", flush=True)
+        logger.info(f"[3/5] 已注册评估器: {evaluators}")
+        logger.info(f"[3/5] 评估器预热完成: {time.time()-t0:.0f}s")
     except Exception as e:
-        print(f"      评估器预热失败: {e}", flush=True)
+        logger.warning(f"[3/5] 评估器预热失败: {e}")
 
     # 4. 预热模型工厂
-    print("[4/5] 预热模型工厂...", flush=True)
+    logger.info("[4/5] 预热模型工厂...")
     t0 = time.time()
     try:
         from src.domain.models.llm_factory import ModelRegistry
 
         providers = ModelRegistry.list_providers()
-        print(f"      可用模型供应商: {providers}", flush=True)
-        print(f"      模型工厂预热完成: {time.time()-t0:.0f}s", flush=True)
+        logger.info(f"[4/5] 可用模型供应商: {providers}")
+        logger.info(f"[4/5] 模型工厂预热完成: {time.time()-t0:.0f}s")
     except Exception as e:
-        print(f"      模型工厂预热失败: {e}", flush=True)
+        logger.warning(f"[4/5] 模型工厂预热失败: {e}")
 
     # 5. 预热报告生成器
-    print("[5/5] 预热报告生成器...", flush=True)
+    logger.info("[5/5] 预热报告生成器...")
     t0 = time.time()
     try:
         from src.domain.reports.report_generator import ReportGenerator
 
         _ = ReportGenerator()
-        print(f"      报告生成器预热完成: {time.time()-t0:.0f}s", flush=True)
+        logger.info(f"[5/5] 报告生成器预热完成: {time.time()-t0:.0f}s")
     except Exception as e:
-        print(f"      报告生成器预热失败: {e}", flush=True)
+        logger.warning(f"[5/5] 报告生成器预热失败: {e}")
 
-    print("=" * 60, flush=True)
-    print(f"预热完成! 总耗时: {time.time()-warmup_start:.1f}s", flush=True)
-    print("=" * 60, flush=True)
+    logger.info("=" * 60)
+    logger.info(f"预热完成! 总耗时: {time.time()-warmup_start:.1f}s")
+    logger.info("=" * 60)
 
     yield
 
@@ -211,14 +218,17 @@ async def global_exception_handler(request: Request, exc: Exception):
 # =====================================================================
 
 from src.api.routes import (
+    annotation_router,
     auth_router,
     calibration_router,
     dashboard_router,
     dataset_router,
+    eval_config_router,
     evaluation_router,
     evaluator_router,
     finetune_router,
     health_router,
+    model_comparison_router,
     model_router,
     records_router,
     report_router,
@@ -232,12 +242,15 @@ app.include_router(evaluation_router)
 app.include_router(records_router)
 app.include_router(evaluator_router)
 app.include_router(model_router)
+app.include_router(model_comparison_router)
 app.include_router(report_router)
 app.include_router(dataset_router)
 app.include_router(calibration_router)
 app.include_router(finetune_router)
 app.include_router(statistics_router)
 app.include_router(dashboard_router)
+app.include_router(annotation_router)
+app.include_router(eval_config_router)
 
 
 # =====================================================================

@@ -24,10 +24,11 @@ class TestFactualityEvaluator:
     def evaluator(self):
         return self.evaluator_class()
 
-    def test_evaluator_can_be_created(self):
-        """评估器可以被创建"""
-        evaluator = self.evaluator_class()
+    def test_evaluator_can_be_created(self, evaluator):
+        """评估器已正确创建并可调用evaluate方法"""
         assert evaluator is not None
+        assert hasattr(evaluator, "evaluate")
+        assert callable(evaluator.evaluate)
 
     def test_evaluator_registered(self):
         """评估器已注册到工厂"""
@@ -50,7 +51,7 @@ class TestFactualityEvaluator:
         )
         result = evaluator.evaluate(request)
         assert result.is_valid is True
-        assert result.data["overall_factuality_score"] >= 0.5
+        assert 0.7 <= result.data["overall_factuality_score"] <= 1.0
 
     def test_evaluate_factuality_empty_response(self, evaluator):
         """空response应返回错误"""
@@ -144,10 +145,11 @@ class TestRiskEvaluator:
     def evaluator(self):
         return self.evaluator_class()
 
-    def test_evaluator_can_be_created(self):
-        """评估器可以被创建"""
-        evaluator = self.evaluator_class()
+    def test_evaluator_can_be_created(self, evaluator):
+        """评估器已正确创建并可调用evaluate方法"""
         assert evaluator is not None
+        assert hasattr(evaluator, "evaluate")
+        assert callable(evaluator.evaluate)
 
     def test_evaluator_registered(self):
         """评估器已注册到工厂"""
@@ -173,6 +175,12 @@ class TestRiskEvaluator:
         assert result.is_valid is True
         assert "overall_risk_level" in result.data
         assert result.data["overall_risk_level"] in ["low", "medium", "high"]
+        # 验证评分逻辑：风险详情中包含各维度的风险评分
+        assert "details" in result.data
+        details = result.data["details"]
+        assert "feature_creep" in details
+        assert "risk_score" in details["feature_creep"]
+        assert 0.0 <= details["feature_creep"]["risk_score"] <= 1.0
 
     def test_detect_feature_creep_low_risk(self, evaluator):
         """功能蔓延低风险检测"""

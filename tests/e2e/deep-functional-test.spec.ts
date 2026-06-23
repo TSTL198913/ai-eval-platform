@@ -172,7 +172,7 @@ test.describe('深度用户操作流程测试', () => {
 
     // 输入正确的用户名和密码
     await page.locator('input[type="text"]').first().fill('admin');
-    await page.locator('input[type="password"]').fill('admin');
+    await page.locator('input[type="password"]').fill('admin123');
     await page.locator('button[type="submit"]').click();
 
     // 等待登录成功跳转
@@ -453,7 +453,7 @@ test.describe('深度用户操作流程测试', () => {
     await page.goto('/login');
     await page.waitForLoadState('networkidle');
     await page.locator('input[type="text"]').first().fill('admin');
-    await page.locator('input[type="password"]').fill('admin');
+    await page.locator('input[type="password"]').fill('admin123');
     await page.locator('button[type="submit"]').click();
     await page.waitForTimeout(2000);
 

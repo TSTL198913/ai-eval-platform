@@ -121,10 +121,13 @@ ignore = [
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex
     "B017",  # assert blind exception (common in tests)
+    "B904",  # raise without `from` (legacy code, will fix later)
+    "UP038",  # isinstance with tuple (will upgrade to X | Y later)
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["B017"]  # 允许测试中使用 pytest.raises(Exception)
+"tests/unit/evaluator/test_evaluator_factory.py" = ["F811"]  # 测试中故意重复定义类
 
 [tool.ruff.lint.isort]
 known-first-party = ["src"]

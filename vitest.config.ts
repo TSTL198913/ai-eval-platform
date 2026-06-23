@@ -7,14 +7,14 @@ export default defineConfig({
   plugins: [react(), tsconfigPaths()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(__dirname, './frontend/src'),
     },
   },
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    setupFiles: ['./frontend/src/test/setup.ts'],
+    include: ['frontend/src/**/*.test.ts', 'frontend/src/**/*.test.tsx'],
     exclude: ['node_modules', 'dist', '.next'],
     coverage: {
       provider: 'v8',
@@ -22,9 +22,9 @@ export default defineConfig({
         'node_modules/',
         'dist/',
         '.next/',
-        'src/main.tsx',
-        'src/App.tsx',
-        'src/**/*.stories.tsx',
+        'frontend/src/main.tsx',
+        'frontend/src/App.tsx',
+        'frontend/src/**/*.stories.tsx',
       ],
       thresholds: {
         global: {

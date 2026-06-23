@@ -319,16 +319,17 @@ class TestDriftDetectionConfidence:
 class TestDriftDetectionBaseline:
     """基线管理测试"""
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def evaluator(self):
-        """创建漂移检测评估器"""
+        """创建漂移检测评估器（class级别共享）"""
         ev = DriftDetectionEvaluator()
-        ev._BASELINE_STORE = {}
+        ev._baseline_store = {}
         return ev
 
     def test_get_or_create_baseline_from_store(self, evaluator):
         """从存储获取基线"""
-        evaluator._BASELINE_STORE["case_001"] = 0.85
+        evaluator._baseline_store.clear()  # 清理确保干净状态
+        evaluator._baseline_store["case_001"] = 0.85
 
         recent_results = [{"score": 0.8}, {"score": 0.82}, {"score": 0.84}]
         baseline = evaluator._get_or_create_baseline("case_001", recent_results)
@@ -345,11 +346,11 @@ class TestDriftDetectionBaseline:
 
     def test_save_and_load_baseline(self, evaluator):
         """基线保存和加载"""
-        evaluator._BASELINE_STORE = {}
+        evaluator._baseline_store = {}
         evaluator.save_baseline("case_001", 0.85)
 
-        assert "case_001" in evaluator._BASELINE_STORE
-        assert evaluator._BASELINE_STORE["case_001"] == 0.85
+        assert "case_001" in evaluator._baseline_store
+        assert evaluator._baseline_store["case_001"] == 0.85
 
     def test_load_baselines(self, evaluator):
         """加载基线"""

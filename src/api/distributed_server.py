@@ -14,7 +14,6 @@ import os
 import time
 from contextlib import asynccontextmanager
 
-import redis
 from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -41,22 +40,9 @@ logger = logging.getLogger(__name__)
 # 1. 依赖注入
 # =====================================================================
 
-_redis_client: redis.Redis | None = None
+from src.infra.cache import get_redis
+
 _rate_limiter: MultiDimensionRateLimiter | None = None
-
-
-def get_redis() -> redis.Redis:
-    """获取 Redis 客户端"""
-    global _redis_client
-    if _redis_client is None:
-        _redis_client = redis.Redis(
-            host=os.getenv("REDIS_HOST", "localhost"),
-            port=int(os.getenv("REDIS_PORT", "6379")),
-            db=int(os.getenv("REDIS_DB", "0")),
-            decode_responses=True,
-            protocol=2,
-        )
-    return _redis_client
 
 
 def get_rate_limiter() -> MultiDimensionRateLimiter:
@@ -78,12 +64,7 @@ async def tracing_middleware(request: Request, call_next):
 
     # 提取或创建 trace context
     headers = dict(request.headers)
-    span_context = SpanContextCarrier.extract(headers)
-
-    if span_context:
-        pass
-    else:
-        pass
+    SpanContextCarrier.extract(headers)
 
     # 创建 span
     with TraceContext(tracer, f"{request.method} {request.url.path}") as ctx:
@@ -509,8 +490,6 @@ async def get_task_result(task_id: str):
 # =====================================================================
 
 if __name__ == "__main__":
-    import os
-
     import uvicorn
 
     host = os.environ.get("API_HOST", "127.0.0.1")

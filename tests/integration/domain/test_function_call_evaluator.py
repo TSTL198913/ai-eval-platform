@@ -163,7 +163,12 @@ class TestFunctionCallEvaluatorPositiveCases:
         assert result.data["details"]["per_tool_results"]["get_weather"]["score"] == 1.0
 
     def test_partial_tool_selection(self, evaluator):
-        """部分工具选择：部分工具正确"""
+        """部分工具选择：部分工具正确
+
+        【行为变更】惩罚公式从固定扣分改为相对扣分：
+        - 原公式：incorrect_count * 0.1，上限无限制
+        - 新公式：min(0.3, incorrect_count / total_count)，上限 0.3
+        """
         request = EvaluationSchema(
             id="test_005",
             type="function_call",
@@ -178,9 +183,9 @@ class TestFunctionCallEvaluatorPositiveCases:
 
         assert result.is_valid is True
         # 精确率：1/2 = 0.5，召回率：1/3 = 0.333，F1 = 2*0.5*0.333/(0.5+0.333) ≈ 0.4
-        # 惩罚：1个错误选择 * 0.1 = 0.1
-        # 最终分数：max(0, 0.4 - 0.1) = 0.3
-        assert result.score == pytest.approx(0.3, abs=0.01)
+        # 新惩罚公式：min(0.3, 1/3) = 0.3（1个错误选择，3个期望工具）
+        # 最终分数：max(0, 0.4 - 0.3) = 0.1
+        assert result.score == pytest.approx(0.1, abs=0.01)
         assert result.data["details"]["precision"] == pytest.approx(0.5, abs=0.01)
         assert result.data["details"]["recall"] == pytest.approx(0.333, abs=0.01)
         assert "tool_a" in result.data["details"]["correct_selections"]
@@ -453,7 +458,12 @@ class TestFunctionCallEvaluatorBoundaryCases:
         assert result.score == 1.0
 
     def test_large_dataset(self, evaluator):
-        """大型数据集测试（100个工具）"""
+        """大型数据集测试（100个工具）
+
+        【行为变更】惩罚公式从固定扣分改为相对扣分：
+        - 原公式：incorrect_count * 0.1 = 50 * 0.1 = 5.0，分数为 0.0
+        - 新公式：min(0.3, incorrect_count / total_count) = min(0.3, 50/100) = 0.3
+        """
         expected = [f"tool_{i}" for i in range(100)]
         # 前50个正确，后50个错误
         actual = [f"tool_{i}" for i in range(50)] + [f"wrong_{i}" for i in range(50)]
@@ -472,9 +482,9 @@ class TestFunctionCallEvaluatorBoundaryCases:
 
         assert result.is_valid is True
         # 精确率：50/100 = 0.5，召回率：50/100 = 0.5，F1 = 0.5
-        # 惩罚：50个错误选择 * 0.1 = 5.0
-        # 最终分数：max(0, 0.5 - 5.0) = 0.0
-        assert result.score == 0.0
+        # 新惩罚公式：min(0.3, 50/100) = 0.3（上限保护）
+        # 最终分数：max(0, 0.5 - 0.3) = 0.2
+        assert result.score == pytest.approx(0.2, abs=0.01)
         assert len(result.data["details"]["correct_selections"]) == 50
 
 
@@ -746,7 +756,12 @@ class TestFunctionCallEvaluatorSpecialCases:
         assert result.score == pytest.approx(0.5, abs=0.01)
 
     def test_penalty_for_incorrect_selections(self, evaluator):
-        """错误工具选择的惩罚机制"""
+        """错误工具选择的惩罚机制
+
+        【行为变更】惩罚公式从固定扣分改为相对扣分：
+        - 原公式：incorrect_count * 0.1 = 4 * 0.1 = 0.4，分数为 0.0
+        - 新公式：min(0.3, incorrect_count / total_count) = min(0.3, 4/1) = 0.3（上限保护）
+        """
         request = EvaluationSchema(
             id="test_030",
             type="function_call",
@@ -761,10 +776,10 @@ class TestFunctionCallEvaluatorSpecialCases:
 
         assert result.is_valid is True
         # 精确率：1/5 = 0.2，召回率：1/1 = 1.0，F1 = 2*0.2*1.0/(0.2+1.0) ≈ 0.333
-        # 惩罚：4个错误选择 * 0.1 = 0.4
-        # 最终分数：max(0, 0.333 - 0.4) = 0.0
-        assert result.score == 0.0
-        assert result.data["details"]["penalty"] == 0.4
+        # 新惩罚公式：min(0.3, 4/1) = 0.3（上限保护，避免过度惩罚）
+        # 最终分数：max(0, 0.333 - 0.3) ≈ 0.033
+        assert result.score == pytest.approx(0.033, abs=0.01)
+        assert result.data["details"]["penalty"] == pytest.approx(0.3, abs=0.01)
 
 
 class TestFunctionCallEvaluatorIntegrationScenarios:

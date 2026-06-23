@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 from sqlalchemy import bindparam, text
 
@@ -16,11 +17,76 @@ class BaseRepository(ABC):
         pass
 
 
+def _format_datetime(value: Any) -> str | Any:
+    """格式化datetime对象为ISO格式字符串"""
+    if value and hasattr(value, "isoformat"):
+        return value.isoformat()
+    return value
+
+
 # 2. 完美的工业级 Postgres/SQLAlchemy 仓储实现
 class EvaluationRepository(BaseRepository):
+    @staticmethod
+    def _map_row_to_dict(row: tuple, include_response: bool = False) -> dict:
+        """将数据库行映射为字典
+
+        Args:
+            row: 数据库查询结果行 (id, case_id, model_name, adapter_name, status, latency_ms, score, created_at)
+                 或者当include_response=True时: (id, case_id, model_name, adapter_name, status, latency_ms, score, response_data, created_at)
+            include_response: 是否包含response_data字段
+
+        Returns:
+            dict: 映射后的字典
+        """
+        result = {}
+
+        if include_response:
+            # 字段顺序: id, case_id, model_name, adapter_name, status, latency_ms, score, response_data, created_at
+            fields = [
+                "id",
+                "case_id",
+                "model_name",
+                "adapter_name",
+                "status",
+                "latency_ms",
+                "score",
+                "response_data",
+                "created_at",
+            ]
+        else:
+            # 字段顺序: id, case_id, model_name, adapter_name, status, latency_ms, score, created_at
+            fields = [
+                "id",
+                "case_id",
+                "model_name",
+                "adapter_name",
+                "status",
+                "latency_ms",
+                "score",
+                "created_at",
+            ]
+
+        for i, field in enumerate(fields):
+            value = row[i] if i < len(row) else None
+            if field == "created_at":
+                value = _format_datetime(value)
+            result[field] = value
+        return result
+
     def save(self, result: EvaluationResult) -> int:
         if not result.case_id or not result.case_id.strip():
             raise InfrastructureError("持久化失败：评估结果缺少核心 case_id")
+
+        score_value = None
+        if (
+            result.response
+            and hasattr(result.response, "score")
+            and result.response.score is not None
+        ):
+            try:
+                score_value = float(result.response.score)
+            except (TypeError, ValueError):
+                score_value = None
 
         db_record = EvaluationResultModel(
             case_id=result.case_id,
@@ -28,6 +94,7 @@ class EvaluationRepository(BaseRepository):
             adapter_name=result.adapter_name or "default",
             status=result.status.value,
             latency_ms=result.latency_ms or 0.0,
+            score=score_value,
             response_data=result.response.model_dump() if result.response else {},
         )
 
@@ -50,7 +117,7 @@ class EvaluationRepository(BaseRepository):
             results = session.execute(
                 text(
                     """
-                    SELECT id, case_id, model_name, adapter_name, status, latency_ms, created_at
+                    SELECT id, case_id, model_name, adapter_name, status, latency_ms, score, created_at
                     FROM eval_results
                     ORDER BY created_at DESC
                     LIMIT :limit
@@ -59,20 +126,7 @@ class EvaluationRepository(BaseRepository):
                 {"limit": limit},
             ).fetchall()
 
-            return [
-                {
-                    "id": row[0],
-                    "case_id": row[1],
-                    "model_name": row[2],
-                    "adapter_name": row[3],
-                    "status": row[4],
-                    "latency_ms": row[5],
-                    "created_at": (
-                        row[6].isoformat() if row[6] and hasattr(row[6], "isoformat") else row[6]
-                    ),
-                }
-                for row in results
-            ]
+            return [self._map_row_to_dict(row) for row in results]
 
     def search(
         self,
@@ -87,7 +141,7 @@ class EvaluationRepository(BaseRepository):
         """搜索评估记录，支持按评估器类型和状态过滤"""
         with get_db_session() as session:
             query_parts = [
-                "SELECT id, case_id, model_name, adapter_name, status, latency_ms, created_at",
+                "SELECT id, case_id, model_name, adapter_name, status, latency_ms, score, created_at",
                 "FROM eval_results",
                 "WHERE 1=1",
             ]
@@ -127,20 +181,7 @@ class EvaluationRepository(BaseRepository):
 
             results = session.execute(text(" ".join(query_parts)), params).fetchall()
 
-            return [
-                {
-                    "id": row[0],
-                    "case_id": row[1],
-                    "model_name": row[2],
-                    "adapter_name": row[3],
-                    "status": row[4],
-                    "latency_ms": row[5],
-                    "created_at": (
-                        row[6].isoformat() if row[6] and hasattr(row[6], "isoformat") else row[6]
-                    ),
-                }
-                for row in results
-            ]
+            return [self._map_row_to_dict(row) for row in results]
 
     def get_by_id(self, record_id: int) -> dict | None:
         """根据ID获取评估记录详情"""
@@ -148,7 +189,7 @@ class EvaluationRepository(BaseRepository):
             result = session.execute(
                 text(
                     """
-                    SELECT id, case_id, model_name, adapter_name, status, latency_ms, response_data, created_at
+                    SELECT id, case_id, model_name, adapter_name, status, latency_ms, score, response_data, created_at
                     FROM eval_results
                     WHERE id = :id
                     """
@@ -157,20 +198,7 @@ class EvaluationRepository(BaseRepository):
             ).fetchone()
 
             if result:
-                return {
-                    "id": result[0],
-                    "case_id": result[1],
-                    "model_name": result[2],
-                    "adapter_name": result[3],
-                    "status": result[4],
-                    "latency_ms": result[5],
-                    "response_data": result[6],
-                    "created_at": (
-                        result[7].isoformat()
-                        if result[7] and hasattr(result[7], "isoformat")
-                        else result[7]
-                    ),
-                }
+                return self._map_row_to_dict(result, include_response=True)
             return None
 
     def update(self, record_id: int, update_data: dict) -> bool:
@@ -275,7 +303,7 @@ class EvaluationRepository(BaseRepository):
             results = session.execute(
                 text(
                     """
-                    SELECT id, case_id, model_name, adapter_name, status, latency_ms, response_data, created_at
+                    SELECT id, case_id, model_name, adapter_name, status, latency_ms, score, response_data, created_at
                     FROM eval_results
                     ORDER BY created_at DESC
                     LIMIT :limit
@@ -317,7 +345,7 @@ class EvaluationRepository(BaseRepository):
             results = session.execute(
                 text(
                     """
-                    SELECT id, case_id, model_name, adapter_name, status, latency_ms, response_data, created_at
+                    SELECT id, case_id, model_name, adapter_name, status, latency_ms, score, response_data, created_at
                     FROM eval_results
                     ORDER BY created_at DESC
                     """

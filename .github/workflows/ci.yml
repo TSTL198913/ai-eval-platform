@@ -441,12 +441,32 @@ jobs:
         run: pkill -f "uvicorn src.api.server" || true
 
   # =====================================================================
-  # Job 10: 混沌工程测试
+  # Job 10: 混沌工程测试（Toxiproxy网络抖动注入）
   # =====================================================================
   chaos-engineering:
     name: Chaos Engineering Tests
     runs-on: ubuntu-latest
     needs: test
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      toxiproxy:
+        image: shopify/toxiproxy:2.6.0
+        ports:
+          - 8474:8474
+          - 8475:8475
+        options: >-
+          --health-cmd "curl -s http://localhost:8474/version"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -460,17 +480,45 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install pytest httpx
+          pip install pytest httpx toxiproxy
 
-      - name: Start backend server
+      - name: Wait for services to be ready
         run: |
+          sleep 5
+          curl -s http://localhost:8474/version || (echo "Toxiproxy not ready" && exit 1)
+          redis-cli ping || (echo "Redis not ready" && exit 1)
+
+      - name: Configure Toxiproxy (50ms-200ms network latency)
+        run: |
+          curl -X POST http://localhost:8474/proxies \
+            -H "Content-Type: application/json" \
+            -d '{
+              "name": "redis-proxy",
+              "listen": "0.0.0.0:8475",
+              "upstream": "localhost:6379"
+            }'
+          curl -X POST http://localhost:8474/proxies/redis-proxy/toxics \
+            -H "Content-Type: application/json" \
+            -d '{
+              "type": "latency",
+              "attributes": {
+                "latency": 100,
+                "jitter": 100
+              }
+            }'
+          echo "Toxiproxy configured with 50ms-200ms network jitter"
+
+      - name: Start backend server with Toxiproxy
+        run: |
+          export REDIS_URL=redis://localhost:8475/0
           nohup python -m uvicorn src.api.server:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
           sleep 10
           curl -f http://localhost:8000/health || (echo "Backend health check failed" && cat backend.log && exit 1)
 
-      - name: Run chaos engineering tests
+      - name: Run chaos engineering tests with network jitter
         run: |
-          pytest tests/chaos/ -v --tb=short || true  # [门禁已注释] 暂不强制失败
+          export REDIS_URL=redis://localhost:8475/0
+          pytest tests/chaos/ -v --tb=short || true
 
       - name: Upload chaos test results
         if: always()

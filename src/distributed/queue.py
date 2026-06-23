@@ -173,13 +173,10 @@ class RedisListQueue(BaseQueue):
 
     async def consume(self, callback: Callable[[QueueMessage], Any]) -> None:
         """从最高优先级队列开始消费"""
-        # 按优先级从高到低尝试获取消息
         priorities = sorted([p.value for p in MessagePriority], reverse=True)
 
         for priority in priorities:
             priority_key = self._get_priority_key(MessagePriority(priority))
-
-            # 尝试非阻塞获取
             result = await asyncio.to_thread(self.redis.rpop, priority_key)
 
             if result:
@@ -189,19 +186,23 @@ class RedisListQueue(BaseQueue):
 
                     logger.debug(f"Consuming message {message.message_id}")
 
-                    # 执行回调
-                    await callback(message)
+                    if asyncio.iscoroutinefunction(callback):
+                        await callback(message)
+                    else:
+                        callback(message)
 
-                    # 自动 ACK（实际上 Redis List 不需要显式 ACK）
                     await self.ack(message)
                     return
                 except Exception as e:
                     logger.error(f"Failed to process message: {e}")
-                    # 消息已经在 rpop 中移除，这里模拟 nack
-                    await self.nack(QueueMessage.from_dict(json.loads(result)), requeue=False)
+                    try:
+                        data = json.loads(result)
+                        message = QueueMessage.from_dict(data)
+                        await self.nack(message, requeue=True)
+                    except Exception as requeue_err:
+                        logger.error(f"Failed to requeue message: {requeue_err}")
                     return
 
-        # 所有队列都为空，短暂等待
         await asyncio.sleep(0.1)
 
     async def ack(self, message: QueueMessage) -> None:
@@ -342,7 +343,10 @@ class RabbitMQQueue(BaseQueue):
             try:
                 data = json.loads(body)
                 message = QueueMessage.from_dict(data)
-                asyncio.run(callback(message))
+                if asyncio.iscoroutinefunction(callback):
+                    asyncio.create_task(callback(message))
+                else:
+                    callback(message)
                 ch.basic_ack(delivery_tag=method.delivery_tag)
             except Exception as e:
                 logger.error(f"Failed to consume message: {e}")

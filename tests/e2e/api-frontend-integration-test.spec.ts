@@ -13,7 +13,7 @@ import { test, expect, Page, request } from '@playwright/test';
 
 // ==================== 测试配置 ====================
 const API_BASE_URL = 'http://127.0.0.1:8000';
-const FRONTEND_BASE_URL = 'http://localhost:5174';
+const FRONTEND_BASE_URL = 'http://localhost:5173';
 
 interface TestSuite {
   name: string;
@@ -52,7 +52,7 @@ const testSuites: TestSuite[] = [
         name: '登录成功',
         apiEndpoint: '/api/v1/auth/login',
         method: 'POST',
-        requestBody: { username: 'admin', password: 'admin' },
+        requestBody: { username: 'admin', password: 'admin123' },
         expectedStatus: 200,
         expectedFields: ['code', 'message', 'data'],
         validation: (response) => {
@@ -64,7 +64,7 @@ const testSuites: TestSuite[] = [
         frontendValidation: async (page) => {
           await page.goto('/login');
           await page.locator('input[type="text"]').fill('admin');
-          await page.locator('input[type="password"]').fill('admin');
+          await page.locator('input[type="password"]').fill('admin123');
           await page.locator('button[type="submit"]').click();
           await page.waitForTimeout(2000);
           const url = page.url();
@@ -87,7 +87,7 @@ const testSuites: TestSuite[] = [
         name: '登录失败-空用户名',
         apiEndpoint: '/api/v1/auth/login',
         method: 'POST',
-        requestBody: { username: '', password: 'admin' },
+        requestBody: { username: '', password: 'admin123' },
         expectedStatus: 422,
         validation: (response) => {
           if (response.status === 200) return { valid: false, error: '空用户名应该返回422' };

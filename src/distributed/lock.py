@@ -5,6 +5,7 @@
 """
 
 import logging
+import threading
 import time
 import uuid
 from contextlib import contextmanager
@@ -62,90 +63,95 @@ class DistributedLock:
         self.retry_delay = retry_delay
         self.lock_value: str | None = None
         self._acquired = False
+        self._lock = threading.Lock()
 
     def acquire(self) -> LockResult:
         """
-        尝试获取锁
+        尝试获取锁（线程安全）
 
         使用 SET NX EX 原子操作确保锁的互斥性
         """
-        self.lock_value = f"{uuid.uuid4()}:{time.time()}"
+        with self._lock:
+            self.lock_value = f"{uuid.uuid4()}:{time.time()}"
 
-        for _ in range(self.retry_times):
-            # SET key value NX EX seconds - 原子操作
-            acquired = self.redis.set(
-                self.key,
-                self.lock_value,
-                nx=True,  # Only set if Not eXists
-                ex=int(self.ttl_seconds),  # Expiration in seconds
-            )
-
-            if acquired:
-                self._acquired = True
-                return LockResult(
-                    state=LockState.ACQUIRED,
-                    lock_key=self.key,
-                    lock_value=self.lock_value,
-                    ttl_ms=int(self.ttl_seconds * 1000),
+            for _ in range(self.retry_times):
+                acquired = self.redis.set(
+                    self.key,
+                    self.lock_value,
+                    nx=True,
+                    ex=int(self.ttl_seconds),
                 )
 
-            time.sleep(self.retry_delay)
+                if acquired:
+                    self._acquired = True
+                    return LockResult(
+                        state=LockState.ACQUIRED,
+                        lock_key=self.key,
+                        lock_value=self.lock_value,
+                        ttl_ms=int(self.ttl_seconds * 1000),
+                    )
 
-        return LockResult(
-            state=LockState.NOT_ACQUIRED,
-            lock_key=self.key,
-            lock_value="",
-            ttl_ms=0,
-        )
+                time.sleep(self.retry_delay)
+
+            return LockResult(
+                state=LockState.NOT_ACQUIRED,
+                lock_key=self.key,
+                lock_value="",
+                ttl_ms=0,
+            )
 
     def release(self) -> bool:
         """
-        释放锁
+        释放锁（线程安全）
 
         使用 Lua 脚本确保只删除自己持有的锁
         """
-        if not self._acquired or not self.lock_value:
-            return False
+        with self._lock:
+            if not self._acquired or not self.lock_value:
+                return False
 
-        # Lua 脚本：原子性地检查并删除
-        lua_script = """
-        if redis.call("get", KEYS[1]) == ARGV[1] then
-            return redis.call("del", KEYS[1])
-        else
-            return 0
-        end
-        """
+            lua_script = """
+            if redis.call("get", KEYS[1]) == ARGV[1] then
+                return redis.call("del", KEYS[1])
+            else
+                return 0
+            end
+            """
 
-        try:
-            result = self.redis.eval(lua_script, 1, self.key, self.lock_value)
-            self._acquired = False
-            return result == 1
-        except Exception:
-            return False
+            try:
+                result = self.redis.eval(lua_script, 1, self.key, self.lock_value)
+                self._acquired = False
+                return result == 1
+            except Exception:
+                return False
 
     def extend(self, additional_seconds: float) -> bool:
         """
-        延长锁的 TTL
+        延长锁的 TTL（线程安全）
 
         用于长任务执行时的锁续期
         """
-        if not self._acquired or not self.lock_value:
-            return False
+        with self._lock:
+            if not self._acquired or not self.lock_value:
+                return False
 
-        lua_script = """
-        if redis.call("get", KEYS[1]) == ARGV[1] then
-            return redis.call("expire", KEYS[1], ARGV[2])
-        else
-            return 0
-        end
-        """
+            lua_script = """
+            if redis.call("get", KEYS[1]) == ARGV[1] then
+                return redis.call("expire", KEYS[1], ARGV[2])
+            else
+                return 0
+            end
+            """
 
-        result = self.redis.eval(lua_script, 1, self.key, self.lock_value, int(additional_seconds))
-        return result == 1
+            result = self.redis.eval(
+                lua_script, 1, self.key, self.lock_value, int(additional_seconds)
+            )
+            return result == 1
 
     @property
     def is_acquired(self) -> bool:
-        return self._acquired
+        with self._lock:
+            return self._acquired
 
     def __enter__(self) -> "DistributedLock":
         result = self.acquire()

@@ -25,17 +25,16 @@
     "baseUrl": "./",
     "paths": {
       "@/*": [
-        "./src/*"
+        "./frontend/src/*"
       ]
     }
   },
   "include": [
-    "src",
-    "api"
+    "frontend/src"
   ],
   "exclude": [
-    "src/**/*.test.ts",
-    "src/**/*.test.tsx",
-    "src/test/"
+    "frontend/src/**/*.test.ts",
+    "frontend/src/**/*.test.tsx",
+    "frontend/src/test/"
   ]
 }

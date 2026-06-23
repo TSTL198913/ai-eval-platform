@@ -10,10 +10,17 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.pool import QueuePool, StaticPool
+
+from src.distributed.circuit_breaker import (
+    CircuitBreakerConfig,
+    CircuitBreakerError,
+    global_registry,
+)
+from src.exceptions import InfrastructureError
 
 logger = logging.getLogger(__name__)
 
@@ -471,6 +478,17 @@ def _setup_engine_listeners(engine: Engine) -> None:
             logger.debug(f"Failed to track checkin: {e}")
 
 
+_db_breaker = global_registry.get_or_create(
+    "database",
+    CircuitBreakerConfig(
+        failure_threshold=3,
+        success_threshold=2,
+        timeout_seconds=10,
+        half_open_max_calls=2,
+    ),
+)
+
+
 # 继承 db.py 的增强版上下文管理器：彻底解决大模型报错时的事务回滚与连接泄露
 @contextmanager
 def get_db_session() -> Generator:
@@ -481,8 +499,25 @@ def get_db_session() -> Generator:
     - 连接泄露防护
     - 连接池监控指标更新
     - 可选的连接有效性预检
+    - 熔断器保护（数据库故障降级）
     """
-    db = get_session_local()()
+
+    def _create_and_validate_session():
+        db = get_session_local()()
+        engine = get_engine()
+        if not isinstance(engine.pool, StaticPool):
+            try:
+                db.execute(text("SELECT 1"))
+            except Exception:
+                db.close()
+                raise
+        return db
+
+    try:
+        db = _db_breaker.call_sync(_create_and_validate_session)
+    except CircuitBreakerError:
+        raise InfrastructureError("数据库暂时不可用，请稍后重试") from None
+
     try:
         yield db
     except Exception:

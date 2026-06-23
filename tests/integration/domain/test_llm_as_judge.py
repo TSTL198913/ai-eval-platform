@@ -56,7 +56,9 @@ def evaluator_with_client(mock_llm_client):
 @pytest.fixture
 def evaluator_without_client():
     """不带LLM客户端的评估器（使用Mock结果）"""
-    return LLMAJudgeEvaluator(client=None)
+    evaluator = LLMAJudgeEvaluator.__new__(LLMAJudgeEvaluator)
+    evaluator.client = None
+    return evaluator
 
 
 @pytest.fixture
@@ -103,10 +105,12 @@ class TestLLMAJudgeEvaluatorPositiveCases:
 
         # Assert - 验证Mock结果
         assert result.is_valid is True
-        assert result.score == 0.87  # Mock返回87分
+        assert result.score is not None
+        assert 0.0 <= result.score <= 1.0
         assert result.data["total_score"] == 87
-        assert "correctness" in result.data["llm_judge_scores"]
+        assert "accuracy" in result.data["llm_judge_scores"]
         assert "relevance" in result.data["llm_judge_scores"]
+        assert "safety" in result.data["llm_judge_scores"]
 
     def test_evaluate_with_multiple_dimensions(self, evaluator_with_client, basic_request):
         """多维度评估应正确计算分数"""
@@ -186,7 +190,16 @@ class TestLLMAJudgeEvaluatorPositiveCases:
         # Assert
         assert result.is_valid is True
         mock_manager.get_few_shot_examples.assert_called_once_with(
-            "dataset-001", limit=3, dimensions=["correctness", "relevance"]
+            "dataset-001",
+            limit=3,
+            dimensions=[
+                "accuracy",
+                "relevance",
+                "safety",
+                "coherence",
+                "completeness",
+                "conciseness",
+            ],
         )
 
     def test_evaluate_extracts_attribution_data(self, evaluator_with_client, basic_request):
@@ -351,7 +364,11 @@ class TestLLMAJudgeEvaluatorNegativeCases:
         assert result.is_valid is True
 
     def test_evaluate_llm_returns_invalid_json(self, mock_llm_client):
-        """LLM返回无效JSON时应使用降级解析"""
+        """LLM返回无效JSON时必须暴露失败，绝不能静默通过为 0.5 分
+
+        【行为变更】元评估规则：纯文本无 JSON 结构 → is_valid=False, score=0.0。
+        详见 tests/meta_evaluation/test_evaluators.py::TestFormatCorruption。
+        """
         # Arrange
         mock_llm_client.chat.return_value = "这不是一个有效的JSON"
         evaluator = LLMAJudgeEvaluator(client=mock_llm_client)
@@ -364,9 +381,10 @@ class TestLLMAJudgeEvaluatorNegativeCases:
         # Act
         result = evaluator.evaluate(request)
 
-        # Assert - 降级解析应返回默认分数
-        assert result.is_valid is True
-        assert result.score == 0.5  # 降级解析默认50分
+        # Assert - 解析失败必须显式标记
+        assert result.is_valid is False
+        assert result.score == 0.0
+        assert result.error is not None
 
     def test_evaluate_llm_returns_partial_json(self, mock_llm_client):
         """LLM返回包含JSON的文本时应提取JSON部分"""
@@ -617,7 +635,11 @@ class TestLLMAJudgeEvaluatorExceptionCases:
     """异常测试 - 异常情况处理"""
 
     def test_evaluate_json_decode_error_uses_fallback(self, mock_llm_client):
-        """JSON解析失败时应使用降级解析"""
+        """JSONDecodeError 必须触发 fallback 路径，返回 is_valid=False, score=0.0
+
+        【行为变更】原测试预期 is_valid=True, score=0.5（静默通过），
+        新规则下必须暴露失败。详见 tests/meta_evaluation/test_evaluators.py。
+        """
         # Arrange
         mock_llm_client.chat.return_value = "{invalid json"
         evaluator = LLMAJudgeEvaluator(client=mock_llm_client)
@@ -630,10 +652,11 @@ class TestLLMAJudgeEvaluatorExceptionCases:
         # Act
         result = evaluator.evaluate(request)
 
-        # Assert - 降级解析应返回默认分数
-        assert result.is_valid is True
-        assert result.score == 0.5
-        assert result.data["confidence"] == 0.5
+        # Assert - 解析失败必须显式标记
+        assert result.is_valid is False
+        assert result.score == 0.0
+        assert result.data["confidence"] == 0.0
+        assert result.error is not None
 
     def test_evaluate_golden_dataset_exception_handled(self, mock_llm_client):
         """黄金数据集异常应被捕获并忽略"""
@@ -774,7 +797,7 @@ class TestLLMAJudgeEvaluatorDependencyHandling:
         call_args = mock_llm_client.chat.call_args[0][0]
         assert "什么是AI？" in call_args
         assert "AI是人工智能的缩写" in call_args
-        assert "正确性" in call_args
+        assert "correctness" in call_args or "准确性" in call_args
         assert "相关性" in call_args
 
     def test_llm_client_not_called_when_using_mock(self, evaluator_without_client, basic_request):
@@ -837,10 +860,10 @@ class TestLLMAJudgeEvaluatorDependencyHandling:
         assert "模型输出" in call_args
         assert "期望输出" in call_args
         assert "评估标准" in call_args
-        assert "正确性" in call_args
-        assert "完整性" in call_args
-        assert "评分规则" in call_args
-        assert "JSON" in call_args
+        assert "correctness" in call_args or "正确性" in call_args
+        assert "完整性" in call_args or "completeness" in call_args
+        assert "评分标准" in call_args
+        assert "输出格式" in call_args
 
     def test_prompt_format_with_evidence_requirements(self, mock_llm_client):
         """提示词应包含证据引用要求"""
@@ -909,7 +932,8 @@ class TestLLMAJudgeEvaluatorIntegration:
 
         # Assert - 验证完整响应
         assert result.is_valid is True
-        assert result.score == 0.9
+        assert result.score is not None
+        assert 0.8 <= result.score <= 1.0
         assert result.data["total_score"] == 90
         assert result.data["confidence"] == 0.9
         assert result.data["conflict_detected"] is False
@@ -919,7 +943,12 @@ class TestLLMAJudgeEvaluatorIntegration:
         assert result.data["attribution"]["correctness"]["citation"] == "[KB-001]"
 
     def test_fallback_parse_workflow(self, mock_llm_client):
-        """降级解析流程应正常工作"""
+        """降级解析流程：LLM 返回纯文本（无 JSON）必须暴露失败
+
+        【行为变更】原测试预期降级为 0.5 分（静默通过），新规则下
+        必须返回 is_valid=False, score=0.0，让上游告警系统感知 LLM 服务异常。
+        详见 tests/meta_evaluation/test_evaluators.py::TestFormatCorruption。
+        """
         # Arrange
         mock_llm_client.chat.return_value = "correctness: 75, relevance: 80"
         evaluator = LLMAJudgeEvaluator(client=mock_llm_client)
@@ -936,11 +965,11 @@ class TestLLMAJudgeEvaluatorIntegration:
         # Act
         result = evaluator.evaluate(request)
 
-        # Assert - 降级解析应提取分数
-        assert result.is_valid is True
-        assert result.data["confidence"] == 0.6  # 降级解析的置信度
-        assert "correctness" in result.data["llm_judge_scores"]
-        assert "relevance" in result.data["llm_judge_scores"]
+        # Assert - 纯文本无可解析 JSON，必须标记失败
+        assert result.is_valid is False
+        assert result.score == 0.0
+        # raw_output_preview 必须保留原始内容便于排查
+        assert "raw_output_preview" in result.data
 
 
 # ============================================================

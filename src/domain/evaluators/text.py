@@ -2,9 +2,7 @@ from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.domain.evaluators.metadata import TextMetadata
 from src.domain.evaluators.scoring import is_passing, score_text_similarity
-from src.schemas.evaluation import DomainResponse
-
-DEFAULT_TEXT_PROMPT = "你是一个文本评测助手。请准确、简洁地回答用户问题，回答应与预期语义一致。"
+from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
 
 @EvaluatorFactory.register("text")
@@ -13,28 +11,25 @@ def create_text_evaluator(client=None):
 
 
 class TextMatchEvaluator(BaseEvaluator):
-    def evaluate(self, request) -> DomainResponse:
-        if error := self.validate_input(request):
-            return error
-        user_input = self.get_input_text(request)
+    def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
+        actual_output = self.get_payload_data(request, "actual_output")
+        if not actual_output:
+            return DomainResponse(is_valid=False, error="actual_output 不能为空")
         expected_output = self.get_payload_data(request, "expected_output")
-        system_prompt = self.get_payload_data(request, "system_prompt") or DEFAULT_TEXT_PROMPT
+        if not expected_output:
+            return DomainResponse(is_valid=False, error="expected_output 不能为空")
+
+        score = score_text_similarity(actual_output, expected_output)
         meta = TextMetadata.model_validate(request.metadata or {})
 
-        client_error = self.require_client()
-        if client_error:
-            return client_error
-
-        llm_output = self.client.chat(user_input, system_prompt=system_prompt)
-        score = score_text_similarity(llm_output, expected_output)
-
         return DomainResponse(
-            is_valid=is_passing(score),
-            text=llm_output,
+            is_valid=True,
+            text=actual_output,
             score=score,
             metadata={
                 "expected_output": expected_output,
                 "tone": meta.tone,
                 "match_mode": "text_similarity",
+                "passed": is_passing(score),
             },
         )

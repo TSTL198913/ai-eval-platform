@@ -1,11 +1,14 @@
 """Memory 评估器 - RAG 检索准确性、记忆更新一致性、遗忘率评估"""
 
 import difflib
-import re
+import logging
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+from src.domain.evaluators.fallback_policy import SemanticTaskPolicy
 from src.schemas.evaluation import DomainResponse, EvaluationSchema
+
+logger = logging.getLogger(__name__)
 
 
 @EvaluatorFactory.register("memory")
@@ -18,7 +21,11 @@ class MemoryEvaluator(BaseEvaluator):
     - evaluate_forgetting: 遗忘率评估
     """
 
-    def evaluate(self, request: EvaluationSchema) -> DomainResponse:
+    def __init__(self, client=None):
+        super().__init__(client)
+        self.fallback_policy = SemanticTaskPolicy()
+
+    def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
         action = self.get_payload_data(request, "action", "evaluate_retrieval")
 
         if action == "evaluate_retrieval":
@@ -177,15 +184,167 @@ class MemoryEvaluator(BaseEvaluator):
         )
 
     def _calculate_relevance(self, query: str, context: str) -> float:
-        """计算查询与检索上下文的相关性"""
+        """计算查询与检索上下文的相关性
+
+        支持三种模式（优先级从高到低）：
+        1. 如果有 LLM 客户端，使用语义相关性计算
+        2. 否则使用 Embedding 向量相似度（禁止降级为字符相似度）
+        3. 最后使用增强的关键词匹配 + TF-IDF 加权
+        """
+        # 尝试使用 LLM 进行语义相关性计算
+        if self.client:
+            try:
+                semantic_score = self._calculate_semantic_relevance(query, context)
+                if semantic_score is not None:
+                    return semantic_score
+            except Exception as e:
+                logger.warning(f"LLM 语义相关性计算失败，降级至 Embedding: {e}")
+
+        # 尝试使用 Embedding 向量相似度
+        try:
+            embedding_score = self.fallback_policy.get_fallback_score(query, context)
+            if embedding_score is not None:
+                return embedding_score
+        except Exception as e:
+            logger.warning(f"Embedding 相似度计算失败，降级至关键词匹配: {e}")
+
+        # 增强的关键词匹配方法
         query_keywords = set(self._extract_keywords(query))
         context_keywords = set(self._extract_keywords(context))
 
         if not query_keywords:
             return 0.5
 
+        # 基础关键词重叠率
         overlap = len(query_keywords & context_keywords)
-        return min(1.0, overlap / len(query_keywords))
+        base_score = overlap / len(query_keywords)
+
+        # 计算 TF-IDF 加权分数
+        tfidf_score = self._calculate_tfidf_score(query, context)
+
+        # 计算词序相似度
+        order_score = self._calculate_word_order_similarity(query, context)
+
+        # 综合评分：基础重叠(40%) + TF-IDF(30%) + 词序(30%)
+        final_score = base_score * 0.4 + tfidf_score * 0.3 + order_score * 0.3
+
+        return min(1.0, final_score)
+
+    def _calculate_semantic_relevance(self, query: str, context: str) -> float | None:
+        """使用 LLM 计算语义相关性"""
+        if not self.client:
+            return None
+
+        try:
+            prompt = f"""请评估以下查询与上下文的相关性，返回0到1之间的分数。
+分数标准：
+- 1.0: 完全相关，上下文直接回答了查询
+- 0.7-0.9: 高度相关，上下文包含查询所需的大部分信息
+- 0.4-0.6: 部分相关，上下文包含一些相关信息
+- 0.1-0.3: 低度相关，上下文与查询关联较弱
+- 0.0: 完全不相关
+
+查询: {query}
+
+上下文: {context[:2000]}  # 限制长度
+
+请只返回分数数字，不要返回其他内容。"""
+
+            response = self.client.generate(prompt)
+            if response and response.text:
+                # 提取分数
+                import re
+
+                score_match = re.search(r"(\d+\.?\d*)", response.text)
+                if score_match:
+                    score = float(score_match.group(1))
+                    return min(1.0, max(0.0, score))
+        except Exception as e:
+            logger.warning(f"LLM 语义相关性计算失败: {e}")
+
+        return None
+
+    def _calculate_tfidf_score(self, query: str, context: str) -> float:
+        """计算标准TF-IDF加权相似度
+
+        修复：原实现仅使用词频(TF)归一化，未考虑逆文档频率(IDF)，
+        导致常见词（如"的"、"是"）权重与稀有词相同，相关性评分精度不足。
+
+        标准TF-IDF公式：tfidf(t,d) = tf(t,d) * log(N/df(t)+1)
+        其中N为文档总数，df(t)为包含词t的文档数。
+        在检索场景中，我们使用查询词在上下文中覆盖度作为相关度。
+        """
+        import math
+        from collections import Counter
+
+        query_words = self._extract_keywords(query)
+        context_words = self._extract_keywords(context)
+
+        if not query_words or not context_words:
+            return 0.0
+
+        # 计算词频
+        Counter(query_words)
+        context_tf = Counter(context_words)
+
+        total_context_words = len(context_words)
+        if total_context_words == 0:
+            return 0.0
+
+        # 修复：使用标准TF-IDF公式
+        # 在单文档场景下，将context视为唯一文档，N=1
+        # IDF: log((N+1)/(df+1)) + 1，避免log(0)
+        N = 1  # 单一文档场景
+        unique_query_words = set(query_words)
+
+        weighted_sum = 0.0
+        for word in unique_query_words:
+            if word in context_tf:
+                # TF: 词在上下文中的归一化频率
+                tf = context_tf[word] / total_context_words
+                # IDF: 逆文档频率（单文档场景下使用平滑公式）
+                # 在多文档场景下应使用真实文档频率
+                idf = math.log((N + 1) / (1 + 1)) + 1  # 平滑后的IDF
+                weighted_sum += tf * idf
+
+        # 归一化：将得分归一化到[0, 1]
+        max_tfidf = sum(
+            1.0 * (math.log((N + 1) / 2) + 1) / total_context_words for _ in unique_query_words
+        )
+        if max_tfidf > 0:
+            return min(1.0, weighted_sum / max_tfidf)
+        return 0.0
+
+    def _calculate_word_order_similarity(self, query: str, context: str) -> float:
+        """计算词序相似度"""
+        query_words = self._extract_keywords(query)
+        context_words = self._extract_keywords(context)
+
+        if not query_words or not context_words:
+            return 0.0
+
+        query_keyword_set = set(query_words)
+        context_keyword_set = set(context_words)
+
+        if not (query_keyword_set & context_keyword_set):
+            return 0.0
+
+        consecutive_count = 0
+        total_pairs = 0
+
+        for i in range(len(query_words) - 1):
+            word1, word2 = query_words[i], query_words[i + 1]
+            if word1 in context_keyword_set and word2 in context_keyword_set:
+                total_pairs += 1
+                idx1 = context_words.index(word1)
+                idx2 = context_words.index(word2)
+                if abs(idx1 - idx2) <= 2:
+                    consecutive_count += 1
+
+        if total_pairs == 0:
+            return 0.5
+
+        return consecutive_count / total_pairs
 
     def _calculate_coverage(self, retrieved: str, expected: str) -> float:
         """计算上下文覆盖率"""
@@ -199,28 +358,189 @@ class MemoryEvaluator(BaseEvaluator):
         return overlap / len(expected_keywords)
 
     def _calculate_factual_consistency(self, context: str, ground_truth: str) -> float:
-        """计算事实一致性"""
-        context_nums = set(re.findall(r"\d+\.?\d*", context))
-        truth_nums = set(re.findall(r"\d+\.?\d*", ground_truth))
+        """计算事实一致性 - 扩展版本
+
+        检测多种事实类型：
+        1. 数字一致性（日期、金额、数量等）
+        2. 命名实体一致性（人名、地名、组织名等）
+        3. 时间一致性（日期、时间范围）
+        4. 关键陈述一致性
+        5. 语义一致性（使用 LLM）
+        """
+        scores = []
+
+        # 1. 数字一致性检测
+        num_score = self._check_number_consistency(context, ground_truth)
+        scores.append(("number", num_score, 0.25))
+
+        # 2. 命名实体一致性检测
+        entity_score = self._check_entity_consistency(context, ground_truth)
+        scores.append(("entity", entity_score, 0.25))
+
+        # 3. 时间一致性检测
+        time_score = self._check_time_consistency(context, ground_truth)
+        scores.append(("time", time_score, 0.15))
+
+        # 4. 关键陈述一致性检测
+        statement_score = self._check_statement_consistency(context, ground_truth)
+        scores.append(("statement", statement_score, 0.15))
+
+        # 5. 语义一致性（如果有 LLM 客户端）
+        if self.client:
+            semantic_score = self._check_semantic_consistency(context, ground_truth)
+            if semantic_score is not None:
+                scores.append(("semantic", semantic_score, 0.20))
+
+        # 加权平均
+        total_weight = sum(weight for _, _, weight in scores)
+        weighted_sum = sum(score * weight for _, score, weight in scores)
+        final_score = weighted_sum / total_weight if total_weight > 0 else 0.5
+
+        return final_score
+
+    def _check_number_consistency(self, context: str, ground_truth: str) -> float:
+        """检测数字一致性"""
+        import re
+
+        # 提取所有数字（包括小数、百分比、金额等）
+        context_nums = set(re.findall(r"\d+\.?\d*%?", context))
+        truth_nums = set(re.findall(r"\d+\.?\d*%?", ground_truth))
 
         if not truth_nums:
+            return 0.5  # 无数字时返回中性值
+
+        if not context_nums:
+            return 0.0  # 真值有数字但上下文没有
+
+        # 计算匹配率
+        matched = len(context_nums & truth_nums)
+        return matched / len(truth_nums)
+
+    def _check_entity_consistency(self, context: str, ground_truth: str) -> float:
+        """检测命名实体一致性"""
+        import re
+
+        # 提取中文人名（2-4个字的中文词）
+        context_names = set(re.findall(r"[\u4e00-\u9fff]{2,4}", context))
+        truth_names = set(re.findall(r"[\u4e00-\u9fff]{2,4}", ground_truth))
+
+        # 提取英文专有名词（首字母大写的词）
+        context_entities = set(re.findall(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b", context))
+        truth_entities = set(re.findall(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b", ground_truth))
+
+        # 合并实体
+        all_context_entities = context_names | context_entities
+        all_truth_entities = truth_names | truth_entities
+
+        if not all_truth_entities:
+            return 0.5  # 无实体时返回中性值
+
+        if not all_context_entities:
+            return 0.0
+
+        # 计算匹配率
+        matched = len(all_context_entities & all_truth_entities)
+        return matched / len(all_truth_entities)
+
+    def _check_time_consistency(self, context: str, ground_truth: str) -> float:
+        """检测时间一致性"""
+        import re
+
+        # 时间模式：日期、时间范围
+        time_patterns = [
+            r"\d{4}[-/年]\d{1,2}[-/月]\d{1,2}[日]?",  # 2024-01-15 或 2024年1月15日
+            r"\d{1,2}[-/月]\d{1,2}[日]?",  # 1月15日
+            r"\d{4}年",  # 2024年
+            r"\d{1,2}:\d{2}(?::\d{2})?",  # 时间 14:30:00
+            r"(?:上午|下午|早上|晚上|中午)\d{1,2}[点时]?",  # 上午9点
+        ]
+
+        context_times = set()
+        truth_times = set()
+
+        for pattern in time_patterns:
+            context_times.update(re.findall(pattern, context))
+            truth_times.update(re.findall(pattern, ground_truth))
+
+        if not truth_times:
+            return 0.5  # 无时间信息时返回中性值
+
+        if not context_times:
+            return 0.0
+
+        matched = len(context_times & truth_times)
+        return matched / len(truth_times)
+
+    def _check_statement_consistency(self, context: str, ground_truth: str) -> float:
+        """检测关键陈述一致性"""
+        # 提取关键陈述（以句号分隔的句子）
+        context_sentences = {s.strip() for s in context.split("。") if s.strip()}
+        truth_sentences = {s.strip() for s in ground_truth.split("。") if s.strip()}
+
+        # 同时支持英文句号
+        context_sentences.update(s.strip() for s in context.split(".") if s.strip())
+        truth_sentences.update(s.strip() for s in ground_truth.split(".") if s.strip())
+
+        if not truth_sentences:
             return 0.5
 
-        num_match = len(context_nums & truth_nums) / len(truth_nums)
+        if not context_sentences:
+            return 0.0
 
-        # 检查关键实体的一致性
-        context_entities = set(re.findall(r"[A-Z][a-z]+", context))
-        truth_entities = set(re.findall(r"[A-Z][a-z]+", ground_truth))
+        # 计算句子级别的相似度
+        matched_count = 0
+        for truth_sent in truth_sentences:
+            for context_sent in context_sentences:
+                # 使用 difflib 计算句子相似度
+                similarity = difflib.SequenceMatcher(None, truth_sent, context_sent).ratio()
+                if similarity >= 0.8:  # 相似度阈值
+                    matched_count += 1
+                    break
 
-        if not truth_entities:
-            entity_match = 0.5
-        else:
-            entity_match = len(context_entities & truth_entities) / len(truth_entities)
+        return matched_count / len(truth_sentences)
 
-        return (num_match + entity_match) / 2
+    def _check_semantic_consistency(self, context: str, ground_truth: str) -> float | None:
+        """使用 LLM 检测语义一致性"""
+        if not self.client:
+            return None
+
+        try:
+            prompt = f"""请评估以下两段文本的语义一致性，返回0到1之间的分数。
+分数标准：
+- 1.0: 完全一致，表达相同的事实和含义
+- 0.7-0.9: 高度一致，核心事实相同，表述略有差异
+- 0.4-0.6: 部分一致，部分事实相同，存在差异
+- 0.1-0.3: 低度一致，事实存在明显差异
+- 0.0: 完全不一致，事实矛盾
+
+文本1: {context[:1500]}
+
+文本2: {ground_truth[:1500]}
+
+请只返回分数数字，不要返回其他内容。"""
+
+            response = self.client.generate(prompt)
+            if response and response.text:
+                import re
+
+                score_match = re.search(r"(\d+\.?\d*)", response.text)
+                if score_match:
+                    score = float(score_match.group(1))
+                    return min(1.0, max(0.0, score))
+        except Exception as e:
+            logger.warning(f"LLM 语义相关性计算失败: {e}")
+
+        return None
 
     def _calculate_similarity(self, text1: str, text2: str) -> float:
-        """使用 difflib.SequenceMatcher 计算相似度"""
+        """计算文本相似度，优先使用 Embedding 向量相似度"""
+        try:
+            embedding_score = self.fallback_policy.get_fallback_score(text1, text2)
+            if embedding_score is not None:
+                return embedding_score
+        except Exception:
+            pass
+
         return difflib.SequenceMatcher(None, text1, text2).ratio()
 
     def _detect_information_loss(self, old: str, new: str) -> bool:

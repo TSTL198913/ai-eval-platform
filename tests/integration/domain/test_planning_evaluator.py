@@ -277,8 +277,10 @@ class TestPlanningEvaluatorBoundaryCases:
         result = evaluator.evaluate(request)
 
         assert result.is_valid is True
-        # 冗余惩罚应较低
-        assert result.data["dimension_scores"]["redundancy_penalty"] < 0.5
+        # 冗余惩罚：使用温和系数 0.5，当 avg_sim=1.0 时分数为 0.5
+        # 【行为变更】原公式 avg_sim * 2 在 avg_sim=1.0 时分数为 -1.0（被 clamp 到 0.0）
+        # 新公式 avg_sim * 0.5 在 avg_sim=1.0 时分数为 0.5
+        assert result.data["dimension_scores"]["redundancy_penalty"] <= 0.5
 
     def test_granularity_too_fine(self, evaluator):
         """粒度过细应被惩罚"""
@@ -557,11 +559,16 @@ class TestPlanningEvaluatorAlgorithmCorrectness:
         assert score == 1.0
 
     def test_redundancy_with_high_redundancy(self, evaluator):
-        """高冗余应得低分"""
+        """高冗余应得低分
+
+        【行为变更】原公式：avg_sim * 2，当 avg_sim=1.0 时分数为 -1.0（clamp 到 0.0）
+        新公式：avg_sim * 0.5，当 avg_sim=1.0 时分数为 0.5
+        """
         score = evaluator._calc_redundancy(
             generated=["相同步骤", "相同步骤", "相同步骤"],
         )
-        assert score < 0.5
+        # 新公式下，完全相同的步骤分数为 0.5
+        assert score <= 0.5
 
     def test_step_similarity_with_identical_steps(self, evaluator):
         """完全相同的步骤应得满分"""

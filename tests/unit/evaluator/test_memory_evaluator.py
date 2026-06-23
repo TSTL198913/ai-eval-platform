@@ -39,8 +39,8 @@ class TestMemoryEvaluatorPositiveCases:
 
         # 强断言：验证业务逻辑
         assert result.is_valid is True
-        assert result.score >= 0.5, f"相关性检索应有分数，实际得分: {result.score}"
-        assert result.data["retrieval_acceptable"] is True or result.score >= 0.5
+        assert result.score >= 0.5, f"高相关性检索应有分数 >= 0.5，实际得分: {result.score}"
+        assert result.data["retrieval_acceptable"] is True, "检索应被接受"
 
     def test_retrieval_with_excellent_match(self, target):
         """完全匹配应得优秀评级"""
@@ -74,8 +74,8 @@ class TestMemoryEvaluatorPositiveCases:
         result = target.evaluate(request)
 
         assert result.is_valid is True
-        # 由于添加了新内容，change_score会降低，但info_loss检测可能触发
-        assert result.score >= 0.0  # 只要返回有效分数即可
+        # 微小变化应有合理分数，验证一致性评分逻辑
+        assert 0.3 <= result.score <= 1.0, f"微小变化应有合理一致性分数，实际: {result.score}"
 
     def test_forgetting_low_rate_high_score(self, target):
         """低遗忘率应得高分"""

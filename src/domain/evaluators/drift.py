@@ -2,7 +2,9 @@ import difflib
 import hashlib
 import logging
 import re
+import threading
 import time
+from typing import Any
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
@@ -23,12 +25,38 @@ class DriftDetectionEvaluator(BaseEvaluator):
     - 基于多维度指标变化检测
     """
 
-    def __init__(self, client=None):
+    DEFAULT_DRIFT_THRESHOLD = 0.2
+
+    def __init__(self, client: Any | None = None):
         super().__init__(client)
         self.repository = EvaluationRepository()
-        self._baseline_store: dict[str, float] = {}  # 实例级别状态，避免多实例共享
+        self._baseline_store: dict[str, float] = {}
+        self._baseline_lock = threading.Lock()
 
-    def evaluate(self, request: EvaluationSchema) -> DomainResponse:
+    @staticmethod
+    def _robust_mean(data: list[float], trim_ratio: float = 0.1) -> float:
+        """截断均值（鲁棒统计）—— 修复：避免异常值污染
+
+        算法：去掉最高最低各10%的数据后计算均值，对离群点鲁棒。
+        对比简单均值：当存在极端异常值（如0分、1.0满分）时，结果偏差显著降低。
+
+        Args:
+            data: 分数列表
+            trim_ratio: 截断比例，默认10%
+
+        Returns:
+            截断均值
+        """
+        if not data:
+            return 0.0
+        sorted_data = sorted(data)
+        n = len(sorted_data)
+        trim_count = int(n * trim_ratio)
+        if n - 2 * trim_count <= 0:
+            return sum(sorted_data) / n
+        return sum(sorted_data[trim_count : n - trim_count]) / (n - 2 * trim_count)
+
+    def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
         if error := self.validate_input(request):
             return error
         actual_output = self.get_payload_data(request, "actual_output")
@@ -89,7 +117,7 @@ class DriftDetectionEvaluator(BaseEvaluator):
             "method": "text_similarity",
             "similarity": similarity,
             "drift_score": drift_score,
-            "detected": drift_score > 0.2,
+            "detected": drift_score > self.DEFAULT_DRIFT_THRESHOLD,  # 使用统一阈值
             "confidence": 0.7,
         }
 
@@ -121,12 +149,13 @@ class DriftDetectionEvaluator(BaseEvaluator):
                 }
 
             # 使用基线（如果存在）或前10条记录的平均分
+            # 修复：使用鲁棒统计（截断均值）替代简单均值，避免异常值污染
             if baseline is not None:
                 baseline_score = baseline
             else:
-                baseline_score = sum(scores[:10]) / len(scores[:10])
+                baseline_score = self._robust_mean(scores[:10])
 
-            current_score = sum(scores[-5:]) / len(scores[-5:])
+            current_score = self._robust_mean(scores[-5:])
 
             if baseline_score == 0:
                 drift_score = 0
@@ -138,16 +167,17 @@ class DriftDetectionEvaluator(BaseEvaluator):
                 "baseline_score": baseline_score,
                 "current_score": current_score,
                 "drift_score": min(drift_score, 1.0),
-                "detected": drift_score > 0.2,
+                "detected": drift_score > self.DEFAULT_DRIFT_THRESHOLD,  # 使用统一阈值
                 "confidence": 0.85 if baseline is not None else 0.7,
             }
-        except Exception:
+        except Exception as e:
+            logger.warning(f"数据库查询失败，使用降级检测方法: {e}")
             return {
                 "method": "score_history",
                 "drift_score": 0,
                 "detected": False,
                 "confidence": 0.2,
-                "message": "数据库查询失败",
+                "message": f"数据库查询失败: {str(e)}",
             }
 
     def _detect_by_statistics(self, actual_output: str, baseline_output: str | None = None) -> dict:
@@ -185,7 +215,7 @@ class DriftDetectionEvaluator(BaseEvaluator):
         return {
             "method": "statistics",
             "drift_score": drift_score,
-            "detected": drift_score > 0.3,
+            "detected": drift_score > self.DEFAULT_DRIFT_THRESHOLD,  # 使用统一阈值
             "confidence": 0.6,
             "statistics": stats,
         }
@@ -329,7 +359,7 @@ class DriftDetectionEvaluator(BaseEvaluator):
             "baseline_only_keywords": list(baseline_only),
             "factual_consistency": factual_consistency,
             "text_similarity": text_similarity,
-            "drift_detected": drift_score > 0.25,
+            "drift_detected": drift_score > self.DEFAULT_DRIFT_THRESHOLD,  # 使用统一阈值
         }
 
     def _extract_keywords(self, text: str) -> list:
@@ -496,24 +526,50 @@ class DriftDetectionEvaluator(BaseEvaluator):
     # ------------------- 基线持久化管理 -------------------
 
     def _get_or_create_baseline(self, case_id: str, recent_results: list) -> float | None:
-        """获取或创建基线分数（持久化到内存，支持导出到文件）"""
-        if case_id in self._baseline_store:
-            return self._baseline_store[case_id]
+        """获取或创建基线分数（持久化到内存，支持导出到文件）
 
-        # 自动从历史记录创建基线（使用前10条记录）
-        valid_scores = [
-            r.get("score", 0) for r in recent_results[:10] if r.get("score") is not None
-        ]
-        if len(valid_scores) >= 3:
-            baseline = sum(valid_scores) / len(valid_scores)
-            self._baseline_store[case_id] = baseline
-            return baseline
-        return None
+        修复：优先使用相同 case_id 的历史记录计算基线，避免不同 case 的数据污染。
+        向后兼容：如果记录中没有 case_id 字段，则使用所有记录计算基线。
+        """
+        with self._baseline_lock:  # 加锁保护并发访问
+            if case_id in self._baseline_store:
+                return self._baseline_store[case_id]
+
+            # 修复Bug：优先筛选相同 case_id 的历史记录
+            same_case_records = [
+                r
+                for r in recent_results
+                if r.get("case_id") == case_id and r.get("score") is not None
+            ]
+
+            # 向后兼容：如果记录中没有 case_id 字段，则使用所有记录
+            if len(same_case_records) >= 3:
+                valid_scores = [r.get("score", 0) for r in same_case_records[:10]]
+            else:
+                # 检查是否有记录包含 case_id 字段
+                has_case_id_field = any(r.get("case_id") is not None for r in recent_results)
+                if not has_case_id_field:
+                    # 向后兼容：记录中没有 case_id 字段，使用所有记录
+                    valid_scores = [
+                        r.get("score", 0) for r in recent_results[:10] if r.get("score") is not None
+                    ]
+                else:
+                    # 有 case_id 字段但没有匹配的记录，返回 None
+                    return None
+
+            if len(valid_scores) >= 3:
+                baseline = self._robust_mean(valid_scores)
+                self._baseline_store[case_id] = baseline
+                return baseline
+
+            return None
 
     def save_baseline(self, case_id: str, baseline_score: float) -> None:
         """保存基线分数到持久化存储"""
-        self._baseline_store[case_id] = baseline_score
-        # 异步持久化到磁盘
+        with self._baseline_lock:  # 加锁保护并发写入
+            self._baseline_store[case_id] = baseline_score
+
+        # 异步持久化到磁盘（不需要锁，文件IO独立）
         try:
             import json
             from pathlib import Path
@@ -540,7 +596,8 @@ class DriftDetectionEvaluator(BaseEvaluator):
             baseline_file = Path("data/baselines.json")
             if baseline_file.exists():
                 data = json.loads(baseline_file.read_text(encoding="utf-8"))
-                self._baseline_store = {k: v["score"] for k, v in data.items()}
+                with self._baseline_lock:  # 加锁保护并发写入
+                    self._baseline_store = {k: v["score"] for k, v in data.items()}
                 return self._baseline_store
         except Exception as e:
             logger.warning(f"加载基线文件失败: {e}")

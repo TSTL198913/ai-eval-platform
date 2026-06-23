@@ -48,15 +48,14 @@ class QueryService:
             "avg_latency_ms": avg_latency,  # 确保这里是 float
         }
 
-    # 在 src/db/analytics.py 中添加
     def get_performance_by_domain(self):
         """按领域统计成功率"""
         return (
             self.db.query(
-                EvaluationResultModel.domain,
+                EvaluationResultModel.model_name,
                 func.count(EvaluationResultModel.id),
                 func.avg(EvaluationResultModel.latency_ms),
             )
-            .group_by(EvaluationResultModel.domain)
+            .group_by(EvaluationResultModel.model_name)
             .all()
         )

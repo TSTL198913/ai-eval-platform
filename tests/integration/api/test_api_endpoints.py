@@ -374,16 +374,16 @@ class TestEvaluateEndpointBusinessScenarios:
             assert response.status_code in (500, 422)
 
     def test_evaluate_missing_required_fields(self):
-        """场景：缺 id 字段"""
+        """场景：缺少必填字段 type"""
         from src.api.server import app
 
         client = TestClient(app)
         response = client.post(
             "/api/v1/evaluate",
-            json={"type": "general", "payload": {"user_input": "test"}},
+            json={"id": "test_case", "payload": {"user_input": "test"}},
         )
-        # 缺 id 应被 Pydantic 拦截
-        assert response.status_code in (400, 422)
+        # 缺 type 应被 Pydantic 拦截，返回 422
+        assert response.status_code == 422
 
     def test_evaluate_unknown_evaluator_type(self):
         """场景：未注册的评估器类型"""

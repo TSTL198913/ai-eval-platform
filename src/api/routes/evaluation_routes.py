@@ -5,6 +5,7 @@
 
 import logging
 import time
+from typing import Any
 
 from fastapi import APIRouter, Response, status
 
@@ -17,24 +18,24 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["评估"])
 
 # 同步任务结果缓存（用于 Celery 不可用时的降级处理）
-_sync_task_results = {}
+_sync_task_results: dict[str, Any] = {}
 
-# 幂等性检查器单例
+# 幂等性检查器单例（通过Service层注入，避免API层直接依赖distributed/infra）
 _idempotency_checker = None
 
 
-def _get_idempotency_checker():
-    """获取幂等性检查器（延迟初始化）"""
+def _get_idempotency_service():
+    """通过 Service 层获取幂等性检查器（修复跨层依赖）"""
     global _idempotency_checker
     if _idempotency_checker is None:
         try:
-            from src.distributed.idempotency import IdempotencyChecker
-            from src.infra.cache import get_redis
+            from src.services.evaluator_svc import get_idempotency_service as _svc_factory
 
-            redis_client = get_redis()
-            redis_client.ping()  # 验证连接
-            _idempotency_checker = IdempotencyChecker(redis_client)
-            logger.info("IdempotencyChecker initialized with Redis")
+            _idempotency_checker = _svc_factory()
+            logger.info("IdempotencyChecker initialized via Service layer")
+        except ImportError:
+            logger.warning("IdempotencyService not available, idempotency will be disabled")
+            _idempotency_checker = None
         except Exception as e:
             logger.warning(
                 f"Failed to initialize IdempotencyChecker: {e}. Idempotency will be disabled."
@@ -44,10 +45,10 @@ def _get_idempotency_checker():
 
 
 def _get_eval_case_task():
-    """获取 Celery 任务实例"""
-    from src.workers.tasks import eval_case_task
+    """获取 Celery 任务实例（通过 Service 层，避免直接依赖 workers）"""
+    from src.services.task_service import get_eval_task
 
-    return eval_case_task
+    return get_eval_task()
 
 
 @router.post("/evaluate")
@@ -79,7 +80,7 @@ async def evaluate_endpoint(raw_data: EvaluationSchema, response: Response):
     request_id = raw_data.id
 
     # 幂等性检查（防重复请求）
-    checker = _get_idempotency_checker()
+    checker = _get_idempotency_service()
     if checker and request_id:
         try:
             # 检查是否有缓存结果
@@ -143,9 +144,6 @@ async def evaluate_async_endpoint(raw_data: dict, response: Response):
         normalized = _normalize_raw_data(raw_data)
         case = EvaluationSchema(**normalized)
     except Exception as e:
-        import logging
-
-        logger = logging.getLogger(__name__)
         logger.error(f"Async evaluation validation error: {e}")
         response.status_code = status.HTTP_400_BAD_REQUEST
         return error_response(400, "输入数据校验失败")
@@ -161,9 +159,6 @@ async def evaluate_async_endpoint(raw_data: dict, response: Response):
             }
         )
     except Exception as celery_e:
-        import logging
-
-        logger = logging.getLogger(__name__)
         logger.error(f"Celery error, falling back to synchronous execution: {celery_e}")
         result = run_evaluation_service(raw_data)
         if result["status"] == "error":
@@ -185,7 +180,7 @@ async def evaluate_async_endpoint(raw_data: dict, response: Response):
 
 
 @router.get("/tasks/{task_id}")
-async def get_task_status(task_id: str):
+async def get_task_status(task_id: str, response: Response):
     """查询异步任务状态"""
     if task_id.startswith("sync-"):
         if task_id in _sync_task_results:
@@ -198,6 +193,7 @@ async def get_task_status(task_id: str):
                 }
             )
         else:
+            response.status_code = status.HTTP_404_NOT_FOUND
             return error_response(404, "Task not found")
 
     if task_id.startswith("test-task-"):
@@ -247,9 +243,6 @@ async def get_task_status(task_id: str):
                 }
             )
     except Exception as e:
-        import logging
-
-        logger = logging.getLogger(__name__)
         logger.error(f"Failed to get task status: {e}")
         return error_response(500, f"Failed to get task status: {str(e)}")
 

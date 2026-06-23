@@ -17,7 +17,7 @@ test('调试网络请求', async ({ page }) => {
   await page.waitForLoadState('networkidle');
 
   await page.locator('input[type="text"]').first().fill('admin');
-  await page.locator('input[type="password"]').fill('admin');
+  await page.locator('input[type="password"]').fill('admin123');
   await page.locator('button[type="submit"]').click();
 
   await page.waitForURL('/', { timeout: 10000 });

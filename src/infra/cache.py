@@ -1,3 +1,4 @@
+import os
 import threading
 import time
 from collections import OrderedDict
@@ -5,7 +6,34 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any
 
+import redis
+
 from src.infra.db.session import get_db_session
+
+_redis_client: redis.Redis | None = None
+_redis_lock = threading.Lock()
+
+
+def get_redis() -> redis.Redis:
+    """获取Redis客户端（线程安全单例）"""
+    global _redis_client
+    if _redis_client is None:
+        with _redis_lock:
+            if _redis_client is None:
+                _redis_client = redis.Redis(
+                    host=os.getenv("REDIS_HOST", "localhost"),
+                    port=int(os.getenv("REDIS_PORT", "6379")),
+                    db=int(os.getenv("REDIS_DB", "0")),
+                    decode_responses=True,
+                    protocol=2,
+                    socket_connect_timeout=5,
+                    socket_timeout=5,
+                )
+    return _redis_client
+
+
+def get_redis_client() -> redis.Redis:
+    return get_redis()
 
 
 class EvaluationCache:

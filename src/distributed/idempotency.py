@@ -7,6 +7,7 @@
 2. 业务键幂等性：基于业务唯一键（如 case_id + timestamp）
 """
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -201,48 +202,77 @@ def idempotent(
     config: IdempotencyConfig | None = None,
 ):
     """
-    幂等性装饰器
+    幂等性装饰器（支持同步和异步函数）
 
     使用示例:
         @idempotent(redis_client, key_extractor=lambda req: req.id)
         async def process_request(request):
             return await do_something(request)
+
+        @idempotent(redis_client, key_extractor=lambda req: req.id)
+        def process_request_sync(request):
+            return do_something(request)
     """
     checker = IdempotencyChecker(redis_client, config)
 
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
-        async def wrapper(*args, **kwargs) -> T:
-            # 提取请求 ID
-            if key_extractor:
-                request_id = key_extractor(*args, **kwargs)
-            else:
-                # 默认使用第一个参数作为请求 ID
-                request_id = str(args[0]) if args else str(kwargs.get("id", ""))
+        if asyncio.iscoroutinefunction(func):
 
-            # 检查幂等性
-            if not checker.check(request_id):
-                cached = checker.get_cached_result(request_id)
-                if cached is not None:
-                    logger.info(f"Returning cached result for request {request_id}")
-                    return cached
-                raise IdempotencyError(f"Request {request_id} is already being processed")
+            async def async_wrapper(*args, **kwargs) -> T:
+                if key_extractor:
+                    request_id = key_extractor(*args, **kwargs)
+                else:
+                    request_id = str(args[0]) if args else str(kwargs.get("id", ""))
 
-            # 标记正在处理
-            if not checker.mark_processing(request_id):
-                raise IdempotencyError(
-                    f"Request {request_id} is already being processed by another instance"
-                )
+                if not checker.check(request_id):
+                    cached = checker.get_cached_result(request_id)
+                    if cached is not None:
+                        logger.info(f"Returning cached result for request {request_id}")
+                        return cached
+                    raise IdempotencyError(f"Request {request_id} is already being processed")
 
-            # 执行函数
-            try:
-                result = await func(*args, **kwargs)
-                checker.mark_processed(request_id, result)
-                return result
-            except Exception:
-                # 失败时清除标记，允许重试
-                checker.clear(request_id)
-                raise
+                if not checker.mark_processing(request_id):
+                    raise IdempotencyError(
+                        f"Request {request_id} is already being processed by another instance"
+                    )
 
-        return wrapper
+                try:
+                    result = await func(*args, **kwargs)
+                    checker.mark_processed(request_id, result)
+                    return result
+                except Exception:
+                    checker.clear(request_id)
+                    raise
+
+            return async_wrapper
+        else:
+
+            def sync_wrapper(*args, **kwargs) -> T:
+                if key_extractor:
+                    request_id = key_extractor(*args, **kwargs)
+                else:
+                    request_id = str(args[0]) if args else str(kwargs.get("id", ""))
+
+                if not checker.check(request_id):
+                    cached = checker.get_cached_result(request_id)
+                    if cached is not None:
+                        logger.info(f"Returning cached result for request {request_id}")
+                        return cached
+                    raise IdempotencyError(f"Request {request_id} is already being processed")
+
+                if not checker.mark_processing(request_id):
+                    raise IdempotencyError(
+                        f"Request {request_id} is already being processed by another instance"
+                    )
+
+                try:
+                    result = func(*args, **kwargs)
+                    checker.mark_processed(request_id, result)
+                    return result
+                except Exception:
+                    checker.clear(request_id)
+                    raise
+
+            return sync_wrapper
 
     return decorator

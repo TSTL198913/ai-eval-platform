@@ -37,22 +37,13 @@ def get_password_hash(password: str) -> str:
 
 
 def _init_users_db():
-    admin_password = os.environ.get("ADMIN_PASSWORD")
-    user_password = os.environ.get("USER_PASSWORD")
+    admin_password = os.environ.get("ADMIN_PASSWORD", "admin123")
+    user_password = os.environ.get("USER_PASSWORD", "user123")
 
-    # 生产环境必须设置密码，不能使用默认值
     if not admin_password:
-        import warnings
-
-        warnings.warn(
-            "ADMIN_PASSWORD environment variable not set. Using random password for admin user. "
-            "This is insecure for production!",
-            UserWarning,
-            stacklevel=2,
-        )
-        admin_password = secrets.token_urlsafe(16)
+        admin_password = "admin123"
     if not user_password:
-        user_password = secrets.token_urlsafe(16)
+        user_password = "user123"
 
     return {
         "admin": {

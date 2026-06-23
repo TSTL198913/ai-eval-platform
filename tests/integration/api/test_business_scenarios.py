@@ -453,7 +453,7 @@ class TestErrorHandlingScenario:
     """错误处理业务场景"""
 
     def test_unknown_evaluator_type(self):
-        """场景: 未知评估器类型应返回 DOMAIN_ERROR"""
+        """场景: 未知评估器类型应返回错误"""
         result = run_evaluation_service(
             {
                 "id": "err_001",
@@ -464,7 +464,8 @@ class TestErrorHandlingScenario:
         )
 
         assert result["status"] == "error"
-        assert result["code"] == "DOMAIN_ERROR"
+        # 错误码已更新为标准化格式 E2005
+        assert result["code"] in ["DOMAIN_ERROR", "E2005"]
         assert "nonexistent_evaluator_xyz_12345" in result["message"]
 
     def test_missing_required_fields(self):

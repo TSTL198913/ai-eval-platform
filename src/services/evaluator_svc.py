@@ -10,7 +10,6 @@ from src.domain.models.llm_factory import create_llm_client
 def _get_evaluator_registry():
     from src.domain.evaluators import EVALUATOR_REGISTRY
 
-    # 优先使用 EvaluatorFactory 的实时注册表，若为空则回退到模块级变量
     registry = EvaluatorFactory._registry
     if not registry and EVALUATOR_REGISTRY:
         return EVALUATOR_REGISTRY
@@ -23,6 +22,35 @@ from src.infra.db.repository import EvaluationRepository
 from src.schemas.evaluation import EvaluationSchema
 
 _repository = EvaluationRepository()
+
+
+def get_idempotency_service() -> Any | None:
+    """幂等性服务工厂（Service层封装）
+
+    为API层提供幂等性服务，隐藏底层distributed/infra实现细节。
+    修复：原API层直接导入 distributed.idempotency 和 infra.cache，违反分层约束。
+    """
+    try:
+        from src.distributed.idempotency import IdempotencyChecker
+        from src.infra.cache import get_redis
+
+        redis_client = get_redis()
+        redis_client.ping()
+        return IdempotencyChecker(redis_client)
+    except Exception as e:
+        logging.warning(f"Failed to initialize IdempotencyService: {e}")
+        return None
+
+
+def get_eval_task() -> Any:
+    """获取Celery任务实例（Service层封装）"""
+    try:
+        from src.workers.tasks import eval_case_task
+
+        return eval_case_task
+    except ImportError:
+        logging.warning("Celery workers not available, async tasks will use sync fallback")
+        return None
 
 
 def service_exception_handler(func):

@@ -116,7 +116,11 @@ class TestFactCheckEvaluatorBoundaryCases:
     """边界测试 - 边界值"""
 
     def test_without_llm_client_returns_true_score_is_one(self):
-        """无LLM client时应返回'true'，score=1.0"""
+        """无LLM client时应返回is_valid=False（不再返回假结果）
+
+        【行为变更】原逻辑：无client时返回"结果: true\n理由: 无法验证"并score=1.0（假结果）
+        新逻辑：无client时返回is_valid=False，明确标记无法评估
+        """
         target = FactCheckEvaluator(client=None)
         request = EvaluationSchema(
             id="fact_bound_001",
@@ -125,9 +129,9 @@ class TestFactCheckEvaluatorBoundaryCases:
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is True
-        assert result.score == 1.0
-        assert "true" in result.text.lower()
+        assert result.is_valid is False
+        assert result.score == 0.0
+        assert "LLM client" in result.error
 
     def test_empty_user_input_returns_error(self):
         """空user_input应返回is_valid=False"""
@@ -221,7 +225,11 @@ class TestFactCheckEvaluatorDependencyHandling:
         assert result.is_valid is True
 
     def test_without_client_returns_default(self):
-        """无client时应使用默认返回"""
+        """无LLM client时应返回is_valid=False（不再返回假结果）
+
+        【行为变更】原逻辑：无client时返回score=1.0（假结果）
+        新逻辑：无client时返回is_valid=False，明确标记无法评估
+        """
         target = FactCheckEvaluator(client=None)
         request = EvaluationSchema(
             id="fact_dep_002",
@@ -230,8 +238,9 @@ class TestFactCheckEvaluatorDependencyHandling:
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is True
-        assert result.score == 1.0
+        assert result.is_valid is False
+        assert result.score == 0.0
+        assert "LLM client" in result.error
 
 
 class TestFactCheckEvaluatorParsingLogic:

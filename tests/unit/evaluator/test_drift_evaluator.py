@@ -260,7 +260,9 @@ class TestDriftDetectionScoreHistory:
         result = evaluator._detect_by_score_history("case_001")
 
         assert result["drift_score"] == 0
-        assert result["message"] == "数据库查询失败"
+        # 修复：原实现使用 f"数据库查询失败: {e}" 包含异常详情
+        # 强断言：应包含"数据库查询失败"关键字
+        assert "数据库查询失败" in result["message"]
 
 
 class TestDriftDetectionCombined:
@@ -580,3 +582,87 @@ class TestDriftDetectionVersionCompare:
         assert "drift_score" in result
         assert "fingerprint_match" in result
         assert "semantic_drift" in result
+
+
+class TestDriftDetectionRobustness:
+    """漂移检测鲁棒性测试（修复P2: 统计方法改进）
+
+    关键验证：使用截断均值后，异常值（如0分、1.0满分）不应显著影响基线计算。
+    修复前：使用简单均值，1个0分可使10条记录的基线下拉10%。
+    修复后：使用截断均值，异常值被自动排除。
+    """
+
+    @pytest.fixture
+    def evaluator(self):
+        ev = DriftDetectionEvaluator()
+        ev._baseline_store = {}
+        return ev
+
+    def test_truncated_mean_excludes_outliers(self):
+        """截断均值应排除最高最低10%的异常值"""
+        # 9条正常数据（0.8分），1条异常数据（0分）
+        data = [0.0, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8]
+
+        robust_mean = DriftDetectionEvaluator._robust_mean(data, trim_ratio=0.1)
+        simple_mean = sum(data) / len(data)
+
+        # 强断言：截断均值应接近0.8（不受0分影响）
+        assert robust_mean == pytest.approx(0.8, abs=0.01)
+        # 强断言：简单均值受0分影响降至0.72
+        assert simple_mean == pytest.approx(0.72, abs=0.01)
+        # 强断言：截断均值应显著高于简单均值
+        assert robust_mean > simple_mean
+
+    def test_truncated_mean_handles_empty(self):
+        """截断均值应能处理空数据"""
+        assert DriftDetectionEvaluator._robust_mean([]) == 0.0
+
+    def test_truncated_mean_handles_single_value(self):
+        """截断均值应能处理单条数据"""
+        assert DriftDetectionEvaluator._robust_mean([0.5]) == 0.5
+
+    def test_truncated_mean_handles_small_dataset(self):
+        """截断均值应能处理小数据集（<10条不截断）"""
+        data = [0.5, 0.6, 0.7]
+        # 3条数据不截断
+        assert DriftDetectionEvaluator._robust_mean(data, trim_ratio=0.1) == pytest.approx(
+            0.6, abs=0.01
+        )
+
+    def test_score_history_robust_to_outliers(self, evaluator):
+        """score_history检测应对异常值鲁棒"""
+        from unittest.mock import MagicMock
+
+        mock_repo = MagicMock()
+        # 8条正常数据（0.8分）+ 1个0分 + 1个1.0满分
+        # 必须包含case_id字段，否则_get_or_create_baseline会返回None
+        mock_repo.get_recent.return_value = [
+            {"case_id": "test_case", "score": 0.8} for _ in range(8)
+        ] + [{"case_id": "test_case", "score": 0.0}, {"case_id": "test_case", "score": 1.0}]
+        evaluator.repository = mock_repo
+        evaluator._baseline_store = {}
+
+        result = evaluator._detect_by_score_history("test_case")
+
+        # 强断言：基线应>=0.7
+        # 使用截断均值（去掉最高最低各10%），应排除0.0和1.0两个异常值
+        # 8个0.8的均值 = 0.8
+        assert result["baseline_score"] is not None
+        assert result["baseline_score"] >= 0.7
+        # 更强断言：截断均值应接近0.8
+        assert result["baseline_score"] == pytest.approx(0.8, abs=0.05)
+
+    def test_truncated_mean_robustness_comparison(self):
+        """对比验证：截断均值对异常值的鲁棒性"""
+        # 10条数据：9个0.8 + 1个0.0
+        data_with_outlier = [0.0] + [0.8] * 9
+
+        truncated = DriftDetectionEvaluator._robust_mean(data_with_outlier, trim_ratio=0.1)
+        simple = sum(data_with_outlier) / len(data_with_outlier)
+
+        # 强断言：截断均值应接近0.8
+        assert truncated == pytest.approx(0.8, abs=0.01)
+        # 强断言：简单均值被异常值拉低
+        assert simple == pytest.approx(0.72, abs=0.01)
+        # 强断言：截断均值显著高于简单均值
+        assert truncated > simple + 0.05

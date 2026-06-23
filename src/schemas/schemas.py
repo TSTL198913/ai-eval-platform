@@ -16,6 +16,21 @@ class EvaluationStatus(str, Enum):
     SUCCESS = "success"
 
 
+class JudgeMode(str, Enum):
+    """LLM Judge 评判模式枚举"""
+
+    STANDARD = "standard"
+    STRICT = "strict"
+    LENIENT = "lenient"
+
+
+JUDGE_MODE_INSTRUCTIONS = {
+    JudgeMode.STRICT: "请严格评估，对任何问题都要扣分，证据引用必须精确到句子级别。",
+    JudgeMode.LENIENT: "请宽容评估，只要基本满足要求就给高分，容忍小的瑕疵。",
+    JudgeMode.STANDARD: "请公平评估，既不严格也不宽容。",
+}
+
+
 class EvaluationResult(BaseModel):
     case_id: str
     status: EvaluationStatus

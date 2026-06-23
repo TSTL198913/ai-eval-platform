@@ -17,17 +17,27 @@ from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.domain.evaluators.runtime_agent_evaluator import (
     AgentState,
     RuntimeAgentEvaluator,
-    ToolRegistry,
 )
 from src.schemas.evaluation import EvaluationSchema
+
+
+def get_tool_registry():
+    """获取全局工具注册中心实例"""
+    return RuntimeAgentEvaluator.get_tool_registry()
 
 
 @pytest.fixture(autouse=True)
 def reset_tool_registry():
     """每个测试前重置工具注册表"""
-    ToolRegistry._tools = {}
+    # 获取全局工具注册中心实例
+    tool_registry = RuntimeAgentEvaluator.get_tool_registry()
+    # 清空工具列表（注意：这会影响所有使用该注册中心的实例）
+    with tool_registry._lock:
+        tool_registry._tools.clear()
     yield
-    ToolRegistry._tools = {}
+    # 测试后再次清空
+    with tool_registry._lock:
+        tool_registry._tools.clear()
 
 
 @pytest.fixture(autouse=True)
@@ -172,7 +182,7 @@ class TestRuntimeAgentEvaluatorPositiveCases:
         """列出已注册的工具"""
 
         # 注册测试工具
-        @ToolRegistry.register(
+        @get_tool_registry().register(
             name="test_tool",
             description="测试工具",
             parameters={"input": "string"},
@@ -196,7 +206,7 @@ class TestRuntimeAgentEvaluatorPositiveCases:
         """ReAct模式调用工具"""
 
         # 注册工具
-        @ToolRegistry.register(
+        @get_tool_registry().register(
             name="echo",
             description="回显工具",
             parameters={"input": "string"},
@@ -465,7 +475,7 @@ class TestRuntimeAgentEvaluatorExceptionCases:
         """工具执行异常测试"""
 
         # 注册一个会抛出异常的工具
-        @ToolRegistry.register(
+        @get_tool_registry().register(
             name="error_tool",
             description="会出错的工具",
             parameters={"input": "string"},
@@ -502,7 +512,7 @@ class TestRuntimeAgentEvaluatorExceptionCases:
         """Plan-Execute模式步骤失败后的重试"""
 
         # 注册一个会失败的工具
-        @ToolRegistry.register(
+        @get_tool_registry().register(
             name="fail_tool",
             description="会失败的工具",
             parameters={"input": "string"},
@@ -560,7 +570,7 @@ class TestRuntimeAgentEvaluatorExceptionCases:
     def test_tool_registry_call_unregistered(self, evaluator):
         """调用未注册工具应抛出异常"""
         with pytest.raises(ValueError) as exc_info:
-            ToolRegistry.call("nonexistent_tool", input="test")
+            get_tool_registry().call("nonexistent_tool", input="test")
         assert "not registered" in str(exc_info.value)
 
 
@@ -597,7 +607,7 @@ class TestRuntimeAgentEvaluatorDependencyHandling:
     def test_tool_registry_register_decorator(self):
         """工具注册装饰器测试"""
 
-        @ToolRegistry.register(
+        @get_tool_registry().register(
             name="custom_tool",
             description="自定义工具",
             parameters={"param": "string"},
@@ -606,30 +616,32 @@ class TestRuntimeAgentEvaluatorDependencyHandling:
             return f"result: {param}"
 
         # 验证工具已注册
-        tool = ToolRegistry.get_tool("custom_tool")
+        tool = get_tool_registry().get_tool("custom_tool")
         assert tool is not None
         assert tool.name == "custom_tool"
         assert tool.description == "自定义工具"
         assert tool.parameters == {"param": "string"}
 
         # 验证工具可调用
-        result = ToolRegistry.call("custom_tool", param="test")
+        result = get_tool_registry().call("custom_tool", param="test")
         assert result == "result: test"
 
     def test_tool_registry_list_tools(self):
         """工具列表测试"""
         # 清空并注册新工具
-        ToolRegistry._tools = {}
+        tool_registry = get_tool_registry()
+        with tool_registry._lock:
+            tool_registry._tools.clear()
 
-        @ToolRegistry.register(name="tool_a", description="A", parameters={})
+        @get_tool_registry().register(name="tool_a", description="A", parameters={})
         def tool_a():
             return "a"
 
-        @ToolRegistry.register(name="tool_b", description="B", parameters={})
+        @get_tool_registry().register(name="tool_b", description="B", parameters={})
         def tool_b():
             return "b"
 
-        tools = ToolRegistry.list_tools()
+        tools = get_tool_registry().list_tools()
         assert "tool_a" in tools
         assert "tool_b" in tools
         assert len(tools) == 2
@@ -654,15 +666,16 @@ class TestBuiltInTools:
         from src.domain.evaluators.runtime_agent_evaluator import calculator
 
         result = calculator("abc + 123")
-        assert result == "Invalid expression"
+        # 新的安全计算器返回中文错误信息
+        assert "表达式错误" in result or "错误" in result
 
     def test_calculator_division_by_zero(self):
         """计算器除零错误"""
         from src.domain.evaluators.runtime_agent_evaluator import calculator
 
         result = calculator("1 / 0")
-        # Python会抛出异常，被捕获
-        assert "Error" in result or "Infinity" in result or "inf" in result
+        # Python会抛出异常，被捕获并返回中文错误信息
+        assert "计算错误" in result or "division by zero" in result
 
     def test_search_tool(self):
         """搜索工具测试"""
@@ -798,7 +811,7 @@ class TestHelperMethods:
         """执行行动 - 工具调用成功"""
 
         # 注册工具
-        @ToolRegistry.register(name="test_exec", description="测试", parameters={})
+        @get_tool_registry().register(name="test_exec", description="测试", parameters={})
         def test_exec():
             return "success"
 

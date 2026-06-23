@@ -222,7 +222,7 @@ test.describe('UI 功能测试', () => {
     await page.locator('input[type="text"]').first().fill('admin');
 
     // 输入密码
-    await page.locator('input[type="password"]').fill('admin');
+    await page.locator('input[type="password"]').fill('admin123');
 
     // 点击登录按钮
     await page.locator('button[type="submit"]').click();

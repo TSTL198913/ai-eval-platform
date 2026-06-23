@@ -3,7 +3,7 @@ import re
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.domain.evaluators.scoring import is_passing
-from src.schemas.evaluation import DomainResponse
+from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
 
 @EvaluatorFactory.register("general")
@@ -23,7 +23,7 @@ class GeneralEvaluator(BaseEvaluator):
         text = re.sub(r"mysql://[^\s]+", "[REDACTED_MYSQL_URI]", text)
         return text
 
-    def evaluate(self, request):
+    def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
         if error := self.validate_input(request):
             return error
         user_input = self.get_input_text(request)

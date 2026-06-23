@@ -9,7 +9,7 @@ from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
 @EvaluatorFactory.register("prompt_regression")
 class PromptRegressionEvaluator(BaseEvaluator):
-    def evaluate(self, request: EvaluationSchema) -> DomainResponse:
+    def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
         action = self.get_payload_data(request, "action", "compare")
         if action == "compare":
             return self._compare_prompt_versions(request)
@@ -51,7 +51,10 @@ class PromptRegressionEvaluator(BaseEvaluator):
         ps = self._calculate_similarity(op, np)
         os = self._calculate_similarity(oo, no)
         pc = self._detect_prompt_changes(op, np)
-        score = min(1.0, os + (1 - ps) * 0.5)
+        # 分数计算：输出相似度与Prompt相似度的加权乘积
+        # Prompt变化时，期望输出也相应变化，因此使用乘法逻辑
+        # 输出相似度权重0.7，Prompt相似度权重0.3
+        score = os * 0.7 + ps * 0.3
         return DomainResponse(
             is_valid=True,
             text=f"Prompt对比完成，输出相似度: {os:.2f}",

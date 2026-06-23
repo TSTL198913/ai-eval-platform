@@ -2,19 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
+* {
   margin: 0;
   padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background-color: #f9fafb;
+  box-sizing: border-box;
 }
 
-* {
-  box-sizing: border-box;
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #f8fafc 100%);
+  min-height: 100vh;
 }
 
 ::-webkit-scrollbar {
@@ -33,25 +32,106 @@ body {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
-}
-
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  background: #a1a1a1;
 }
 
 .ant-card {
-  border-radius: 12px;
+  transition: all 0.3s ease;
+  border-radius: 16px;
+}
+
+.ant-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
 .ant-btn-primary {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border: none;
+  border-radius: 8px;
 }
 
 .ant-btn-primary:hover {
   background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.ant-form-item-label > label {
+  font-weight: 500;
+}
+
+.ant-table-thead > tr > th {
+  background-color: #f8fafc;
+  font-weight: 600;
+}
+
+.ant-input:focus {
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+}
+
+.ant-modal-content {
+  border-radius: 16px;
+}
+
+.ant-modal-header {
+  border-radius: 16px 16px 0 0;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.ant-tag {
+  border-radius: 6px;
+}
+
+.ant-btn-default:hover {
+  color: #6366f1;
+  border-color: #6366f1;
+  background-color: rgba(99, 102, 241, 0.05);
+}
+
+.ant-tabs-tab {
+  font-weight: 500;
+}
+
+.ant-modal-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.ant-modal-header .ant-modal-title {
+  color: white;
+}
+
+.ant-modal-close-icon {
+  color: white;
+}
+
+/* 登录页面输入框样式 - 确保输入文字实时可见 */
+.login-input .ant-input,
+.login-input input {
+  color: white !important;
+  background: transparent !important;
+}
+
+.login-input .ant-input:focus,
+.login-input input:focus {
+  color: white !important;
+}
+
+.login-input .ant-input::placeholder,
+.login-input input::placeholder {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* 密码输入框样式 */
+.ant-input-password .ant-input {
+  color: white !important;
+}
+
+.ant-input-affix-wrapper {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.ant-input-affix-wrapper:focus,
+.ant-input-affix-wrapper-focused {
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1) !important;
 }

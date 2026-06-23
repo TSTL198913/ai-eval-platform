@@ -87,10 +87,10 @@ class TestScoreTextSimilarity:
         assert score == 1.0
 
     def test_partial_match(self):
-        """部分字符重叠"""
+        """部分字符重叠 - Jaccard相似度"""
         score = score_text_similarity("hello", "hallo")
-        # h, l, l, o 在 hallo 中，e 不在，所以 4/5 = 0.8
-        assert score == 0.8
+        # Jaccard: 交集{h,l,o}=3, 并集{h,e,l,o,a}=5, 3/5=0.6
+        assert score == pytest.approx(3 / 5, 0.01)
 
     def test_completely_different(self):
         """完全不同的文本"""
@@ -108,17 +108,16 @@ class TestScoreTextSimilarity:
         assert score == 1.0
 
     def test_chinese_text(self):
-        """中文文本相似度"""
+        """中文文本相似度 - Jaccard相似度"""
         score = score_text_similarity("北京是中国的首都", "中国首都是北京")
-        # "北京是中国的首都"(8字) vs "中国首都是北京"(7字)
-        # 6/7 字符在期望中找到，约 0.857
-        assert score >= 0.85
+        # 去重后计算Jaccard
+        assert score >= 0.7
 
     def test_subset_text(self):
-        """子集文本 - 输出所有字符都在期望中时返回 1.0"""
+        """子集文本 - Jaccard相似度"""
         score = score_text_similarity("cat", "caterpillar")
-        # "cat" 的所有字符 c,a,t 都在 "caterpillar" 中
-        assert score == 1.0
+        # Jaccard: 交集{c,a,t}=3, 并集{c,a,t,e,r,p,i,l}=8, 3/8=0.375
+        assert score == pytest.approx(3 / 8, 0.01)
 
     def test_reordered_text(self):
         """重排文本"""

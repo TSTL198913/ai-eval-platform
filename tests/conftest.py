@@ -274,3 +274,163 @@ def reset_evaluator_registry():
 
     # 重新发现并注册所有评估器
     auto_discover(force=True)
+
+
+# ========================================
+# 真实Redis测试支持
+# ========================================
+
+
+@pytest.fixture(scope="session")
+def real_redis():
+    """
+    提供真实Redis连接（session级别）。
+
+    使用条件：
+    - 设置环境变量 REDIS_HOST=localhost
+    - 或运行 pytest --redis-host=localhost
+
+    如果Redis不可用，将跳过相关测试。
+    """
+    import os
+
+    redis_host = os.environ.get("REDIS_HOST", None)
+    redis_port = int(os.environ.get("REDIS_PORT", 6379))
+
+    if redis_host is None:
+        pytest.skip("REDIS_HOST not set, skipping real Redis tests")
+        return None
+
+    try:
+        import redis
+
+        client = redis.Redis(
+            host=redis_host,
+            port=redis_port,
+            decode_responses=True,
+            socket_connect_timeout=5,
+            socket_timeout=5,
+        )
+        client.ping()
+        yield client
+        # 清理
+        client.flushall()
+        client.close()
+    except ImportError:
+        pytest.skip("redis-py not installed")
+    except Exception as e:
+        pytest.skip(f"Redis connection failed: {e}")
+
+
+@pytest.fixture
+def clean_redis(real_redis):
+    """
+    每个测试前清理Redis数据。
+    用于需要干净Redis状态的测试。
+    """
+    if real_redis:
+        real_redis.flushall()
+    yield real_redis
+    if real_redis:
+        real_redis.flushall()
+
+
+# ========================================
+# 超时和异常LLM客户端
+# ========================================
+
+
+@pytest.fixture
+def timeout_llm_client():
+    """
+    提供超时的LLM客户端。
+    用于测试LLM调用超时后的降级行为。
+    """
+    client = MagicMock()
+    client.config = MagicMock()
+    client.config.model_name = "timeout-model"
+
+    def _timeout(*args, **kwargs):
+        raise TimeoutError("LLM request timeout after 30 seconds")
+
+    client.chat = MagicMock(side_effect=_timeout)
+    return client
+
+
+@pytest.fixture
+def rate_limited_llm_client():
+    """
+    提供被限流的LLM客户端。
+    用于测试API限流处理。
+    """
+    client = MagicMock()
+    client.config = MagicMock()
+    client.config.model_name = "rate-limited-model"
+
+    def _rate_limit(*args, **kwargs):
+        raise Exception("Rate limit exceeded. Please retry after 60 seconds.")
+
+    client.chat = MagicMock(side_effect=_rate_limit)
+    return client
+
+
+@pytest.fixture
+def slow_llm_client():
+    """
+    提供慢速LLM客户端（延迟响应）。
+    用于测试长时间等待的处理。
+    """
+    import time
+
+    client = MagicMock()
+    client.config = MagicMock()
+    client.config.model_name = "slow-model"
+
+    def _slow_response(*args, **kwargs):
+        time.sleep(5)  # 模拟5秒延迟
+        return "Delayed response"
+
+    client.chat = MagicMock(side_effect=_slow_response)
+    return client
+
+
+@pytest.fixture
+def empty_response_llm_client():
+    """
+    提供返回空响应的LLM客户端。
+    用于测试空响应处理。
+    """
+    client = MagicMock()
+    client.config = MagicMock()
+    client.config.model_name = "empty-model"
+
+    client.chat = MagicMock(return_value="")
+    return client
+
+
+@pytest.fixture
+def malformed_json_llm_client():
+    """
+    提供返回格式错误JSON的LLM客户端。
+    用于测试JSON解析降级。
+    """
+    client = MagicMock()
+    client.config = MagicMock()
+    client.config.model_name = "malformed-model"
+
+    client.chat = MagicMock(return_value="{invalid json response")
+    return client
+
+
+# ========================================
+# 测试标记注册
+# ========================================
+
+
+def pytest_configure(config):
+    """注册自定义测试标记"""
+    config.addinivalue_line("markers", "redis: 需要真实Redis环境的测试")
+    config.addinivalue_line("markers", "slow: 慢速测试，可能需要较长时间")
+    config.addinivalue_line("markers", "stress: 压力测试，高并发或大数据量")
+    config.addinivalue_line("markers", "blackbox: 黑盒测试，仅通过公共API验证")
+    config.addinivalue_line("markers", "contract: 契约测试，验证接口契约")

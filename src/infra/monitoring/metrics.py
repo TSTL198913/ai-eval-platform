@@ -105,6 +105,21 @@ RATE_LIMITER_BLOCKED = Counter(
     registry=registry,
 )
 
+# 路由指标
+ROUTING_DECISION_COUNTER = Counter(
+    "routing_decisions_total",
+    "Total number of model routing decisions",
+    ["task_type", "provider", "source"],
+    registry=registry,
+)
+
+ROUTING_LATENCY = Histogram(
+    "routing_latency_seconds",
+    "Model routing latency in seconds",
+    ["task_type", "source"],
+    registry=registry,
+)
+
 
 def expose_metrics():
     """暴露 metrics 端点内容"""

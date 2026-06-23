@@ -403,7 +403,7 @@ class TestSelfHealingStability:
 
         # 验证：无法获取评估器
         with pytest.raises(KeyError):
-            EvaluatorFactory.get_evaluator("general")
+            EvaluatorFactory.get("general")
 
         # 触发自动发现
         auto_discover(force=True)

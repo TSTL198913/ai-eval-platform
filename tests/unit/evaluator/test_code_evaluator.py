@@ -7,7 +7,7 @@ CodeEvaluator专项测试
 3. 期望输出对比
 
 关键发现：
-1. SYNTAX_WEIGHT=0.3, SEMANTIC_WEIGHT=0.7
+1. DEFAULT_SYNTAX_WEIGHT=0.2, DEFAULT_SEMANTIC_WEIGHT=0.3
 2. 无LLM client时score=0.8（仅语法）
 3. 语法错误返回(is_valid=False, error包含"语法错误")
 4. 有效代码返回(is_valid=True, score>=0.8)
@@ -21,7 +21,7 @@ import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from src.domain.evaluators.code import SEMANTIC_WEIGHT, SYNTAX_WEIGHT, CodeEvaluator
+from src.domain.evaluators.code import DEFAULT_SEMANTIC_WEIGHT, DEFAULT_SYNTAX_WEIGHT, CodeEvaluator
 from src.domain.evaluators.scoring import is_passing
 from src.schemas.evaluation import EvaluationSchema
 
@@ -225,12 +225,12 @@ class TestCodeEvaluatorScoringLogic:
     """评分逻辑测试"""
 
     def test_syntax_weight_constant(self):
-        """SYNTAX_WEIGHT应为0.3"""
-        assert SYNTAX_WEIGHT == 0.3
+        """DEFAULT_SYNTAX_WEIGHT应为0.2"""
+        assert DEFAULT_SYNTAX_WEIGHT == 0.2
 
     def test_semantic_weight_constant(self):
-        """SEMANTIC_WEIGHT应为0.7"""
-        assert SEMANTIC_WEIGHT == 0.7
+        """DEFAULT_SEMANTIC_WEIGHT应为0.3"""
+        assert DEFAULT_SEMANTIC_WEIGHT == 0.3
 
     @pytest.fixture
     def mock_client(self):
@@ -254,8 +254,8 @@ class TestCodeEvaluatorScoringLogic:
 
         result = evaluator.evaluate(request)
 
-        # 语法正确(0.3) + 语义部分匹配(部分0.7)
-        assert result.score >= SYNTAX_WEIGHT
+        # 语法正确(0.2) + 语义部分匹配(部分0.3)
+        assert result.score >= DEFAULT_SYNTAX_WEIGHT
         assert result.score <= 1.0
 
     def test_without_expected_output_semantic_score(self, mock_client):
@@ -275,8 +275,8 @@ class TestCodeEvaluatorScoringLogic:
 
         result = evaluator.evaluate(request)
 
-        # 有LLM输出，语义分数应为SEMANTIC_WEIGHT
-        assert result.score >= SYNTAX_WEIGHT
+        # 有LLM输出，语义分数应为DEFAULT_SEMANTIC_WEIGHT
+        assert result.score >= DEFAULT_SYNTAX_WEIGHT
 
 
 class TestCodeEvaluatorDependencyHandling:

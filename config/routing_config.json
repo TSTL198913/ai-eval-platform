@@ -67,5 +67,25 @@
   },
   "fallback_provider": "deepseek",
   "confidence_threshold": 0.7,
+  "difficulty_rules": {
+    "high_input_length": 2000,
+    "high_output_length": 1000,
+    "low_input_length": 20,
+    "low_output_length": 20,
+    "complex_keywords": [
+      "证明",
+      "推导",
+      "分析",
+      "优化",
+      "设计"
+    ],
+    "simple_keywords": [
+      "总结",
+      "提取",
+      "翻译",
+      "分类",
+      "识别"
+    ]
+  },
   "rules": []
 }

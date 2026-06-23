@@ -10,6 +10,7 @@
 import asyncio
 import json
 import logging
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -95,6 +96,7 @@ class CircuitBreaker:
         self._last_failure_time: float | None = None
         self._half_open_calls = 0
         self._lock = asyncio.Lock()
+        self._sync_lock = threading.RLock()
         self.stats = CircuitBreakerStats()
         self._redis_client = redis_client
         self._persist_ttl = persist_ttl
@@ -106,15 +108,18 @@ class CircuitBreaker:
 
     @property
     def state(self) -> CircuitState:
-        """获取当前状态"""
-        if self._state == CircuitState.OPEN:
-            # 检查超时是否到达，到达则进入半开
-            if (
-                self._last_failure_time
-                and time.time() - self._last_failure_time >= self.config.timeout_seconds
-            ):
-                return CircuitState.HALF_OPEN
-        return self._state
+        """获取当前状态（线程安全）"""
+        with self._sync_lock:
+            if self._state == CircuitState.OPEN:
+                # 检查超时是否到达，到达则进入半开
+                if (
+                    self._last_failure_time
+                    and time.time() - self._last_failure_time >= self.config.timeout_seconds
+                ):
+                    # 自动转换状态
+                    self._transition_to(CircuitState.HALF_OPEN)
+                    return CircuitState.HALF_OPEN
+            return self._state
 
     @property
     def is_closed(self) -> bool:
@@ -130,29 +135,30 @@ class CircuitBreaker:
 
     def _record_success(self):
         """记录成功调用"""
-        self.stats.successful_calls += 1
-        self.stats.total_calls += 1
-        self._failure_count = 0
+        with self._sync_lock:
+            self.stats.successful_calls += 1
+            self.stats.total_calls += 1
+            self._failure_count = 0
 
-        # 使用 state 属性而非 _state，因为 state 包含时间转换逻辑
-        if self.state == CircuitState.HALF_OPEN:
-            self._success_count += 1
-            if self._success_count >= self.config.success_threshold:
-                self._transition_to(CircuitState.CLOSED)
+            if self.state == CircuitState.HALF_OPEN:
+                self._success_count += 1
+                if self._success_count >= self.config.success_threshold:
+                    self._transition_to(CircuitState.CLOSED)
 
     def _record_failure(self):
         """记录失败调用"""
-        self.stats.failed_calls += 1
-        self.stats.total_calls += 1
-        self._failure_count += 1
-        self._success_count = 0
-        self._last_failure_time = time.time()
+        with self._sync_lock:
+            self.stats.failed_calls += 1
+            self.stats.total_calls += 1
+            self._failure_count += 1
+            self._success_count = 0
+            self._last_failure_time = time.time()
 
-        if self._state == CircuitState.CLOSED:
-            if self._failure_count >= self.config.failure_threshold:
+            if self._state == CircuitState.CLOSED:
+                if self._failure_count >= self.config.failure_threshold:
+                    self._transition_to(CircuitState.OPEN)
+            elif self._state == CircuitState.HALF_OPEN:
                 self._transition_to(CircuitState.OPEN)
-        elif self._state == CircuitState.HALF_OPEN:
-            self._transition_to(CircuitState.OPEN)
 
     def _transition_to(self, new_state: CircuitState):
         """状态转换"""
@@ -238,9 +244,46 @@ class CircuitBreaker:
         except Exception as e:
             logger.error(f"CircuitBreaker [{self.name}] failed to load state from Redis: {e}")
 
+    def call_sync(self, func: Callable[..., T], *args, **kwargs) -> T:
+        """
+        通过熔断器执行同步调用
+
+        Args:
+            func: 同步调用函数
+            *args, **kwargs: 函数参数
+
+        Returns:
+            函数返回值
+
+        Raises:
+            CircuitBreakerError: 熔断器打开时
+        """
+        current_state = self.state
+
+        if current_state == CircuitState.OPEN:
+            self.stats.rejected_calls += 1
+            raise CircuitBreakerError(f"Circuit breaker [{self.name}] is OPEN, call rejected")
+
+        if current_state == CircuitState.HALF_OPEN:
+            with self._sync_lock:
+                if self._half_open_calls >= self.config.half_open_max_calls:
+                    self.stats.rejected_calls += 1
+                    raise CircuitBreakerError(
+                        f"Circuit breaker [{self.name}] HALF_OPEN max calls reached"
+                    )
+                self._half_open_calls += 1
+
+        try:
+            result = func(*args, **kwargs)
+            self._record_success()
+            return result
+        except Exception:
+            self._record_failure()
+            raise
+
     async def call(self, func: Callable[..., T], *args, **kwargs) -> T:
         """
-        通过熔断器执行调用
+        通过熔断器执行异步调用
 
         Args:
             func: 异步调用函数
@@ -279,17 +322,18 @@ class CircuitBreaker:
             raise
 
     def reset(self):
-        """手动重置熔断器"""
-        self._state = CircuitState.CLOSED
-        self._failure_count = 0
-        self._success_count = 0
-        self._last_failure_time = None
-        self._half_open_calls = 0
-        logger.info(f"CircuitBreaker [{self.name}] has been reset")
+        """手动重置熔断器（线程安全）"""
+        with self._sync_lock:
+            self._state = CircuitState.CLOSED
+            self._failure_count = 0
+            self._success_count = 0
+            self._last_failure_time = None
+            self._half_open_calls = 0
+            logger.info(f"CircuitBreaker [{self.name}] has been reset")
 
-        # 重置后保存状态到 Redis
-        if self._redis_client:
-            self._save_state_to_redis()
+            # 重置后保存状态到 Redis
+            if self._redis_client:
+                self._save_state_to_redis()
 
     def get_stats(self) -> dict:
         """获取统计信息"""
@@ -308,20 +352,32 @@ class CircuitBreaker:
 
 def circuit_breaker(name: str, config: CircuitBreakerConfig | None = None):
     """
-    熔断器装饰器工厂
+    熔断器装饰器工厂（支持同步和异步函数）
 
     使用示例:
         @circuit_breaker("external_api")
         async def call_external_api():
             return await client.request()
+
+        @circuit_breaker("sync_api")
+        def call_sync_api():
+            return client.request()
     """
     _breaker = CircuitBreaker(name, config)
 
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
-        async def wrapper(*args, **kwargs) -> T:
-            return await _breaker.call(func, *args, **kwargs)
+        if asyncio.iscoroutinefunction(func):
 
-        return wrapper
+            async def async_wrapper(*args, **kwargs) -> T:
+                return await _breaker.call(func, *args, **kwargs)
+
+            return async_wrapper
+        else:
+
+            def sync_wrapper(*args, **kwargs) -> T:
+                return _breaker.call_sync(func, *args, **kwargs)
+
+            return sync_wrapper
 
     return decorator
 
@@ -334,6 +390,7 @@ class CircuitBreakerRegistry:
     """
 
     _instance: Optional["CircuitBreakerRegistry"] = None
+    _instance_lock = threading.Lock()
 
     def __init__(self):
         self._breakers: dict[str, CircuitBreaker] = {}
@@ -341,9 +398,11 @@ class CircuitBreakerRegistry:
 
     @classmethod
     def get_instance(cls) -> "CircuitBreakerRegistry":
-        """获取单例"""
+        """获取单例（线程安全双重检查锁定）"""
         if cls._instance is None:
-            cls._instance = cls()
+            with cls._instance_lock:
+                if cls._instance is None:
+                    cls._instance = cls()
         return cls._instance
 
     def get_or_create(

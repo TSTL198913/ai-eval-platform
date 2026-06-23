@@ -1,37 +1,45 @@
+import re
+
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
 
+def _count_grammar_errors(text: str) -> tuple[int, list[str]]:
+    errors = []
+    if not text:
+        return 0, []
+
+    first_char = text[0]
+    if first_char.isalpha() and not first_char.isupper():
+        if "\u4e00" <= first_char <= "\u9fff":
+            pass
+        else:
+            errors.append("首字母应大写")
+
+    if not text.endswith((".", "?", "!", "。", "？", "！")):
+        errors.append("缺少句末标点")
+
+    consecutive_spaces = re.findall(r" {2,}", text)
+    if consecutive_spaces:
+        errors.append(f"存在连续空格({len(consecutive_spaces)}处)")
+
+    return len(errors), errors
+
+
 @EvaluatorFactory.register("grammar")
 class GrammarEvaluator(BaseEvaluator):
-    def evaluate(self, request: EvaluationSchema) -> DomainResponse:
-        if error := self.validate_input(request):
-            return error
-        user_input = self.get_input_text(request)
+    def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
+        actual_output = self.get_payload_data(request, "actual_output")
+        if not actual_output:
+            return DomainResponse(is_valid=False, error="actual_output 不能为空")
 
-        prompt = f"""检查以下文本的语法错误，返回修正后的文本和错误数量：
-文本：{user_input}
-格式：错误数: X\n修正后: ..."""
-        llm_output = self.client.chat(prompt) if self.client else "错误数: 0\n修正后: " + user_input
-
-        error_count = 0
-        corrected_text = user_input
-        lines = llm_output.strip().split("\n")
-        for line in lines:
-            if line.startswith("错误数"):
-                try:
-                    error_count = int(line.split(":")[1].strip())
-                except ValueError:
-                    error_count = 0
-            elif line.startswith("修正后"):
-                corrected_text = line.split(":", 1)[1].strip()
-
+        error_count, error_details = _count_grammar_errors(actual_output)
         score = max(0, 1.0 - error_count * 0.2)
 
         return DomainResponse(
             is_valid=True,
-            text=llm_output,
+            text=actual_output,
             score=score,
-            data=f"语法检查: 错误数={error_count}, 修正后={corrected_text}",
+            data=f"语法检查: 错误数={error_count}, 详情={', '.join(error_details) if error_details else '无'}",
         )

@@ -50,7 +50,7 @@ class RobustnessEvaluator(BaseEvaluator):
     def __init__(self, client: "BaseLLMClient | None" = None):
         super().__init__(client)
 
-    def evaluate(self, request: EvaluationSchema) -> DomainResponse:
+    def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
         action = request.payload.get("action", "evaluate_robustness")
         handler = {
             "evaluate_robustness": self._evaluate_robustness,
@@ -190,10 +190,12 @@ class RobustnessEvaluator(BaseEvaluator):
         try:
             std = statistics.stdev(scores)
             mean = statistics.mean(scores)
+            # 当mean=0时，所有分数都是0，完全一致，应返回1.0
+            # 当mean=0且std!=0时，数学上不可能（非负数mean=0意味着所有值都是0）
             if mean == 0:
-                return 0.0
+                return 1.0
             # 变异系数
-            cv = std / mean if mean > 0 else 0
+            cv = std / mean
             return max(0.0, 1.0 - cv)
         except Exception:
             return 0.5
@@ -249,8 +251,10 @@ class RobustnessEvaluator(BaseEvaluator):
         try:
             std = statistics.stdev(latencies)
             mean = statistics.mean(latencies)
+            # 当mean=0时，所有延迟都是0，完全稳定，应返回1.0
+            # 当mean=0且std!=0时，数学上不可能（非负数mean=0意味着所有值都是0）
             if mean == 0:
-                return 0.0
+                return 1.0
             cv = std / mean
             return max(0.0, 1.0 - cv)
         except Exception:

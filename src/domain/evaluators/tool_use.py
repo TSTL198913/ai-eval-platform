@@ -11,10 +11,17 @@ from src.schemas.evaluation import DomainResponse, EvaluationSchema
 class ToolUseEvaluator(BaseEvaluator):
     """工具使用评估器"""
 
-    def evaluate(self, request: EvaluationSchema) -> DomainResponse:
+    def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
         """评估工具调用"""
         tool_calls = self.get_payload_data(request, "tool_calls", [])
         expected_tool_calls = self.get_payload_data(request, "expected_tool_calls", [])
+
+        # 验证期望工具列表不为空
+        if not expected_tool_calls:
+            return DomainResponse(
+                is_valid=False,
+                error="expected_tool_calls 不能为空",
+            )
 
         if not tool_calls:
             return DomainResponse(
@@ -34,7 +41,7 @@ class ToolUseEvaluator(BaseEvaluator):
             if tool_name in expected_tool_calls:
                 correct_calls += 1
 
-        score = correct_calls / len(expected_tool_calls) if expected_tool_calls else 1.0
+        score = correct_calls / len(expected_tool_calls) if expected_tool_calls else 0.0
 
         # 如果调用次数过多，扣分
         if len(tool_calls) > len(expected_tool_calls) * 2:

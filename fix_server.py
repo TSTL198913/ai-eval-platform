@@ -2,7 +2,7 @@ with open("src/api/server.py", encoding="utf-8") as f:
     lines = f.readlines()
 
 fixed_lines = []
-for i, line in enumerate(lines, 1):
+for _i, line in enumerate(lines, 1):
     # 检查每一行是否有不匹配的引号
     fixed_line = line
 

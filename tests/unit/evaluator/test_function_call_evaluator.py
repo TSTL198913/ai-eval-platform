@@ -39,9 +39,9 @@ class TestFunctionCallEvaluatorPositiveCases:
         )
         result = target.evaluate(request)
 
-        # 强断言：验证业务逻辑
+        # 强断言：验证业务逻辑 - 完美匹配应为满分
         assert result.is_valid is True
-        assert result.score >= 0.8, f"正确评估应得高分，实际得分: {result.score}"
+        assert result.score == 1.0, f"正确评估应得满分，实际得分: {result.score}"
         assert result.data["tool_selection"]["score"] == 1.0, "工具完全正确应为满分"
         assert result.data["param_validation"]["score"] == 1.0, "参数完全正确应为满分"
         assert result.data["result_validation"]["score"] == 1.0, "结果完全正确应为满分"

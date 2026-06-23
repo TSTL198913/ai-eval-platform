@@ -17,8 +17,8 @@ class DeepSeekClient(BaseLLMClient):
             "Authorization": f"Bearer {config.api_key.get_secret_value()}",
             "Content-Type": "application/json",
         }
-        self.client = client or httpx.Client(timeout=30.0)
-        self.async_client = async_client or httpx.AsyncClient(timeout=30.0)
+        self.client = client or httpx.Client(timeout=config.timeout_seconds)
+        self.async_client = async_client or httpx.AsyncClient(timeout=config.timeout_seconds)
 
     @retry(
         stop=stop_after_attempt(1),

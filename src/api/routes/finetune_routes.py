@@ -31,7 +31,7 @@ async def list_exportable_datasets():
                     "total_samples": len(ds.samples),
                     "corrected_samples": sum(1 for s in ds.samples if s.human_corrected),
                     "avg_score": (
-                        sum(s.scores.values() for s in ds.samples) / max(len(ds.samples), 1)
+                        sum(sum(s.scores.values()) for s in ds.samples) / max(len(ds.samples), 1)
                         if ds.samples
                         else 0
                     ),

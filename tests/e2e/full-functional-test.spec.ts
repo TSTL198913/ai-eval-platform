@@ -177,7 +177,7 @@ test.describe('全功能测试 - 前后端数据一致性验证', () => {
     await page.waitForLoadState('networkidle');
 
     await page.locator('input[type="text"]').first().fill('admin');
-    await page.locator('input[type="password"]').fill('admin');
+    await page.locator('input[type="password"]').fill('admin123');
     await page.locator('button[type="submit"]').click();
 
     await page.waitForTimeout(3000);

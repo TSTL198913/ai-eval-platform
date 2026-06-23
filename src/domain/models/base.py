@@ -12,6 +12,7 @@ class ModelConfig(BaseModel):
     temperature: float = 0.7
     max_tokens: int = 1024
     base_url: str | None = None
+    timeout_seconds: float = 30.0
 
 
 def default_model_config() -> ModelConfig:

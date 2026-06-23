@@ -1,6 +1,6 @@
 """
 记录管理路由模块
-包含记录查询、搜索、导出、更新、删除等端点
+包含记录查询、搜索、导出、更新、删除、批量重新评估等端点
 """
 
 import csv
@@ -11,11 +11,13 @@ import time
 
 from fastapi import APIRouter, Response
 from fastapi.responses import JSONResponse, PlainTextResponse
+from pydantic import BaseModel, Field
 from starlette import status as status_module
 
 from src.api.common import error_response, success_response
 from src.schemas.schemas import BatchDeleteRequest, BatchUpdateRequest, RecordUpdateRequest
 from src.services.data_svc import get_data_service
+from src.services.evaluator_svc import run_evaluation_service
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +32,21 @@ def _get_data_service():
 # 记录更新允许的白名单字段（安全：防止伪造评测结果）
 _RECORD_UPDATE_ALLOWED_FIELDS = {"model_name", "adapter_name", "status"}
 _RECORD_UPDATE_ALLOWED_STATUS = {"passed", "failed", "error", "pending", "config"}
+
+
+class BatchReevaluateRequest(BaseModel):
+    """批量重新评估请求"""
+
+    record_ids: list[int] = Field(..., min_length=1, description="要重新评估的记录ID列表")
+
+
+class BatchReevaluateResponse(BaseModel):
+    """批量重新评估响应"""
+
+    total: int
+    success_count: int
+    failed_count: int
+    results: list[dict]
 
 
 @router.get("")
@@ -258,3 +275,81 @@ async def batch_update_records(data: BatchUpdateRequest, response: Response):
     except Exception as e:
         logger.error("Batch update failed: {0}", e)
         return error_response(500, "批量更新失败")
+
+
+@router.post("/batch/reevaluate")
+async def batch_reevaluate_records(data: BatchReevaluateRequest, response: Response):
+    """批量重新评估记录
+
+    根据记录ID列表重新执行评估任务，返回新的评估结果。
+    """
+    results = []
+    success_count = 0
+    failed_count = 0
+
+    try:
+        svc = _get_data_service()
+
+        for record_id in data.record_ids:
+            try:
+                # 获取原始记录
+                record = svc.get_by_id(record_id)
+                if not record:
+                    results.append(
+                        {
+                            "record_id": record_id,
+                            "status": "error",
+                            "message": "记录不存在",
+                        }
+                    )
+                    failed_count += 1
+                    continue
+
+                # 从原始记录中提取评估参数
+                response_data = record.get("response_data", {})
+                payload = response_data.get("payload", {})
+
+                # 构建评估请求
+                eval_request = {
+                    "id": f"reeval_{record_id}_{int(time.time())}",
+                    "type": record.get("adapter_name", "general"),
+                    "payload": payload,
+                }
+
+                # 执行评估
+                result = run_evaluation_service(eval_request)
+
+                results.append(
+                    {
+                        "record_id": record_id,
+                        "case_id": eval_request["id"],
+                        "status": result.get("status", "error"),
+                        "score": result.get("data", {}).get("score"),
+                        "latency_ms": result.get("latency_ms"),
+                    }
+                )
+                success_count += 1
+
+            except Exception as e:
+                logger.error(f"Reevaluate record {record_id} failed: {e}")
+                results.append(
+                    {
+                        "record_id": record_id,
+                        "status": "error",
+                        "message": str(e),
+                    }
+                )
+                failed_count += 1
+
+        return success_response(
+            {
+                "total": len(data.record_ids),
+                "success_count": success_count,
+                "failed_count": failed_count,
+                "results": results,
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Batch reevaluate failed: {e}")
+        return error_response(500, "批量重新评估失败")

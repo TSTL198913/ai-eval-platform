@@ -6,21 +6,19 @@ from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
 @EvaluatorFactory.register("summary")
 class SummaryEvaluator(BaseEvaluator):
-    def evaluate(self, request: EvaluationSchema) -> DomainResponse:
-        if error := self.validate_input(request):
-            return error
-        user_input = self.get_input_text(request)
+    def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
+        actual_output = self.get_payload_data(request, "actual_output")
+        if not actual_output:
+            return DomainResponse(is_valid=False, error="actual_output 不能为空")
         expected_output = self.get_payload_data(request, "expected_output")
+        if not expected_output:
+            return DomainResponse(is_valid=False, error="expected_output 不能为空")
 
-        prompt = f"""请总结以下文本，保持核心信息：
-文本：{user_input}"""
-        llm_output = self.client.chat(prompt) if self.client else user_input
-
-        score = score_text_similarity(llm_output, expected_output) if expected_output else 1.0
+        score = score_text_similarity(actual_output, expected_output)
 
         return DomainResponse(
             is_valid=True,
-            text=llm_output,
+            text=actual_output,
             score=score,
-            data=f"摘要结果: {llm_output}",
+            data=f"摘要质量评估: 相似度={score:.2f}",
         )

@@ -40,7 +40,7 @@ class SentimentEvaluator(BaseEvaluator):
         "poor",
     ]
 
-    def evaluate(self, request: EvaluationSchema) -> DomainResponse:
+    def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
         if error := self.validate_input(request):
             return error
         user_input = self.get_input_text(request)

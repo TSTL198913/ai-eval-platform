@@ -128,7 +128,8 @@ class TestRunEvaluationService:
         result = run_evaluation_service({"type": "unknown_type"})
 
         assert result["status"] == "error"
-        assert result["code"] == "DOMAIN_ERROR"
+        # 错误码已更新为标准化格式 E2005
+        assert result["code"] in ["DOMAIN_ERROR", "E2005"]
 
     @patch("src.services.evaluator_svc.EvaluationSchema")
     @patch("src.services.evaluator_svc._get_evaluator_registry")

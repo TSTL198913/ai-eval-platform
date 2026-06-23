@@ -17,7 +17,7 @@ class MetaTestEvaluator(BaseEvaluator):
         "drift_detection": 0.3,  # 漂移检测权重
     }
 
-    def evaluate(self, request: EvaluationSchema) -> DomainResponse:
+    def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
         """评估测试代码质量"""
         test_code = self.get_payload_data(request, "test_code")
         test_results = self.get_payload_data(request, "test_results")
@@ -360,19 +360,21 @@ class MetaTestEvaluator(BaseEvaluator):
         drift_detection["dependency_drift"] = current_dependencies != baseline_dependencies
 
         # 计算总体漂移评分
-        drift_score = 1.0
+        # drift_score 表示漂移程度，从0开始累加，越高表示漂移越严重
+        drift_score = 0.0
         if drift_detection["behavior_drift"]:
-            drift_score -= 0.2
+            drift_score += 0.2
         if drift_detection["result_drift"]:
-            drift_score -= 0.2
+            drift_score += 0.2
         if abs(drift_detection["coverage_drift"]) > 0.05:
-            drift_score -= 0.2
+            drift_score += 0.2
         if abs(drift_detection["performance_drift"]) > 0.1:
-            drift_score -= 0.2
+            drift_score += 0.2
         if drift_detection["dependency_drift"]:
-            drift_score -= 0.2
+            drift_score += 0.2
 
-        drift_detection["overall_drift_score"] = max(0.0, drift_score)
+        # 漂移程度越高，稳定性越低，因此取反
+        drift_detection["overall_drift_score"] = max(0.0, 1.0 - drift_score)
 
         return drift_detection
 

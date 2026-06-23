@@ -1,4 +1,5 @@
 import time
+import uuid
 from enum import Enum
 from typing import Any, Literal
 
@@ -24,7 +25,7 @@ class DomainResponse(BaseModel):
 
 
 class EvaluationSchema(BaseModel):
-    id: str = Field(..., description="评估记录唯一ID")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="评估记录唯一ID")
     type: str = Field(..., description="评估类型")
     payload: dict[str, Any] = Field(..., description="业务数据")
 

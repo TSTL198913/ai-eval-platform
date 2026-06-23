@@ -1,0 +1,2 @@
+WARNING  src.domain.evaluators.deepeval_evaluator:deepeval_evaluator.py:48 ⚠️ 未安装 deepeval，DeepEval 评估器将降级到本地实现
+WARNING  src.domain.evaluators.ragas_evaluator:ragas_evaluator.py:45 ⚠️ 未安装 ragas，RAGAS 评估器将降级到本地实现

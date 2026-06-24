@@ -1,13 +1,15 @@
 """模型管理路由模块
 
-提供模型列表查询、模型对比评测、成本指标查询等API端点。
+提供模型列表查询、模型对比评测、成本指标查询、版本管理等API端点。
 """
 
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from src.api.common import error_response, success_response
+from src.api.dependencies import PermissionDependency
+from src.infra.security import Permission
 
 logger = logging.getLogger(__name__)
 
@@ -191,3 +193,199 @@ async def get_cost_metrics():
     except Exception as e:
         logger.error(f"Failed to get cost metrics: {e}")
         return error_response(500, "获取成本指标失败")
+
+
+# ==================== 模型版本管理 ====================
+
+
+@router.post("/models/versions")
+async def register_model_version(
+    data: dict,
+    current_user: dict = Depends(PermissionDependency(Permission.MANAGE_MODEL_VERSIONS)),
+):
+    """注册模型版本
+
+    需要 MANAGE_MODEL_VERSIONS 权限。
+    """
+    try:
+        from src.domain.model_versioning import ModelVersionRegistry
+
+        model_name = data.get("model_name")
+        version = data.get("version")
+        provider = data.get("provider")
+        description = data.get("description", "")
+        is_active = data.get("is_active", False)
+
+        if not model_name or not version or not provider:
+            return error_response(400, "model_name, version, provider 必填")
+
+        model_version = ModelVersionRegistry.register(
+            model_name=model_name,
+            version=version,
+            provider=provider,
+            description=description,
+            is_active=is_active,
+        )
+
+        return success_response(
+            {
+                "model_name": model_version.model_name,
+                "version": model_version.version,
+                "provider": model_version.provider,
+                "description": model_version.description,
+                "is_active": model_version.is_active,
+                "created_at": model_version.created_at,
+            }
+        )
+    except Exception as e:
+        logger.error(f"Failed to register model version: {e}")
+        return error_response(500, "注册模型版本失败")
+
+
+@router.get("/models/{model_name}/versions")
+async def get_model_versions(
+    model_name: str,
+    current_user: dict = Depends(PermissionDependency(Permission.VIEW_BENCHMARK)),
+):
+    """获取模型版本列表
+
+    需要 VIEW_BENCHMARK 权限。
+    """
+    try:
+        from src.domain.model_versioning import ModelVersionRegistry
+
+        versions = ModelVersionRegistry.get_versions(model_name)
+
+        if not versions:
+            return success_response({"model_name": model_name, "versions": []})
+
+        return success_response(
+            {
+                "model_name": model_name,
+                "versions": [
+                    {
+                        "version": v.version,
+                        "provider": v.provider,
+                        "description": v.description,
+                        "is_active": v.is_active,
+                        "created_at": v.created_at,
+                    }
+                    for v in versions
+                ],
+            }
+        )
+    except Exception as e:
+        logger.error(f"Failed to get model versions: {e}")
+        return error_response(500, "获取模型版本失败")
+
+
+@router.get("/models/{model_name}/versions/latest")
+async def get_latest_version(
+    model_name: str,
+    current_user: dict = Depends(PermissionDependency(Permission.VIEW_BENCHMARK)),
+):
+    """获取模型最新版本
+
+    需要 VIEW_BENCHMARK 权限。
+    """
+    try:
+        from src.domain.model_versioning import ModelVersionRegistry
+
+        latest = ModelVersionRegistry.get_latest(model_name)
+
+        if not latest:
+            return error_response(404, f"模型 '{model_name}' 暂无版本")
+
+        return success_response(
+            {
+                "model_name": latest.model_name,
+                "version": latest.version,
+                "provider": latest.provider,
+                "description": latest.description,
+                "is_active": latest.is_active,
+                "created_at": latest.created_at,
+            }
+        )
+    except Exception as e:
+        logger.error(f"Failed to get latest version: {e}")
+        return error_response(500, "获取最新版本失败")
+
+
+@router.get("/models/{model_name}/versions/compare")
+async def compare_model_versions(
+    model_name: str,
+    v1: str,
+    v2: str,
+    current_user: dict = Depends(PermissionDependency(Permission.MANAGE_MODEL_VERSIONS)),
+):
+    """对比两个模型版本
+
+    需要 MANAGE_MODEL_VERSIONS 权限。
+    """
+    try:
+        from src.domain.model_versioning import ModelVersionRegistry
+
+        comparison = ModelVersionRegistry.compare_versions(model_name, v1, v2)
+
+        if not comparison:
+            return error_response(404, "版本对比失败，版本不存在")
+
+        return success_response(
+            {
+                "model_name": model_name,
+                "version_1": comparison.get("version_1"),
+                "version_2": comparison.get("version_2"),
+                "comparison": comparison.get("comparison"),
+            }
+        )
+    except Exception as e:
+        logger.error(f"Failed to compare model versions: {e}")
+        return error_response(500, "版本对比失败")
+
+
+@router.post("/models/{model_name}/versions/{version}/activate")
+async def activate_version(
+    model_name: str,
+    version: str,
+    current_user: dict = Depends(PermissionDependency(Permission.MANAGE_MODEL_VERSIONS)),
+):
+    """激活模型版本
+
+    需要 MANAGE_MODEL_VERSIONS 权限。
+    """
+    try:
+        from src.domain.model_versioning import ModelVersionRegistry
+
+        success = ModelVersionRegistry.activate_version(model_name, version)
+
+        if not success:
+            return error_response(404, f"版本 '{version}' 不存在")
+
+        return success_response({"message": f"版本 '{version}' 已激活"})
+    except Exception as e:
+        logger.error(f"Failed to activate version: {e}")
+        return error_response(500, "激活版本失败")
+
+
+@router.delete("/models/{model_name}/versions/{version}")
+async def delete_version(
+    model_name: str,
+    version: str,
+    current_user: dict = Depends(PermissionDependency(Permission.MANAGE_MODEL_VERSIONS)),
+):
+    """删除模型版本
+
+    需要 MANAGE_MODEL_VERSIONS 权限。
+    """
+    try:
+        from src.domain.model_versioning import ModelVersionRegistry
+
+        success = ModelVersionRegistry.delete_version(model_name, version)
+
+        if not success:
+            return error_response(404, f"版本 '{version}' 不存在")
+
+        return success_response({"message": f"版本 '{version}' 已删除"})
+    except Exception as e:
+        logger.error(f"Failed to delete version: {e}")
+        return error_response(500, "删除版本失败")

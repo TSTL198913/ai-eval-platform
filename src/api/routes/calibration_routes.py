@@ -5,9 +5,11 @@
 
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from src.api.common import error_response, success_response
+from src.api.dependencies import PermissionDependency
+from src.infra.security import Permission
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +30,10 @@ async def get_golden_datasets():
 
 
 @router.post("/datasets")
-async def create_golden_dataset(data: dict):
+async def create_golden_dataset(
+    data: dict,
+    current_user: dict = Depends(PermissionDependency(Permission.MANAGE_GOLDEN_DATASET)),
+):
     """创建黄金标准数据集"""
     try:
         from src.domain.golden_dataset import golden_dataset_manager
@@ -46,7 +51,11 @@ async def create_golden_dataset(data: dict):
 
 
 @router.post("/datasets/{dataset_id}/samples")
-async def add_golden_sample(dataset_id: str, data: dict):
+async def add_golden_sample(
+    dataset_id: str,
+    data: dict,
+    current_user: dict = Depends(PermissionDependency(Permission.MANAGE_GOLDEN_DATASET)),
+):
     """添加黄金标注样本"""
     try:
         from src.domain.golden_dataset import golden_dataset_manager
@@ -61,8 +70,32 @@ async def add_golden_sample(dataset_id: str, data: dict):
         return error_response(500, "添加样本失败")
 
 
+@router.get("/datasets/{dataset_id}/samples/{sample_id}")
+async def get_golden_sample(
+    dataset_id: str,
+    sample_id: str,
+    current_user: dict = Depends(PermissionDependency(Permission.MANAGE_GOLDEN_DATASET)),
+):
+    """获取黄金样本详情"""
+    try:
+        from src.domain.golden_dataset import golden_dataset_manager
+
+        sample = golden_dataset_manager.get_sample(dataset_id, sample_id)
+        if not sample:
+            return error_response(404, "样本不存在")
+        return success_response({"sample": sample})
+    except Exception as e:
+        logger.error(f"Failed to get golden sample: {e}")
+        return error_response(500, "获取样本失败")
+
+
 @router.post("/datasets/{dataset_id}/samples/{sample_id}/correct")
-async def correct_golden_sample(dataset_id: str, sample_id: str, data: dict):
+async def correct_golden_sample(
+    dataset_id: str,
+    sample_id: str,
+    data: dict,
+    current_user: dict = Depends(PermissionDependency(Permission.CORRECT_SAMPLE)),
+):
     """修正评估结果"""
     try:
         from src.domain.golden_dataset import golden_dataset_manager
@@ -92,3 +125,60 @@ async def get_few_shot_examples(dataset_id: str, limit: int = 3, dimensions: str
     except Exception as e:
         logger.error(f"Failed to get few-shot examples: {e}")
         return error_response(500, "获取 Few-shot 示例失败")
+
+
+@router.post("/datasets/{dataset_id}/export")
+async def export_golden_dataset(
+    dataset_id: str,
+    data: dict,
+    current_user: dict = Depends(PermissionDependency(Permission.MANAGE_GOLDEN_DATASET)),
+):
+    """导出黄金标准数据集"""
+    try:
+        from src.domain.golden_dataset import golden_dataset_manager
+
+        format_type = data.get("format", "json")
+        export_data = golden_dataset_manager.export_dataset(dataset_id, format_type)
+        if not export_data:
+            return error_response(404, "数据集不存在")
+        return success_response(
+            {"dataset_id": dataset_id, "format": format_type, "data": export_data}
+        )
+    except Exception as e:
+        logger.error(f"Failed to export golden dataset: {e}")
+        return error_response(500, "导出数据集失败")
+
+
+@router.get("/datasets/{dataset_id}/samples")
+async def get_golden_samples(
+    dataset_id: str,
+    page: int = 1,
+    page_size: int = 20,
+    current_user: dict = Depends(PermissionDependency(Permission.MANAGE_GOLDEN_DATASET)),
+):
+    """获取黄金数据集样本列表（分页）"""
+    try:
+        from src.domain.golden_dataset import golden_dataset_manager
+
+        samples = golden_dataset_manager.list_samples(dataset_id)
+        if not samples:
+            return success_response(
+                {"samples": [], "total": 0, "page": page, "page_size": page_size}
+            )
+
+        start = (page - 1) * page_size
+        end = start + page_size
+        paginated_samples = samples[start:end]
+
+        return success_response(
+            {
+                "samples": paginated_samples,
+                "total": len(samples),
+                "page": page,
+                "page_size": page_size,
+                "total_pages": (len(samples) + page_size - 1) // page_size,
+            }
+        )
+    except Exception as e:
+        logger.error(f"Failed to get golden samples: {e}")
+        return error_response(500, "获取样本列表失败")

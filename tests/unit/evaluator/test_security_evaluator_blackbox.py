@@ -334,7 +334,7 @@ class TestSecurityEvaluatorContract:
 
         # 验证字段类型
         assert isinstance(result.is_valid, bool)
-        assert isinstance(result.score, (int, float, type(None)))
+        assert isinstance(result.score, int | float | None)
 
 
 class TestSecurityEvaluatorRobustness:

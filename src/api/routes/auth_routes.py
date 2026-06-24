@@ -68,7 +68,10 @@ async def login_endpoint(request: LoginRequest, response: Response):
         return error_response(401, "Invalid username or password")
 
     access_token = create_access_token(
-        data={"sub": user["username"]},
+        data={
+            "sub": user["username"],
+            "role": "super_admin" if user["username"] == "admin" else "user",
+        },
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
     refresh_token = create_refresh_token(data={"sub": user["username"]})
@@ -113,7 +116,7 @@ async def refresh_endpoint(request: RefreshRequest, response: Response):
         return error_response(401, "User not found")
 
     access_token = create_access_token(
-        data={"sub": username},
+        data={"sub": username, "role": "super_admin" if username == "admin" else "user"},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
     new_refresh_token = create_refresh_token(data={"sub": username})

@@ -15,6 +15,7 @@ class CodeMetadata(BaseMetadata):
     language: str = "python"
     timeout: int = 5
     memory_limit_mb: int = 256
+    style_guide: str = ""
 
 
 class FinanceMetadata(BaseModel):

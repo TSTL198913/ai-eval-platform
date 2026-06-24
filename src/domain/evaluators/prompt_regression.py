@@ -207,7 +207,7 @@ class PromptRegressionEvaluator(BaseEvaluator):
             "dimension": "completeness",
             "score": c,
             "impact": self._get_impact_level(c),
-            "description": f"长度比: {nl/ol:.2f}x",
+            "description": f"长度比: {nl / ol:.2f}x",
         }
 
     def _evaluate_relevance_impact(self, oo: str, no: str) -> dict:

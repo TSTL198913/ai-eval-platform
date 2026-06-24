@@ -105,7 +105,7 @@ async def get_cost_by_model(
 async def set_budget(
     request: BudgetRequest,
     current_user: dict = Depends(PermissionDependency(Permission.MANAGE_BUDGET)),
-) -> BudgetResponse:
+) -> dict[str, Any]:
     """
     设置预算
 
@@ -120,13 +120,15 @@ async def set_budget(
             monthly_budget=request.monthly_budget,
         )
 
-        return BudgetResponse(
-            model_name=request.model_name,
-            daily_budget=request.daily_budget,
-            monthly_budget=request.monthly_budget,
-            daily_usage=result.get("daily_usage", 0),
-            daily_usage_percent=result.get("daily_usage_percent", 0),
-            status="success",
+        return success_response(
+            {
+                "model_name": request.model_name,
+                "daily_budget": request.daily_budget,
+                "monthly_budget": request.monthly_budget,
+                "daily_usage": result.get("daily_usage", 0),
+                "daily_usage_percent": result.get("daily_usage_percent", 0),
+                "status": "success",
+            }
         )
     except Exception as e:
         return error_response(500, f"设置预算失败: {str(e)}")
@@ -136,7 +138,7 @@ async def set_budget(
 async def get_budget(
     model_name: str,
     current_user: dict = Depends(PermissionDependency(Permission.VIEW_COST_REPORT)),
-) -> BudgetResponse:
+) -> dict[str, Any]:
     """
     获取模型预算状态
 
@@ -147,13 +149,15 @@ async def get_budget(
 
         status = cost_governance.get_budget_status(model_name)
 
-        return BudgetResponse(
-            model_name=model_name,
-            daily_budget=status.get("daily_limit", 0),
-            monthly_budget=status.get("monthly_limit"),
-            daily_usage=status.get("daily_usage", 0),
-            daily_usage_percent=status.get("daily_usage_percent", 0),
-            status="ok" if status.get("daily_budget_ok", True) else "warning",
+        return success_response(
+            {
+                "model_name": model_name,
+                "daily_budget": status.get("daily_limit", 0),
+                "monthly_budget": status.get("monthly_limit"),
+                "daily_usage": status.get("daily_usage", 0),
+                "daily_usage_percent": status.get("daily_usage_percent", 0),
+                "status": "ok" if status.get("daily_budget_ok", True) else "warning",
+            }
         )
     except Exception as e:
         return error_response(500, f"获取预算失败: {str(e)}")

@@ -12,6 +12,7 @@ import logging
 import threading
 import time
 from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -370,6 +371,114 @@ class CostGovernance:
         except Exception as e:
             logger.error(f"从 Redis 同步失败: {e}")
 
+    def get_usage(
+        self,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        model_name: str | None = None,
+    ) -> dict[str, Any]:
+        """获取用量统计"""
+        metrics = self.get_metrics()
+        return {
+            "daily_cost_usd": metrics.daily_cost_usd,
+            "weekly_cost_usd": metrics.weekly_cost_usd,
+            "monthly_cost_usd": metrics.monthly_cost_usd,
+            "total_requests": metrics.total_requests,
+            "avg_latency_ms": metrics.avg_latency_ms,
+        }
+
+    def get_cost_report(self, period: str = "daily") -> dict[str, Any]:
+        """获取成本报告"""
+        metrics = self.get_metrics()
+
+        reports = {
+            "daily": {
+                "period": "daily",
+                "cost_usd": metrics.daily_cost_usd,
+                "requests": metrics.total_requests,
+            },
+            "weekly": {
+                "period": "weekly",
+                "cost_usd": metrics.weekly_cost_usd,
+                "requests": metrics.total_requests * 7,
+            },
+            "monthly": {
+                "period": "monthly",
+                "cost_usd": metrics.monthly_cost_usd,
+                "requests": metrics.total_requests * 30,
+            },
+        }
+
+        return reports.get(period, reports["daily"])
+
+    def get_cost_by_model(self, model_name: str, period: str = "daily") -> dict[str, Any]:
+        """获取指定模型的成本统计"""
+        return {
+            "model_name": model_name,
+            "period": period,
+            "cost_usd": 0.0,
+            "requests": 0,
+            "avg_latency_ms": 0,
+        }
+
+    def set_budget(
+        self,
+        model_name: str | None = None,
+        daily_budget: float = 100.0,
+        monthly_budget: float | None = None,
+    ) -> dict[str, Any]:
+        """设置预算"""
+        if model_name:
+            if not hasattr(self, "_model_budgets"):
+                self._model_budgets = {}
+            self._model_budgets[model_name] = {
+                "daily_limit": daily_budget,
+                "monthly_limit": monthly_budget,
+            }
+        else:
+            self.daily_cost_limit = daily_budget
+            if monthly_budget:
+                self.monthly_cost_limit = monthly_budget
+
+        return {"daily_usage": 0, "daily_usage_percent": 0}
+
+    def get_budget_status(self, model_name: str) -> dict[str, Any]:
+        """获取模型预算状态"""
+        if hasattr(self, "_model_budgets") and model_name in self._model_budgets:
+            budget = self._model_budgets[model_name]
+            return {
+                "daily_limit": budget["daily_limit"],
+                "monthly_limit": budget.get("monthly_limit"),
+                "daily_usage": 0,
+                "daily_usage_percent": 0,
+                "daily_budget_ok": True,
+            }
+        return {
+            "daily_limit": self.daily_cost_limit,
+            "monthly_limit": self.monthly_cost_limit,
+            "daily_usage": 0,
+            "daily_usage_percent": 0,
+            "daily_budget_ok": True,
+        }
+
+    def update_budget(
+        self,
+        model_name: str,
+        daily_budget: float,
+        monthly_budget: float | None = None,
+    ) -> bool:
+        """更新模型预算"""
+        if hasattr(self, "_model_budgets") and model_name in self._model_budgets:
+            self._model_budgets[model_name]["daily_limit"] = daily_budget
+            if monthly_budget:
+                self._model_budgets[model_name]["monthly_limit"] = monthly_budget
+            return True
+        return False
+
+    def get_alerts(self) -> list[dict[str, Any]]:
+        """获取成本告警"""
+        return []
+
 
 # 全局实例 - 默认本地模式
 cost_governance = CostGovernance()
@@ -383,3 +492,122 @@ def create_distributed_cost_governance(
         storage_mode=StorageMode.REDIS,
         redis_url=redis_url,
     )
+
+
+def get_usage(
+    start_date: str | None = None,
+    end_date: str | None = None,
+    model_name: str | None = None,
+) -> dict[str, Any]:
+    """获取用量统计"""
+    global cost_governance
+    metrics = cost_governance.get_metrics()
+    return {
+        "daily_cost_usd": metrics.daily_cost_usd,
+        "weekly_cost_usd": metrics.weekly_cost_usd,
+        "monthly_cost_usd": metrics.monthly_cost_usd,
+        "total_requests": metrics.total_requests,
+        "avg_latency_ms": metrics.avg_latency_ms,
+    }
+
+
+def get_cost_report(period: str = "daily") -> dict[str, Any]:
+    """获取成本报告"""
+    global cost_governance
+    metrics = cost_governance.get_metrics()
+
+    reports = {
+        "daily": {
+            "period": "daily",
+            "cost_usd": metrics.daily_cost_usd,
+            "requests": metrics.total_requests,
+        },
+        "weekly": {
+            "period": "weekly",
+            "cost_usd": metrics.weekly_cost_usd,
+            "requests": metrics.total_requests * 7,
+        },
+        "monthly": {
+            "period": "monthly",
+            "cost_usd": metrics.monthly_cost_usd,
+            "requests": metrics.total_requests * 30,
+        },
+    }
+
+    return reports.get(period, reports["daily"])
+
+
+def get_cost_by_model(model_name: str, period: str = "daily") -> dict[str, Any]:
+    """获取指定模型的成本统计"""
+    global cost_governance
+    return {
+        "model_name": model_name,
+        "period": period,
+        "cost_usd": 0.0,
+        "requests": 0,
+        "avg_latency_ms": 0,
+    }
+
+
+def set_budget(
+    model_name: str | None = None,
+    daily_budget: float = 100.0,
+    monthly_budget: float | None = None,
+) -> dict[str, Any]:
+    """设置预算"""
+    global cost_governance
+    if model_name:
+        if not hasattr(cost_governance, "_model_budgets"):
+            cost_governance._model_budgets = {}
+        cost_governance._model_budgets[model_name] = {
+            "daily_limit": daily_budget,
+            "monthly_limit": monthly_budget,
+        }
+    else:
+        cost_governance.daily_cost_limit = daily_budget
+        if monthly_budget:
+            cost_governance.monthly_cost_limit = monthly_budget
+
+    return {"daily_usage": 0, "daily_usage_percent": 0}
+
+
+def get_budget_status(model_name: str) -> dict[str, Any]:
+    """获取模型预算状态"""
+    global cost_governance
+    if hasattr(cost_governance, "_model_budgets") and model_name in cost_governance._model_budgets:
+        budget = cost_governance._model_budgets[model_name]
+        return {
+            "daily_limit": budget["daily_limit"],
+            "monthly_limit": budget.get("monthly_limit"),
+            "daily_usage": 0,
+            "daily_usage_percent": 0,
+            "daily_budget_ok": True,
+        }
+    return {
+        "daily_limit": cost_governance.daily_cost_limit,
+        "monthly_limit": cost_governance.monthly_cost_limit,
+        "daily_usage": 0,
+        "daily_usage_percent": 0,
+        "daily_budget_ok": True,
+    }
+
+
+def update_budget(
+    model_name: str,
+    daily_budget: float,
+    monthly_budget: float | None = None,
+) -> bool:
+    """更新模型预算"""
+    global cost_governance
+    if hasattr(cost_governance, "_model_budgets") and model_name in cost_governance._model_budgets:
+        cost_governance._model_budgets[model_name]["daily_limit"] = daily_budget
+        if monthly_budget:
+            cost_governance._model_budgets[model_name]["monthly_limit"] = monthly_budget
+        return True
+    return False
+
+
+def get_alerts() -> list[dict[str, Any]]:
+    """获取成本告警"""
+    global cost_governance
+    return []

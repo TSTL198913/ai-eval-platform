@@ -5,13 +5,17 @@ import { traeBadgePlugin } from 'vite-plugin-trae-solo-badge';
 import { fileURLToPath, URL } from 'node:url'
 import path from 'path'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const currentFileUrl = import.meta.url
+const currentFilePath = fileURLToPath(currentFileUrl)
+const configDir = path.dirname(currentFilePath)
+
+const frontendDir = path.join(configDir, 'frontend')
 
 export default defineConfig({
-  root: path.resolve(__dirname, './frontend'),
+  root: frontendDir,
   build: {
     sourcemap: 'hidden',
-    outDir: path.resolve(__dirname, './dist'),
+    outDir: path.join(configDir, 'dist'),
     emptyOutDir: true,
   },
   plugins: [
@@ -50,6 +54,18 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
         ws: true,
+      },
+      '/docs': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/redoc': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/openapi.json': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
       },
     },
   },

@@ -51,9 +51,12 @@ class TestReportListEndpoint:
         app.include_router(router)
         client = TestClient(app)
 
-        with patch("os.path.exists") as mock_exists, patch("os.listdir") as mock_listdir, patch(
-            "os.path.getsize"
-        ) as mock_size, patch("os.path.getmtime") as mock_mtime:
+        with (
+            patch("os.path.exists") as mock_exists,
+            patch("os.listdir") as mock_listdir,
+            patch("os.path.getsize") as mock_size,
+            patch("os.path.getmtime") as mock_mtime,
+        ):
             mock_exists.return_value = True
             mock_listdir.return_value = ["report1.html", "report2.html", "ignored.txt"]
             mock_size.return_value = 1024
@@ -145,9 +148,11 @@ class TestReportGetEndpoint:
             tmp_path = tmp.name
 
         try:
-            with patch("os.path.abspath") as mock_abspath, patch(
-                "os.path.normpath"
-            ) as mock_normpath, patch("os.path.exists") as mock_exists:
+            with (
+                patch("os.path.abspath") as mock_abspath,
+                patch("os.path.normpath") as mock_normpath,
+                patch("os.path.exists") as mock_exists,
+            ):
                 # 模拟安全路径
                 mock_abspath.return_value = os.path.dirname(tmp_path)
                 mock_normpath.side_effect = lambda x: tmp_path
@@ -178,9 +183,10 @@ class TestReportGenerateEndpoint:
         app.include_router(router)
         client = TestClient(app)
 
-        with patch(
-            "src.domain.reports.report_generator.generate_report_from_records"
-        ) as mock_gen, patch("src.api.common._get_data_service") as mock_svc:
+        with (
+            patch("src.domain.reports.report_generator.generate_report_from_records") as mock_gen,
+            patch("src.api.common._get_data_service") as mock_svc,
+        ):
             mock_svc.return_value.search.return_value = [
                 {"id": 1, "score": 0.8},
                 {"id": 2, "score": 0.9},
@@ -205,9 +211,10 @@ class TestReportGenerateEndpoint:
         app.include_router(router)
         client = TestClient(app)
 
-        with patch(
-            "src.domain.reports.report_generator.generate_report_from_records"
-        ) as mock_gen, patch("src.api.routes.report_routes._get_data_service") as mock_svc:
+        with (
+            patch("src.domain.reports.report_generator.generate_report_from_records") as mock_gen,
+            patch("src.api.routes.report_routes._get_data_service") as mock_svc,
+        ):
             mock_svc.return_value.search.return_value = []
             mock_gen.return_value = "reports/empty.html"
 

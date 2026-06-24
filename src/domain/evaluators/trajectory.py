@@ -370,7 +370,7 @@ class TrajectoryEvaluator(BaseEvaluator):
                 if current_step.tool_name and current_step.tool_name in str(next_step.thought):
                     coherence_score += 1.0
                 else:
-                    coherence_issues.append(f"步骤{i}的工具结果未在步骤{i+1}的思考中体现")
+                    coherence_issues.append(f"步骤{i}的工具结果未在步骤{i + 1}的思考中体现")
 
         avg_coherence = coherence_score / (len(steps) - 1) if (len(steps) - 1) > 0 else 0.0
 
@@ -765,7 +765,7 @@ class TrajectoryEvaluator(BaseEvaluator):
                 if set(tool_keywords) & set(thought_keywords):
                     coherence_score += 1.0
                 else:
-                    coherence_issues.append(f"步骤{i}的工具结果未在步骤{i+1}的思考中体现")
+                    coherence_issues.append(f"步骤{i}的工具结果未在步骤{i + 1}的思考中体现")
 
             if current.thought and next_step.thought:
                 next_thought = str(next_step.thought).lower()

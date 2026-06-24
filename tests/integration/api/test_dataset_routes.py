@@ -99,8 +99,9 @@ class TestDatasetDetailsEndpoint:
         app.include_router(router)
         client = TestClient(app)
 
-        with patch("src.domain.benchmarks.standard_datasets.DatasetManager") as MockManager, patch(
-            "src.domain.benchmarks.standard_datasets.BenchmarkDataset"
+        with (
+            patch("src.domain.benchmarks.standard_datasets.DatasetManager") as MockManager,
+            patch("src.domain.benchmarks.standard_datasets.BenchmarkDataset"),
         ):
             MockManager.get_dataset.side_effect = ValueError("Dataset not found")
 
@@ -121,8 +122,9 @@ class TestDatasetDetailsEndpoint:
         app.include_router(router)
         client = TestClient(app)
 
-        with patch("src.domain.benchmarks.standard_datasets.DatasetManager") as MockManager, patch(
-            "src.domain.benchmarks.standard_datasets.BenchmarkDataset"
+        with (
+            patch("src.domain.benchmarks.standard_datasets.DatasetManager") as MockManager,
+            patch("src.domain.benchmarks.standard_datasets.BenchmarkDataset"),
         ):
             mock_ds = MagicMock()
             mock_ds.load.return_value = [
@@ -153,8 +155,9 @@ class TestDatasetDetailsEndpoint:
         app.include_router(router)
         client = TestClient(app)
 
-        with patch("src.domain.benchmarks.standard_datasets.DatasetManager") as MockManager, patch(
-            "src.domain.benchmarks.standard_datasets.BenchmarkDataset"
+        with (
+            patch("src.domain.benchmarks.standard_datasets.DatasetManager") as MockManager,
+            patch("src.domain.benchmarks.standard_datasets.BenchmarkDataset"),
         ):
             MockManager.get_dataset.side_effect = Exception("DB error")
 

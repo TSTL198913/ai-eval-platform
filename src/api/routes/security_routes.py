@@ -48,7 +48,7 @@ class SecurityReportResponse(BaseModel):
     timestamp: str
 
 
-@router.post("/test", response_model=dict[str, Any])
+@router.post("/test")
 async def test_prompt(
     request: SecurityTestRequest,
     current_user: dict = Depends(PermissionDependency(Permission.RUN_SECURITY_TEST)),
@@ -93,11 +93,11 @@ async def test_prompt(
         return error_response(500, f"安全测试失败: {str(e)}")
 
 
-@router.post("/scan", response_model=SecurityReportResponse)
+@router.post("/scan")
 async def full_scan(
     request: dict,
     current_user: dict = Depends(PermissionDependency(Permission.RUN_SECURITY_TEST)),
-) -> SecurityReportResponse:
+) -> dict[str, Any]:
     """
     完整安全扫描
 
@@ -128,18 +128,20 @@ async def full_scan(
         report_id = f"sec_{uuid.uuid4().hex[:8]}"
         overall_status = "safe" if len(all_issues) == 0 else "unsafe"
 
-        return SecurityReportResponse(
-            report_id=report_id,
-            prompt=f"{len(prompts)} prompts",
-            overall_status=overall_status,
-            issues=all_issues,
-            timestamp=datetime.now(timezone.utc).isoformat(),
+        return success_response(
+            {
+                "report_id": report_id,
+                "prompt": f"{len(prompts)} prompts",
+                "overall_status": overall_status,
+                "issues": all_issues,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
         )
     except Exception as e:
         return error_response(500, f"安全扫描失败: {str(e)}")
 
 
-@router.get("/report/{report_id}", response_model=dict[str, Any])
+@router.get("/report/{report_id}")
 async def get_report(
     report_id: str,
     current_user: dict = Depends(PermissionDependency(Permission.VIEW_SECURITY_REPORT)),
@@ -163,10 +165,10 @@ async def get_report(
         return error_response(500, f"获取报告失败: {str(e)}")
 
 
-@router.get("/rules", response_model=list[SecurityRuleResponse])
+@router.get("/rules")
 async def list_rules(
     current_user: dict = Depends(PermissionDependency(Permission.VIEW_SECURITY_REPORT)),
-) -> list[SecurityRuleResponse]:
+) -> dict[str, Any]:
     """
     获取安全规则列表
 
@@ -195,11 +197,11 @@ async def list_rules(
         return error_response(500, f"获取规则失败: {str(e)}")
 
 
-@router.post("/rules", response_model=SecurityRuleResponse)
+@router.post("/rules")
 async def add_rule(
     rule: SecurityRuleCreate,
     current_user: dict = Depends(PermissionDependency(Permission.MANAGE_SECURITY_RULES)),
-) -> SecurityRuleResponse:
+) -> dict[str, Any]:
     """
     添加自定义安全规则
 
@@ -217,13 +219,15 @@ async def add_rule(
             description=rule.description,
         )
 
-        return SecurityRuleResponse(
-            rule_id=new_rule.get("id"),
-            name=new_rule.get("name"),
-            pattern=new_rule.get("pattern"),
-            category=new_rule.get("category"),
-            severity=new_rule.get("severity"),
-            description=new_rule.get("description"),
+        return success_response(
+            {
+                "rule_id": new_rule.get("id"),
+                "name": new_rule.get("name"),
+                "pattern": new_rule.get("pattern"),
+                "category": new_rule.get("category"),
+                "severity": new_rule.get("severity"),
+                "description": new_rule.get("description"),
+            }
         )
     except Exception as e:
         return error_response(500, f"添加规则失败: {str(e)}")
@@ -233,7 +237,7 @@ async def add_rule(
 async def delete_rule(
     rule_id: str,
     current_user: dict = Depends(PermissionDependency(Permission.MANAGE_SECURITY_RULES)),
-) -> dict[str, str]:
+) -> dict[str, Any]:
     """
     删除安全规则
 
@@ -253,7 +257,7 @@ async def delete_rule(
         return error_response(500, f"删除规则失败: {str(e)}")
 
 
-@router.get("/stats", response_model=dict[str, Any])
+@router.get("/stats")
 async def get_security_stats(
     current_user: dict = Depends(PermissionDependency(Permission.VIEW_SECURITY_REPORT)),
 ) -> dict[str, Any]:

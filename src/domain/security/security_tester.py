@@ -37,10 +37,19 @@ class SecurityReport:
     overall_score: float = 0.0
     results: list[SecurityTestResult] = field(default_factory=list)
     vulnerabilities_by_type: dict[str, int] = field(default_factory=dict)
+    issues: list[dict] = field(default_factory=list)
 
     @property
     def vulnerability_rate(self) -> float:
         return self.vulnerable_tests / self.total_tests if self.total_tests > 0 else 0.0
+
+    @property
+    def is_safe(self) -> bool:
+        return self.vulnerable_tests == 0
+
+    @property
+    def score(self) -> float:
+        return self.overall_score
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -51,6 +60,7 @@ class SecurityReport:
             "vulnerability_rate": self.vulnerability_rate,
             "vulnerabilities_by_type": self.vulnerabilities_by_type,
             "results": [r.to_dict() for r in self.results],
+            "issues": self.issues,
         }
 
 
@@ -205,6 +215,111 @@ class SecurityTester:
         self.jailbreak_detector = JailbreakDetector()
         self.tool_poisoning_detector = ToolPoisoningDetector()
         self.data_leakage_detector = DataLeakageDetector()
+        self._reports: dict[str, SecurityReport] = {}
+        self._custom_rules: list[dict] = []
+
+    def run_security_tests(self, prompt: str) -> SecurityReport:
+        report = self.run_all_tests(prompt)
+        report.issues = [
+            {
+                "type": r.test_type,
+                "severity": "high" if r.score > 0.7 else "medium" if r.score > 0.3 else "low",
+                "score": r.score,
+                "description": r.detection_rule,
+            }
+            for r in report.results
+            if r.is_vulnerable
+        ]
+        report_id = f"sec_{id(prompt)}"
+        self._reports[report_id] = report
+        return report
+
+    def get_report(self, report_id: str) -> SecurityReport | None:
+        return self._reports.get(report_id)
+
+    def get_rules(self) -> list[dict]:
+        rules = []
+        for rule in self.prompt_injection_detector.rules:
+            rules.append(
+                {
+                    "id": f"pi_{rule.name}",
+                    "name": rule.name,
+                    "pattern": rule.pattern,
+                    "category": "prompt_injection",
+                    "severity": rule.severity,
+                }
+            )
+        for rule in self.jailbreak_detector.rules:
+            rules.append(
+                {
+                    "id": f"jb_{rule.name}",
+                    "name": rule.name,
+                    "pattern": rule.pattern,
+                    "category": "jailbreak",
+                    "severity": rule.severity,
+                }
+            )
+        for rule in self.tool_poisoning_detector.rules:
+            rules.append(
+                {
+                    "id": f"tp_{rule.name}",
+                    "name": rule.name,
+                    "pattern": rule.pattern,
+                    "category": "tool_poisoning",
+                    "severity": rule.severity,
+                }
+            )
+        for rule in self.data_leakage_detector.rules:
+            rules.append(
+                {
+                    "id": f"dl_{rule.name}",
+                    "name": rule.name,
+                    "pattern": rule.pattern,
+                    "category": "data_leakage",
+                    "severity": rule.severity,
+                }
+            )
+        rules.extend(self._custom_rules)
+        return rules
+
+    def add_rule(
+        self,
+        name: str,
+        pattern: str,
+        category: str,
+        severity: str = "medium",
+        description: str | None = None,
+    ) -> dict:
+        import uuid
+
+        new_rule = {
+            "id": str(uuid.uuid4()),
+            "name": name,
+            "pattern": pattern,
+            "category": category,
+            "severity": severity,
+            "description": description,
+        }
+        self._custom_rules.append(new_rule)
+        return new_rule
+
+    def remove_rule(self, rule_id: str) -> bool:
+        for i, rule in enumerate(self._custom_rules):
+            if rule.get("id") == rule_id:
+                del self._custom_rules[i]
+                return True
+        return False
+
+    def get_stats(self) -> dict:
+        total_reports = len(self._reports)
+        total_vulnerabilities = sum(r.vulnerable_tests for r in self._reports.values())
+        return {
+            "total_reports": total_reports,
+            "total_vulnerabilities": total_vulnerabilities,
+            "average_score": sum(r.overall_score for r in self._reports.values())
+            / max(total_reports, 1),
+            "custom_rules_count": len(self._custom_rules),
+        }
 
     def test_prompt_injection(self, payload: str) -> SecurityTestResult:
         risk_score = self.prompt_injection_detector.assess_risk(payload)

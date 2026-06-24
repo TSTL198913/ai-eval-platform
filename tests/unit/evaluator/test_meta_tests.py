@@ -113,7 +113,7 @@ class TestEvaluatorMonotonicity:
         for i in range(len(scores) - 1):
             assert (
                 scores[i] > scores[i + 1]
-            ), f"非单调: score[{i}]={scores[i]} <= score[{i+1}]={scores[i+1]}"
+            ), f"非单调: score[{i}]={scores[i]} <= score[{i + 1}]={scores[i + 1]}"
         # 强断言：边界值
         assert scores[0] == 1.0  # 无攻击应为满分
 

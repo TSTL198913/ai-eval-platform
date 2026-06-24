@@ -1,7 +1,6 @@
 """
 ClassificationEvaluator - 分类评估器专项测试
-测试目标：验证ClassificationEvaluator的validate_input、expected_label不能为空、score = 1.0 if llm_output == expected_label else 0.0等核心功能
-关键发现：（测试过程中记录）
+测试目标：验证ClassificationEvaluator的validate_input、expected_label不能为空、置信度评分等核心功能
 """
 
 import os
@@ -21,11 +20,10 @@ class TestClassificationEvaluatorPositiveCases:
 
     @pytest.fixture
     def mock_client(self):
-        """Mock LLM客户端"""
         client = MagicMock()
         client.config = MagicMock()
         client.config.model_name = "gpt-4"
-        client.chat.return_value = "正类"
+        client.chat.return_value = "1.0"
         return client
 
     @pytest.fixture
@@ -33,13 +31,14 @@ class TestClassificationEvaluatorPositiveCases:
         return ClassificationEvaluator(client=mock_client)
 
     def test_llm_output_matches_expected_label_score_is_one(self, target, mock_client):
-        """LLM输出匹配expected_label应返回score=1.0"""
-        mock_client.chat.return_value = "正类"
+        """实际输出匹配expected_label应返回高分"""
+        mock_client.chat.return_value = "1.0"
         request = EvaluationSchema(
             id="cls_001",
             type="classification",
             payload={
                 "user_input": "积极的评论",
+                "actual_output": "正类",
                 "expected_label": "正类",
             },
         )
@@ -51,12 +50,13 @@ class TestClassificationEvaluatorPositiveCases:
 
     def test_valid_input_with_labels_returns_valid(self, target, mock_client):
         """带labels的合法输入应返回有效响应"""
-        mock_client.chat.return_value = "正面"
+        mock_client.chat.return_value = "0.9"
         request = EvaluationSchema(
             id="cls_002",
             type="classification",
             payload={
                 "user_input": "这个产品很好用",
+                "actual_output": "正面",
                 "expected_label": "正面",
                 "labels": ["正面", "负面", "中立"],
             },
@@ -68,101 +68,99 @@ class TestClassificationEvaluatorPositiveCases:
 
     def test_text_field_instead_of_user_input_works(self, target, mock_client):
         """使用text字段代替user_input也应正常工作"""
-        mock_client.chat.return_value = "分类结果"
+        mock_client.chat.return_value = "0.85"
         request = EvaluationSchema(
             id="cls_003",
             type="classification",
             payload={
                 "text": "另一个文本",
+                "actual_output": "分类结果",
                 "expected_label": "分类结果",
             },
         )
         result = target.evaluate(request)
 
         assert result.is_valid is True
+        assert result.score == 0.85
 
 
 class TestClassificationEvaluatorNegativeCases:
     """负向测试 - 错误输入"""
 
     @pytest.fixture
-    def mock_client(self):
-        client = MagicMock()
-        client.config = MagicMock()
-        client.config.model_name = "gpt-4"
-        client.chat.return_value = "负类"
-        return client
+    def target(self):
+        return ClassificationEvaluator(client=None)
 
-    @pytest.fixture
-    def target(self, mock_client):
-        return ClassificationEvaluator(client=mock_client)
-
-    def test_llm_output_does_not_match_expected_label_score_is_zero(self, target, mock_client):
-        """LLM输出不匹配expected_label应返回score=0.0"""
-        mock_client.chat.return_value = "负类"
+    def test_empty_expected_label_returns_error(self, target):
+        """空expected_label应返回错误"""
         request = EvaluationSchema(
             id="cls_neg_001",
             type="classification",
-            payload={
-                "user_input": "消极的评论",
-                "expected_label": "正类",
-            },
-        )
-        result = target.evaluate(request)
-
-        assert result.is_valid is True
-        assert result.score == 0.0
-
-    def test_empty_user_input_returns_error(self, target, mock_client):
-        """空user_input应返回is_valid=False"""
-        request = EvaluationSchema(
-            id="cls_neg_002",
-            type="classification",
-            payload={"user_input": ""},
-        )
-        result = target.evaluate(request)
-
-        assert result.is_valid is False
-        assert result.error is not None
-        assert "不能为空" in result.error
-
-    def test_empty_text_returns_error(self, target, mock_client):
-        """空text字段应返回is_valid=False"""
-        request = EvaluationSchema(
-            id="cls_neg_003",
-            type="classification",
-            payload={"text": ""},
-        )
-        result = target.evaluate(request)
-
-        assert result.is_valid is False
-
-    def test_missing_expected_label_returns_error(self, target, mock_client):
-        """无expected_label应返回is_valid=False, error='expected_label 不能为空'"""
-        request = EvaluationSchema(
-            id="cls_neg_004",
-            type="classification",
-            payload={"user_input": "测试文本"},
+            payload={"user_input": "测试", "actual_output": "正类", "expected_label": ""},
         )
         result = target.evaluate(request)
 
         assert result.is_valid is False
         assert "expected_label" in result.error
-        assert "不能为空" in result.error
 
-    def test_empty_expected_label_returns_error(self, target, mock_client):
-        """expected_label为空应返回is_valid=False"""
+    def test_missing_expected_label_returns_error(self, target):
+        """缺少expected_label字段应返回错误"""
         request = EvaluationSchema(
-            id="cls_neg_005",
+            id="cls_neg_002",
             type="classification",
-            payload={
-                "user_input": "测试文本",
-                "expected_label": "",
-            },
+            payload={"user_input": "测试", "actual_output": "正类"},
         )
         result = target.evaluate(request)
 
         assert result.is_valid is False
+        assert "expected_label" in result.error
+
+    def test_missing_actual_output_returns_error(self, target):
+        """缺少actual_output字段应返回错误"""
+        request = EvaluationSchema(
+            id="cls_neg_003",
+            type="classification",
+            payload={"user_input": "测试", "expected_label": "正类"},
+        )
+        result = target.evaluate(request)
+
+        assert result.is_valid is False
+        assert "actual_output" in result.error
+
+    def test_empty_actual_output_returns_error(self, target):
+        """空actual_output应返回错误"""
+        request = EvaluationSchema(
+            id="cls_neg_004",
+            type="classification",
+            payload={"user_input": "测试", "actual_output": "", "expected_label": "正类"},
+        )
+        result = target.evaluate(request)
+
+        assert result.is_valid is False
+        assert "actual_output" in result.error
+
+    def test_none_expected_label_returns_error(self, target):
+        """None expected_label应返回错误"""
+        request = EvaluationSchema(
+            id="cls_neg_005",
+            type="classification",
+            payload={"user_input": "测试", "actual_output": "正类", "expected_label": None},
+        )
+        result = target.evaluate(request)
+
+        assert result.is_valid is False
+
+    def test_no_client_returns_error(self, target):
+        """无LLM client应返回错误"""
+        request = EvaluationSchema(
+            id="cls_neg_006",
+            type="classification",
+            payload={"user_input": "测试", "actual_output": "正类", "expected_label": "正类"},
+        )
+        result = target.evaluate(request)
+
+        assert result.is_valid is False
+        assert "LLM" in result.error
 
 
 class TestClassificationEvaluatorBoundaryCases:
@@ -173,51 +171,47 @@ class TestClassificationEvaluatorBoundaryCases:
         client = MagicMock()
         client.config = MagicMock()
         client.config.model_name = "gpt-4"
+        client.chat.return_value = "0.5"
         return client
 
-    def test_without_client_uses_expected_label_directly(self, mock_client):
-        """无client时应使用expected_label作为llm_output"""
-        target = ClassificationEvaluator(client=None)
-        request = EvaluationSchema(
-            id="cls_bound_001",
-            type="classification",
-            payload={
-                "user_input": "测试文本",
-                "expected_label": "正面",
-            },
-        )
-        result = target.evaluate(request)
+    @pytest.fixture
+    def target(self, mock_client):
+        return ClassificationEvaluator(client=mock_client)
 
-        assert result.is_valid is True
-        assert result.score == 1.0  # expected_label == expected_label
-
-    def test_whitespace_in_output_is_stripped(self, mock_client):
-        """输出包含空白字符时应被strip后再比较"""
-        mock_client.chat.return_value = "  正面  "  # 带空格
-        target = ClassificationEvaluator(client=mock_client)
+    def test_very_long_input(self, target, mock_client):
+        """超长输入"""
+        mock_client.chat.return_value = "0.7"
+        long_text = "测试" * 1000
         request = EvaluationSchema(
             id="cls_bound_002",
             type="classification",
-            payload={
-                "user_input": "测试",
-                "expected_label": "正面",
-            },
+            payload={"user_input": long_text, "actual_output": "分类", "expected_label": "分类"},
         )
         result = target.evaluate(request)
 
         assert result.is_valid is True
-        assert result.text == "正面"  # strip后
-        assert result.score == 1.0  # strip后 "正面" == "正面"
 
-    def test_empty_labels_uses_default(self, mock_client):
-        """labels为空时应使用默认标签"""
-        mock_client.chat.return_value = "正类"
-        target = ClassificationEvaluator(client=mock_client)
+    def test_unicode_chinese_labels(self, target, mock_client):
+        """中文标签"""
+        mock_client.chat.return_value = "0.95"
         request = EvaluationSchema(
             id="cls_bound_003",
             type="classification",
+            payload={"user_input": "测试文本", "actual_output": "科技", "expected_label": "科技"},
+        )
+        result = target.evaluate(request)
+
+        assert result.is_valid is True
+
+    def test_empty_labels_list(self, target, mock_client):
+        """空labels列表"""
+        mock_client.chat.return_value = "0.8"
+        request = EvaluationSchema(
+            id="cls_bound_004",
+            type="classification",
             payload={
                 "user_input": "测试",
+                "actual_output": "正类",
                 "expected_label": "正类",
                 "labels": [],
             },
@@ -225,119 +219,3 @@ class TestClassificationEvaluatorBoundaryCases:
         result = target.evaluate(request)
 
         assert result.is_valid is True
-
-    def test_none_input_returns_error(self, mock_client):
-        """None输入应被正确处理"""
-        target = ClassificationEvaluator(client=mock_client)
-        request = EvaluationSchema(
-            id="cls_bound_004",
-            type="classification",
-            payload={"user_input": None},
-        )
-        result = target.evaluate(request)
-
-        assert result.is_valid is False
-
-
-class TestClassificationEvaluatorDependencyHandling:
-    """依赖测试 - 外部依赖Mock"""
-
-    @pytest.fixture
-    def mock_client(self):
-        client = MagicMock()
-        client.config = MagicMock()
-        client.config.model_name = "gpt-4"
-        client.chat.return_value = "正面"
-        return client
-
-    def test_with_client_calls_llm(self, mock_client):
-        """有client时应调用LLM"""
-        target = ClassificationEvaluator(client=mock_client)
-        request = EvaluationSchema(
-            id="cls_dep_001",
-            type="classification",
-            payload={
-                "user_input": "测试文本",
-                "expected_label": "正面",
-            },
-        )
-        result = target.evaluate(request)
-
-        mock_client.chat.assert_called_once()
-        assert result.is_valid is True
-
-    def test_without_client_returns_expected_label_match(self):
-        """无client时应直接比较expected_label与自身"""
-        target = ClassificationEvaluator(client=None)
-        request = EvaluationSchema(
-            id="cls_dep_002",
-            type="classification",
-            payload={
-                "user_input": "测试文本",
-                "expected_label": "分类标签",
-            },
-        )
-        result = target.evaluate(request)
-
-        assert result.score == 1.0
-
-
-class TestClassificationEvaluatorScoringLogic:
-    """评分逻辑测试"""
-
-    @pytest.fixture
-    def mock_client(self):
-        client = MagicMock()
-        client.config = MagicMock()
-        client.config.model_name = "gpt-4"
-        return client
-
-    def test_exact_match_case_sensitive(self, mock_client):
-        """精确匹配（大小写敏感）"""
-        mock_client.chat.return_value = "Positive"
-        target = ClassificationEvaluator(client=mock_client)
-        request = EvaluationSchema(
-            id="cls_score_001",
-            type="classification",
-            payload={
-                "user_input": "测试",
-                "expected_label": "positive",  # 小写
-            },
-        )
-        result = target.evaluate(request)
-
-        assert result.score == 0.0  # "Positive" != "positive"
-
-    def test_partial_match_not_counted(self, mock_client):
-        """部分匹配不应得分"""
-        mock_client.chat.return_value = "正面评价"
-        target = ClassificationEvaluator(client=mock_client)
-        request = EvaluationSchema(
-            id="cls_score_002",
-            type="classification",
-            payload={
-                "user_input": "测试",
-                "expected_label": "正面",
-            },
-        )
-        result = target.evaluate(request)
-
-        assert result.score == 0.0  # "正面评价" != "正面"
-
-    def test_data_contains_prediction_and_expected(self, mock_client):
-        """result.data应包含预测值和期望值"""
-        mock_client.chat.return_value = "正面"
-        target = ClassificationEvaluator(client=mock_client)
-        request = EvaluationSchema(
-            id="cls_score_003",
-            type="classification",
-            payload={
-                "user_input": "测试",
-                "expected_label": "正面",
-            },
-        )
-        result = target.evaluate(request)
-
-        assert result.data is not None
-        assert "预测" in result.data or "预测" in str(result.data)
-        assert "预期" in result.data or "预期" in str(result.data)

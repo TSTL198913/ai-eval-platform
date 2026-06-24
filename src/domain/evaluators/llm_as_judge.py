@@ -396,7 +396,7 @@ class LLMAJudgeEvaluator(BaseEvaluator):
         """
         if raw is None or isinstance(raw, bool):
             return 0.0
-        if isinstance(raw, (int, float)):
+        if isinstance(raw, int | float):
             return max(0.0, min(100.0, float(raw)))
         if isinstance(raw, str):
             s = raw.strip().rstrip("%").strip()

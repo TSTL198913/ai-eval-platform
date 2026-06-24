@@ -50,7 +50,10 @@ class Settings(BaseSettings):
     # LLM 配置
     deepseek_api_key: str | None = Field(default=None, description="DeepSeek API Key")
     openai_api_key: str | None = Field(default=None, description="OpenAI API Key")
-    default_llm_provider: str = Field(default="stub", description="默认 LLM Provider")
+    default_llm_provider: str = Field(
+        default="openai", description="默认 LLM Provider: openai, deepseek, stub"
+    )
+    llm_model: str = Field(default="gpt-4o-mini", description="默认 LLM 模型")
 
     # 限流配置
     rate_limit_requests: int = Field(default=100, description="每秒请求数限制")

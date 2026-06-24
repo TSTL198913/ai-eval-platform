@@ -15,7 +15,7 @@ from src.infra.security import Permission
 router = APIRouter(prefix="/api/v1/models/performance", tags=["模型性能分析"])
 
 
-@router.get("", response_model=dict[str, Any])
+@router.get("")
 async def get_performance_overview(
     current_user: dict = Depends(PermissionDependency(Permission.MANAGE_MODEL_VERSIONS)),
 ) -> dict[str, Any]:
@@ -27,17 +27,16 @@ async def get_performance_overview(
     返回所有模型的性能概览数据。
     """
     try:
-        from src.domain.model_performance_analyzer import ModelPerformanceAnalyzer
+        from src.domain.model_performance import model_performance_analyzer
 
-        analyzer = ModelPerformanceAnalyzer()
-        overview = analyzer.get_overview()
+        overview = model_performance_analyzer.get_overview()
 
         return success_response(overview)
     except Exception as e:
         return error_response(500, f"获取性能总览失败: {str(e)}")
 
 
-@router.get("/{model_name}", response_model=dict[str, Any])
+@router.get("/{model_name}")
 async def get_model_performance(
     model_name: str,
     period: str = "daily",
@@ -52,10 +51,9 @@ async def get_model_performance(
         period: 时间周期: hourly, daily, weekly, monthly
     """
     try:
-        from src.domain.model_performance_analyzer import ModelPerformanceAnalyzer
+        from src.domain.model_performance import model_performance_analyzer
 
-        analyzer = ModelPerformanceAnalyzer()
-        performance = analyzer.get_model_performance(model_name, period=period)
+        performance = model_performance_analyzer.get_model_performance(model_name, period=period)
 
         if not performance:
             return error_response(404, f"模型 '{model_name}' 暂无性能数据")
@@ -78,15 +76,14 @@ async def compare_performance(
     对比多个模型的性能指标。
     """
     try:
-        from src.domain.model_performance_analyzer import ModelPerformanceAnalyzer
+        from src.domain.model_performance import model_performance_analyzer
 
-        analyzer = ModelPerformanceAnalyzer()
         model_names = request.get("model_names", [])
 
         if not model_names:
             return error_response(400, "model_names 必填")
 
-        comparison = analyzer.compare_models(model_names)
+        comparison = model_performance_analyzer.compare_models(model_names)
 
         return success_response(comparison)
     except Exception as e:
@@ -106,10 +103,9 @@ async def get_model_metrics(
     返回模型的各项性能指标，包括延迟、吞吐量、准确率等。
     """
     try:
-        from src.domain.model_performance_analyzer import ModelPerformanceAnalyzer
+        from src.domain.model_performance import model_performance_analyzer
 
-        analyzer = ModelPerformanceAnalyzer()
-        metrics = analyzer.get_model_metrics(model_name)
+        metrics = model_performance_analyzer.get_model_metrics(model_name)
 
         if not metrics:
             return error_response(404, f"模型 '{model_name}' 暂无指标数据")
@@ -133,10 +129,9 @@ async def get_performance_trends(
     返回模型性能随时间的变化趋势。
     """
     try:
-        from src.domain.model_performance_analyzer import ModelPerformanceAnalyzer
+        from src.domain.model_performance import model_performance_analyzer
 
-        analyzer = ModelPerformanceAnalyzer()
-        trends = analyzer.get_trends(model_name, period=period)
+        trends = model_performance_analyzer.get_trends(model_name, period=period)
 
         return success_response(trends)
     except Exception as e:
@@ -158,10 +153,9 @@ async def get_top_performers(
         metric: 排序指标: accuracy, latency, throughput, cost_efficiency
     """
     try:
-        from src.domain.model_performance_analyzer import ModelPerformanceAnalyzer
+        from src.domain.model_performance import model_performance_analyzer
 
-        analyzer = ModelPerformanceAnalyzer()
-        top_models = analyzer.get_top_performers(metric=metric, limit=limit)
+        top_models = model_performance_analyzer.get_top_performers(metric=metric, limit=limit)
 
         return success_response({"top_models": top_models})
     except Exception as e:

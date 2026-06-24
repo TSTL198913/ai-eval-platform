@@ -28,8 +28,8 @@ class TestSemanticEvaluatorPositiveCases:
         with patch("src.domain.evaluators.embedding_service.EmbeddingService") as mock:
             service_instance = MagicMock()
             service_instance.is_available.return_value = True
-            service_instance.calculate_similarity.side_effect = (
-                lambda t1, t2: 1.0 if t1 == t2 else 0.5
+            service_instance.calculate_similarity.side_effect = lambda t1, t2: (
+                1.0 if t1 == t2 else 0.5
             )
             mock.get_instance.return_value = service_instance
             yield service_instance
@@ -167,8 +167,8 @@ class TestSemanticEvaluatorBoundaryCases:
         with patch("src.domain.evaluators.embedding_service.EmbeddingService") as mock:
             service_instance = MagicMock()
             service_instance.is_available.return_value = True
-            service_instance.calculate_similarity.side_effect = (
-                lambda t1, t2: 1.0 if t1 == t2 else 0.2
+            service_instance.calculate_similarity.side_effect = lambda t1, t2: (
+                1.0 if t1 == t2 else 0.2
             )
             mock.get_instance.return_value = service_instance
             yield service_instance

@@ -197,7 +197,7 @@ class GSM8KBenchmark:
     def _build_prompt(self, sample: dict[str, Any]) -> str:
         return f"""Solve the following math problem:
 
-{sample['question']}
+{sample["question"]}
 
 Please provide only the numerical answer."""
 

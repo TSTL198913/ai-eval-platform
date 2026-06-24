@@ -8,6 +8,7 @@ CostGovernance 专项测试（Mock 优化版）
 - Given-When-Then 文档注释
 - 强断言（验证 result.score/data/is_valid 而非仅状态）
 """
+
 import concurrent.futures
 import threading
 import time

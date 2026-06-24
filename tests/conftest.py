@@ -4,6 +4,10 @@ Pytest 配置 - 后端测试
 """
 
 import os
+
+# 确保测试环境使用内存数据库
+os.environ["TESTING"] = "1"
+
 import sys
 from unittest.mock import MagicMock
 
@@ -260,20 +264,18 @@ def failing_llm_client():
 @pytest.fixture(autouse=True)
 def reset_evaluator_registry():
     """
-    自动为每个测试重置 EvaluatorFactory 注册表。
+    重置 EvaluatorFactory 注册表。
     解决测试隔离问题：EvaluatorFactory._registry 是全局单例，
     前一个测试的注册状态会污染后续测试。
 
-    使用 force=True 强制重新导入模块，确保每次测试都有干净的注册表。
+    注意：不重新导入模块，避免与使用 TestClient 的测试冲突。
+    不使数据库引擎缓存失效，以避免 SQLite 连接问题。
     """
-    from src.domain.evaluators import auto_discover
     from src.domain.evaluators.evaluator_factory import EvaluatorFactory as EF
 
-    # 重置注册表和缓存标志
+    # 只重置注册表和缓存标志，不重新导入模块
     EF._registry = {}
-
-    # 重新发现并注册所有评估器
-    auto_discover(force=True)
+    EF._discovered = False
 
 
 # ========================================

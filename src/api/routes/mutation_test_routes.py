@@ -36,11 +36,11 @@ class MutationTestResponse(BaseModel):
     timestamp: str
 
 
-@router.post("/run", response_model=MutationTestResponse)
+@router.post("/run")
 async def run_mutation_test(
     request: MutationTestRequest,
     current_user: dict = Depends(PermissionDependency(Permission.RUN_MUTATION_TEST)),
-) -> MutationTestResponse:
+) -> dict[str, Any]:
     """
     运行变异测试
 
@@ -64,23 +64,25 @@ async def run_mutation_test(
             sample_count=request.sample_count,
         )
 
-        return MutationTestResponse(
-            test_id=test_id,
-            model_name=request.model_name,
-            dataset_id=request.dataset_id,
-            operators=result.get("operators", []),
-            kill_rate=result.get("kill_rate", 0.0),
-            total_mutants=result.get("total_mutants", 0),
-            killed_mutants=result.get("killed_mutants", 0),
-            survived_mutants=result.get("survived_mutants", 0),
-            report=result.get("report", {}),
-            timestamp=datetime.now(timezone.utc).isoformat(),
+        return success_response(
+            {
+                "test_id": test_id,
+                "model_name": request.model_name,
+                "dataset_id": request.dataset_id,
+                "operators": result.get("operators", []),
+                "kill_rate": result.get("kill_rate", 0.0),
+                "total_mutants": result.get("total_mutants", 0),
+                "killed_mutants": result.get("killed_mutants", 0),
+                "survived_mutants": result.get("survived_mutants", 0),
+                "report": result.get("report", {}),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
         )
     except Exception as e:
         return error_response(500, f"变异测试失败: {str(e)}")
 
 
-@router.get("/report/{test_id}", response_model=dict[str, Any])
+@router.get("/report/{test_id}")
 async def get_report(
     test_id: str,
     current_user: dict = Depends(PermissionDependency(Permission.VIEW_MUTATION_REPORT)),
@@ -104,10 +106,10 @@ async def get_report(
         return error_response(500, f"获取报告失败: {str(e)}")
 
 
-@router.get("/operators", response_model=list[dict[str, Any]])
+@router.get("/operators")
 async def list_operators(
     current_user: dict = Depends(PermissionDependency(Permission.VIEW_MUTATION_REPORT)),
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     """
     获取变异算子列表
 

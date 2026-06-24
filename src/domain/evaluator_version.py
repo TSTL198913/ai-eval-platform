@@ -234,3 +234,89 @@ class EvaluatorVersionManager:
 
 # 全局实例
 evaluator_version_manager = EvaluatorVersionManager()
+
+
+class EvaluatorVersionManagerAPI:
+    """评估器版本管理器 - API接口适配"""
+
+    def __init__(self):
+        self._manager = EvaluatorVersionManager()
+
+    def list_versions(self, evaluator_id: str | None = None) -> list[dict[str, Any]]:
+        """获取评估器版本列表"""
+        versions = self._manager.get_all_versions(evaluator_id)
+        return [
+            {
+                "evaluator_id": v.evaluator_name,
+                "version": v.version,
+                "name": v.evaluator_name,
+                "description": v.changelog,
+                "is_active": v.status == VersionStatus.ACTIVE,
+                "created_at": v.created_at.isoformat(),
+            }
+            for v in versions
+        ]
+
+    def get_versions(self, evaluator_id: str) -> list[dict[str, Any]]:
+        """获取评估器的所有版本"""
+        return self.list_versions(evaluator_id)
+
+    def get_version(self, evaluator_id: str, version: str) -> dict[str, Any] | None:
+        """获取评估器版本详情"""
+        versions = self._manager.get_all_versions(evaluator_id)
+        for v in versions:
+            if v.version == version:
+                return {
+                    "evaluator_id": v.evaluator_name,
+                    "version": v.version,
+                    "name": v.evaluator_name,
+                    "description": v.changelog,
+                    "is_active": v.status == VersionStatus.ACTIVE,
+                    "created_at": v.created_at.isoformat(),
+                }
+        return None
+
+    def rollback(self, evaluator_id: str, version: str) -> bool:
+        """回滚评估器版本"""
+        versions = self._manager.get_all_versions(evaluator_id)
+        for v in versions:
+            if v.version == version:
+                self._manager._current_codes[evaluator_id] = v.code_hash
+                self._manager._save_versions()
+                return True
+        return False
+
+    def activate(self, evaluator_id: str, version: str) -> bool:
+        """激活评估器版本"""
+        versions = self._manager.get_all_versions(evaluator_id)
+        for v in versions:
+            if v.version == version:
+                v.status = VersionStatus.ACTIVE
+                self._manager._save_versions()
+                return True
+        return False
+
+    def get_history(self, evaluator_id: str) -> list[dict[str, Any]]:
+        """获取评估器版本历史"""
+        versions = self._manager.get_all_versions(evaluator_id)
+        return [
+            {
+                "evaluator_id": v.evaluator_name,
+                "version": v.version,
+                "name": v.evaluator_name,
+                "description": v.changelog,
+                "is_active": v.status == VersionStatus.ACTIVE,
+                "created_at": v.created_at.isoformat(),
+            }
+            for v in versions
+        ]
+
+    def delete(self, evaluator_id: str, version: str) -> bool:
+        """删除评估器版本"""
+        versions = self._manager.get_all_versions(evaluator_id)
+        for v in versions:
+            if v.version == version and v.status != VersionStatus.ACTIVE:
+                del self._manager._versions[v.version_id]
+                self._manager._save_versions()
+                return True
+        return False

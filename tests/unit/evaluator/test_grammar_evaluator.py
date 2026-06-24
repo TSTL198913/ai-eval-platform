@@ -8,7 +8,7 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from src.domain.evaluators.grammar import GrammarEvaluator, _count_grammar_errors
+from src.domain.evaluators.grammar import GrammarEvaluator, _simple_grammar_check
 from src.schemas.evaluation import EvaluationSchema
 
 
@@ -170,39 +170,39 @@ class TestGrammarErrorCounting:
     @staticmethod
     def test_count_no_errors():
         """无语法错误"""
-        count, errors = _count_grammar_errors("Hello, world!")
+        count, errors = _simple_grammar_check("Hello, world!")
         assert count == 0
         assert len(errors) == 0
 
     @staticmethod
     def test_count_missing_punctuation():
         """缺少句末标点"""
-        count, errors = _count_grammar_errors("Hello world")
+        count, errors = _simple_grammar_check("Hello world")
         assert count == 1
         assert "缺少句末标点" in errors
 
     @staticmethod
     def test_count_lowercase_first_letter():
         """首字母小写"""
-        count, errors = _count_grammar_errors("hello world.")
+        count, errors = _simple_grammar_check("hello world.")
         assert count == 1
         assert "首字母应大写" in errors
 
     @staticmethod
     def test_count_consecutive_spaces():
         """连续空格"""
-        count, errors = _count_grammar_errors("Hello  world.")
+        count, errors = _simple_grammar_check("Hello  world.")
         assert count == 1
         assert any("连续空格" in error for error in errors)
 
     @staticmethod
     def test_count_multiple_errors():
         """多个错误"""
-        count, errors = _count_grammar_errors("hello  world")
+        count, errors = _simple_grammar_check("hello  world")
         assert count >= 2
 
     @staticmethod
     def test_count_empty_text():
         """空文本"""
-        count, errors = _count_grammar_errors("")
+        count, errors = _simple_grammar_check("")
         assert count == 0

@@ -4,6 +4,7 @@
 
 覆盖：正向 / 负向 / 边界 / 异常 / 一致性
 """
+
 import pytest
 
 from src.domain.metrics.standard_metrics import (

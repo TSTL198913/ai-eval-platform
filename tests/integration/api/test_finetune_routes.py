@@ -209,9 +209,10 @@ class TestFinetuneQualityReportEndpoint:
         app.include_router(router)
         client = TestClient(app)
 
-        with patch("src.domain.fine_tune_exporter.fine_tune_exporter") as mock_exporter, patch(
-            "src.domain.golden_dataset.golden_dataset_manager"
-        ) as mock_manager:
+        with (
+            patch("src.domain.fine_tune_exporter.fine_tune_exporter") as mock_exporter,
+            patch("src.domain.golden_dataset.golden_dataset_manager") as mock_manager,
+        ):
             mock_exporter.generate_quality_report.return_value = {
                 "total_samples": 100,
                 "avg_score": 75.5,

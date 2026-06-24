@@ -417,7 +417,7 @@ class FunctionCallEvaluator(BaseEvaluator):
         if isinstance(expected, list) and isinstance(actual, list):
             return self._list_similarity(expected, actual)
 
-        if isinstance(expected, (int, float)) and isinstance(actual, (int, float)):
+        if isinstance(expected, int | float) and isinstance(actual, int | float):
             if expected == 0:
                 return 1.0 if actual == 0 else 0.0
             return max(0.0, 1.0 - abs(expected - actual) / abs(expected))
@@ -455,7 +455,7 @@ class FunctionCallEvaluator(BaseEvaluator):
         expected_type = schema.get("type")
         type_map = {
             "string": lambda v: isinstance(v, str),
-            "number": lambda v: isinstance(v, (int, float)) and not isinstance(v, bool),
+            "number": lambda v: isinstance(v, int | float) and not isinstance(v, bool),
             "integer": lambda v: isinstance(v, int) and not isinstance(v, bool),
             "boolean": lambda v: isinstance(v, bool),
             "array": lambda v: isinstance(v, list),

@@ -60,7 +60,7 @@ class TestAPIContractBugsDiscovery:
         # 只有 id，缺 type 和 payload
         response = client.post("/api/v1/evaluate", json={"id": "case_x"})
         if response.status_code == 200:
-            pytest.fail("BUG: evaluate 端点接受不完整请求（仅 id），" "应使用 Pydantic 拦截")
+            pytest.fail("BUG: evaluate 端点接受不完整请求（仅 id），应使用 Pydantic 拦截")
 
     def test_login_empty_body_returns_400_inconsistent(self):
         """BUG: 登录端点空 body 返回 400 而非 401

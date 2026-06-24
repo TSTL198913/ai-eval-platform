@@ -25,11 +25,11 @@ class EvaluatorVersionResponse(BaseModel):
     created_at: str | None = None
 
 
-@router.get("", response_model=list[EvaluatorVersionResponse])
+@router.get("")
 async def list_versions(
     evaluator_id: str | None = None,
     current_user: dict = Depends(PermissionDependency(Permission.MANAGE_EVALUATOR_VERSIONS)),
-) -> list[EvaluatorVersionResponse]:
+) -> dict[str, Any]:
     """
     获取评估器版本列表
 
@@ -39,21 +39,23 @@ async def list_versions(
         evaluator_id: 评估器ID（可选，过滤特定评估器）
     """
     try:
-        from src.domain.evaluator_version_manager import EvaluatorVersionManager
+        from src.domain.evaluator_version import (
+            EvaluatorVersionManagerAPI as EvaluatorVersionManager,
+        )
 
         manager = EvaluatorVersionManager()
         versions = manager.list_versions(evaluator_id=evaluator_id)
 
         return success_response(
             [
-                EvaluatorVersionResponse(
-                    evaluator_id=v.get("evaluator_id"),
-                    version=v.get("version"),
-                    name=v.get("name"),
-                    description=v.get("description"),
-                    is_active=v.get("is_active", False),
-                    created_at=v.get("created_at"),
-                )
+                {
+                    "evaluator_id": v.get("evaluator_id"),
+                    "version": v.get("version"),
+                    "name": v.get("name"),
+                    "description": v.get("description"),
+                    "is_active": v.get("is_active", False),
+                    "created_at": v.get("created_at"),
+                }
                 for v in versions
             ]
         )
@@ -61,32 +63,63 @@ async def list_versions(
         return error_response(500, f"获取版本列表失败: {str(e)}")
 
 
-@router.get("/{evaluator_id}", response_model=list[EvaluatorVersionResponse])
+@router.get("/history/{evaluator_id}")
+async def get_version_history(
+    evaluator_id: str,
+    current_user: dict = Depends(PermissionDependency(Permission.MANAGE_EVALUATOR_VERSIONS)),
+) -> dict[str, Any]:
+    """
+    获取评估器版本历史
+
+    需要 MANAGE_EVALUATOR_VERSIONS 权限。
+    """
+    try:
+        from src.domain.evaluator_version import (
+            EvaluatorVersionManagerAPI as EvaluatorVersionManager,
+        )
+
+        manager = EvaluatorVersionManager()
+        history = manager.get_history(evaluator_id)
+
+        return success_response(
+            {
+                "evaluator_id": evaluator_id,
+                "history": history,
+                "total_versions": len(history),
+            }
+        )
+    except Exception as e:
+        return error_response(500, f"获取版本历史失败: {str(e)}")
+
+
+@router.get("/{evaluator_id}")
 async def get_evaluator_versions(
     evaluator_id: str,
     current_user: dict = Depends(PermissionDependency(Permission.MANAGE_EVALUATOR_VERSIONS)),
-) -> list[EvaluatorVersionResponse]:
+) -> dict[str, Any]:
     """
     获取评估器的所有版本
 
     需要 MANAGE_EVALUATOR_VERSIONS 权限。
     """
     try:
-        from src.domain.evaluator_version_manager import EvaluatorVersionManager
+        from src.domain.evaluator_version import (
+            EvaluatorVersionManagerAPI as EvaluatorVersionManager,
+        )
 
         manager = EvaluatorVersionManager()
         versions = manager.get_versions(evaluator_id)
 
         return success_response(
             [
-                EvaluatorVersionResponse(
-                    evaluator_id=v.get("evaluator_id"),
-                    version=v.get("version"),
-                    name=v.get("name"),
-                    description=v.get("description"),
-                    is_active=v.get("is_active", False),
-                    created_at=v.get("created_at"),
-                )
+                {
+                    "evaluator_id": v.get("evaluator_id"),
+                    "version": v.get("version"),
+                    "name": v.get("name"),
+                    "description": v.get("description"),
+                    "is_active": v.get("is_active", False),
+                    "created_at": v.get("created_at"),
+                }
                 for v in versions
             ]
         )
@@ -94,19 +127,21 @@ async def get_evaluator_versions(
         return error_response(500, f"获取评估器版本失败: {str(e)}")
 
 
-@router.get("/{evaluator_id}/{version}", response_model=EvaluatorVersionResponse)
+@router.get("/{evaluator_id}/{version}")
 async def get_version_detail(
     evaluator_id: str,
     version: str,
     current_user: dict = Depends(PermissionDependency(Permission.MANAGE_EVALUATOR_VERSIONS)),
-) -> EvaluatorVersionResponse:
+) -> dict[str, Any]:
     """
     获取评估器版本详情
 
     需要 MANAGE_EVALUATOR_VERSIONS 权限。
     """
     try:
-        from src.domain.evaluator_version_manager import EvaluatorVersionManager
+        from src.domain.evaluator_version import (
+            EvaluatorVersionManagerAPI as EvaluatorVersionManager,
+        )
 
         manager = EvaluatorVersionManager()
         version_info = manager.get_version(evaluator_id, version)
@@ -114,13 +149,15 @@ async def get_version_detail(
         if not version_info:
             return error_response(404, f"版本 '{version}' 不存在")
 
-        return EvaluatorVersionResponse(
-            evaluator_id=version_info.get("evaluator_id"),
-            version=version_info.get("version"),
-            name=version_info.get("name"),
-            description=version_info.get("description"),
-            is_active=version_info.get("is_active", False),
-            created_at=version_info.get("created_at"),
+        return success_response(
+            {
+                "evaluator_id": version_info.get("evaluator_id"),
+                "version": version_info.get("version"),
+                "name": version_info.get("name"),
+                "description": version_info.get("description"),
+                "is_active": version_info.get("is_active", False),
+                "created_at": version_info.get("created_at"),
+            }
         )
     except Exception as e:
         return error_response(500, f"获取版本详情失败: {str(e)}")
@@ -138,7 +175,9 @@ async def rollback_version(
     需要 MANAGE_EVALUATOR_VERSIONS 权限。
     """
     try:
-        from src.domain.evaluator_version_manager import EvaluatorVersionManager
+        from src.domain.evaluator_version import (
+            EvaluatorVersionManagerAPI as EvaluatorVersionManager,
+        )
 
         manager = EvaluatorVersionManager()
         target_version = request.get("version")
@@ -174,7 +213,9 @@ async def activate_version(
     需要 MANAGE_EVALUATOR_VERSIONS 权限。
     """
     try:
-        from src.domain.evaluator_version_manager import EvaluatorVersionManager
+        from src.domain.evaluator_version import (
+            EvaluatorVersionManagerAPI as EvaluatorVersionManager,
+        )
 
         manager = EvaluatorVersionManager()
         success = manager.activate(evaluator_id, version)
@@ -193,33 +234,6 @@ async def activate_version(
         return error_response(500, f"激活版本失败: {str(e)}")
 
 
-@router.get("/history/{evaluator_id}")
-async def get_version_history(
-    evaluator_id: str,
-    current_user: dict = Depends(PermissionDependency(Permission.MANAGE_EVALUATOR_VERSIONS)),
-) -> dict[str, Any]:
-    """
-    获取评估器版本历史
-
-    需要 MANAGE_EVALUATOR_VERSIONS 权限。
-    """
-    try:
-        from src.domain.evaluator_version_manager import EvaluatorVersionManager
-
-        manager = EvaluatorVersionManager()
-        history = manager.get_history(evaluator_id)
-
-        return success_response(
-            {
-                "evaluator_id": evaluator_id,
-                "history": history,
-                "total_versions": len(history),
-            }
-        )
-    except Exception as e:
-        return error_response(500, f"获取版本历史失败: {str(e)}")
-
-
 @router.delete("/{evaluator_id}/{version}")
 async def delete_version(
     evaluator_id: str,
@@ -234,7 +248,9 @@ async def delete_version(
     注意：不能删除当前激活的版本。
     """
     try:
-        from src.domain.evaluator_version_manager import EvaluatorVersionManager
+        from src.domain.evaluator_version import (
+            EvaluatorVersionManagerAPI as EvaluatorVersionManager,
+        )
 
         manager = EvaluatorVersionManager()
         success = manager.delete(evaluator_id, version)

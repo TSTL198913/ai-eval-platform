@@ -349,7 +349,7 @@ def main():
             print(f"共 {len(history)} 条历史记录")
             for record in history[-10:]:
                 print(
-                    f"  {record.get('timestamp', '')[:19]}: line={record.get('line_coverage', 0)*100:.1f}%"
+                    f"  {record.get('timestamp', '')[:19]}: line={record.get('line_coverage', 0) * 100:.1f}%"
                 )
         else:
             print("无历史记录")

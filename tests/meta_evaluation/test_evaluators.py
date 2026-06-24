@@ -149,7 +149,7 @@ class TestTypePoisoning:
         # score 字段必须存在且为 float，不能为 None
         assert result.score is not None, "score 不能为 None"
         assert isinstance(
-            result.score, (int, float)
+            result.score, int | float
         ), f"score 必须是数值类型，实际类型={type(result.score).__name__}"
         assert 0.0 <= result.score <= 1.0, f"score 必须在 [0, 1] 区间，实际={result.score}"
 
@@ -171,15 +171,15 @@ class TestTypePoisoning:
         assert "weighted_total_score" in result.data
         weighted = result.data["weighted_total_score"]
         assert isinstance(
-            weighted, (int, float)
+            weighted, int | float
         ), f"weighted_total_score 必须是数值，实际类型={type(weighted).__name__}"
         assert (
             0.0 <= weighted <= 100.0
         ), f"weighted_total_score 必须在 [0, 100] 区间，实际={weighted}"
         # 由于 scores 范围在 75-100 之间，加权分必须高于 50
-        assert weighted > 50, (
-            f"加权分应反映 LLM 给出的高分（>50），实际={weighted}，" f"说明字符串评分未被正确强转"
-        )
+        assert (
+            weighted > 50
+        ), f"加权分应反映 LLM 给出的高分（>50），实际={weighted}，说明字符串评分未被正确强转"
 
     def test_coerce_score_helper_handles_all_poison_types(self, evaluator):
         """【单元断言】_coerce_score 必须能处理所有毒类型"""
@@ -432,10 +432,9 @@ class TestSemanticConflict:
 
         assert result.is_valid is True, "评估器应能解析 LLM 输出"
         accuracy_score = result.data["llm_judge_scores"]["accuracy"]["score"]
-        assert accuracy_score < 40, (
-            f"语义冲突场景下 accuracy 必须 < 40，实际={accuracy_score}，"
-            f"说明评估器未识别出严重冲突"
-        )
+        assert (
+            accuracy_score < 40
+        ), f"语义冲突场景下 accuracy 必须 < 40，实际={accuracy_score}，说明评估器未识别出严重冲突"
 
     def test_conflict_detected_must_be_true(self, evaluator, conflict_payload):
         """【核心断言2】data.conflict_detected 必须为 True"""

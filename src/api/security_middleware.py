@@ -4,6 +4,7 @@
 """
 
 import re
+import secrets
 import time
 
 from fastapi import Request
@@ -32,7 +33,7 @@ INJECTION_PATTERNS = [
 DATA_LEAK_PATTERNS = [
     re.compile(r"sk-[a-zA-Z0-9]{20,}", re.IGNORECASE),
     re.compile(r"AKIA[A-Z0-9]{16}", re.IGNORECASE),
-    re.compile(r"AIza[0-9A-Za-z_-]{30,45}", re.IGNORECASE),  # GCP API keys vary in length
+    re.compile(r"AIza[0-9A-Za-z_-]{30,45}", re.IGNORECASE),
     re.compile(r"mongodb\+srv://", re.IGNORECASE),
     re.compile(r"postgres://.*:.*@", re.IGNORECASE),
     re.compile(r"mysql://.*:.*@", re.IGNORECASE),
@@ -40,23 +41,23 @@ DATA_LEAK_PATTERNS = [
     re.compile(r"secret\s*[:=]\s*['\"]?[^'\"]{16,}", re.IGNORECASE),
 ]
 
-# 安全响应头
+DEFAULT_CSP = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self';"
+
+DOCS_CSP_TEMPLATE = (
+    "default-src 'self'; "
+    "script-src 'self' 'nonce-{nonce}' https://cdn.jsdelivr.net; "
+    "style-src 'self' 'nonce-{nonce}' https://cdn.jsdelivr.net; "
+    "img-src 'self' data: https://fastapi.tiangolo.com; "
+    "font-src 'self' https://cdn.jsdelivr.net; "
+    "connect-src 'self' https://cdn.jsdelivr.net;"
+)
+
 SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "X-XSS-Protection": "1; mode=block",
     "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
-    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https://fastapi.tiangolo.com; font-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://cdn.jsdelivr.net;",
-    "Referrer-Policy": "strict-origin-when-cross-origin",
-    "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
-}
-
-DOCS_CSP_HEADERS = {
-    "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
-    "X-XSS-Protection": "1; mode=block",
-    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
-    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https://fastapi.tiangolo.com; font-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://cdn.jsdelivr.net;",
+    "Content-Security-Policy": DEFAULT_CSP,
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
 }
@@ -102,17 +103,22 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                     },
                 },
             )
-            # 添加安全头
             for header_name, header_value in SECURITY_HEADERS.items():
                 response.headers[header_name] = header_value
             return response
 
         response = await call_next(request)
 
-        # 添加安全头到所有响应
         if isinstance(response, Response):
-            for header_name, header_value in SECURITY_HEADERS.items():
-                response.headers[header_name] = header_value
+            path = str(request.url.path)
+            if path.startswith("/docs") or path.startswith("/redoc"):
+                nonce = secrets.token_urlsafe(16)
+                csp = DOCS_CSP_TEMPLATE.format(nonce=nonce)
+                response.headers["Content-Security-Policy"] = csp
+                response.headers["X-Nonce"] = nonce
+            else:
+                for header_name, header_value in SECURITY_HEADERS.items():
+                    response.headers[header_name] = header_value
 
         return response
 

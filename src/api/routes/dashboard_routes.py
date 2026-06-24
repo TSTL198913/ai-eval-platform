@@ -3,7 +3,6 @@
 提供仪表盘相关的API端点
 """
 
-
 from fastapi import APIRouter
 
 from src.api.common import error_response, success_response

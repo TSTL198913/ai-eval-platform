@@ -684,8 +684,8 @@ class SecurityTestEngine:
         ]
 
         print(f"\n总测试数: {total}")
-        print(f"通过: {passed} ({passed/total*100:.1f}%)")
-        print(f"失败: {failed} ({failed/total*100:.1f}%)")
+        print(f"通过: {passed} ({passed / total * 100:.1f}%)")
+        print(f"失败: {failed} ({failed / total * 100:.1f}%)")
 
         if critical_issues:
             print(f"\n严重漏洞 ({len(critical_issues)}):")

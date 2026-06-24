@@ -41,11 +41,11 @@ class QualityGateConfigResponse(BaseModel):
     description: str
 
 
-@router.post("/check", response_model=QualityCheckResponse)
+@router.post("/check")
 async def run_quality_check(
     request: QualityCheckRequest,
     current_user: dict = Depends(PermissionDependency(Permission.RUN_QUALITY_GATE)),
-) -> QualityCheckResponse:
+) -> dict[str, Any]:
     """
     执行质量门禁检查
 
@@ -67,25 +67,27 @@ async def run_quality_check(
             sample_count=request.sample_count,
         )
 
-        return QualityCheckResponse(
-            check_id=check_id,
-            model_name=request.model_name,
-            level=request.level,
-            passed=result.get("passed", False),
-            score=result.get("score", 0.0),
-            metrics=result.get("metrics", {}),
-            issues=result.get("issues", []),
-            timestamp=datetime.now(timezone.utc).isoformat(),
+        return success_response(
+            {
+                "check_id": check_id,
+                "model_name": request.model_name,
+                "level": request.level,
+                "passed": result.get("passed", False),
+                "score": result.get("score", 0.0),
+                "metrics": result.get("metrics", {}),
+                "issues": result.get("issues", []),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
         )
     except Exception as e:
         return error_response(500, f"质量检查失败: {str(e)}")
 
 
-@router.get("/{level}", response_model=QualityGateConfigResponse)
+@router.get("/{level}")
 async def get_gate_config(
     level: str,
     current_user: dict = Depends(PermissionDependency(Permission.MANAGE_QUALITY_CONFIG)),
-) -> QualityGateConfigResponse:
+) -> dict[str, Any]:
     """
     获取质量门禁配置
 
@@ -103,17 +105,19 @@ async def get_gate_config(
         if not config:
             return error_response(404, f"配置级别 '{level}' 不存在")
 
-        return QualityGateConfigResponse(
-            level=level,
-            thresholds=config.get("thresholds", {}),
-            check_items=config.get("check_items", []),
-            description=config.get("description", ""),
+        return success_response(
+            {
+                "level": level,
+                "thresholds": config.get("thresholds", {}),
+                "check_items": config.get("check_items", []),
+                "description": config.get("description", ""),
+            }
         )
     except Exception as e:
         return error_response(500, f"获取配置失败: {str(e)}")
 
 
-@router.get("/results/{check_id}", response_model=dict[str, Any])
+@router.get("/results/{check_id}")
 async def get_check_result(
     check_id: str,
     current_user: dict = Depends(PermissionDependency(Permission.MANAGE_QUALITY_CONFIG)),
@@ -150,9 +154,9 @@ async def mark_red_team_test(
     红队测试：模拟攻击者试图绕过安全限制。
     """
     try:
-        from src.domain.testing.quality_gates import red_team_test
+        from src.domain.testing.quality_gates import run_red_team_test
 
-        result = red_team_test(
+        result = run_red_team_test(
             model_name=request.get("model_name"),
             scenarios=request.get("scenarios", []),
         )
@@ -183,9 +187,9 @@ async def mark_blue_team_test(
     蓝队测试：防御者检测和响应攻击。
     """
     try:
-        from src.domain.testing.quality_gates import blue_team_test
+        from src.domain.testing.quality_gates import run_blue_team_test
 
-        result = blue_team_test(
+        result = run_blue_team_test(
             model_name=request.get("model_name"),
             test_cases=request.get("test_cases", []),
         )

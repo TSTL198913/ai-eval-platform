@@ -439,7 +439,7 @@ class VisualizationService:
                 dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
             except ValueError:
                 return ts
-        elif isinstance(ts, (int, float)):
+        elif isinstance(ts, int | float):
             dt = datetime.utcfromtimestamp(ts)
         elif isinstance(ts, datetime):
             dt = ts

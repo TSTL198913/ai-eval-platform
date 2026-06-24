@@ -1,8 +1,11 @@
+import logging
 import threading
 import warnings
 from enum import Enum
 from inspect import isclass
 from typing import Any, Protocol
+
+logger = logging.getLogger(__name__)
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.models.base import BaseLLMClient
@@ -125,12 +128,34 @@ class EvaluatorFactory:
         evaluator = cls.get(case_type, client)
 
         if cls._quality_gate_enabled and cls._qa_manager:
-            quality_result = QualityGateResult(
-                passed=True, recommendations=[f"评估器 '{case_type}' 已通过质量检查"]
-            )
-            return evaluator, quality_result
+            level = quality_gate_level or cls._quality_gate_level
+            try:
+                quality_result = cls._qa_manager.run_quality_gate(
+                    module_name=case_type,
+                    target_function=evaluator._do_evaluate,
+                    source_code=cls._get_evaluator_source(case_type),
+                    config=QualityGateConfig(level=level),
+                )
+                return evaluator, quality_result
+            except Exception as e:
+                logger.warning(f"质量门禁检查失败: {e}")
+                return evaluator, None
 
         return evaluator, None
+
+    @classmethod
+    def _get_evaluator_source(cls, case_type: str) -> str | None:
+        """获取评估器源代码（用于变异测试）"""
+        import inspect
+
+        with cls._lock:
+            if case_type in cls._registry:
+                evaluator_cls = cls._registry[case_type]
+                try:
+                    return inspect.getsource(evaluator_cls)
+                except Exception:
+                    return None
+        return None
 
     @classmethod
     def list_evaluators(cls) -> list[str]:

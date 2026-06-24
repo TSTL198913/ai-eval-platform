@@ -145,11 +145,89 @@ class MetaEvaluator:
             for c in conflicts
         ]
 
-    def resolve_conflict(self, case_id: str, resolution: str = "reviewed"):
+    def get_conflict(self, case_id: str) -> dict[str, Any] | None:
+        for c in self._conflict_queue:
+            if c.case_id == case_id:
+                return {
+                    "case_id": c.case_id,
+                    "evaluator_type": c.evaluator_type,
+                    "score_before": c.score_before,
+                    "score_after": c.score_after,
+                    "score_diff": c.score_diff,
+                    "conflict_level": c.conflict_level,
+                    "reason": c.reason,
+                    "detected_at": c.detected_at.isoformat(),
+                    "status": c.status,
+                }
+        return None
+
+    def get_resolved_conflicts(self) -> list[dict[str, Any]]:
+        conflicts = [c for c in self._conflict_queue if c.status == "resolved"]
+        return [
+            {
+                "case_id": c.case_id,
+                "evaluator_type": c.evaluator_type,
+                "score_before": c.score_before,
+                "score_after": c.score_after,
+                "score_diff": c.score_diff,
+                "conflict_level": c.conflict_level,
+                "reason": c.reason,
+                "detected_at": c.detected_at.isoformat(),
+                "status": c.status,
+            }
+            for c in conflicts
+        ]
+
+    def get_all_conflicts(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "case_id": c.case_id,
+                "evaluator_type": c.evaluator_type,
+                "score_before": c.score_before,
+                "score_after": c.score_after,
+                "score_diff": c.score_diff,
+                "conflict_level": c.conflict_level,
+                "reason": c.reason,
+                "detected_at": c.detected_at.isoformat(),
+                "status": c.status,
+            }
+            for c in self._conflict_queue
+        ]
+
+    def resolve_conflict(
+        self, case_id: str, resolution: str = "reviewed", reason: str | None = None
+    ) -> bool:
+        found = False
         for conflict in self._conflict_queue:
             if conflict.case_id == case_id:
                 conflict.status = resolution
+                if reason:
+                    conflict.reason = f"{conflict.reason}; {reason}" if conflict.reason else reason
+                found = True
         self._save_pending_conflicts()
+        return found
+
+    def calibrate(self) -> dict[str, Any]:
+        return {
+            "updated_baselines": 0,
+            "message": "校准完成（当前为模拟实现）",
+        }
+
+    def analyze_results(self, results: list[dict[str, Any]]) -> dict[str, Any]:
+        if not results:
+            return {"error": "results 不能为空"}
+
+        total = len(results)
+        scores = [r.get("score", 0) for r in results if isinstance(r.get("score"), int | float)]
+        avg_score = sum(scores) / len(scores) if scores else 0
+
+        return {
+            "total_results": total,
+            "avg_score": round(avg_score, 2),
+            "min_score": min(scores) if scores else 0,
+            "max_score": max(scores) if scores else 0,
+            "analysis": "评估结果分析完成",
+        }
 
     def get_conflict_stats(self) -> dict[str, Any]:
         total = len(self._conflict_queue)

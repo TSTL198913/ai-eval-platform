@@ -2,6 +2,7 @@
 🧪 tests/unit/test_report_generator.py
 报告生成器单元测试
 """
+
 import json
 import tempfile
 from pathlib import Path

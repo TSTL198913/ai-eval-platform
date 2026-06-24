@@ -4,7 +4,6 @@ Metadata 模型专项测试
 关键发现：4个元数据模型继承自BaseMetadata，各有扩展字段，被多个评估器（code/finance/text等）依赖
 """
 
-
 from src.domain.evaluators.metadata import (
     BaseMetadata,
     CodeMetadata,

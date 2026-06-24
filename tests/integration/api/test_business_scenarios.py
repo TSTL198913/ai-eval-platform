@@ -422,7 +422,7 @@ class TestDataConsistencyScenario:
         }
         assert required_keys.issubset(set(result.keys()))
         assert result["record_id"] == "struct_test_001"
-        assert isinstance(result["latency_ms"], (int, float))
+        assert isinstance(result["latency_ms"], int | float)
         assert result["latency_ms"] >= 0
 
     def test_persist_flag_on_failure(self):

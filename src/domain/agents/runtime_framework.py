@@ -104,7 +104,7 @@ def safe_eval_math(expression: str) -> float | int:
 
     def eval_node(node):
         if isinstance(node, ast.Constant):
-            if isinstance(node.value, (int, float)):
+            if isinstance(node.value, int | float):
                 return node.value
             raise ValueError("禁止解析非数值常量")
         elif isinstance(node, ast.BinOp):

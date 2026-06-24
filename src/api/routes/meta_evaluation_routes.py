@@ -41,11 +41,11 @@ class ConflictStatsResponse(BaseModel):
     by_type: dict[str, int]
 
 
-@router.get("/conflicts", response_model=list[ConflictResponse])
+@router.get("/conflicts")
 async def get_conflicts(
     status_filter: str | None = None,
     current_user: dict = Depends(PermissionDependency(Permission.VIEW_META_CONFLICTS)),
-) -> list[ConflictResponse]:
+) -> dict[str, Any]:
     """
     获取冲突列表
 
@@ -67,15 +67,15 @@ async def get_conflicts(
 
         return success_response(
             [
-                ConflictResponse(
-                    case_id=c.get("case_id"),
-                    conflict_type=c.get("conflict_type"),
-                    new_result=c.get("new_result"),
-                    baseline=c.get("baseline"),
-                    severity=c.get("severity", "medium"),
-                    status=c.get("status", "pending"),
-                    created_at=c.get("created_at"),
-                )
+                {
+                    "case_id": c.get("case_id"),
+                    "conflict_type": c.get("conflict_type"),
+                    "new_result": c.get("new_result"),
+                    "baseline": c.get("baseline"),
+                    "severity": c.get("severity", "medium"),
+                    "status": c.get("status", "pending"),
+                    "created_at": c.get("created_at"),
+                }
                 for c in conflicts
             ]
         )
@@ -83,11 +83,11 @@ async def get_conflicts(
         return error_response(500, f"获取冲突失败: {str(e)}")
 
 
-@router.get("/conflicts/{case_id}", response_model=ConflictResponse)
+@router.get("/conflicts/{case_id}")
 async def get_conflict(
     case_id: str,
     current_user: dict = Depends(PermissionDependency(Permission.VIEW_META_CONFLICTS)),
-) -> ConflictResponse:
+) -> dict[str, Any]:
     """
     获取冲突详情
 
@@ -102,20 +102,22 @@ async def get_conflict(
         if not conflict:
             return error_response(404, f"冲突 '{case_id}' 不存在")
 
-        return ConflictResponse(
-            case_id=conflict.get("case_id"),
-            conflict_type=conflict.get("conflict_type"),
-            new_result=conflict.get("new_result"),
-            baseline=conflict.get("baseline"),
-            severity=conflict.get("severity", "medium"),
-            status=conflict.get("status", "pending"),
-            created_at=conflict.get("created_at"),
+        return success_response(
+            {
+                "case_id": conflict.get("case_id"),
+                "conflict_type": conflict.get("conflict_type"),
+                "new_result": conflict.get("new_result"),
+                "baseline": conflict.get("baseline"),
+                "severity": conflict.get("severity", "medium"),
+                "status": conflict.get("status", "pending"),
+                "created_at": conflict.get("created_at"),
+            }
         )
     except Exception as e:
         return error_response(500, f"获取冲突详情失败: {str(e)}")
 
 
-@router.post("/conflicts/{case_id}/resolve", response_model=dict[str, Any])
+@router.post("/conflicts/{case_id}/resolve")
 async def resolve_conflict(
     case_id: str,
     request: ConflictResolveRequest,
@@ -136,14 +138,11 @@ async def resolve_conflict(
         from src.domain.meta_evaluator import MetaEvaluator
 
         evaluator = MetaEvaluator()
-        result = evaluator.resolve_conflict(
+        evaluator.resolve_conflict(
             case_id=case_id,
             resolution=request.resolution,
             reason=request.reason,
         )
-
-        if not result:
-            return error_response(404, f"冲突 '{case_id}' 不存在")
 
         return success_response(
             {
@@ -157,10 +156,10 @@ async def resolve_conflict(
         return error_response(500, f"解决冲突失败: {str(e)}")
 
 
-@router.get("/stats", response_model=ConflictStatsResponse)
+@router.get("/stats")
 async def get_stats(
     current_user: dict = Depends(PermissionDependency(Permission.VIEW_META_CONFLICTS)),
-) -> ConflictStatsResponse:
+) -> dict[str, Any]:
     """
     获取冲突统计
 
@@ -172,18 +171,20 @@ async def get_stats(
         evaluator = MetaEvaluator()
         stats = evaluator.get_conflict_stats()
 
-        return ConflictStatsResponse(
-            total_conflicts=stats.get("total_conflicts", 0),
-            pending_conflicts=stats.get("pending_conflicts", 0),
-            resolved_conflicts=stats.get("resolved_conflicts", 0),
-            by_severity=stats.get("by_severity", {}),
-            by_type=stats.get("by_type", {}),
+        return success_response(
+            {
+                "total_conflicts": stats.get("total_conflicts", 0),
+                "pending_conflicts": stats.get("pending_conflicts", 0),
+                "resolved_conflicts": stats.get("resolved_conflicts", 0),
+                "by_severity": stats.get("by_severity", {}),
+                "by_type": stats.get("by_type", {}),
+            }
         )
     except Exception as e:
         return error_response(500, f"获取统计失败: {str(e)}")
 
 
-@router.post("/calibrate", response_model=dict[str, Any])
+@router.post("/calibrate")
 async def trigger_calibration(
     current_user: dict = Depends(PermissionDependency(Permission.RESOLVE_META_CONFLICT)),
 ) -> dict[str, Any]:

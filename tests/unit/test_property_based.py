@@ -215,7 +215,7 @@ class TestJSONParsingProperty:
         """JSON解析应安全处理任意输入"""
         try:
             result = json.loads(input_text)
-            assert isinstance(result, (dict, list, str, int, float, bool, type(None)))
+            assert isinstance(result, dict | list | str | int | float | bool | None)
         except json.JSONDecodeError:
             pass
 

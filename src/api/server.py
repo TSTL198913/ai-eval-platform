@@ -43,7 +43,7 @@ async def lifespan(app: FastAPI):
     logger.info("[1/5] 初始化数据库表...")
     t0 = time.time()
     init_tables()
-    logger.info(f"[1/5] 数据库表初始化完成: {time.time()-t0:.0f}s")
+    logger.info(f"[1/5] 数据库表初始化完成: {time.time() - t0:.0f}s")
 
     # 2. 预热数据库连接池
     logger.info("[2/5] 预热数据库连接池...")
@@ -59,7 +59,7 @@ async def lifespan(app: FastAPI):
         db.commit()
         time.sleep(0.5)
         next(db_gen, None)
-        logger.info(f"[2/5] 连接池预热完成: {time.time()-t0:.0f}s")
+        logger.info(f"[2/5] 连接池预热完成: {time.time() - t0:.0f}s")
     except Exception as e:
         logger.warning(f"[2/5] 连接池预热失败: {e}")
 
@@ -69,7 +69,7 @@ async def lifespan(app: FastAPI):
     try:
         evaluators = list(EVALUATOR_REGISTRY.keys())
         logger.info(f"[3/5] 已注册评估器: {evaluators}")
-        logger.info(f"[3/5] 评估器预热完成: {time.time()-t0:.0f}s")
+        logger.info(f"[3/5] 评估器预热完成: {time.time() - t0:.0f}s")
     except Exception as e:
         logger.warning(f"[3/5] 评估器预热失败: {e}")
 
@@ -81,7 +81,7 @@ async def lifespan(app: FastAPI):
 
         providers = ModelRegistry.list_providers()
         logger.info(f"[4/5] 可用模型供应商: {providers}")
-        logger.info(f"[4/5] 模型工厂预热完成: {time.time()-t0:.0f}s")
+        logger.info(f"[4/5] 模型工厂预热完成: {time.time() - t0:.0f}s")
     except Exception as e:
         logger.warning(f"[4/5] 模型工厂预热失败: {e}")
 
@@ -92,12 +92,12 @@ async def lifespan(app: FastAPI):
         from src.domain.reports.report_generator import ReportGenerator
 
         _ = ReportGenerator()
-        logger.info(f"[5/5] 报告生成器预热完成: {time.time()-t0:.0f}s")
+        logger.info(f"[5/5] 报告生成器预热完成: {time.time() - t0:.0f}s")
     except Exception as e:
         logger.warning(f"[5/5] 报告生成器预热失败: {e}")
 
     logger.info("=" * 60)
-    logger.info(f"预热完成! 总耗时: {time.time()-warmup_start:.1f}s")
+    logger.info(f"预热完成! 总耗时: {time.time() - warmup_start:.1f}s")
     logger.info("=" * 60)
 
     yield

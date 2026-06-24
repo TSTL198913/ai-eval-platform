@@ -258,9 +258,9 @@ class TestDatabaseTransactionRollback:
 
         final_count = repo.count()
 
-        assert final_count == initial_count, (
-            "评测失败时记录应回滚，" f"但数据库记录数从 {initial_count} 增加到了 {final_count}"
-        )
+        assert (
+            final_count == initial_count
+        ), f"评测失败时记录应回滚，但数据库记录数从 {initial_count} 增加到了 {final_count}"
 
 
 class TestAPIParameterValidation:
@@ -355,9 +355,9 @@ class TestSecurityMiddleware:
                     "payload": {"user_input": payload},
                 },
             )
-            assert response.status_code == 403, (
-                f"安全中间件应拦截Prompt Injection，" f"实际返回 {response.status_code}"
-            )
+            assert (
+                response.status_code == 403
+            ), f"安全中间件应拦截Prompt Injection，实际返回 {response.status_code}"
 
     def test_security_middleware_allows_normal_requests(self):
         """P1 - 安全中间件允许正常请求通过"""

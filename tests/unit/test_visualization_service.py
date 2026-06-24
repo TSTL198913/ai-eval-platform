@@ -2,6 +2,7 @@
 🧪 tests/unit/test_visualization_service.py
 可视化数据服务单元测试
 """
+
 from datetime import datetime
 
 from src.infra.analytics.visualization_service import VisualizationService

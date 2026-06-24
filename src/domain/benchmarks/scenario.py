@@ -404,9 +404,9 @@ class ScenarioBenchmark(BaseBenchmark):
     def build_prompt(self, sample: dict[str, Any]) -> str:
         prompt = f"""你是一个专业的{self._get_scenario_name()}助手。
 
-任务：{sample['task']}
+任务：{sample["task"]}
 
-用户输入：{sample['input']}
+用户输入：{sample["input"]}
 
 请按照以下步骤完成任务：
 """

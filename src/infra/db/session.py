@@ -268,7 +268,11 @@ def get_pool_config() -> ConnectionPoolConfig:
 def _get_database_url() -> str:
     """延迟获取数据库 URL，确保环境变量已设置"""
     if os.getenv("TESTING") == "1":
-        return os.getenv("TEST_DATABASE_URL", "sqlite:///:memory:")
+        # 使用文件型 SQLite 而非内存型，避免连接池问题
+        return os.getenv(
+            "TEST_DATABASE_URL",
+            "sqlite:///./test.db?check_same_thread=False",
+        )
     try:
         from src.config import settings
 
@@ -536,11 +540,12 @@ def get_db() -> Generator:
 
 # 【关键！】吸取自 session.py 的建表冷启动函数
 def init_tables() -> None:
+    # 导入所有模型以确保它们注册到 metadata
     from src.infra.db import models  # noqa: F401  确保模型注册到 metadata
 
     engine = get_engine()
     _setup_engine_listeners(engine)
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=engine, checkfirst=True)
     print("【系统通知】表结构已创建成功！")
 
 

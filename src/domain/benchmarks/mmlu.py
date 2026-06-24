@@ -262,7 +262,7 @@ class MMLUBenchmark:
 
     def _build_prompt(self, sample: dict[str, Any]) -> str:
         choices_text = "\n".join(sample["choices"])
-        return f"""Question: {sample['question']}
+        return f"""Question: {sample["question"]}
 
 Options:
 {choices_text}

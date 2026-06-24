@@ -303,7 +303,7 @@ class TestRecordsEndpointBusinessScenarios:
         assert data["code"] == 400
         if response.status_code == 200:
             pytest.fail(
-                "BUG: 非法 format 参数未设置 HTTP 状态码！" "客户端只检查 HTTP 状态时会误判为成功"
+                "BUG: 非法 format 参数未设置 HTTP 状态码！客户端只检查 HTTP 状态时会误判为成功"
             )
 
 

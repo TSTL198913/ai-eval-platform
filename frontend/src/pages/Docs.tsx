@@ -2,7 +2,7 @@ import React from 'react';
 import { BookOpen, ExternalLink } from 'lucide-react';
 
 const Docs: React.FC = () => {
-  const docsUrl = '/docs';
+  const docsUrl = window.location.origin + '/docs';
 
   return (
     <div className="h-[calc(100vh-140px)] flex flex-col items-center justify-center p-8">
@@ -23,7 +23,7 @@ const Docs: React.FC = () => {
             在新窗口打开 Swagger UI
           </a>
           <a
-            href="/redoc"
+            href={window.location.origin + '/redoc'}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"

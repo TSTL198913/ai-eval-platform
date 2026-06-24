@@ -224,17 +224,25 @@ from src.api.routes import (
     auth_router,
     benchmark_router,
     calibration_router,
+    cost_router,
     dashboard_router,
     dataset_router,
     eval_config_router,
     evaluation_router,
     evaluator_router,
+    evaluator_version_router,
     finetune_router,
     health_router,
+    meta_evaluation_router,
     model_comparison_router,
     model_router,
+    mutation_test_router,
+    online_evaluation_router,
+    performance_router,
+    quality_gates_router,
     records_router,
     report_router,
+    security_router,
     statistics_router,
 )
 
@@ -244,6 +252,14 @@ app.include_router(health_router)
 app.include_router(admin_router)
 app.include_router(ab_test_router)
 app.include_router(benchmark_router)
+app.include_router(security_router)
+app.include_router(meta_evaluation_router)
+app.include_router(quality_gates_router)
+app.include_router(cost_router)
+app.include_router(evaluator_version_router)
+app.include_router(mutation_test_router)
+app.include_router(performance_router)
+app.include_router(online_evaluation_router)
 app.include_router(evaluation_router)
 app.include_router(records_router)
 app.include_router(evaluator_router)

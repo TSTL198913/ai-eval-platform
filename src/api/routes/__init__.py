@@ -3,8 +3,11 @@
 包含所有拆分的API路由
 """
 
+from src.api.routes.ab_test_routes import router as ab_test_router
+from src.api.routes.admin_routes import router as admin_router
 from src.api.routes.annotation_routes import router as annotation_router
 from src.api.routes.auth_routes import router as auth_router
+from src.api.routes.benchmark_routes import router as benchmark_router
 from src.api.routes.calibration_routes import router as calibration_router
 from src.api.routes.dashboard_routes import router as dashboard_router
 from src.api.routes.dataset_routes import router as dataset_router
@@ -20,8 +23,11 @@ from src.api.routes.report_routes import router as report_router
 from src.api.routes.statistics_routes import router as statistics_router
 
 __all__ = [
+    "ab_test_router",
+    "admin_router",
     "annotation_router",
     "auth_router",
+    "benchmark_router",
     "health_router",
     "evaluation_router",
     "records_router",

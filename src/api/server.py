@@ -218,8 +218,11 @@ async def global_exception_handler(request: Request, exc: Exception):
 # =====================================================================
 
 from src.api.routes import (
+    ab_test_router,
+    admin_router,
     annotation_router,
     auth_router,
+    benchmark_router,
     calibration_router,
     dashboard_router,
     dataset_router,
@@ -238,6 +241,9 @@ from src.api.routes import (
 # 注册所有路由模块
 app.include_router(auth_router)
 app.include_router(health_router)
+app.include_router(admin_router)
+app.include_router(ab_test_router)
+app.include_router(benchmark_router)
 app.include_router(evaluation_router)
 app.include_router(records_router)
 app.include_router(evaluator_router)

@@ -299,15 +299,18 @@ class RabbitMQQueue(BaseQueue):
         self._channel.queue_declare(
             queue=self.config.queue_name,
             durable=self.config.durable,
+            exclusive=False,
+            auto_delete=False,
             arguments={
                 "x-dead-letter-exchange": "",
                 "x-dead-letter-routing-key": self.config.dead_letter_queue,
             },
         )
-        # 声明死信队列
         self._channel.queue_declare(
             queue=self.config.dead_letter_queue,
             durable=self.config.durable,
+            exclusive=False,
+            auto_delete=False,
         )
 
     async def publish(self, message: QueueMessage) -> bool:
@@ -337,7 +340,7 @@ class RabbitMQQueue(BaseQueue):
     async def consume(self, callback: Callable[[QueueMessage], Any]) -> None:
         """消费消息"""
         channel = self._ensure_connection()
-        channel.basic_qos(prefetch_count=self.config.prefetch_count)
+        channel.basic_qos(prefetch_count=self.config.prefetch_count, global_qos=False)
 
         def on_message(ch, method, properties, body):
             try:
@@ -376,7 +379,9 @@ class RabbitMQQueue(BaseQueue):
         result = channel.queue_declare(
             queue=self.config.queue_name,
             durable=self.config.durable,
-            passive=True,  # 不创建，只查询
+            exclusive=False,
+            auto_delete=False,
+            passive=True,
         )
         return result.method.message_count
 

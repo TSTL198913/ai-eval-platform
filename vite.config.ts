@@ -5,10 +5,11 @@ import { traeBadgePlugin } from 'vite-plugin-trae-solo-badge';
 import path from 'path'
 
 export default defineConfig({
-  root: './frontend',
+  root: path.resolve(__dirname, './frontend'),
   build: {
     sourcemap: 'hidden',
-    outDir: '../dist',
+    outDir: path.resolve(__dirname, './dist'),
+    emptyOutDir: true,
   },
   plugins: [
     react({

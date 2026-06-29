@@ -3,6 +3,7 @@ import threading
 import warnings
 from enum import Enum
 from inspect import isclass
+from queue import Queue
 from typing import Any, Protocol
 
 logger = logging.getLogger(__name__)
@@ -43,9 +44,29 @@ class EvaluatorFactory:
     _registry: dict[str, type[EvaluatorProtocol]] = {}
     _lock = threading.Lock()
 
+    _instance_pool: dict[str, Queue] = {}
+    _pool_lock = threading.Lock()
+    _max_pool_size = 10
+    _pool_enabled = True
+
     _qa_manager: QualityAssuranceManager | None = None
     _quality_gate_enabled: bool = False
     _quality_gate_level: QualityGateLevel = QualityGateLevel.NORMAL
+
+    @classmethod
+    def set_pool_size(cls, size: int):
+        """设置对象池最大容量"""
+        cls._max_pool_size = max(1, size)
+
+    @classmethod
+    def enable_pool(cls):
+        """启用对象池"""
+        cls._pool_enabled = True
+
+    @classmethod
+    def disable_pool(cls):
+        """禁用对象池（每次创建新实例）"""
+        cls._pool_enabled = False
 
     @classmethod
     def enable_quality_gate(cls, level: QualityGateLevel = QualityGateLevel.NORMAL):
@@ -75,7 +96,12 @@ class EvaluatorFactory:
                         f"评估器类必须继承自 BaseEvaluator，当前类: {func.__name__}, "
                         f"基类: {[base.__name__ for base in func.__bases__]}"
                     )
-                if not hasattr(func, "_do_evaluate"):
+                # 检查是否为抽象方法（使用 __abstractmethods__ 而非 hasattr，
+                # 因为 hasattr 对抽象方法也返回 True）
+                if (
+                    hasattr(func, "__abstractmethods__")
+                    and "_do_evaluate" in func.__abstractmethods__
+                ):
                     raise TypeError(f"评估器类必须实现 _do_evaluate 方法，当前类: {func.__name__}")
 
             with cls._lock:
@@ -97,18 +123,16 @@ class EvaluatorFactory:
         return decorator
 
     @classmethod
-    def get(cls, case_type: str, client: BaseLLMClient | None = None) -> EvaluatorProtocol:
-        """
-        🛡️ 获取评估器实例（纯净纯内存创建）
-        不在此处施加熔断拦截，确保评估器实例能顺利生成并启用内部的 Fallback 兜底策略。
-        """
+    def _create_evaluator(
+        cls, case_type: str, client: BaseLLMClient | None = None
+    ) -> EvaluatorProtocol:
+        """创建新的评估器实例"""
         with cls._lock:
             if case_type not in cls._registry:
                 available_types = list(cls._registry.keys())
                 raise DomainLogicError(f"类型 '{case_type}' 未找到。当前已注册: {available_types}")
             evaluator_cls = cls._registry[case_type]
 
-        # 弹性适配不同评估器的构造函数签名
         try:
             return evaluator_cls(client=client)
         except TypeError:
@@ -116,6 +140,46 @@ class EvaluatorFactory:
                 return evaluator_cls()
             except TypeError:
                 return evaluator_cls(client)
+
+    @classmethod
+    def get(cls, case_type: str, client: BaseLLMClient | None = None) -> EvaluatorProtocol:
+        """
+        🛡️ 获取评估器实例（支持对象池复用）
+        不在此处施加熔断拦截，确保评估器实例能顺利生成并启用内部的 Fallback 兜底策略。
+        """
+        if not cls._pool_enabled:
+            return cls._create_evaluator(case_type, client)
+
+        with cls._pool_lock:
+            if case_type not in cls._instance_pool:
+                cls._instance_pool[case_type] = Queue(maxsize=cls._max_pool_size)
+
+        pool = cls._instance_pool[case_type]
+
+        try:
+            evaluator = pool.get_nowait()
+            logger.debug(f"从对象池获取评估器: {case_type}")
+            return evaluator
+        except Exception:
+            evaluator = cls._create_evaluator(case_type, client)
+            logger.debug(f"创建新评估器实例: {case_type}")
+            return evaluator
+
+    @classmethod
+    def release(cls, case_type: str, evaluator: EvaluatorProtocol):
+        """
+        释放评估器实例回对象池
+        """
+        if not cls._pool_enabled:
+            return
+
+        pool = cls._instance_pool.get(case_type)
+        if pool:
+            try:
+                pool.put_nowait(evaluator)
+                logger.debug(f"评估器已归还对象池: {case_type}")
+            except Exception:
+                pass
 
     @classmethod
     def get_with_quality_check(

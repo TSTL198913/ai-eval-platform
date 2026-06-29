@@ -162,9 +162,9 @@ class TestFrontendBackendContract:
 
         # 前端期望的 status 值
         valid_statuses = {"passed", "failed", "error", "success"}
-        assert (
-            result["status"] in valid_statuses
-        ), f"status '{result['status']}' 不在有效值 {valid_statuses} 中"
+        assert result["status"] in valid_statuses, (
+            f"status '{result['status']}' 不在有效值 {valid_statuses} 中"
+        )
 
     def test_status_and_evaluation_status_different_meanings(self):
         """场景: status 与 evaluation_status 是不同字段，有不同含义"""

@@ -15,9 +15,15 @@ BACKEND_URL = os.getenv(
 WORKER_CONCURRENCY = int(os.getenv("CELERY_WORKER_CONCURRENCY", "4"))
 WORKER_PREFETCH_MULTIPLIER = int(os.getenv("CELERY_WORKER_PREFETCH_MULTIPLIER", "1"))
 
-# 任务超时配置
+# 任务超时配置（修复：soft_time_limit 必须小于 time_limit）
+TASK_SOFT_TIME_LIMIT = int(os.getenv("CELERY_TASK_SOFT_TIME_LIMIT", "45"))
 TASK_TIME_LIMIT = int(os.getenv("CELERY_TASK_TIME_LIMIT", "60"))
-TASK_SOFT_TIME_LIMIT = int(os.getenv("CELERY_TASK_SOFT_TIME_LIMIT", "240"))
+
+# 启动时验证配置正确性
+if TASK_SOFT_TIME_LIMIT >= TASK_TIME_LIMIT:
+    raise ValueError(
+        f"Celery配置错误：soft_time_limit({TASK_SOFT_TIME_LIMIT}) 必须 < time_limit({TASK_TIME_LIMIT})"
+    )
 
 # 任务重试策略配置
 TASK_MAX_RETRIES = int(os.getenv("CELERY_TASK_MAX_RETRIES", "3"))

@@ -134,9 +134,9 @@ class TestHighConcurrencyStress:
             concurrent.futures.wait(futures)
 
         # 验证：所有操作成功
-        assert (
-            results["save_success"] == num_operations
-        ), f"保存失败: 成功 {results['save_success']}, 失败 {results['save_error']}"
+        assert results["save_success"] == num_operations, (
+            f"保存失败: 成功 {results['save_success']}, 失败 {results['save_error']}"
+        )
 
         # 验证：平均延迟 ≤ 500ms
         avg_latency = statistics.mean(results["latencies"])

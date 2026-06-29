@@ -358,9 +358,9 @@ class TestRobustnessEvaluatorAlgorithmTests:
                 },
             )
             result = target.evaluate(request)
-            assert (
-                result.data["robustness_level"] == expected_level
-            ), f"score={score}, expected={expected_level}, actual={result.data['robustness_level']}"
+            assert result.data["robustness_level"] == expected_level, (
+                f"score={score}, expected={expected_level}, actual={result.data['robustness_level']}"
+            )
 
     def test_stability_with_zero_mean_returns_zero(self, target):
         """latency为0时应返回稳定性0分"""

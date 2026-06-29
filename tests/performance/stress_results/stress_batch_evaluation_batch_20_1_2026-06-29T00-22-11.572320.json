@@ -1,0 +1,18 @@
+{
+  "test_name": "batch_evaluation",
+  "scenario": "batch_20",
+  "concurrency": 1,
+  "duration_seconds": 31,
+  "total_requests": 140,
+  "successful_requests": 140,
+  "failed_requests": 0,
+  "error_rate": 0.0,
+  "avg_latency_ms": 4558.8565571427225,
+  "p50_latency_ms": 4509.322199999588,
+  "p95_latency_ms": 5136.9953299999,
+  "p99_latency_ms": 5290.96562599987,
+  "max_latency_ms": 5329.458199999863,
+  "throughput": 4.386444672795795,
+  "evaluator_distribution": {},
+  "timestamp": "2026-06-29T00:22:11.572320"
+}

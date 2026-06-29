@@ -40,6 +40,7 @@ try:
         HallucinationMetric,
         ToxicityMetric,
     )
+
     # from deepeval.test_case import LLMTestCase  # unused
 
     HAS_DEEPEVAL = True

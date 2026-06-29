@@ -8,7 +8,6 @@
 """
 
 import asyncio
-import json
 import logging
 import threading
 import time
@@ -87,6 +86,8 @@ class CircuitBreaker:
         config: CircuitBreakerConfig | None = None,
         redis_client: Any = None,
         persist_ttl: int = 3600,
+        auto_load_redis: bool = True,
+        sync_interval: float = 5.0,
     ):
         self.name = name
         self.config = config or CircuitBreakerConfig()
@@ -101,25 +102,74 @@ class CircuitBreaker:
         self._redis_client = redis_client
         self._persist_ttl = persist_ttl
         self._redis_key = f"{self.REDIS_KEY_PREFIX}{name}"
+        self._redis_lock_key = f"{self.REDIS_KEY_PREFIX}{name}:lock"
+        self._sync_interval = sync_interval
+        self._last_sync_time: float = 0.0
 
-        # 如果提供了 Redis 客户端，尝试从 Redis 恢复状态
-        if self._redis_client:
+        if self._redis_client and auto_load_redis:
             self._load_state_from_redis()
 
     @property
     def state(self) -> CircuitState:
-        """获取当前状态（线程安全）"""
+        """获取当前状态（线程安全，自动检查超时转换和 Redis 同步）"""
+        self._sync_state_from_redis()
+        self._check_timeout_transition()
+        with self._sync_lock:
+            return self._state
+
+    def _check_timeout_transition(self) -> CircuitState:
+        """检查超时并触发状态转换（仅在需要时调用）"""
         with self._sync_lock:
             if self._state == CircuitState.OPEN:
-                # 检查超时是否到达，到达则进入半开
                 if (
                     self._last_failure_time
                     and time.time() - self._last_failure_time >= self.config.timeout_seconds
                 ):
-                    # 自动转换状态
                     self._transition_to(CircuitState.HALF_OPEN)
                     return CircuitState.HALF_OPEN
             return self._state
+
+    def _sync_state_from_redis(self):
+        """定期从 Redis 同步状态（心跳同步机制）"""
+        if not self._redis_client:
+            return
+
+        try:
+            if not self._redis_client.is_connected:
+                return
+        except Exception:
+            return
+
+        now = time.time()
+        if now - self._last_sync_time < self._sync_interval:
+            return
+
+        self._last_sync_time = now
+        try:
+            state_data = self._redis_client.get_circuit_breaker_state(self.name)
+            if state_data:
+                with self._sync_lock:
+                    remote_state = CircuitState(state_data["state"])
+                    if remote_state != self._state:
+                        logger.info(
+                            f"CircuitBreaker [{self.name}] sync state from Redis: "
+                            f"{self._state.value} -> {remote_state.value}"
+                        )
+                        self._state = remote_state
+                        self._failure_count = state_data["failure_count"]
+                        self._success_count = state_data["success_count"]
+                        self._last_failure_time = state_data["last_failure_time"]
+                        self._half_open_calls = state_data["half_open_calls"]
+
+                        stats_data = state_data["stats"]
+                        self.stats.total_calls = stats_data["total_calls"]
+                        self.stats.successful_calls = stats_data["successful_calls"]
+                        self.stats.failed_calls = stats_data["failed_calls"]
+                        self.stats.rejected_calls = stats_data["rejected_calls"]
+                        self.stats.state_changes = stats_data["state_changes"]
+                        self.stats.last_state_change_time = stats_data["last_state_change_time"]
+        except Exception as e:
+            logger.debug(f"CircuitBreaker [{self.name}] failed to sync state from Redis: {e}")
 
     @property
     def is_closed(self) -> bool:
@@ -134,10 +184,15 @@ class CircuitBreaker:
         return self.state == CircuitState.HALF_OPEN
 
     def _record_success(self):
-        """记录成功调用"""
+        """记录成功调用（带 Redis 原子计数）"""
         with self._sync_lock:
             self.stats.successful_calls += 1
             self.stats.total_calls += 1
+
+            if self._redis_client:
+                self._redis_client.increment_success_count(self.name)
+                self._redis_client.reset_counts(self.name)
+
             self._failure_count = 0
 
             if self.state == CircuitState.HALF_OPEN:
@@ -146,13 +201,18 @@ class CircuitBreaker:
                     self._transition_to(CircuitState.CLOSED)
 
     def _record_failure(self):
-        """记录失败调用"""
+        """记录失败调用（带 Redis 原子计数）"""
         with self._sync_lock:
             self.stats.failed_calls += 1
             self.stats.total_calls += 1
             self._failure_count += 1
             self._success_count = 0
             self._last_failure_time = time.time()
+
+            if self._redis_client:
+                redis_failure_count = self._redis_client.increment_failure_count(self.name)
+                if redis_failure_count and isinstance(redis_failure_count, int):
+                    self._failure_count = max(self._failure_count, redis_failure_count)
 
             if self._state == CircuitState.CLOSED:
                 if self._failure_count >= self.config.failure_threshold:
@@ -161,29 +221,45 @@ class CircuitBreaker:
                 self._transition_to(CircuitState.OPEN)
 
     def _transition_to(self, new_state: CircuitState):
-        """状态转换"""
+        """状态转换（带分布式锁）"""
         if self._state == new_state:
             return
 
-        logger.warning(
-            f"CircuitBreaker [{self.name}] state transition: "
-            f"{self._state.value} -> {new_state.value}"
-        )
-        self._state = new_state
-        self.stats.state_changes += 1
-        self.stats.last_state_change_time = time.time()
+        acquired = False
+        try:
+            if self._redis_client:
+                acquired = self._redis_client.acquire_lock(self._redis_lock_key, timeout=5)
+                if not acquired:
+                    logger.warning(
+                        f"CircuitBreaker [{self.name}] failed to acquire lock, "
+                        f"state transition aborted: {self._state.value} -> {new_state.value}"
+                    )
+                    return
+            else:
+                acquired = True
 
-        # 重置计数器
-        if new_state == CircuitState.HALF_OPEN:
-            self._half_open_calls = 0
-            self._success_count = 0
-        elif new_state == CircuitState.CLOSED:
-            self._failure_count = 0
-            self._success_count = 0
+            logger.warning(
+                f"CircuitBreaker [{self.name}] state transition: "
+                f"{self._state.value} -> {new_state.value}"
+            )
+            self._state = new_state
+            self.stats.state_changes += 1
+            self.stats.last_state_change_time = time.time()
 
-        # 持久化状态到 Redis
-        if self._redis_client:
-            self._save_state_to_redis()
+            # 重置计数器
+            if new_state == CircuitState.HALF_OPEN:
+                self._half_open_calls = 0
+                self._success_count = 0
+            elif new_state == CircuitState.CLOSED:
+                self._failure_count = 0
+                self._success_count = 0
+
+            # 持久化状态到 Redis
+            if self._redis_client:
+                self._save_state_to_redis()
+        finally:
+            if acquired and self._redis_client:
+                self._redis_client.release_lock(self._redis_lock_key)
 
     def _save_state_to_redis(self):
         """将熔断器状态保存到 Redis"""
@@ -206,10 +282,10 @@ class CircuitBreaker:
                     "last_state_change_time": self.stats.last_state_change_time,
                 },
             }
-            self._redis_client.set(
-                self._redis_key,
-                json.dumps(state_data),
-                ex=self._persist_ttl,
+            self._redis_client.set_circuit_breaker_state(
+                self.name,
+                state_data,
+                ttl=self._persist_ttl,
             )
             logger.debug(f"CircuitBreaker [{self.name}] state saved to Redis")
         except Exception as e:
@@ -221,23 +297,24 @@ class CircuitBreaker:
             return
 
         try:
-            data = self._redis_client.get(self._redis_key)
-            if data:
-                state_data = json.loads(data)
-                self._state = CircuitState(state_data["state"])
-                self._failure_count = state_data["failure_count"]
-                self._success_count = state_data["success_count"]
-                self._last_failure_time = state_data["last_failure_time"]
-                self._half_open_calls = state_data["half_open_calls"]
+            state_data = self._redis_client.get_circuit_breaker_state(self.name)
+            if state_data:
+                with self._sync_lock:
+                    self._state = CircuitState(state_data["state"])
+                    self._failure_count = state_data["failure_count"]
+                    self._success_count = state_data["success_count"]
+                    self._last_failure_time = state_data["last_failure_time"]
+                    self._half_open_calls = state_data["half_open_calls"]
 
-                stats_data = state_data["stats"]
-                self.stats.total_calls = stats_data["total_calls"]
-                self.stats.successful_calls = stats_data["successful_calls"]
-                self.stats.failed_calls = stats_data["failed_calls"]
-                self.stats.rejected_calls = stats_data["rejected_calls"]
-                self.stats.state_changes = stats_data["state_changes"]
-                self.stats.last_state_change_time = stats_data["last_state_change_time"]
+                    stats_data = state_data["stats"]
+                    self.stats.total_calls = stats_data["total_calls"]
+                    self.stats.successful_calls = stats_data["successful_calls"]
+                    self.stats.failed_calls = stats_data["failed_calls"]
+                    self.stats.rejected_calls = stats_data["rejected_calls"]
+                    self.stats.state_changes = stats_data["state_changes"]
+                    self.stats.last_state_change_time = stats_data["last_state_change_time"]
 
+                self._last_sync_time = time.time()
                 logger.info(
                     f"CircuitBreaker [{self.name}] state loaded from Redis: {self._state.value}"
                 )
@@ -258,7 +335,8 @@ class CircuitBreaker:
         Raises:
             CircuitBreakerError: 熔断器打开时
         """
-        current_state = self.state
+        # 修复：在调用前主动检查超时转换，而非每次读取属性时检查
+        current_state = self._check_timeout_transition()
 
         if current_state == CircuitState.OPEN:
             self.stats.rejected_calls += 1
@@ -333,7 +411,7 @@ class CircuitBreaker:
 
             # 重置后保存状态到 Redis
             if self._redis_client:
-                self._save_state_to_redis()
+                self._redis_client.delete_circuit_breaker_state(self.name)
 
     def get_stats(self) -> dict:
         """获取统计信息"""
@@ -387,14 +465,16 @@ class CircuitBreakerRegistry:
     熔断器注册中心
 
     管理多个熔断器，方便统一监控和配置
+    支持 Redis 持久化，实现多实例间状态共享
     """
 
     _instance: Optional["CircuitBreakerRegistry"] = None
     _instance_lock = threading.Lock()
 
-    def __init__(self):
+    def __init__(self, redis_client: Any = None):
         self._breakers: dict[str, CircuitBreaker] = {}
         self._lock = asyncio.Lock()
+        self._redis_client = redis_client
 
     @classmethod
     def get_instance(cls) -> "CircuitBreakerRegistry":
@@ -412,7 +492,7 @@ class CircuitBreakerRegistry:
     ) -> CircuitBreaker:
         """获取或创建熔断器"""
         if name not in self._breakers:
-            self._breakers[name] = CircuitBreaker(name, config)
+            self._breakers[name] = CircuitBreaker(name, config, redis_client=self._redis_client)
         return self._breakers[name]
 
     def get(self, name: str) -> CircuitBreaker | None:
@@ -427,6 +507,41 @@ class CircuitBreakerRegistry:
         """获取所有熔断器统计"""
         return {name: cb.get_stats() for name, cb in self._breakers.items()}
 
+    def health_check(self) -> dict:
+        """健康检查"""
+        result = {"redis_connected": self._redis_client.is_connected}
+        for name, cb in self._breakers.items():
+            result[name] = {
+                "state": cb.state.value,
+                "is_open": cb.is_open,
+            }
+        return result
+
 
 # 全局注册中心 (兼容旧代码)
-global_registry = CircuitBreakerRegistry()
+# 使用完全延迟初始化，仅在首次访问时创建
+_global_registry: Optional["CircuitBreakerRegistry"] = None
+
+
+def get_global_registry() -> CircuitBreakerRegistry:
+    """获取全局熔断器注册中心（延迟初始化）"""
+    global _global_registry
+    if _global_registry is None:
+        try:
+            from .redis_cache import redis_cache
+
+            _global_registry = CircuitBreakerRegistry(redis_client=redis_cache)
+        except Exception:
+            _global_registry = CircuitBreakerRegistry()
+    return _global_registry
+
+
+# 兼容旧代码 - 使用代理对象实现完全延迟初始化
+class _GlobalRegistryProxy:
+    """全局注册中心代理，实现完全延迟初始化"""
+
+    def __getattr__(self, name):
+        return getattr(get_global_registry(), name)
+
+
+global_registry = _GlobalRegistryProxy()

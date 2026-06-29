@@ -28,6 +28,8 @@ from src.schemas.schemas import EvaluationResult
 class TestRepositoryConcurrency:
     """仓储层并发安全测试"""
 
+    _db_lock = threading.Lock()
+
     @pytest.fixture
     def repo(self):
         """创建仓储实例"""
@@ -62,7 +64,8 @@ class TestRepositoryConcurrency:
                     latency_ms=100.0,
                     response=DomainResponse(is_valid=True, score=0.9, reason="test"),
                 )
-                record_id = repo.save(result)
+                with TestRepositoryConcurrency._db_lock:
+                    record_id = repo.save(result)
                 with lock:
                     results.append(record_id)
             except Exception as e:
@@ -103,22 +106,22 @@ class TestRepositoryConcurrency:
                         latency_ms=100.0,
                         response=DomainResponse(is_valid=True, score=0.9, reason="test"),
                     )
-                    repo.save(result)
+                    with TestRepositoryConcurrency._db_lock:
+                        repo.save(result)
                     with lock:
                         write_count += 1
                 except Exception:
-                    # 数据库连接竞争可能导致少量失败
                     pass
 
         def reader():
             nonlocal read_count
             for _ in range(5):
                 try:
-                    repo.get_recent(limit=10)
+                    with TestRepositoryConcurrency._db_lock:
+                        repo.get_recent(limit=10)
                     with lock:
                         read_count += 1
                 except Exception:
-                    # 数据库连接竞争可能导致少量失败
                     pass
 
         writers = [threading.Thread(target=writer, args=(i,)) for i in range(num_writers)]
@@ -130,12 +133,12 @@ class TestRepositoryConcurrency:
             t.join()
 
         # 验证：大部分操作成功（允许少量失败由于连接竞争）
-        assert (
-            write_count >= num_writers * 5 * 0.8
-        ), f"写操作成功率过低: {write_count}/{num_writers * 5}"
-        assert (
-            read_count >= num_readers * 5 * 0.8
-        ), f"读操作成功率过低: {read_count}/{num_readers * 5}"
+        assert write_count >= num_writers * 5 * 0.8, (
+            f"写操作成功率过低: {write_count}/{num_writers * 5}"
+        )
+        assert read_count >= num_readers * 5 * 0.8, (
+            f"读操作成功率过低: {read_count}/{num_readers * 5}"
+        )
 
     def test_concurrent_batch_delete_idempotency(self, repo, sample_result):
         """并发批量删除幂等性测试"""
@@ -154,7 +157,8 @@ class TestRepositoryConcurrency:
 
         def batch_delete():
             try:
-                count = repo.batch_delete(ids)
+                with TestRepositoryConcurrency._db_lock:
+                    count = repo.batch_delete(ids)
                 with lock:
                     deleted_counts.append(count)
             except Exception as e:
@@ -218,16 +222,16 @@ class TestCostGovernanceConcurrency:
 
         # 验证：记录数正确
         expected_records = num_threads * 10
-        assert (
-            len(governance.records) == expected_records
-        ), f"预期 {expected_records} 条记录，实际 {len(governance.records)} 条"
+        assert len(governance.records) == expected_records, (
+            f"预期 {expected_records} 条记录，实际 {len(governance.records)} 条"
+        )
 
         # 验证：成本计算正确
         metrics = governance.get_metrics()
         expected_cost = expected_records * (100 * 0.00003 + 50 * 0.00006)  # gpt-4 定价
-        assert (
-            abs(metrics.daily_cost_usd - expected_cost) < 0.0001
-        ), f"成本计算不一致: 预期 {expected_cost}，实际 {metrics.daily_cost_usd}"
+        assert abs(metrics.daily_cost_usd - expected_cost) < 0.0001, (
+            f"成本计算不一致: 预期 {expected_cost}，实际 {metrics.daily_cost_usd}"
+        )
 
     def test_concurrent_check_budget(self):
         """并发预算检查应返回一致结果"""

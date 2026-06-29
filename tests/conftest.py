@@ -278,6 +278,18 @@ def reset_evaluator_registry():
     EF._discovered = False
 
 
+@pytest.fixture(autouse=True)
+def reset_circuit_breaker_registry():
+    """
+    重置熔断器注册中心。
+    解决测试隔离问题：全局熔断器状态在测试之间共享。
+    """
+    import src.distributed.circuit_breaker as cb_module
+
+    # 重置全局注册中心
+    cb_module._global_registry = None
+
+
 # ========================================
 # 真实Redis测试支持
 # ========================================

@@ -101,6 +101,7 @@ class EvaluatorVersionManager:
         config: dict[str, Any],
         changelog: str = "",
         created_by: str = "system",
+        calibration_threshold: float = 5.0,  # 支持自定义校准阈值
     ) -> EvaluatorVersion:
         """注册新的评估器版本"""
         import uuid
@@ -120,6 +121,7 @@ class EvaluatorVersionManager:
             code_hash=code_hash,
             config_snapshot=config,
             created_by=created_by,
+            calibration_threshold=calibration_threshold,  # 传递自定义阈值
         )
 
         self._versions[version_id] = evaluator_version

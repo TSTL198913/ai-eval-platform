@@ -127,6 +127,8 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["B017"]  # 允许测试中使用 pytest.raises(Exception)
 "tests/unit/evaluator/test_evaluator_factory.py" = ["F811"]  # 测试中故意重复定义类
+"tests/performance/*.py" = ["B023", "B007", "F841"]  # 性能测试中循环变量绑定是有意设计的
+"tests/unit/test_evaluator_factory.py" = ["F811"]  # 测试中故意重复定义类
 
 [tool.ruff.lint.isort]
 known-first-party = ["src"]

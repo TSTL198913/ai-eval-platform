@@ -130,14 +130,17 @@ class BaseQueue(ABC):
 
 class RedisListQueue(BaseQueue):
     """
-    基于 Redis List 的消息队列
+    基于 Redis List 的消息队列（修复：可靠消息投递）
 
     适用于简单的任务队列场景，部署简单。
     优先级通过分队列实现。
+
+    修复：使用 BRPOPLPUSH 实现可靠消息投递，避免消息丢失。
     """
 
     PRIORITY_QUEUE_PREFIX = "queue:priority:"
     DLQ_PREFIX = "queue:dlq:"
+    PROCESSING_PREFIX = "queue:processing:"  # 处理中队列（新增）
 
     def __init__(
         self,
@@ -150,6 +153,10 @@ class RedisListQueue(BaseQueue):
     def _get_priority_key(self, priority: MessagePriority) -> str:
         """获取优先级队列键"""
         return f"{self.PRIORITY_QUEUE_PREFIX}{self.config.queue_name}:{priority.value}"
+
+    def _get_processing_key(self) -> str:
+        """获取处理中队列键（新增）"""
+        return f"{self.PROCESSING_PREFIX}{self.config.queue_name}"
 
     async def publish(self, message: QueueMessage) -> bool:
         """发布消息到对应优先级队列"""
@@ -172,25 +179,39 @@ class RedisListQueue(BaseQueue):
             return False
 
     async def consume(self, callback: Callable[[QueueMessage], Any]) -> None:
-        """从最高优先级队列开始消费"""
+        """从最高优先级队列开始消费（修复：可靠消息投递）
+
+        使用 BRPOPLPUSH 将消息从优先级队列转移到处理中队列，
+        确保消息不会因 Worker 崩溃而丢失。
+        """
         priorities = sorted([p.value for p in MessagePriority], reverse=True)
+        processing_key = self._get_processing_key()
 
         for priority in priorities:
             priority_key = self._get_priority_key(MessagePriority(priority))
-            result = await asyncio.to_thread(self.redis.rpop, priority_key)
+
+            # 修复：使用 BRPOPLPUSH 而非 RPOP
+            # 将消息从优先级队列移到处理中队列，处理完成后再删除
+            result = await asyncio.to_thread(
+                self.redis.brpoplpush,
+                priority_key,
+                processing_key,
+                timeout=1,  # 1秒超时，避免永久阻塞
+            )
 
             if result:
                 try:
                     data = json.loads(result)
                     message = QueueMessage.from_dict(data)
 
-                    logger.debug(f"Consuming message {message.message_id}")
+                    logger.debug(f"Consuming message {message.message_id} from {priority_key}")
 
                     if asyncio.iscoroutinefunction(callback):
                         await callback(message)
                     else:
                         callback(message)
 
+                    # 处理成功后，从处理中队列删除消息（真正的 ACK）
                     await self.ack(message)
                     return
                 except Exception as e:
@@ -198,6 +219,7 @@ class RedisListQueue(BaseQueue):
                     try:
                         data = json.loads(result)
                         message = QueueMessage.from_dict(data)
+                        # 处理失败，将消息从处理中队列移回优先级队列或发送到 DLQ
                         await self.nack(message, requeue=True)
                     except Exception as requeue_err:
                         logger.error(f"Failed to requeue message: {requeue_err}")
@@ -206,11 +228,24 @@ class RedisListQueue(BaseQueue):
         await asyncio.sleep(0.1)
 
     async def ack(self, message: QueueMessage) -> None:
-        """ACK 消息（Redis List 模式下，rpop 已自动移除）"""
-        logger.debug(f"ACK message {message.message_id}")
+        """ACK 消息（修复：从处理中队列删除已处理的消息）"""
+        processing_key = self._get_processing_key()
+        # 从处理中队列删除该消息
+        await asyncio.to_thread(
+            self.redis.lrem,
+            processing_key,
+            1,  # 只删除一个匹配项
+            json.dumps(message.to_dict()),
+        )
+        logger.debug(f"ACK message {message.message_id}, removed from processing queue")
 
     async def nack(self, message: QueueMessage, requeue: bool = True) -> None:
-        """NACK 消息"""
+        """NACK 消息（修复：从处理中队列移除并重新投递）"""
+        processing_key = self._get_processing_key()
+
+        # 从处理中队列删除该消息
+        await asyncio.to_thread(self.redis.lrem, processing_key, 1, json.dumps(message.to_dict()))
+
         if requeue:
             message.retry_count += 1
             await self.publish(message)

@@ -1,0 +1,26 @@
+{
+  "test_name": "mixed_evaluator",
+  "scenario": "sync_evaluate",
+  "concurrency": 10,
+  "duration_seconds": 34,
+  "total_requests": 81,
+  "successful_requests": 81,
+  "failed_requests": 0,
+  "error_rate": 0.0,
+  "avg_latency_ms": 4136.4078555556,
+  "p50_latency_ms": 4074.0968000000066,
+  "p95_latency_ms": 6265.077200000633,
+  "p99_latency_ms": 7380.134060000273,
+  "max_latency_ms": 7380.359099999623,
+  "throughput": 2.3816606904820863,
+  "evaluator_distribution": {
+    "security": 26,
+    "general": 17,
+    "grammar": 10,
+    "qa": 9,
+    "code": 5,
+    "summary": 7,
+    "semantic": 7
+  },
+  "timestamp": "2026-06-29T00:15:54.829310"
+}

@@ -43,9 +43,17 @@ TASK_RETRY_BACKOFF_MAX = int(os.environ.get("CELERY_TASK_RETRY_BACKOFF_MAX", "60
 TASK_RETRY_JITTER = os.environ.get("CELERY_TASK_RETRY_JITTER", "true").lower() == "true"
 TASK_DEFAULT_RETRY_DELAY = int(os.environ.get("CELERY_TASK_DEFAULT_RETRY_DELAY", "3"))
 
-# 任务超时配置
+# 任务超时配置（修复：soft_time_limit 必须小于 time_limit）
+# 软超时：给任务优雅退出的机会（抛出 SoftTimeLimitExceeded）
+# 硬超时：强制终止任务进程
+TASK_SOFT_TIME_LIMIT = int(os.environ.get("CELERY_TASK_SOFT_TIME_LIMIT", "45"))
 TASK_TIME_LIMIT = int(os.environ.get("CELERY_TASK_TIME_LIMIT", "60"))
-TASK_SOFT_TIME_LIMIT = int(os.environ.get("CELERY_TASK_SOFT_TIME_LIMIT", "240"))
+
+# 启动时验证配置正确性
+if TASK_SOFT_TIME_LIMIT >= TASK_TIME_LIMIT:
+    raise ValueError(
+        f"Celery配置错误：soft_time_limit({TASK_SOFT_TIME_LIMIT}) 必须 < time_limit({TASK_TIME_LIMIT})"
+    )
 
 _METRICS: dict[str, Any] | None = None
 _TASK = None
@@ -92,7 +100,7 @@ def _get_celery_app():
 
 
 class EvaluationBufferService:
-    """负责评测结果缓冲与批量落盘。
+    """负责评测结果缓冲与批量落盘（修复：跨进程状态追踪）
 
     优化特性：
     - 自适应批量大小：根据系统负载动态调整批量大小
@@ -100,7 +108,10 @@ class EvaluationBufferService:
     - 线程安全：使用锁保护共享状态
     - Session复用：支持外部传入session进行复用
     - 异常恢复：flush失败时自动恢复缓冲区数据
+    - Redis分布式计数：跨Worker进程的缓冲区状态监控（新增）
     """
+
+    REDIS_BUFFER_COUNTER_KEY = "eval:buffer:total_pending"
 
     def __init__(
         self,
@@ -110,6 +121,7 @@ class EvaluationBufferService:
         min_batch_size: int = BUFFER_MIN_BATCH_SIZE,
         max_batch_size: int = BUFFER_MAX_BATCH_SIZE,
         priority_enabled: bool = BUFFER_PRIORITY_ENABLED,
+        redis_client: Any = None,  # 新增：可选的Redis客户端
     ):
         self.buffer: list[EvaluationResultModel] = []
         self.priority_buffer: list[EvaluationResultModel] = []  # 高优先级缓冲
@@ -131,6 +143,9 @@ class EvaluationBufferService:
         # 统计信息
         self._total_flush_count = 0
         self._total_flush_latency = 0.0
+        # Redis分布式计数（新增）
+        self._redis_client = redis_client
+        self._worker_id = f"worker-{threading.get_ident()}-{time.time()}"
 
         if not IS_TESTING:
             atexit.register(self._atexit_flush)
@@ -187,7 +202,7 @@ class EvaluationBufferService:
                 self._reusable_session = None
 
     def add(self, item: EvaluationResultModel, priority: bool = False) -> int:
-        """添加记录到缓冲区
+        """添加记录到缓冲区（修复：同时更新Redis分布式计数器）
 
         Args:
             item: 评测结果模型
@@ -200,7 +215,16 @@ class EvaluationBufferService:
             else:
                 self.buffer.append(item)
                 self._maybe_time_based_flush(priority_buffer=False)
-            return len(self.buffer) + len(self.priority_buffer)
+            count = len(self.buffer) + len(self.priority_buffer)
+
+        # 新增：更新Redis分布式计数器（在锁外执行，避免阻塞）
+        if self._redis_client:
+            try:
+                self._redis_client.incr(self.REDIS_BUFFER_COUNTER_KEY)
+            except Exception as e:
+                logger.debug(f"Failed to update Redis buffer counter: {e}")
+
+        return count
 
     def _maybe_time_based_flush(self, priority_buffer: bool = False):
         """检查是否需要基于时间触发flush
@@ -293,7 +317,7 @@ class EvaluationBufferService:
         return count
 
     def flush(self, db_session=None) -> int | None:
-        """Flush所有缓冲区（普通缓冲区和优先级缓冲区）
+        """Flush所有缓冲区（修复：同时更新Redis分布式计数器）
 
         Args:
             db_session: 可选的外部数据库session，用于session复用
@@ -305,9 +329,12 @@ class EvaluationBufferService:
             - 支持外部传入session实现session复用
             - flush失败时会自动恢复缓冲区数据（异常恢复机制）
             - 使用锁保护缓冲区操作，避免竞态条件
+            - 同步更新Redis分布式计数器（新增）
         """
         batch = None
         priority_batch = None
+        flush_count = 0
+
         # 在锁内取出数据并清空缓冲区
         with self._lock:
             if not self.buffer and not self.priority_buffer:
@@ -315,6 +342,7 @@ class EvaluationBufferService:
                 return None
             batch = list(self.buffer)
             priority_batch = list(self.priority_buffer)
+            flush_count = len(batch) + len(priority_batch)
             self.buffer = []
             self.priority_buffer = []
             self.last_flush_time = time.time()
@@ -341,6 +369,14 @@ class EvaluationBufferService:
                 self._total_flush_count += 1
                 self._total_flush_latency += time.time() - flush_start
                 logger.info(f"成功 flush {total_count} 条记录到数据库")
+
+                # 新增：更新Redis分布式计数器（减少flush的记录数）
+                if self._redis_client and flush_count > 0:
+                    try:
+                        self._redis_client.decrby(self.REDIS_BUFFER_COUNTER_KEY, flush_count)
+                    except Exception as e:
+                        logger.debug(f"Failed to update Redis buffer counter: {e}")
+
             except Exception as e:
                 logger.error(f"flush 失败，回滚并恢复缓冲区: {e}")
                 if db_session:

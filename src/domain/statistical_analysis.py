@@ -188,8 +188,8 @@ class StatisticalSignificanceAnalyzer:
         ci_lower = (mean_b - mean_a) - t_crit * se
         ci_upper = (mean_b - mean_a) + t_crit * se
 
-        # 判断显著性
-        is_significant = p_value < significance_level
+        # 判断显著性（转换为 Python 原生 bool，避免 numpy.bool_ 类型问题）
+        is_significant = bool(p_value < significance_level)
 
         # 确定赢家
         if is_significant:

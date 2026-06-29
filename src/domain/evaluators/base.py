@@ -13,6 +13,7 @@ from src.distributed.circuit_breaker import (
     CircuitBreakerError,
     global_registry,
 )
+from src.domain.evaluators.strategies.score_parsing import DEFAULT_PARSER
 from src.exceptions import BasePlatformError
 from src.schemas.evaluation import DomainResponse, EvaluationSchema
 
@@ -220,26 +221,18 @@ class BaseEvaluator(ABC):
     # ===================== 文本/数字全防御盾牌（DRY 沉淀） =====================
 
     def safe_parse_score(self, llm_output: str) -> float | None:
-        """【通用连续型数字解析盾牌】全系统复用，精准拦截各类 Prompt 干扰和标点刺客"""
-        if not llm_output:
-            return None
-        cleaned = re.sub(
-            r"(问题\d+|答案\d+|case\d+|Case\d+|第\d+句|第\d+个|文本\d+)", "", llm_output
-        )
-        cleaned_end = cleaned.strip().rstrip(".。，, ")
-        match = re.search(r"(\d+\.?\d*)$", cleaned_end)
-        if not match:
-            match = re.search(r"(\d+\.?\d*)", cleaned)
-        if match:
-            try:
-                score = float(match.group(1))
-                if score > 1.0:
-                    score = score / 100.0  # 自动兼容百分制回退
-                if 0.0 <= score <= 1.0:
-                    return score
-            except (ValueError, TypeError):
-                return None
+        """【通用连续型数字解析盾牌】全系统复用，精准拦截各类 Prompt 干扰和标点刺客
+
+        2026工业级标准：支持策略链解析，包括数字提取、语义映射、等级解析、关键词降级
+        """
+        result = DEFAULT_PARSER.parse(llm_output)
+        if result is not None:
+            return result.score
         return None
+
+    def safe_parse_score_with_ci(self, llm_output: str) -> dict | None:
+        """解析评分并返回置信区间（2026工业级标准）"""
+        return DEFAULT_PARSER.parse_with_ci(llm_output)
 
     def safe_parse_category(self, llm_output: str, allowed_categories: list[str]) -> str | None:
         """【通用离散型分类解析盾牌】全系统复用，专治话痨大模型的前言后记"""

@@ -105,9 +105,9 @@ class TestLongRunningStability:
 
         # 验证：无严重错误类型
         for error_type, count in results["error_types"].items():
-            assert (
-                count < results["total_requests"] * 0.05
-            ), f"错误类型 '{error_type}' 出现过多: {count} 次"
+            assert count < results["total_requests"] * 0.05, (
+                f"错误类型 '{error_type}' 出现过多: {count} 次"
+            )
 
         print(
             f"长时间运行测试结果: 总请求 {results['total_requests']}, "
@@ -209,9 +209,9 @@ class TestResourceLeakDetection:
         final_count = self._get_active_connections()
 
         # 验证：连接数未显著增加（允许少量波动）
-        assert (
-            final_count <= initial_count + 5
-        ), f"可能存在连接泄漏: 初始 {initial_count}, 最终 {final_count}"
+        assert final_count <= initial_count + 5, (
+            f"可能存在连接泄漏: 初始 {initial_count}, 最终 {final_count}"
+        )
 
     def _get_active_connections(self):
         """获取活跃连接数"""

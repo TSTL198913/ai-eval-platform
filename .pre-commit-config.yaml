@@ -8,7 +8,7 @@ repos:
   # Ruff - 代码检查和修复（比 black + isort + flake8 更快）
   # -------------------------------------------------------------------------
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.9
+    rev: v0.15.17
     hooks:
       - id: ruff
         name: Ruff Check & Fix

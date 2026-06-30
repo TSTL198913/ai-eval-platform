@@ -284,7 +284,7 @@ def _get_database_url() -> str:
 
 
 def _create_engine() -> Engine:
-    """延迟创建引擎函数"""
+    """延迟创建引擎函数 - 支持自动降级到SQLite"""
     database_url = _get_database_url()
     config = get_pool_config()
 
@@ -297,16 +297,26 @@ def _create_engine() -> Engine:
             max_overflow=10,
         )
     else:
-        return create_engine(
-            database_url,
-            poolclass=QueuePool,
-            pool_size=config.pool_size,
-            max_overflow=config.max_overflow,
-            pool_timeout=config.pool_timeout,
-            pool_recycle=config.pool_recycle,
-            pool_pre_ping=config.pool_pre_ping,
-            pool_use_lifo=config.pool_use_lifo,
-        )
+        try:
+            return create_engine(
+                database_url,
+                poolclass=QueuePool,
+                pool_size=config.pool_size,
+                max_overflow=config.max_overflow,
+                pool_timeout=config.pool_timeout,
+                pool_recycle=config.pool_recycle,
+                pool_pre_ping=config.pool_pre_ping,
+                pool_use_lifo=config.pool_use_lifo,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to create PostgreSQL engine: {e}. Falling back to SQLite.")
+            return create_engine(
+                "sqlite:///./fallback.db?check_same_thread=False",
+                connect_args={"check_same_thread": False},
+                poolclass=QueuePool,
+                pool_size=5,
+                max_overflow=10,
+            )
 
 
 # 使用惰性初始化模式，避免模块导入时创建引擎

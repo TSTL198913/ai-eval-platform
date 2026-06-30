@@ -122,9 +122,9 @@ jobs:
           pip install pytest pytest-asyncio httpx
 
       - name: Run integration tests
-        env:
-          TESTING: 1
         run: |
+          export TESTING=1
+          export DATABASE_URL=sqlite:///./test.db?check_same_thread=False
           pytest tests/integration/ -v --tb=short || true  # [门禁已注释] 暂不强制失败
 
   # =====================================================================
@@ -170,9 +170,9 @@ jobs:
           cd frontend && npx playwright install --with-deps chromium
 
       - name: Start backend server
-        env:
-          TESTING: 1
         run: |
+          export TESTING=1
+          export DATABASE_URL=sqlite:///./test.db?check_same_thread=False
           nohup python -m uvicorn src.api.server:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
           sleep 10
           curl -f http://localhost:8000/health || (echo "Backend health check failed" && cat backend.log && exit 1)

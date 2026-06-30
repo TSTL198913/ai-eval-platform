@@ -460,18 +460,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-      toxiproxy:
-        image: shopify/toxiproxy:2.4.0
-        ports:
-          - 8474:8474
-          - 8475:8475
-        options: >-
-          --health-cmd "curl -s http://localhost:8474/version"
-          --health-interval 15s
-          --health-timeout 10s
-          --health-retries 3
-        env:
-          TOXIPROXY_LOG_LEVEL: info
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -485,7 +473,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install pytest httpx toxiproxy
+          pip install pytest httpx
 
       - name: Wait for services to be ready
         run: |

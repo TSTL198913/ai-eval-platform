@@ -1,94 +1,78 @@
 #!/bin/bash
-# =====================================================================
-# AI Evaluation Platform - 生产环境部署脚本
-# 架构师最佳实践：
-# 1. 不在服务器上构建镜像，只拉取预构建镜像
-# 2. 使用 docker compose 无缝替换实现零停机更新
-# 3. 配置滚动更新策略
-# =====================================================================
-
 set -e
 
-# 配置变量
-DOCKER_REGISTRY="${DOCKER_REGISTRY:-ghcr.io/tstl198913}"
-IMAGE_TAG="${IMAGE_TAG:-latest}"
-COMPOSE_FILE="docker-compose.prod.yml"
-ENV_FILE=".env.prod"
-
 echo "=============================================="
-echo "  AI Evaluation Platform - 生产部署"
+echo "AI-Eval-Pro Production Deployment"
 echo "=============================================="
 
-# 1. 检查环境变量文件
-if [ -f "$ENV_FILE" ]; then
-    echo "✅ 加载环境变量文件: $ENV_FILE"
-    export $(cat "$ENV_FILE" | grep -v '^#' | xargs)
+APP_DIR="/opt/ai-eval-platform"
+REPO_URL="https://github.com/TSTL198913/ai-eval-platform.git"
+BRANCH="develop_06"
+
+echo ""
+echo "[1/6] 准备部署目录..."
+mkdir -p $APP_DIR
+
+echo ""
+echo "[2/6] 克隆/更新代码..."
+if [ -d "$APP_DIR/.git" ]; then
+    cd $APP_DIR
+    git fetch origin
+    git checkout $BRANCH
+    git pull origin $BRANCH
 else
-    echo "⚠️ 未找到环境变量文件: $ENV_FILE，使用默认配置"
-fi
-
-# 2. 拉取最新镜像（不在服务器构建）
-echo ""
-echo "[步骤 1/4] 拉取预构建镜像..."
-echo "  后端镜像: ${DOCKER_REGISTRY}/ai-eval-platform:${IMAGE_TAG}"
-docker compose -f "$COMPOSE_FILE" pull api worker
-echo "  前端镜像: ${DOCKER_REGISTRY}/ai-eval-platform:${IMAGE_TAG}-frontend"
-docker pull "${DOCKER_REGISTRY}/ai-eval-platform:${IMAGE_TAG}-frontend" || true
-
-# 3. 备份当前配置（用于回滚）
-echo ""
-echo "[步骤 2/4] 备份当前配置..."
-mkdir -p deploy_backups
-TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-cp "$COMPOSE_FILE" "deploy_backups/docker-compose.backup.${TIMESTAMP}.yml"
-echo "  备份文件: deploy_backups/docker-compose.backup.${TIMESTAMP}.yml"
-
-# 4. 零停机更新（使用 --remove-orphans 清理旧容器）
-echo ""
-echo "[步骤 3/4] 执行零停机部署更新..."
-docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
-
-# 5. 验证部署状态
-echo ""
-echo "[步骤 4/4] 部署状态验证"
-echo "=============================================="
-
-echo ""
-echo "📋 容器状态:"
-docker compose -f "$COMPOSE_FILE" ps
-
-echo ""
-echo "⏳ 等待服务启动..."
-sleep 15
-
-echo ""
-echo "🔍 健康检查:"
-
-# API健康检查
-if curl -s -f http://localhost:8000/health > /dev/null; then
-    echo "✅ API 服务健康检查通过"
-else
-    echo "❌ API 服务健康检查失败"
-    echo "📝 查看日志: docker compose -f $COMPOSE_FILE logs api"
-fi
-
-# Frontend健康检查
-if curl -s -f http://localhost/health > /dev/null; then
-    echo "✅ Frontend 服务健康检查通过"
-else
-    echo "⚠️ Frontend 服务可能未就绪（检查nginx配置）"
+    git clone -b $BRANCH $REPO_URL $APP_DIR
+    cd $APP_DIR
 fi
 
 echo ""
-echo "🎉 部署完成！"
+echo "[3/6] 配置环境变量..."
+if [ ! -f ".env.prod" ]; then
+    cp .env.prod.example .env.prod
+    echo "DATABASE_URL=postgresql://eval:eval123@postgres:5432/ai_eval" > .env.prod
+    echo "REDIS_URL=redis://redis:6379/0" >> .env.prod
+    echo "RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672//" >> .env.prod
+    echo "CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//" >> .env.prod
+    echo "CELERY_RESULT_BACKEND=redis://redis:6379/0" >> .env.prod
+    echo "API_HOST=0.0.0.0" >> .env.prod
+    echo "API_PORT=8000" >> .env.prod
+    echo "DEBUG=false" >> .env.prod
+    echo "LOG_LEVEL=INFO" >> .env.prod
+    echo "LLM_PROVIDER=deepseek" >> .env.prod
+    echo "DEEPSEEK_API_KEY=sk-999e073bd5204fb6893fa3255f520fd6" >> .env.prod
+fi
+
 echo ""
-echo "📊 服务访问地址:"
-echo "  - 前端: http://localhost"
-echo "  - API: http://localhost:8000"
-echo "  - RabbitMQ: http://localhost:15672"
-echo "  - Prometheus: http://localhost:9090 (如果启用监控)"
-echo "  - Grafana: http://localhost:3000 (如果启用监控)"
+echo "[4/6] 停止旧服务..."
+docker-compose -f docker-compose.prod.yml down 2>/dev/null || true
+
 echo ""
-echo "🔄 回滚命令:"
-echo "  docker compose -f $COMPOSE_FILE down"
-echo "  docker compose -f deploy_backups/docker-compose.backup.${TIMESTAMP}.yml up -d"
+echo "[5/6] 启动生产环境服务..."
+docker-compose -f docker-compose.prod.yml up -d
+
+echo ""
+echo "[6/6] 等待服务启动并验证..."
+echo "等待基础设施启动..."
+sleep 30
+
+echo ""
+echo "检查容器状态..."
+docker ps
+
+echo ""
+echo "等待API启动..."
+sleep 20
+
+echo ""
+echo "健康检查..."
+curl -s http://localhost:8000/health || echo "API健康检查失败"
+
+echo ""
+echo "=============================================="
+echo "部署完成！"
+echo "=============================================="
+echo ""
+echo "服务地址:"
+echo "  API: http://192.168.30.134:8000"
+echo "  前端: http://192.168.30.134"
+echo "  RabbitMQ管理: http://192.168.30.134:15672"

@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 export default defineConfig({
-  root: '.',
+  root: __dirname,
   plugins: [react()],
   resolve: {
     alias: {
@@ -11,7 +11,10 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: './dist',
+    outDir: path.resolve(__dirname, './dist'),
+    rollupOptions: {
+      input: path.resolve(__dirname, './index.html'),
+    },
   },
   server: {
     port: 5173,

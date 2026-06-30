@@ -35,6 +35,8 @@ eval_results.db
 *.html
 !src/**/*.html
 !tests/**/*.html
+!frontend/index.html
+!public/**/*.html
 
 # Test artifacts (deprecated files)
 business_logic_test.py

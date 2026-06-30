@@ -298,7 +298,7 @@ def _create_engine() -> Engine:
         )
     else:
         try:
-            return create_engine(
+            engine = create_engine(
                 database_url,
                 poolclass=QueuePool,
                 pool_size=config.pool_size,
@@ -308,8 +308,11 @@ def _create_engine() -> Engine:
                 pool_pre_ping=config.pool_pre_ping,
                 pool_use_lifo=config.pool_use_lifo,
             )
+            with engine.connect():
+                pass
+            return engine
         except Exception as e:
-            logger.warning(f"Failed to create PostgreSQL engine: {e}. Falling back to SQLite.")
+            logger.warning(f"Failed to connect to PostgreSQL: {e}. Falling back to SQLite.")
             return create_engine(
                 "sqlite:///./fallback.db?check_same_thread=False",
                 connect_args={"check_same_thread": False},

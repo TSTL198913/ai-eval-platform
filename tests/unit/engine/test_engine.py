@@ -15,7 +15,7 @@ from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.engine import EvaluationEngine
 from src.exceptions import ContractValidationError, DomainLogicError, InfrastructureError
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import EvaluationSchema
 from src.schemas.schemas import EvaluationStatus
 
 

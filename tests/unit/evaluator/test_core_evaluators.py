@@ -491,14 +491,12 @@ class TestBaseEvaluator:
     def test_require_client(self):
         """客户端检查方法"""
         from src.domain.evaluators.base import BaseEvaluator
-        from src.schemas.evaluation import EvaluationSchema
 
         class TestEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
                 pass
 
         evaluator = TestEvaluator(client=None)
-        request = EvaluationSchema(id="test", type="test", payload={})
         result = evaluator.require_client_with_error()
         assert result is not None
         assert result.is_valid is False
@@ -633,8 +631,8 @@ class TestCodeReviewEvaluator:
 
     def test_evaluator_registered(self):
         """评估器已注册到工厂"""
-        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
         from src.domain.evaluators.code_review import CodeReviewEvaluator
+        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 
         EvaluatorFactory.register("code_review")(CodeReviewEvaluator)
 

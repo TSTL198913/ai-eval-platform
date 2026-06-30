@@ -3,8 +3,9 @@
 提供 EmbeddingService mock，避免测试时下载模型
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 @pytest.fixture(autouse=True)

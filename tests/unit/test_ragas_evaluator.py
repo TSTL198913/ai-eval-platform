@@ -1,5 +1,3 @@
-import pytest
-
 from src.domain.evaluators.ragas_evaluator import (
     RAGASEvaluator,
     _local_answer_relevancy,

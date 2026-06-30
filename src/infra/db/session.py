@@ -13,7 +13,7 @@ from typing import Any
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
-from sqlalchemy.pool import QueuePool, StaticPool
+from sqlalchemy.pool import QueuePool
 
 from src.distributed.circuit_breaker import (
     CircuitBreakerConfig,

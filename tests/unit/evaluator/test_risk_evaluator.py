@@ -288,7 +288,6 @@ class TestRiskEvaluatorIntegration:
     def test_evaluator_registered_in_factory(self):
         """风险评估器应已注册到工厂"""
         from src.domain.evaluators.risk import RiskEvaluator
-        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 
         evaluator_instance = RiskEvaluator()
         assert hasattr(evaluator_instance, "evaluate")

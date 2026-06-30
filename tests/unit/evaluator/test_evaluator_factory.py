@@ -294,7 +294,6 @@ class TestEvaluatorFactoryIntegration:
 
     def test_factory_can_get_risk_evaluator(self):
         """工厂应能获取已注册的risk评估器"""
-        import src.domain.evaluators.risk
         from src.domain.evaluators.risk import RiskEvaluator
 
         EvaluatorFactory.register("risk")(RiskEvaluator)

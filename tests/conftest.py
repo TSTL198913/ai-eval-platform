@@ -275,8 +275,8 @@ def reset_evaluator_registry_session():
     优化：改为 session 级别，只在测试开始时执行一次，
     大幅提升测试性能（从8分钟降至2分钟以内）。
     """
-    from src.domain.evaluators.evaluator_factory import EvaluatorFactory as EF
     import src.domain.evaluators as eval_module
+    from src.domain.evaluators.evaluator_factory import EvaluatorFactory as EF
 
     EF._registry = {}
     eval_module._EVALUATOR_REGISTRY = None
@@ -290,7 +290,7 @@ def mock_redis_cache():
     Mock redis_cache，防止熔断器使用真实 Redis 持久化状态。
     解决测试隔离问题：Redis 持久化导致熔断器状态在测试之间共享。
     """
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import MagicMock, patch
 
     mock_redis = MagicMock()
     mock_redis.is_connected = False
@@ -335,14 +335,14 @@ def mock_embedding_service():
     - 空字符串返回 0.5
     支持中英文混合文本，中文使用双字(2-gram)匹配
     """
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import MagicMock, patch
 
     def has_chinese(text):
         return any("\u4e00" <= char <= "\u9fff" for char in text)
 
     def get_ngrams(text, n=2):
         chars = [c for c in text if "\u4e00" <= c <= "\u9fff"]
-        return set("".join(chars[i : i + n]) for i in range(len(chars) - n + 1))
+        return {"".join(chars[i : i + n]) for i in range(len(chars) - n + 1)}
 
     def calculate_similarity(text1, text2):
         if text1 == text2:
@@ -393,7 +393,7 @@ def mock_sentence_transformer():
     """
     Mock SentenceTransformer，防止模型加载
     """
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import MagicMock, patch
 
     with patch("sentence_transformers.SentenceTransformer") as MockST:
         mock_model = MagicMock()

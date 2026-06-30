@@ -171,10 +171,8 @@ jobs:
 
       - name: Start backend server
         run: |
-          export TESTING=1
-          export DATABASE_URL=sqlite:///./test.db?check_same_thread=False
-          nohup python -m uvicorn src.api.server:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
-          sleep 10
+          (TESTING=1 DATABASE_URL=sqlite:///./test.db?check_same_thread=False REDIS_URL=redis://localhost:6379/0 python -m uvicorn src.api.server:app --host 0.0.0.0 --port 8000 > backend.log 2>&1) &
+          sleep 15
           curl -f http://localhost:8000/health || (echo "Backend health check failed" && cat backend.log && exit 1)
 
       - name: Start frontend dev server

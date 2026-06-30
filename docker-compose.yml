@@ -115,7 +115,9 @@ services:
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - CORS_ALLOWED_ORIGINS=http://localhost,http://127.0.0.1,http://192.168.10.134
+      - ADMIN_PASSWORD=admin123
+      - USER_PASSWORD=user123
+      - CORS_ALLOWED_ORIGINS=http://localhost,http://127.0.0.1,http://192.168.30.134,http://192.168.10.134
     ports:
       - "8000:8000"
     depends_on:

@@ -5,12 +5,11 @@
 """
 
 from datetime import datetime, timezone
-from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
-from src.api.auth import get_password_hash, verify_password
+from src.api.auth import fake_users_db, get_password_hash, verify_password
 from src.api.dependencies import get_current_user, require_admin
 from src.infra.security import ROLE_PERMISSIONS, Permission, Role
 
@@ -55,27 +54,7 @@ class PermissionResponse(BaseModel):
     category: str
 
 
-# 模拟用户数据库（实际应使用真实数据库）
-_users_db: dict[str, dict[str, Any]] = {
-    "admin": {
-        "username": "admin",
-        "full_name": "Admin User",
-        "email": "admin@example.com",
-        "hashed_password": get_password_hash("admin123"),
-        "role": "admin",
-        "disabled": False,
-        "created_at": datetime.now(timezone.utc),
-    },
-    "user": {
-        "username": "user",
-        "full_name": "Regular User",
-        "email": "user@example.com",
-        "hashed_password": get_password_hash("user123"),
-        "role": "user",
-        "disabled": False,
-        "created_at": datetime.now(timezone.utc),
-    },
-}
+_users_db = fake_users_db
 
 
 @router.get("/users", response_model=list[UserResponse])

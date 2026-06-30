@@ -1,8 +1,8 @@
-import hashlib
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
 
+import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
@@ -18,22 +18,20 @@ HAS_AUTH = True
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 
-def _hash_password(password: str) -> str:
-    salt = os.environ.get("PASSWORD_SALT", "")
-    if not salt:
-        import uuid
-
-        salt = uuid.uuid4().hex
-        os.environ["PASSWORD_SALT"] = salt
-    return hashlib.sha256(f"{salt}:{password}".encode()).hexdigest()
+def get_password_hash(password: str) -> str:
+    password_bytes = password.encode("utf-8")
+    if len(password_bytes) > 72:
+        password_bytes = password_bytes[:72]
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password_bytes, salt).decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return secrets.compare_digest(_hash_password(plain_password), hashed_password)
-
-
-def get_password_hash(password: str) -> str:
-    return _hash_password(password)
+    password_bytes = plain_password.encode("utf-8")
+    if len(password_bytes) > 72:
+        password_bytes = password_bytes[:72]
+    hashed_bytes = hashed_password.encode("utf-8")
+    return bcrypt.checkpw(password_bytes, hashed_bytes)
 
 
 def _init_users_db():
@@ -50,15 +48,19 @@ def _init_users_db():
             "username": "admin",
             "full_name": "Admin User",
             "email": "admin@example.com",
-            "hashed_password": _hash_password(admin_password),
+            "hashed_password": get_password_hash(admin_password),
+            "role": "admin",
             "disabled": False,
+            "created_at": datetime.now(timezone.utc),
         },
         "user": {
             "username": "user",
             "full_name": "Regular User",
             "email": "user@example.com",
-            "hashed_password": _hash_password(user_password),
+            "hashed_password": get_password_hash(user_password),
+            "role": "user",
             "disabled": False,
+            "created_at": datetime.now(timezone.utc),
         },
     }
 

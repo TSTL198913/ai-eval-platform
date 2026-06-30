@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from src.api.auth import (
-    _hash_password,
     authenticate_user,
     create_access_token,
     create_refresh_token,
@@ -24,23 +23,24 @@ from src.api.auth import (
 class TestPasswordHashing:
     """密码哈希单元测试"""
 
-    def test_hash_password_deterministic_with_same_salt(self):
-        """相同密码和 salt 应产生相同哈希"""
-        hash1 = _hash_password("mysecret")
-        hash2 = _hash_password("mysecret")
-        assert hash1 == hash2
-        assert len(hash1) == 64  # SHA-256 hex length
+    def test_hash_password_different_each_time(self):
+        """相同密码每次哈希应不同（bcrypt 随机盐）"""
+        hash1 = get_password_hash("mysecret")
+        hash2 = get_password_hash("mysecret")
+        assert hash1 != hash2
+        assert hash1.startswith("$2b$") or hash1.startswith("$2a$")
+        assert len(hash1) >= 59
 
     def test_hash_password_different_passwords(self):
         """不同密码应产生不同哈希"""
-        hash1 = _hash_password("password1")
-        hash2 = _hash_password("password2")
+        hash1 = get_password_hash("password1")
+        hash2 = get_password_hash("password2")
         assert hash1 != hash2
 
     def test_hash_password_not_equal_to_plain(self):
         """哈希值不应等于明文密码"""
         plain = "admin123"
-        hashed = _hash_password(plain)
+        hashed = get_password_hash(plain)
         assert hashed != plain
 
     def test_verify_password_correct(self):
@@ -60,12 +60,12 @@ class TestPasswordHashing:
         assert verify_password("secret", hashed) is False
         assert verify_password("Secret", hashed) is True
 
-    def test_get_password_hash_returns_sha256_hex(self):
-        """密码哈希应为 64 位十六进制字符串"""
+    def test_get_password_hash_returns_bcrypt_format(self):
+        """密码哈希应为 bcrypt 格式"""
         hashed = get_password_hash("any")
         assert isinstance(hashed, str)
-        assert len(hashed) == 64
-        assert all(c in "0123456789abcdef" for c in hashed)
+        assert hashed.startswith("$2b$") or hashed.startswith("$2a$")
+        assert len(hashed) >= 59
 
 
 class TestUserAuthentication:
@@ -107,7 +107,9 @@ class TestUserAuthentication:
             assert "hashed_password" in user
             assert "disabled" in user
             assert user["username"] == username
-            assert len(user["hashed_password"]) == 64
+            hashed = user["hashed_password"]
+            assert hashed.startswith("$2b$") or hashed.startswith("$2a$")
+            assert len(hashed) >= 59
 
 
 class TestJWTToken:

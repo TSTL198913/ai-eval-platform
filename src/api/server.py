@@ -122,8 +122,18 @@ app = FastAPI(
 
 # CORS中间件 - 支持环境变量配置的白名单
 _cors_origins = os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",")
-if not _cors_origins or _cors_origins == [""]:
-    _cors_origins = ["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000"]
+_cors_origins = [origin.strip() for origin in _cors_origins if origin.strip()]
+
+if not _cors_origins:
+    _cors_origins = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://localhost:80",
+        "http://127.0.0.1:80",
+        "http://localhost",
+        "http://127.0.0.1",
+    ]
 
 app.add_middleware(
     CORSMiddleware,

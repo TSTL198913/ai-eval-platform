@@ -461,12 +461,12 @@ jobs:
           --health-timeout 5s
           --health-retries 5
       toxiproxy:
-        image: ghcr.io/shopify/toxiproxy:2.5.0
+        image: shopify/toxiproxy:2.4.0
         ports:
           - 8474:8474
           - 8475:8475
         options: >-
-          --health-cmd "wget -qO- http://localhost:8474/version"
+          --health-cmd "curl -s http://localhost:8474/version"
           --health-interval 15s
           --health-timeout 10s
           --health-retries 3

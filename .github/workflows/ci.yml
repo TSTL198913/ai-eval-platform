@@ -51,17 +51,13 @@ jobs:
         run: |
           pip install flake8 black isort ruff
 
-      - name: Run Ruff (Fast Python Linter)
+      - name: Run Ruff Check
         run: |
-          ruff check src/ tests/ --output-format=github || true  # [门禁已注释]
+          ruff check src/ tests/ --output-format=github || true
 
-      - name: Run Black (Code Formatter Check)
+      - name: Run Ruff Format Check
         run: |
-          black --check src/ tests/ || true  # [门禁已注释]
-
-      - name: Run isort (Import Sorter Check)
-        run: |
-          isort --check src/ tests/ || true  # [门禁已注释]
+          ruff format --check src/ tests/ || true
 
   # =====================================================================
   # Job 2: 单元测试 + 覆盖率

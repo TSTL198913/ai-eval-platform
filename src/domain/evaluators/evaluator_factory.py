@@ -86,18 +86,28 @@ class EvaluatorFactory:
         cls,
         name: str,
         strategy: RegisterStrategy = RegisterStrategy.SKIP,
+        force: bool = False,
     ):
-        """评估器注册装饰器"""
+        """评估器注册装饰器
+
+        Args:
+            name: 评估器名称
+            strategy: 注册策略（SKIP/ERROR/OVERWRITE）
+            force: 是否强制注册（绕过黑名单）
+        """
+        from src.domain.evaluators import _EVALUATOR_BLACKLIST
 
         def decorator(func: type[EvaluatorProtocol]) -> type[EvaluatorProtocol]:
+            if name in _EVALUATOR_BLACKLIST and not force:
+                logger.debug(f"评估器 '{name}' 在黑名单中，跳过注册")
+                return func
+
             if isclass(func):
                 if not issubclass(func, BaseEvaluator):
                     raise TypeError(
                         f"评估器类必须继承自 BaseEvaluator，当前类: {func.__name__}, "
                         f"基类: {[base.__name__ for base in func.__bases__]}"
                     )
-                # 检查是否为抽象方法（使用 __abstractmethods__ 而非 hasattr，
-                # 因为 hasattr 对抽象方法也返回 True）
                 if (
                     hasattr(func, "__abstractmethods__")
                     and "_do_evaluate" in func.__abstractmethods__

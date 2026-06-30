@@ -32,10 +32,13 @@ class BaseEvaluator(ABC):
         self,
         client: Optional["BaseLLMClient"] = None,
         fallback_policy: Optional["BaseFallbackPolicy"] = None,
+        require_input: bool = False,
+        require_expected: bool = False,
     ):
         self.client = client
-        # 基类统一管理降级策略，由子类在构造时注入具体策略（如 SemanticTaskPolicy 等）
         self.fallback_policy = fallback_policy
+        self._require_input = require_input
+        self._require_expected = require_expected
 
     # ===================== 核心评测契约（双轨制） =====================
 
@@ -262,9 +265,16 @@ class BaseEvaluator(ABC):
     def validate_input(self, request: EvaluationSchema) -> DomainResponse | None:
         """验证输入数据是否有效
 
+        默认情况下，输入验证是可选的，由子类在构造时通过 require_input 参数控制。
+        这样可以避免不使用 user_input/text 字段的评估器（如 RiskEvaluator、ToolUseEvaluator）
+        被强制要求提供这些字段。
+
         Returns:
             DomainResponse | None: 如果验证失败返回错误响应，否则返回 None
         """
+        if not self._require_input:
+            return None
+
         user_input = self.get_input_text(request)
         if not user_input or not user_input.strip():
             return self.create_error_response(
@@ -275,9 +285,14 @@ class BaseEvaluator(ABC):
     def validate_expected(self, request: EvaluationSchema) -> DomainResponse | None:
         """验证期望输出是否有效
 
+        默认情况下，期望输出验证是可选的，由子类在构造时通过 require_expected 参数控制。
+
         Returns:
             DomainResponse | None: 如果验证失败返回错误响应，否则返回 None
         """
+        if not self._require_expected:
+            return None
+
         expected_output = self.get_payload_data(request, "expected_output")
         if not expected_output or (
             isinstance(expected_output, str) and not expected_output.strip()

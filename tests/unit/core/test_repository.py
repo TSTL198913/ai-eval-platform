@@ -351,8 +351,11 @@ class TestTrajectoryRepository:
     def test_save_step_returns_id(self):
         """保存步骤应返回 ID"""
         traj_repo = TrajectoryRepository()
+        import uuid
+
+        task_id = f"task_auto_{uuid.uuid4().hex[:8]}"
         step_id = traj_repo.save_step(
-            task_id="task_001",
+            task_id=task_id,
             step_index=0,
             step_type="llm_call",
             prompt="hello",
@@ -372,10 +375,13 @@ class TestTrajectoryRepository:
 
     def test_get_trajectory(self):
         """获取轨迹应返回正确步骤"""
+        import uuid
+
+        task_id = f"task_auto_{uuid.uuid4().hex[:8]}"
         traj_repo = TrajectoryRepository()
-        traj_repo.save_step("task_002", 0, "llm", "prompt1", "resp1")
-        traj_repo.save_step("task_002", 1, "tool", "prompt2", "resp2", tool_name="search")
-        steps = traj_repo.get_trajectory("task_002")
+        traj_repo.save_step(task_id, 0, "llm", "prompt1", "resp1")
+        traj_repo.save_step(task_id, 1, "tool", "prompt2", "resp2", tool_name="search")
+        steps = traj_repo.get_trajectory(task_id)
         assert len(steps) == 2
         assert steps[0]["step_index"] == 0
         assert steps[1]["step_index"] == 1
@@ -383,9 +389,12 @@ class TestTrajectoryRepository:
 
     def test_delete_trajectory(self):
         """删除轨迹应生效"""
+        import uuid
+
+        task_id = f"task_auto_{uuid.uuid4().hex[:8]}"
         traj_repo = TrajectoryRepository()
-        traj_repo.save_step("task_003", 0, "llm", "p", "r")
-        count = traj_repo.delete_trajectory("task_003")
+        traj_repo.save_step(task_id, 0, "llm", "p", "r")
+        count = traj_repo.delete_trajectory(task_id)
         assert count == 1
-        steps = traj_repo.get_trajectory("task_003")
+        steps = traj_repo.get_trajectory(task_id)
         assert len(steps) == 0

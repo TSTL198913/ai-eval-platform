@@ -134,8 +134,12 @@ class TestTextMatchEvaluatorBoundaryCases:
         assert result.score == 1.0
 
     @staticmethod
-    def test_completely_different_output_gets_low_score():
-        """完全不同的输出应得到低分"""
+    def test_completely_different_output_gets_low_score(monkeypatch):
+        """完全不同输出应返回低分"""
+        from src.domain.evaluators.metadata import TextMetadata
+
+        monkeypatch.setattr(TextMetadata, "tone", "", raising=False)
+
         target = TextMatchEvaluator(client=None)
         request = EvaluationSchema(
             id="text_bound_003",

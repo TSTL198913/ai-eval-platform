@@ -25,7 +25,7 @@ class TestGeneralEvaluatorPositiveCases:
         client = MagicMock()
         client.config = MagicMock()
         client.config.model_name = "gpt-4"
-        client.chat.return_value = "通用评估的回答内容"
+        client.chat.return_value = "0.85"
         return client
 
     @pytest.fixture
@@ -125,19 +125,18 @@ class TestGeneralEvaluatorNegativeCases:
 class TestGeneralEvaluatorBoundaryCases:
     """边界测试 - 边界值"""
 
-    def test_without_llm_client_returns_valid_with_full_score(self):
-        """无LLM client时应返回is_valid=True, score=1.0"""
+    def test_without_llm_client_returns_error(self):
+        """无LLM client时应返回错误"""
         target = GeneralEvaluator(client=None)
         request = EvaluationSchema(
             id="gen_bound_001",
             type="general",
-            payload={"user_input": "测试问题"},
+            payload={"user_input": "测试问题", "expected_output": "测试回答"},
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is True
-        assert result.score == 1.0
-        assert result.data is not None
+        assert result.is_valid is False
+        assert "需要 LLM 客户端" in result.error
 
     def test_none_input_returns_error(self):
         """None输入应被正确处理"""
@@ -151,8 +150,8 @@ class TestGeneralEvaluatorBoundaryCases:
 
         assert result.is_valid is False
 
-    def test_empty_expected_output_without_client(self):
-        """无expected_output且无client时应返回score=1.0"""
+    def test_empty_expected_output_returns_error(self):
+        """无expected_output时应返回错误"""
         target = GeneralEvaluator(client=None)
         request = EvaluationSchema(
             id="gen_bound_003",
@@ -161,8 +160,8 @@ class TestGeneralEvaluatorBoundaryCases:
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is True
-        assert result.score == 1.0
+        assert result.is_valid is False
+        assert "expected_output" in result.error
 
 
 class TestGeneralEvaluatorSanitization:
@@ -295,12 +294,12 @@ class TestGeneralEvaluatorScoringLogic:
         client.config.model_name = "gpt-4"
         return client
 
-    def test_without_expected_output_returns_full_score(self):
-        """无expected_output时应返回score=1.0"""
+    def test_without_expected_output_returns_error(self):
+        """无expected_output时应返回错误"""
         mock_client = MagicMock()
         mock_client.config = MagicMock()
         mock_client.config.model_name = "gpt-4"
-        mock_client.chat.return_value = "LLM回答"
+        mock_client.chat.return_value = "0.8"
         target = GeneralEvaluator(client=mock_client)
         request = EvaluationSchema(
             id="gen_score_001",
@@ -309,11 +308,12 @@ class TestGeneralEvaluatorScoringLogic:
         )
         result = target.evaluate(request)
 
-        assert result.score == 1.0
+        assert result.is_valid is False
+        assert "expected_output" in result.error
 
     def test_with_expected_output_uses_similarity(self, mock_client):
         """有expected_output时应使用相似度评分"""
-        mock_client.chat.return_value = "相似的回答"
+        mock_client.chat.return_value = "0.85"
         target = GeneralEvaluator(client=mock_client)
         request = EvaluationSchema(
             id="gen_score_002",
@@ -325,5 +325,5 @@ class TestGeneralEvaluatorScoringLogic:
         )
         result = target.evaluate(request)
 
-        assert result.score is not None
-        assert result.score >= 0.0
+        assert result.is_valid is True
+        assert result.score == 0.85

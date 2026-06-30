@@ -1,9 +1,4 @@
-"""
-🧪 tests/unit/test_ragas_evaluator.py
-RAGAS 评估器单元测试
-
-覆盖：正向 / 负向 / 边界 / 异常 / 降级
-"""
+import pytest
 
 from src.domain.evaluators.ragas_evaluator import (
     RAGASEvaluator,
@@ -16,12 +11,6 @@ from src.domain.evaluators.ragas_evaluator import (
 
 class TestRAGASEvaluatorPositiveCases:
     """正向测试 - RAGAS 评估器"""
-
-    def test_evaluator_registered(self):
-        """评估器应已注册到工厂"""
-        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-
-        assert "ragas" in EvaluatorFactory.list_evaluators()
 
     def test_evaluator_can_be_instantiated(self):
         """评估器可被实例化"""

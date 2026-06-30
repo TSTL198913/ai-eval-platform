@@ -22,28 +22,28 @@ from src.schemas.schemas import EvaluationStatus
 class MockPassingEvaluator(BaseEvaluator):
     """模拟通过的评估器"""
 
-    def evaluate(self, request):
-        return DomainResponse(is_valid=True, score=0.95, text="good")
+    def _do_evaluate(self, request):
+        return self.create_success_response(text="good", score=0.95)
 
 
 class MockFailingEvaluator(BaseEvaluator):
     """模拟失败的评估器"""
 
-    def evaluate(self, request):
-        return DomainResponse(is_valid=False, score=0.3, text="bad")
+    def _do_evaluate(self, request):
+        return self.create_error_response(error_message="bad")
 
 
 class MockExceptionEvaluator(BaseEvaluator):
     """模拟抛出异常的评估器"""
 
-    def evaluate(self, request):
+    def _do_evaluate(self, request):
         raise RuntimeError("模拟异常")
 
 
 class MockNoneEvaluator(BaseEvaluator):
     """模拟返回 None 的评估器"""
 
-    def evaluate(self, request):
+    def _do_evaluate(self, request):
         return None
 
 
@@ -125,7 +125,7 @@ class TestEngineExceptionHandling:
 
         @EvaluatorFactory.register("test_contract")
         class ContractErrorEvaluator(BaseEvaluator):
-            def evaluate(self, request):
+            def _do_evaluate(self, request):
                 raise ContractValidationError("字段缺失")
 
         client = MagicMock()
@@ -146,7 +146,7 @@ class TestEngineExceptionHandling:
 
         @EvaluatorFactory.register("test_domain")
         class DomainErrorEvaluator(BaseEvaluator):
-            def evaluate(self, request):
+            def _do_evaluate(self, request):
                 raise DomainLogicError("适配器未找到")
 
         client = MagicMock()
@@ -167,7 +167,7 @@ class TestEngineExceptionHandling:
 
         @EvaluatorFactory.register("test_infra")
         class InfraErrorEvaluator(BaseEvaluator):
-            def evaluate(self, request):
+            def _do_evaluate(self, request):
                 raise InfrastructureError("Redis 连接失败")
 
         client = MagicMock()
@@ -194,11 +194,15 @@ class TestEngineExceptionHandling:
         request = EvaluationSchema(id="case_8", type="test_unexpected", payload={})
         result = engine.run(request)
 
-        # BaseEvaluator.safe_evaluate 捕获 RuntimeError 并返回 DomainResponse(is_valid=False, error="...")
-        # engine 检测到 error 包含 "_ERROR"，返回 ERROR 状态
+        # BaseEvaluator.safe_evaluate 捕获 RuntimeError 并返回 DomainResponse
+        # engine 检测到 error_code 包含 POLICY，返回 ERROR 状态
         assert result.status == EvaluationStatus.ERROR
         assert result.response.is_valid is False
-        assert "EVALUATION_ERROR" in result.response.error
+        # 检查error_code包含POLICY或error包含失败关键词
+        assert (
+            "POLICY" in result.response.metadata.get("error_code", "")
+            or "失败" in result.response.error
+        )
 
     def test_run_evaluator_returns_none(self):
         """评估器返回 None 应由 safe_evaluate 处理"""

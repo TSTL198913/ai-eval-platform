@@ -144,8 +144,11 @@ class TestCompositeEvaluatorNegativeCases:
     def target(self):
         return CompositeEvaluator(client=None)
 
-    def test_empty_user_input_returns_error(self, target):
-        """空input应返回错误"""
+    def test_empty_user_input_with_required_returns_error(self):
+        """空input且require_input=True时应返回错误"""
+        target = CompositeEvaluator(client=None)
+        target._require_input = True
+
         request = EvaluationSchema(
             id="comp_neg_001",
             type="composite",
@@ -155,6 +158,7 @@ class TestCompositeEvaluatorNegativeCases:
         result = target.evaluate(request)
 
         assert result.is_valid is False
+        assert "不能为空" in result.error
 
 
 class TestCompositeEvaluatorInternalLogic:

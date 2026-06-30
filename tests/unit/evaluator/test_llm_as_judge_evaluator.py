@@ -409,6 +409,9 @@ class TestLLMAJudgeEvaluatorIntegration:
     def test_evaluator_registered(self):
         """LLMAJudgeEvaluator应已注册到工厂"""
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
+        from src.domain.evaluators.llm_as_judge import LLMAJudgeEvaluator
+
+        EvaluatorFactory.register("llm_as_judge")(LLMAJudgeEvaluator)
 
         assert "llm_as_judge" in EvaluatorFactory.list_evaluators()
 

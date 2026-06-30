@@ -10,7 +10,7 @@
     "calibration_threshold": 5.0,
     "status": "active",
     "created_at": "2026-06-19T03:14:37.384568",
-    "updated_at": "2026-06-22T15:16:47.650576",
+    "updated_at": "2026-06-29T05:09:50.038695",
     "created_by": "system"
   },
   "00bdcc34": {
@@ -627,6 +627,76 @@
     "status": "active",
     "created_at": "2026-06-22T15:16:47.669625",
     "updated_at": "2026-06-22T15:16:47.683146",
+    "created_by": "system"
+  },
+  "4f3d6486": {
+    "version_id": "4f3d6486",
+    "evaluator_name": "llm_as_judge_e77957a6",
+    "version": "1.0.0",
+    "changelog": "",
+    "code_hash": "hash123",
+    "config_snapshot": {},
+    "calibration_score": 72.5,
+    "calibration_threshold": 5.0,
+    "status": "active",
+    "created_at": "2026-06-29T03:28:40.849129",
+    "updated_at": "2026-06-29T03:28:40.866929",
+    "created_by": "system"
+  },
+  "904c7fd2": {
+    "version_id": "904c7fd2",
+    "evaluator_name": "llm_as_judge_e7f67855",
+    "version": "1.0.0",
+    "changelog": "",
+    "code_hash": "hash123",
+    "config_snapshot": {},
+    "calibration_score": 72.5,
+    "calibration_threshold": 5.0,
+    "status": "active",
+    "created_at": "2026-06-29T03:40:15.092626",
+    "updated_at": "2026-06-29T03:40:15.093623",
+    "created_by": "system"
+  },
+  "87d25472": {
+    "version_id": "87d25472",
+    "evaluator_name": "llm_as_judge_08292bc5",
+    "version": "1.0.0",
+    "changelog": "",
+    "code_hash": "hash123",
+    "config_snapshot": {},
+    "calibration_score": 72.5,
+    "calibration_threshold": 5.0,
+    "status": "active",
+    "created_at": "2026-06-29T03:47:31.083104",
+    "updated_at": "2026-06-29T03:47:31.095124",
+    "created_by": "system"
+  },
+  "651a11a8": {
+    "version_id": "651a11a8",
+    "evaluator_name": "llm_as_judge_3495d576",
+    "version": "1.0.0",
+    "changelog": "",
+    "code_hash": "hash123",
+    "config_snapshot": {},
+    "calibration_score": 72.5,
+    "calibration_threshold": 5.0,
+    "status": "active",
+    "created_at": "2026-06-29T03:51:53.808636",
+    "updated_at": "2026-06-29T03:51:53.810643",
+    "created_by": "system"
+  },
+  "88946d4a": {
+    "version_id": "88946d4a",
+    "evaluator_name": "llm_as_judge_18fd1b47",
+    "version": "1.0.0",
+    "changelog": "",
+    "code_hash": "hash123",
+    "config_snapshot": {},
+    "calibration_score": 72.5,
+    "calibration_threshold": 5.0,
+    "status": "active",
+    "created_at": "2026-06-29T05:09:50.052921",
+    "updated_at": "2026-06-29T05:09:50.063990",
     "created_by": "system"
   }
 }

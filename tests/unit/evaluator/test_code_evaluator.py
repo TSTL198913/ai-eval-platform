@@ -76,7 +76,7 @@ class TestCodeEvaluatorPositiveCases:
         result = evaluator_with_client.evaluate(request)
 
         assert result.is_valid is True
-        assert result.score >= 0.8
+        assert result.score >= DEFAULT_SYNTAX_WEIGHT
         mock_client.chat.assert_called_once()
 
     def test_valid_code_in_payload(self, evaluator_without_client):
@@ -117,8 +117,8 @@ class TestCodeEvaluatorNegativeCases:
     def evaluator(self):
         return CodeEvaluator(client=None)
 
-    def test_syntax_error_returns_error(self, evaluator):
-        """语法错误应返回错误"""
+    def test_syntax_error_returns_zero_score(self, evaluator):
+        """语法错误应返回score=0.0"""
         request = EvaluationSchema(
             id="code_010",
             type="code",
@@ -130,8 +130,8 @@ class TestCodeEvaluatorNegativeCases:
 
         result = evaluator.evaluate(request)
 
-        assert result.is_valid is False
-        assert "语法错误" in result.error
+        assert result.is_valid is True
+        assert "语法错误" in result.text
         assert result.score == 0.0
 
     def test_unmatched_parenthesis_error(self, evaluator):
@@ -147,8 +147,9 @@ class TestCodeEvaluatorNegativeCases:
 
         result = evaluator.evaluate(request)
 
-        assert result.is_valid is False
-        assert "语法错误" in result.error
+        assert result.is_valid is True
+        assert "语法错误" in result.text
+        assert result.score == 0.0
 
     def test_invalid_indentation_error(self, evaluator):
         """无效缩进应返回语法错误"""
@@ -163,8 +164,9 @@ class TestCodeEvaluatorNegativeCases:
 
         result = evaluator.evaluate(request)
 
-        assert result.is_valid is False
-        assert "语法错误" in result.error
+        assert result.is_valid is True
+        assert "语法错误" in result.text
+        assert result.score == 0.0
 
 
 class TestCodeEvaluatorBoundaryCases:
@@ -351,37 +353,33 @@ class TestCodeEvaluatorMetadata:
     def evaluator(self):
         return CodeEvaluator(client=None)
 
-    def test_language_in_metadata(self, evaluator):
-        """语言应在metadata中返回"""
+    def test_language_in_data(self, evaluator):
+        """语言应在data中返回"""
         request = EvaluationSchema(
             id="code_050",
             type="code",
-            payload={
-                "code": "print(1)",
-                "metadata": {"language": "python", "style_guide": "pep8"},
-            },
+            payload={"code": "print(1)"},
+            metadata={"language": "python", "style_guide": "pep8"},
         )
 
         result = evaluator.evaluate(request)
 
-        assert result.metadata["language"] == "python"
-        assert result.metadata["style_guide"] == "pep8"
+        assert result.data["language"] == "python"
+        assert result.data["style_guide"] == "pep8"
 
     def test_default_metadata_values(self, evaluator):
         """默认metadata值"""
         request = EvaluationSchema(
             id="code_051",
             type="code",
-            payload={
-                "code": "print(1)",
-                "metadata": {},
-            },
+            payload={"code": "print(1)"},
+            metadata={},
         )
 
         result = evaluator.evaluate(request)
 
-        assert result.metadata["language"] == "python"
-        assert result.metadata["style_guide"] == "pep8"
+        assert result.data["language"] == "python"
+        assert result.data["style_guide"] == ""
 
     def test_none_metadata_handled(self, evaluator):
         """None metadata应正常处理"""
@@ -395,7 +393,7 @@ class TestCodeEvaluatorMetadata:
 
         result = evaluator.evaluate(request)
 
-        assert result.metadata["language"] == "python"
+        assert result.data["language"] == "python"
 
 
 class TestCodeEvaluatorSystemPrompt:
@@ -465,7 +463,7 @@ class TestCodeEvaluatorSyntaxCheck:
         result = evaluator._check_syntax("def hello()\n    pass")
 
         assert result[0] is False
-        assert "line" in result[1].lower()
+        assert "第" in result[1] and "行" in result[1]
 
 
 class TestIsPassingFunction:

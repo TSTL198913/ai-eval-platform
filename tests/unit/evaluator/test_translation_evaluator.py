@@ -27,6 +27,7 @@ class TestTranslationEvaluatorPositiveCases:
                 id="trans_001",
                 type="translation",
                 payload={
+                    "user_input": "Hello, world!",
                     "actual_output": "Hello, world!",
                     "expected_output": "Hello, world!",
                 },
@@ -49,6 +50,7 @@ class TestTranslationEvaluatorPositiveCases:
                 id="trans_002",
                 type="translation",
                 payload={
+                    "user_input": "Hi, world!",
                     "actual_output": "Hi, world!",
                     "expected_output": "Hello, world!",
                 },
@@ -62,29 +64,30 @@ class TestTranslationEvaluatorNegativeCases:
     """负向测试 - 错误输入"""
 
     @staticmethod
-    def test_empty_actual_output_returns_error():
-        """空actual_output应返回错误"""
+    def test_empty_user_input_returns_error():
+        """空user_input应返回错误"""
         evaluator = TranslationEvaluator()
         request = EvaluationSchema(
             id="trans_003",
             type="translation",
-            payload={"actual_output": "", "expected_output": "Hello"},
+            payload={"user_input": "", "actual_output": "Hello", "expected_output": "Hello"},
         )
         result = evaluator.evaluate(request)
         assert result.is_valid is False
-        assert "actual_output" in result.error
+        assert "user_input" in result.error
 
     @staticmethod
-    def test_missing_actual_output_returns_error():
-        """缺少actual_output字段应返回错误"""
+    def test_missing_user_input_returns_error():
+        """缺少user_input字段应返回错误"""
         evaluator = TranslationEvaluator()
         request = EvaluationSchema(
             id="trans_004",
             type="translation",
-            payload={"expected_output": "Hello"},
+            payload={"actual_output": "Hello", "expected_output": "Hello"},
         )
         result = evaluator.evaluate(request)
         assert result.is_valid is False
+        assert "user_input" in result.error
 
     @staticmethod
     def test_missing_expected_output_returns_error():
@@ -93,7 +96,7 @@ class TestTranslationEvaluatorNegativeCases:
         request = EvaluationSchema(
             id="trans_005",
             type="translation",
-            payload={"actual_output": "Hello"},
+            payload={"user_input": "test", "actual_output": "Hello"},
         )
         result = evaluator.evaluate(request)
         assert result.is_valid is False
@@ -117,6 +120,7 @@ class TestTranslationEvaluatorBoundaryCases:
                 id="trans_006",
                 type="translation",
                 payload={
+                    "user_input": "Hello",
                     "actual_output": "Hello",
                     "expected_output": "Hello",
                 },
@@ -139,6 +143,7 @@ class TestTranslationEvaluatorBoundaryCases:
                 id="trans_007",
                 type="translation",
                 payload={
+                    "user_input": "Goodbye",
                     "actual_output": "Goodbye",
                     "expected_output": "Hello",
                 },

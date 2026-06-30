@@ -315,7 +315,7 @@ class TestMultiAgentEvaluatorNegativeCases:
         result = target.evaluate(request)
 
         assert result.is_valid is False
-        assert "无效的message_type" in result.error
+        assert "无效的 message_type" in result.error
 
     def test_invalid_task_status_returns_error(self, target):
         """无效的task_status应返回错误"""
@@ -354,9 +354,9 @@ class TestMultiAgentEvaluatorNegativeCases:
 
         result = target.evaluate(request)
 
-        # 返回的错误可能是"任务不存在"或"无效的status"
+        # 返回的错误可能是"任务不存在"或"无效的 status"
         assert result.is_valid is False
-        assert "无效的status" in result.error or "不存在" in result.error
+        assert "无效的 status" in result.error or "不存在" in result.error
 
 
 class TestMultiAgentEvaluatorBoundaryCases:

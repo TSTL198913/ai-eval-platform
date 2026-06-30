@@ -34,7 +34,9 @@ class TranslationEvaluator(BaseEvaluator):
         Args:
             client: LLM 客户端实例（可选）
         """
-        super().__init__(client, fallback_policy=SemanticTaskPolicy())
+        super().__init__(
+            client, fallback_policy=SemanticTaskPolicy(), require_input=True, require_expected=True
+        )
 
     def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
         """评估翻译质量
@@ -50,8 +52,6 @@ class TranslationEvaluator(BaseEvaluator):
             return error
         if error := self.validate_expected(request):
             return error
-        if error := self.require_client_with_error():
-            return error
 
         # 2. 提取数据
         src_lang = self._extract_source_lang(request)
@@ -59,10 +59,32 @@ class TranslationEvaluator(BaseEvaluator):
         actual_output = self._extract_actual_output(request)
         expected_output = self._extract_expected_output(request)
 
-        # 3. 构建 Prompt
+        # 3. 如果没有 LLM 客户端，直接使用 Embedding 相似度（降级策略）
+        if not self.client:
+            try:
+                score = self.fallback_policy.get_fallback_score(actual_output, expected_output)
+                return self.create_success_response(
+                    text=actual_output,
+                    score=score,
+                    data={
+                        "source_lang": src_lang,
+                        "target_lang": tgt_lang,
+                        "expected_output": expected_output,
+                        "evaluator": "translation",
+                        "fallback": True,
+                    },
+                )
+            except Exception as e:
+                logger.error(f"翻译评估器 Embedding 降级失败: {e}")
+                return self.create_error_response(
+                    error_message=f"Embedding 降级失败: {str(e)}",
+                    error_code="EMBEDDING_FALLBACK_ERROR",
+                )
+
+        # 4. 构建 Prompt
         prompt = self._build_prompt(src_lang, tgt_lang, actual_output, expected_output)
 
-        # 4. 调用 LLM 并解析结果
+        # 5. 调用 LLM 并解析结果
         try:
             llm_output = self.client.chat(prompt)
             score = self.safe_parse_score(llm_output)

@@ -211,7 +211,7 @@ class TestTrajectoryEvaluatorNegativeCases:
         result = target.evaluate(request)
 
         assert result.is_valid is False
-        assert "不能为空" in result.error
+        assert "trajectory_id" in result.error or "steps" in result.error
 
     def test_three_tier_evaluate_without_output_returns_error(self, target):
         """三层评估无actual_output应返回错误"""

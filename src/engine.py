@@ -85,6 +85,17 @@ class EvaluationEngine:
             status = EvaluationStatus.PASSED
         elif domain_response.error and "_ERROR" in domain_response.error:
             status = EvaluationStatus.ERROR
+        elif domain_response.metadata and "error_code" in domain_response.metadata:
+            error_code = domain_response.metadata["error_code"]
+            if "_ERROR" in error_code or "FALLBACK" in error_code or "POLICY" in error_code:
+                status = EvaluationStatus.ERROR
+            else:
+                status = EvaluationStatus.FAILED
+        elif domain_response.error and (
+            "失败" in domain_response.error or "失败" in domain_response.error
+        ):
+            # 包含中文"失败"关键词的也视为ERROR
+            status = EvaluationStatus.ERROR
         else:
             status = EvaluationStatus.FAILED
 

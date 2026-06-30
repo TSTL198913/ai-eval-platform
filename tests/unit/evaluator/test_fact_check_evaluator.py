@@ -1,7 +1,5 @@
 """
 FactCheckEvaluator - 事实核查评估器专项测试
-测试目标：验证FactCheckEvaluator的validate_input、is_true = "true" in llm_output.lower()、score = 1.0 if is_true else 0.0等核心功能
-关键发现：（测试过程中记录）
 """
 
 import os
@@ -38,20 +36,20 @@ class TestFactCheckEvaluatorPositiveCases:
         request = EvaluationSchema(
             id="fact_001",
             type="fact_check",
-            payload={"user_input": "太阳从东方升起"},
+            payload={"user_input": "太阳从东方升起", "actual_output": "太阳从东方升起"},
         )
         result = target.evaluate(request)
 
         assert result.is_valid is True
         assert result.score == 1.0
-        assert "true" in result.text.lower()
+        assert "true" in result.data.get("fact_check_label", "")
 
     def test_valid_input_returns_valid_response(self, target, mock_client):
         """合法输入应返回is_valid=True"""
         request = EvaluationSchema(
             id="fact_002",
             type="fact_check",
-            payload={"user_input": "水的化学式是H2O"},
+            payload={"user_input": "水的化学式是H2O", "actual_output": "水的化学式是H2O"},
         )
         result = target.evaluate(request)
 
@@ -64,7 +62,7 @@ class TestFactCheckEvaluatorPositiveCases:
         request = EvaluationSchema(
             id="fact_003",
             type="fact_check",
-            payload={"user_input": "事实陈述"},
+            payload={"user_input": "事实陈述", "actual_output": "事实陈述"},
         )
         result = target.evaluate(request)
 
@@ -92,7 +90,7 @@ class TestFactCheckEvaluatorNegativeCases:
         request = EvaluationSchema(
             id="fact_neg_001",
             type="fact_check",
-            payload={"user_input": "太阳从西方升起"},
+            payload={"user_input": "太阳从西方升起", "actual_output": "太阳从西方升起"},
         )
         result = target.evaluate(request)
 
@@ -105,7 +103,7 @@ class TestFactCheckEvaluatorNegativeCases:
         request = EvaluationSchema(
             id="fact_neg_002",
             type="fact_check",
-            payload={"user_input": "事实陈述"},
+            payload={"user_input": "事实陈述", "actual_output": "事实陈述"},
         )
         result = target.evaluate(request)
 
@@ -115,12 +113,8 @@ class TestFactCheckEvaluatorNegativeCases:
 class TestFactCheckEvaluatorBoundaryCases:
     """边界测试 - 边界值"""
 
-    def test_without_llm_client_returns_true_score_is_one(self):
-        """无LLM client时应返回is_valid=False（不再返回假结果）
-
-        【行为变更】原逻辑：无client时返回"结果: true\n理由: 无法验证"并score=1.0（假结果）
-        新逻辑：无client时返回is_valid=False，明确标记无法评估
-        """
+    def test_without_llm_client_returns_false(self):
+        """无LLM client时应返回is_valid=False"""
         target = FactCheckEvaluator(client=None)
         request = EvaluationSchema(
             id="fact_bound_001",
@@ -130,8 +124,8 @@ class TestFactCheckEvaluatorBoundaryCases:
         result = target.evaluate(request)
 
         assert result.is_valid is False
-        assert result.score == 0.0
-        assert "LLM client" in result.error
+        assert result.score is None
+        assert "LLM" in result.error or "client" in result.error.lower()
 
     def test_empty_user_input_returns_error(self):
         """空user_input应返回is_valid=False"""
@@ -182,8 +176,8 @@ class TestFactCheckEvaluatorBoundaryCases:
 
         assert result.is_valid is False
 
-    def test_no_true_or_false_returns_zero(self):
-        """不包含true也不包含false应返回score=0.0"""
+    def test_no_true_or_false_returns_error(self):
+        """不包含true也不包含false应返回错误"""
         mock_client = MagicMock()
         mock_client.config = MagicMock()
         mock_client.config.model_name = "gpt-4"
@@ -193,11 +187,12 @@ class TestFactCheckEvaluatorBoundaryCases:
         request = EvaluationSchema(
             id="fact_bound_006",
             type="fact_check",
-            payload={"user_input": "模糊的陈述"},
+            payload={"user_input": "模糊的陈述", "actual_output": "模糊的陈述"},
         )
         result = target.evaluate(request)
 
-        assert result.score == 0.0  # 既不是true也不是false
+        assert result.is_valid is False
+        assert "无法解析" in result.error
 
 
 class TestFactCheckEvaluatorDependencyHandling:
@@ -217,19 +212,15 @@ class TestFactCheckEvaluatorDependencyHandling:
         request = EvaluationSchema(
             id="fact_dep_001",
             type="fact_check",
-            payload={"user_input": "测试陈述"},
+            payload={"user_input": "测试陈述", "actual_output": "测试陈述"},
         )
         result = target.evaluate(request)
 
         mock_client.chat.assert_called_once()
         assert result.is_valid is True
 
-    def test_without_client_returns_default(self):
-        """无LLM client时应返回is_valid=False（不再返回假结果）
-
-        【行为变更】原逻辑：无client时返回score=1.0（假结果）
-        新逻辑：无client时返回is_valid=False，明确标记无法评估
-        """
+    def test_without_client_returns_error(self):
+        """无LLM client时应返回is_valid=False"""
         target = FactCheckEvaluator(client=None)
         request = EvaluationSchema(
             id="fact_dep_002",
@@ -239,8 +230,8 @@ class TestFactCheckEvaluatorDependencyHandling:
         result = target.evaluate(request)
 
         assert result.is_valid is False
-        assert result.score == 0.0
-        assert "LLM client" in result.error
+        assert result.score is None
+        assert "LLM" in result.error or "client" in result.error.lower()
 
 
 class TestFactCheckEvaluatorParsingLogic:
@@ -260,7 +251,7 @@ class TestFactCheckEvaluatorParsingLogic:
         request = EvaluationSchema(
             id="fact_parse_002",
             type="fact_check",
-            payload={"user_input": "测试"},
+            payload={"user_input": "测试", "actual_output": "测试"},
         )
         result = target.evaluate(request)
 
@@ -273,7 +264,7 @@ class TestFactCheckEvaluatorParsingLogic:
         request = EvaluationSchema(
             id="fact_parse_003",
             type="fact_check",
-            payload={"user_input": "测试"},
+            payload={"user_input": "测试", "actual_output": "测试"},
         )
         result = target.evaluate(request)
 

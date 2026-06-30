@@ -211,8 +211,8 @@ class TestToolUseEvaluatorBoundaryCases:
         assert result.is_valid is True
         assert result.score == 1.0  # 2/2 = 1.0
 
-    def test_empty_expected_tool_calls_returns_full_score(self, target):
-        """expected_tool_calls为空应返回score=1.0（注意：实际代码有bug，当expected为空时也会触发惩罚）"""
+    def test_empty_expected_tool_calls_returns_error(self, target):
+        """expected_tool_calls为空应返回错误"""
         request = EvaluationSchema(
             id="tool_bound_004",
             type="tool_use",
@@ -225,10 +225,8 @@ class TestToolUseEvaluatorBoundaryCases:
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is True
-        # 实际代码行为：由于 len(tool_calls)=1, len(expected)=0, 1>0*2=0 为True，触发惩罚
-        # score = (0/0)*0.5 但实际上走 else 分支 score=1.0，然后被惩罚为0.5
-        assert result.score == 0.5  # 实际行为
+        assert result.is_valid is False
+        assert "expected_tool_calls" in result.error
 
     def test_missing_tool_calls_field_handled(self, target):
         """缺少tool_calls字段应有默认值"""
@@ -242,10 +240,10 @@ class TestToolUseEvaluatorBoundaryCases:
         result = target.evaluate(request)
 
         assert result.is_valid is True
-        assert result.score == 0.0  # tool_calls默认为空列表
+        assert result.score == 0.0
 
-    def test_missing_expected_tool_calls_field_handled(self, target):
-        """缺少expected_tool_calls字段应有默认值"""
+    def test_missing_expected_tool_calls_field_returns_error(self, target):
+        """缺少expected_tool_calls字段应返回错误"""
         request = EvaluationSchema(
             id="tool_bound_006",
             type="tool_use",
@@ -255,12 +253,11 @@ class TestToolUseEvaluatorBoundaryCases:
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is True
-        # 实际行为：expected默认为空，触发惩罚
-        assert result.score == 0.5  # 实际行为
+        assert result.is_valid is False
+        assert "expected_tool_calls" in result.error
 
-    def test_both_missing_returns_valid(self, target):
-        """两者都缺失应有合理默认行为"""
+    def test_both_missing_returns_error(self, target):
+        """两者都缺失应返回错误"""
         request = EvaluationSchema(
             id="tool_bound_007",
             type="tool_use",
@@ -268,8 +265,8 @@ class TestToolUseEvaluatorBoundaryCases:
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is True
-        assert result.score == 0.0  # tool_calls为空，返回0.0
+        assert result.is_valid is False
+        assert "expected_tool_calls" in result.error
 
     def test_tool_name_missing_in_call(self, target):
         """tool_calls中tool_name缺失应有默认处理"""
@@ -400,8 +397,8 @@ class TestToolUseEvaluatorEdgeCases:
 
         assert result.score == 1.0  # 2/2 = 1.0
 
-    def test_empty_tool_calls_with_empty_expected(self, target):
-        """都为空应有合理默认"""
+    def test_empty_tool_calls_with_empty_expected_returns_error(self, target):
+        """都为空应返回错误"""
         request = EvaluationSchema(
             id="tool_edge_002",
             type="tool_use",
@@ -412,8 +409,8 @@ class TestToolUseEvaluatorEdgeCases:
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is True
-        assert result.score == 0.0  # tool_calls为空返回0.0
+        assert result.is_valid is False
+        assert "expected_tool_calls" in result.error
 
     def test_special_characters_in_tool_name(self, target):
         """工具名包含特殊字符应有合理处理"""

@@ -347,12 +347,22 @@ class MemoryEvaluator(BaseEvaluator):
         return consecutive_count / total_pairs
 
     def _calculate_coverage(self, retrieved: str, expected: str) -> float:
-        """计算上下文覆盖率"""
+        """计算上下文覆盖率 - 使用语义相似度"""
+        try:
+            embedding_score = self.fallback_policy.get_fallback_score(retrieved, expected)
+            if embedding_score is not None:
+                return embedding_score
+        except Exception:
+            pass
+
         expected_keywords = set(self._extract_keywords(expected))
         retrieved_keywords = set(self._extract_keywords(retrieved))
 
         if not expected_keywords:
             return 1.0
+
+        if not retrieved_keywords:
+            return 0.0
 
         overlap = len(expected_keywords & retrieved_keywords)
         return overlap / len(expected_keywords)
@@ -365,7 +375,7 @@ class MemoryEvaluator(BaseEvaluator):
         2. 命名实体一致性（人名、地名、组织名等）
         3. 时间一致性（日期、时间范围）
         4. 关键陈述一致性
-        5. 语义一致性（使用 LLM）
+        5. 语义一致性（使用 Embedding 或 LLM）
         """
         scores = []
 
@@ -385,11 +395,18 @@ class MemoryEvaluator(BaseEvaluator):
         statement_score = self._check_statement_consistency(context, ground_truth)
         scores.append(("statement", statement_score, 0.15))
 
-        # 5. 语义一致性（如果有 LLM 客户端）
+        # 5. 语义一致性（优先使用 LLM，否则使用 Embedding）
         if self.client:
             semantic_score = self._check_semantic_consistency(context, ground_truth)
             if semantic_score is not None:
                 scores.append(("semantic", semantic_score, 0.20))
+        else:
+            try:
+                embedding_score = self.fallback_policy.get_fallback_score(context, ground_truth)
+                if embedding_score is not None:
+                    scores.append(("semantic", embedding_score, 0.20))
+            except Exception:
+                pass
 
         # 加权平均
         total_weight = sum(weight for _, _, weight in scores)
@@ -428,9 +445,13 @@ class MemoryEvaluator(BaseEvaluator):
         context_entities = set(re.findall(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b", context))
         truth_entities = set(re.findall(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b", ground_truth))
 
-        # 合并实体
-        all_context_entities = context_names | context_entities
-        all_truth_entities = truth_names | truth_entities
+        # 提取关键词（小写）作为补充
+        context_keywords = set(self._extract_keywords(context))
+        truth_keywords = set(self._extract_keywords(ground_truth))
+
+        # 合并实体和关键词
+        all_context_entities = context_names | context_entities | context_keywords
+        all_truth_entities = truth_names | truth_entities | truth_keywords
 
         if not all_truth_entities:
             return 0.5  # 无实体时返回中性值

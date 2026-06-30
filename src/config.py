@@ -30,7 +30,10 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # 数据库
-    database_url: str = Field(default="sqlite:///./eval_results.db", description="数据库连接 URL")
+    database_url: str = Field(
+        default="postgresql://postgres:postgres@localhost:5432/eval_platform",
+        description="数据库连接 URL。生产环境建议使用 PostgreSQL。",
+    )
     db_pool_size: int = Field(default=5, description="连接池大小")
     db_max_overflow: int = Field(default=10, description="最大溢出连接数")
 

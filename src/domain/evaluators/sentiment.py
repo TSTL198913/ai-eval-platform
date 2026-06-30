@@ -32,7 +32,7 @@ SENTIMENT_MAP = {
 @EvaluatorFactory.register("sentiment")
 class SentimentEvaluator(BaseEvaluator):
     def __init__(self, client=None):
-        super().__init__(client, fallback_policy=StrictSemanticPolicy())
+        super().__init__(client, fallback_policy=StrictSemanticPolicy(), require_input=True)
 
     def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
         if error := self.validate_input(request):

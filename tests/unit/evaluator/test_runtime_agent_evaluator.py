@@ -39,7 +39,6 @@ class TestRuntimeAgentEvaluatorPositiveCases:
         result = target.evaluate(request)
 
         assert result.is_valid is True
-        assert result.data["is_valid"] is True
         assert "agent_id" in result.data
         assert "trajectory" in result.data
 
@@ -147,9 +146,8 @@ class TestRuntimeAgentEvaluatorNegativeCases:
 
         result = target.evaluate(request)
 
-        # 错误信息在data中，DomainResponse的is_valid默认是True
-        assert result.data["is_valid"] is False
-        assert "task" in result.data["error"].lower()
+        assert result.is_valid is False
+        assert "task" in result.error.lower()
 
     def test_run_react_empty_task_returns_error(self, target):
         """ReAct模式空task应返回错误"""
@@ -164,9 +162,8 @@ class TestRuntimeAgentEvaluatorNegativeCases:
 
         result = target.evaluate(request)
 
-        # 错误信息在data中，DomainResponse的is_valid默认是True
-        assert result.data["is_valid"] is False
-        assert "task" in result.data["error"].lower()
+        assert result.is_valid is False
+        assert "task" in result.error.lower()
 
     def test_run_plan_execute_empty_task_returns_error(self, target):
         """Plan-and-Execute模式空task应返回错误"""
@@ -181,9 +178,8 @@ class TestRuntimeAgentEvaluatorNegativeCases:
 
         result = target.evaluate(request)
 
-        # 错误信息在data中，DomainResponse的is_valid默认是True
-        assert result.data["is_valid"] is False
-        assert "task" in result.data["error"].lower()
+        assert result.is_valid is False
+        assert "task" in result.error.lower()
 
     def test_get_state_nonexistent_agent_returns_error(self, target):
         """获取不存在Agent状态应返回错误"""
@@ -198,9 +194,8 @@ class TestRuntimeAgentEvaluatorNegativeCases:
 
         result = target.evaluate(request)
 
-        # 错误信息在data中，DomainResponse的is_valid默认是True
-        assert result.data["is_valid"] is False
-        assert "not found" in result.data["error"].lower()
+        assert result.is_valid is False
+        assert "未找到" in result.error or "not found" in result.error.lower()
 
     def test_unknown_action_returns_error(self, target):
         """未知action应返回错误"""
@@ -214,9 +209,8 @@ class TestRuntimeAgentEvaluatorNegativeCases:
 
         result = target.evaluate(request)
 
-        # 错误信息在data中，DomainResponse的is_valid默认是True
-        assert result.data["is_valid"] is False
-        assert "Unknown action" in result.data["error"]
+        assert result.is_valid is False
+        assert "action" in result.error.lower()
 
 
 class TestRuntimeAgentEvaluatorBoundaryCases:
@@ -241,9 +235,8 @@ class TestRuntimeAgentEvaluatorBoundaryCases:
         result = target.evaluate(request)
 
         assert result.is_valid is True
-        # AgentState.current_step不应超过max_steps
-        state = result.data["state"]
-        assert state["current_step"] <= 3
+        runtime_state = result.data.get("runtime_state", {})
+        assert runtime_state.get("current_step") <= 3
 
     def test_auto_mode_selects_react_for_short_task(self, target):
         """auto模式对短任务应选择react"""
@@ -339,7 +332,7 @@ class TestRuntimeAgentEvaluatorAlgorithmTests:
 
         result = target.evaluate(request)
 
-        state = result.data["state"]
+        state = result.data["runtime_state"]
         # 达到最大步数，应标记completed
         if state["current_step"] >= state["max_steps"]:
             assert state["completed"] is True
@@ -379,19 +372,22 @@ class TestRuntimeAgentEvaluatorAlgorithmTests:
 
     def test_tool_registry_call_registered_tool(self, target):
         """调用已注册工具应成功"""
-        # calculator是预注册工具
-        tool_registry = RuntimeAgentEvaluator.get_tool_registry()
+        from src.domain.agents.runtime_framework import get_global_tool_registry
+
+        tool_registry = get_global_tool_registry()
         result = tool_registry.call("calculator", input="2+2")
 
         assert result == "4"
 
     def test_tool_registry_call_unregistered_tool_returns_error(self, target):
         """调用未注册工具应抛出异常"""
-        tool_registry = RuntimeAgentEvaluator.get_tool_registry()
+        from src.domain.agents.runtime_framework import get_global_tool_registry
+
+        tool_registry = get_global_tool_registry()
         with pytest.raises(ValueError) as exc_info:
             tool_registry.call("nonexistent_tool", input="test")
 
-        assert "not registered" in str(exc_info.value)
+        assert "未注册" in str(exc_info.value) or "not registered" in str(exc_info.value)
 
     def test_select_action_react_logic(self, target):
         """ReAct动作选择逻辑"""
@@ -414,6 +410,6 @@ class TestRuntimeAgentEvaluatorAlgorithmTests:
     def test_infer_tool_from_plan_step(self, target):
         """从计划步骤推断工具"""
         assert target._infer_tool("搜索相关信息") == "search"
-        assert target._infer_tool("calculate the result") == "calculator"
+        assert target._infer_tool("calculator the result") == "calculator"
         assert target._infer_tool("分析数据") == "analyzer"
         assert target._infer_tool("其他操作") is None

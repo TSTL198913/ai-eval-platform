@@ -34,7 +34,12 @@ class FactualityEvaluator(BaseEvaluator):
         Args:
             client: LLM 客户端实例（可选）
         """
-        super().__init__(client, fallback_policy=StrictSemanticPolicy())
+        super().__init__(
+            client,
+            fallback_policy=StrictSemanticPolicy(),
+            require_input=True,
+            require_expected=True,
+        )
 
     def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
         """执行多维事实一致性评估（带降级策略）

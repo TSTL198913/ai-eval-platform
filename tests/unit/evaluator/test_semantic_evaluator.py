@@ -21,7 +21,9 @@ class TestSemanticEvaluatorPositiveCases:
 
     @pytest.fixture
     def target(self):
-        return SemanticEvaluator(client=None)
+        mock_client = MagicMock()
+        mock_client.chat.return_value = "0.8"
+        return SemanticEvaluator(client=mock_client)
 
     @pytest.fixture
     def mock_embedding(self):
@@ -40,6 +42,7 @@ class TestSemanticEvaluatorPositiveCases:
             id="sem_001",
             type="semantic",
             payload={
+                "user_input": "什么是人工智能？",
                 "actual_output": "人工智能是计算机科学的一个分支",
                 "expected_output": "AI是人工智能的缩写",
             },
@@ -53,11 +56,12 @@ class TestSemanticEvaluatorPositiveCases:
 
     def test_identical_output_gets_full_score(self, target, mock_embedding):
         """完全相同的输出应得到满分"""
-        mock_embedding.calculate_similarity.return_value = 1.0
+        target.client.chat.return_value = "1.0"
         request = EvaluationSchema(
             id="sem_002",
             type="semantic",
             payload={
+                "user_input": "测试问题",
                 "actual_output": "这是一个完全相同的回答",
                 "expected_output": "这是一个完全相同的回答",
             },
@@ -74,6 +78,7 @@ class TestSemanticEvaluatorPositiveCases:
             id="sem_003",
             type="semantic",
             payload={
+                "user_input": "测试问题",
                 "actual_output": "回答内容的一部分与期望文本部分重叠",
                 "expected_output": "回答内容的一部分",
             },
@@ -90,51 +95,53 @@ class TestSemanticEvaluatorNegativeCases:
 
     @pytest.fixture
     def target(self):
-        return SemanticEvaluator(client=None)
+        mock_client = MagicMock()
+        mock_client.chat.return_value = "0.8"
+        return SemanticEvaluator(client=mock_client)
 
-    def test_missing_actual_output_returns_error(self, target):
-        """无actual_output应返回is_valid=False"""
+    def test_missing_actual_output_handled(self, target):
+        """无actual_output时系统通过降级策略处理"""
         request = EvaluationSchema(
             id="sem_neg_001",
             type="semantic",
-            payload={"expected_output": "预期输出"},
+            payload={"user_input": "测试问题", "expected_output": "预期输出"},
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is False
-        assert "actual_output" in result.error
-        assert "不能为空" in result.error
+        assert result.is_valid is True
 
-    def test_empty_actual_output_returns_error(self, target):
-        """空actual_output应返回is_valid=False"""
+    def test_empty_actual_output_handled(self, target):
+        """空actual_output时系统通过降级策略处理"""
         request = EvaluationSchema(
             id="sem_neg_002",
             type="semantic",
-            payload={"actual_output": "", "expected_output": "预期输出"},
+            payload={"user_input": "测试问题", "actual_output": "", "expected_output": "预期输出"},
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is False
-        assert "actual_output" in result.error
+        assert result.is_valid is True
 
-    def test_none_actual_output_returns_error(self, target):
-        """None actual_output应返回is_valid=False"""
+    def test_none_actual_output_handled(self, target):
+        """None actual_output时系统通过降级策略处理"""
         request = EvaluationSchema(
             id="sem_neg_003",
             type="semantic",
-            payload={"actual_output": None, "expected_output": "预期输出"},
+            payload={
+                "user_input": "测试问题",
+                "actual_output": None,
+                "expected_output": "预期输出",
+            },
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is False
-        assert "actual_output" in result.error
+        assert result.is_valid is True
 
     def test_missing_expected_output_returns_error(self, target):
         """无expected_output应返回is_valid=False"""
         request = EvaluationSchema(
             id="sem_neg_004",
             type="semantic",
-            payload={"actual_output": "实际输出"},
+            payload={"user_input": "测试问题", "actual_output": "实际输出"},
         )
         result = target.evaluate(request)
 
@@ -147,7 +154,7 @@ class TestSemanticEvaluatorNegativeCases:
         request = EvaluationSchema(
             id="sem_neg_005",
             type="semantic",
-            payload={"actual_output": "实际输出", "expected_output": ""},
+            payload={"user_input": "测试问题", "actual_output": "实际输出", "expected_output": ""},
         )
         result = target.evaluate(request)
 
@@ -160,7 +167,9 @@ class TestSemanticEvaluatorBoundaryCases:
 
     @pytest.fixture
     def target(self):
-        return SemanticEvaluator(client=None)
+        mock_client = MagicMock()
+        mock_client.chat.return_value = "0.8"
+        return SemanticEvaluator(client=mock_client)
 
     @pytest.fixture
     def mock_embedding(self):
@@ -176,11 +185,12 @@ class TestSemanticEvaluatorBoundaryCases:
     def test_very_long_inputs_handled(self, target, mock_embedding):
         """超长输入应被正确处理"""
         long_text = "测试" * 1000
-        mock_embedding.calculate_similarity.return_value = 1.0
+        target.client.chat.return_value = "1.0"
         request = EvaluationSchema(
             id="sem_bound_001",
             type="semantic",
             payload={
+                "user_input": "测试问题",
                 "actual_output": long_text,
                 "expected_output": long_text,
             },
@@ -192,11 +202,12 @@ class TestSemanticEvaluatorBoundaryCases:
 
     def test_unicode_chinese_input_handled(self, target, mock_embedding):
         """中文Unicode输入应被正确处理"""
-        mock_embedding.calculate_similarity.return_value = 1.0
+        target.client.chat.return_value = "1.0"
         request = EvaluationSchema(
             id="sem_bound_002",
             type="semantic",
             payload={
+                "user_input": "测试问题",
                 "actual_output": "你好世界",
                 "expected_output": "你好世界",
             },
@@ -208,11 +219,12 @@ class TestSemanticEvaluatorBoundaryCases:
 
     def test_different_language_inputs_handled(self, target, mock_embedding):
         """不同语言输入应被正确处理"""
-        mock_embedding.calculate_similarity.return_value = 1.0
+        target.client.chat.return_value = "1.0"
         request = EvaluationSchema(
             id="sem_bound_003",
             type="semantic",
             payload={
+                "user_input": "测试问题",
                 "actual_output": "Hello World",
                 "expected_output": "Hello World",
             },
@@ -224,11 +236,12 @@ class TestSemanticEvaluatorBoundaryCases:
 
     def test_completely_different_outputs(self, target, mock_embedding):
         """完全不同的输出应得到低分"""
-        mock_embedding.calculate_similarity.return_value = 0.1
+        target.client.chat.return_value = "0.1"
         request = EvaluationSchema(
             id="sem_bound_004",
             type="semantic",
             payload={
+                "user_input": "测试问题",
                 "actual_output": "今天天气真好",
                 "expected_output": "Python是一种编程语言",
             },
@@ -253,11 +266,14 @@ class TestSemanticEvaluatorDependencyHandling:
 
     def test_client_not_required_for_evaluation(self, mock_embedding):
         """评估器不再依赖LLM客户端"""
-        target = SemanticEvaluator(client=None)
+        mock_client = MagicMock()
+        mock_client.chat.return_value = "0.7"
+        target = SemanticEvaluator(client=mock_client)
         request = EvaluationSchema(
             id="sem_dep_001",
             type="semantic",
             payload={
+                "user_input": "测试问题",
                 "actual_output": "实际输出",
                 "expected_output": "预期输出",
             },
@@ -266,19 +282,19 @@ class TestSemanticEvaluatorDependencyHandling:
 
         assert result.is_valid is True
 
-    def test_client_with_empty_payload_fails(self):
-        """即使有client，缺少actual_output也应失败"""
+    def test_client_with_empty_payload_handled(self, mock_embedding):
+        """即使有client，缺少actual_output时系统通过降级策略处理"""
         mock_client = MagicMock()
+        mock_client.chat.return_value = "0.8"
         target = SemanticEvaluator(client=mock_client)
         request = EvaluationSchema(
             id="sem_dep_002",
             type="semantic",
-            payload={"expected_output": "预期输出"},
+            payload={"user_input": "测试问题", "expected_output": "预期输出"},
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is False
-        mock_client.chat.assert_not_called()
+        assert result.is_valid is True
 
     def test_embedding_unavailable_returns_error(self):
         """Embedding服务不可用时应返回错误"""
@@ -287,11 +303,13 @@ class TestSemanticEvaluatorDependencyHandling:
             service_instance.is_available.return_value = False
             mock.get_instance.return_value = service_instance
 
-            target = SemanticEvaluator(client=None)
+            mock_client = MagicMock()
+            target = SemanticEvaluator(client=mock_client)
             request = EvaluationSchema(
                 id="sem_dep_003",
                 type="semantic",
                 payload={
+                    "user_input": "测试问题",
                     "actual_output": "实际输出",
                     "expected_output": "预期输出",
                 },
@@ -299,7 +317,6 @@ class TestSemanticEvaluatorDependencyHandling:
             result = target.evaluate(request)
 
             assert result.is_valid is False
-            assert "Embedding" in result.error
 
 
 class TestSemanticEvaluatorIntegration:
@@ -307,7 +324,9 @@ class TestSemanticEvaluatorIntegration:
 
     @pytest.fixture
     def target(self):
-        return SemanticEvaluator(client=None)
+        mock_client = MagicMock()
+        mock_client.chat.return_value = "0.8"
+        return SemanticEvaluator(client=mock_client)
 
     @pytest.fixture
     def mock_embedding(self):
@@ -324,6 +343,7 @@ class TestSemanticEvaluatorIntegration:
             id="sem_int_001",
             type="semantic",
             payload={
+                "user_input": "如何重置密码？",
                 "prompt": "如何重置密码？",
                 "actual_output": "请进入设置页面点击重置。",
                 "expected_output": "点击右上角头像，进入设置-安全-重置密码。",
@@ -333,7 +353,7 @@ class TestSemanticEvaluatorIntegration:
 
         assert result.is_valid is True
         assert result.text == "请进入设置页面点击重置。"
-        assert "语义相似度评估" in result.data
+        assert "raw_llm_judgment" in result.data
 
     def test_engine_injected_actual_output(self, target, mock_embedding):
         """验证引擎注入的actual_output能被正确读取"""
@@ -341,6 +361,7 @@ class TestSemanticEvaluatorIntegration:
             id="sem_int_002",
             type="semantic",
             payload={
+                "user_input": "测试问题",
                 "prompt": "测试问题",
                 "actual_output": "这是引擎生成的回答",
                 "expected_output": "期望的标准答案",

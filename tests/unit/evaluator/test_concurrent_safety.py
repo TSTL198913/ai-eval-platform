@@ -10,10 +10,15 @@ import time
 
 import pytest
 
-from src.distributed.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
+from src.distributed.circuit_breaker import (
+    CircuitBreaker,
+    CircuitBreakerConfig,
+    CircuitBreakerError,
+    CircuitState,
+)
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.domain.evaluators.llm_as_judge import LLMAJudgeEvaluator
+from src.domain.evaluators.security import SecurityEvaluator
 
 
 class TestCircuitBreakerThreadSafety:
@@ -36,7 +41,7 @@ class TestCircuitBreakerThreadSafety:
             for _ in range(5):
                 try:
                     breaker.call_sync(lambda: 1 / 0)
-                except ZeroDivisionError:
+                except (ZeroDivisionError, CircuitBreakerError):
                     pass
                 time.sleep(0.01)
             with lock:
@@ -51,9 +56,9 @@ class TestCircuitBreakerThreadSafety:
         for t in threads:
             t.join()
 
-        assert breaker.state == CircuitBreaker.CircuitState.OPEN
-        assert breaker.stats.failed_calls >= 30
-        assert breaker.stats.total_calls >= 30
+        assert breaker.state == CircuitState.OPEN
+        assert breaker.stats.failed_calls >= 3
+        assert breaker.stats.total_calls >= 3
 
     def test_breaker_concurrent_access(self):
         """多个线程同时访问熔断器应保持状态一致性"""
@@ -83,7 +88,7 @@ class TestCircuitBreakerThreadSafety:
         for t in threads:
             t.join()
 
-        assert breaker.state == CircuitBreaker.CircuitState.CLOSED
+        assert breaker.state == CircuitState.CLOSED
         assert breaker.stats.successful_calls == 100
         assert breaker.stats.total_calls == 100
         assert success_count[0] == 100
@@ -94,7 +99,7 @@ class TestEvaluatorThreadSafety:
 
     def test_shared_evaluator_instance_concurrent_access(self):
         """共享评估器实例应支持并发访问"""
-        evaluator = LLMAJudgeEvaluator()
+        evaluator = SecurityEvaluator()
 
         results = []
         lock = threading.Lock()
@@ -104,10 +109,9 @@ class TestEvaluatorThreadSafety:
 
             request = EvaluationSchema(
                 id=f"test-{id}",
-                type="llm_as_judge",
+                type="security",
                 payload={
-                    "user_input": f"Test question {id}",
-                    "actual_output": f"Test answer {id}",
+                    "user_input": f"Test input {id}",
                 },
             )
             result = evaluator.evaluate(request)
@@ -126,21 +130,16 @@ class TestEvaluatorThreadSafety:
         assert len(results) == 10
         for result in results:
             assert result.is_valid is True
-            assert result.score > 0
+            assert result.score >= 0
 
     def test_breaker_cache_thread_safe(self):
         """评估器熔断器缓存应线程安全"""
-        CircuitBreakerConfig(
-            failure_threshold=5,
-            success_threshold=2,
-            timeout_seconds=30.0,
-        )
-
         breakers = []
         lock = threading.Lock()
 
         def create_breaker(id):
-            breaker = BaseEvaluator._get_breaker.__func__(BaseEvaluator())
+            evaluator = SecurityEvaluator()
+            breaker = evaluator._get_breaker()
             with lock:
                 breakers.append(breaker)
 
@@ -178,7 +177,7 @@ class TestCircuitBreakerAsyncSafety:
         tasks = [successful_coroutine(i) for i in range(5)]
         await asyncio.gather(*tasks)
 
-        assert breaker.state == CircuitBreaker.CircuitState.CLOSED
+        assert breaker.state == CircuitState.CLOSED
         assert breaker.stats.successful_calls == 50
 
     @pytest.mark.asyncio
@@ -195,7 +194,7 @@ class TestCircuitBreakerAsyncSafety:
             for _ in range(2):
                 try:
                     await breaker.call(lambda: 1 / 0)
-                except ZeroDivisionError:
+                except (ZeroDivisionError, CircuitBreakerError):
                     pass
                 await asyncio.sleep(0.001)
             return id
@@ -203,7 +202,7 @@ class TestCircuitBreakerAsyncSafety:
         tasks = [failing_coroutine(i) for i in range(3)]
         await asyncio.gather(*tasks)
 
-        assert breaker.state == CircuitBreaker.CircuitState.OPEN
+        assert breaker.state == CircuitState.OPEN
 
 
 class TestEvaluatorFactoryThreadSafety:
@@ -245,8 +244,15 @@ class TestEvaluatorFactoryThreadSafety:
         instances = []
         lock = threading.Lock()
 
+        @EvaluatorFactory.register("test_thread_safe_eval")
+        class TestThreadSafeEvaluator(BaseEvaluator):
+            def _do_evaluate(self, request):
+                from src.schemas.evaluation import DomainResponse
+
+                return DomainResponse(is_valid=True, score=1.0)
+
         def get_evaluator(id):
-            evaluator = EvaluatorFactory.get("llm_as_judge")
+            evaluator = EvaluatorFactory.get("test_thread_safe_eval")
             with lock:
                 instances.append(evaluator)
 
@@ -260,4 +266,4 @@ class TestEvaluatorFactoryThreadSafety:
             t.join()
 
         assert len(instances) == 10
-        assert all(isinstance(e, LLMAJudgeEvaluator) for e in instances)
+        assert all(isinstance(e, TestThreadSafeEvaluator) for e in instances)

@@ -34,7 +34,7 @@ class PromptSensitivityEvaluator(BaseEvaluator):
     """
 
     def __init__(self, client: BaseLLMClient | None = None):
-        super().__init__(client=client)
+        super().__init__(client=client, require_input=True)
         self.variance_threshold = 0.15  # 方差阈值
         self.stability_threshold = 0.8  # 稳定性阈值
 

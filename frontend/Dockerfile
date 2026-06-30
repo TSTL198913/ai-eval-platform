@@ -13,7 +13,7 @@ COPY frontend/tsconfig.json ./
 COPY frontend/src ./src
 COPY frontend/index.html ./
 COPY frontend/nginx.conf ./
-COPY public ./public  # 公共资源（favicon等）
+COPY public ./public
 
 # 安装依赖并构建
 RUN npm ci && npm run build

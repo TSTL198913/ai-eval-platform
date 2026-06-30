@@ -292,7 +292,9 @@ def _create_engine() -> Engine:
         return create_engine(
             database_url,
             connect_args={"check_same_thread": False},
-            poolclass=StaticPool,
+            poolclass=QueuePool,
+            pool_size=5,
+            max_overflow=10,
         )
     else:
         return create_engine(
@@ -458,7 +460,7 @@ def _execute_checkin_hooks(conn: Any) -> None:
 # 为Engine添加连接监听器
 def _setup_engine_listeners(engine: Engine) -> None:
     """设置引擎事件监听器"""
-    if not isinstance(engine.pool, QueuePool):
+    if not hasattr(engine, "pool") or not isinstance(engine.pool, QueuePool):
         return
 
     @event.listens_for(engine, "checkout")
@@ -508,13 +510,11 @@ def get_db_session() -> Generator:
 
     def _create_and_validate_session():
         db = get_session_local()()
-        engine = get_engine()
-        if not isinstance(engine.pool, StaticPool):
-            try:
-                db.execute(text("SELECT 1"))
-            except Exception:
-                db.close()
-                raise
+        try:
+            db.execute(text("SELECT 1"))
+        except Exception:
+            db.close()
+            raise
         return db
 
     try:

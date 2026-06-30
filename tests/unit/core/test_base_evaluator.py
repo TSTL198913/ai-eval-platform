@@ -9,7 +9,7 @@ from src.schemas.evaluation import DomainResponse, EvaluationSchema
 class ConcreteEvaluator(BaseEvaluator):
     """BaseEvaluator的具体实现用于测试"""
 
-    def evaluate(self, request: EvaluationSchema) -> DomainResponse:
+    def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
         return DomainResponse(is_valid=True, text="测试评估完成", score=1.0, data={})
 
 
@@ -182,7 +182,7 @@ class TestSafeEvaluate:
         """评估器返回None应捕获并返回错误"""
 
         class NoneEvaluator(BaseEvaluator):
-            def evaluate(self, request: EvaluationSchema) -> DomainResponse:
+            def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
                 return None  # type: ignore
 
         evaluator = NoneEvaluator()
@@ -199,11 +199,11 @@ class TestRequireClient:
     def test_require_client_not_configured(self):
         """未配置客户端应返回错误"""
         evaluator = ConcreteEvaluator(client=None)
-        response = evaluator.require_client()
+        response = evaluator.require_client_with_error()
 
         assert response is not None
         assert response.is_valid is False
-        assert "LLM client 未配置" in response.error
+        assert "LLM 客户端" in response.error
 
     def test_require_client_configured(self):
         """已配置客户端应返回None"""
@@ -213,6 +213,6 @@ class TestRequireClient:
 
         mock_client = MagicMock(spec=BaseLLMClient)
         evaluator = ConcreteEvaluator(client=mock_client)
-        response = evaluator.require_client()
+        response = evaluator.require_client_with_error()
 
         assert response is None

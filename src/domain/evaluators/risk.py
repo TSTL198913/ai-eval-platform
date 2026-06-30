@@ -29,9 +29,6 @@ class RiskEvaluator(BaseEvaluator):
 
     def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
         """[同步轨] 执行风险防御流（向后兼容传统流）"""
-        if error := self.validate_input(request):
-            return error
-
         action = self.get_payload_data(request, "action", "detect_all")
 
         if action == "detect_all":

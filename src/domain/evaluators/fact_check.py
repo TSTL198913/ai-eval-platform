@@ -33,7 +33,7 @@ class FactCheckEvaluator(BaseEvaluator):
         Args:
             client: LLM 客户端实例（可选）
         """
-        super().__init__(client)
+        super().__init__(client, require_input=True)
 
     def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
         """执行事实核查

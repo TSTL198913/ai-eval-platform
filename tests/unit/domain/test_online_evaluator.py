@@ -207,8 +207,8 @@ class TestOnlineEvaluatorPositiveCases:
         """场景：空结果统计"""
         stats = target.get_stats()
 
-        assert stats.total_samples == 0
-        assert stats.success_rate == 0.0
+        assert stats["total_samples"] == 0
+        assert stats["success_rate"] == 0.0
 
     def test_get_stats_with_results(self, target):
         """场景：有结果的统计"""
@@ -227,11 +227,11 @@ class TestOnlineEvaluatorPositiveCases:
 
         stats = target.get_stats()
 
-        assert stats.total_samples == 3
-        assert stats.success_count == 2
-        assert stats.failure_count == 1
-        assert abs(stats.success_rate - 2 / 3) < 0.01
-        assert stats.avg_score > 0
+        assert stats["total_samples"] == 3
+        assert stats["success_count"] == 2
+        assert stats["failure_count"] == 1
+        assert abs(stats["success_rate"] - 2 / 3) < 0.01
+        assert stats["avg_score"] > 0
 
     def test_get_results(self, target):
         """场景：获取所有结果"""
@@ -340,7 +340,7 @@ class TestOnlineEvaluationPipelinePositiveCases:
 
         stats = pipeline.get_stats()
 
-        assert stats.total_samples == 1
+        assert stats["total_samples"] == 1
 
 
 class TestOnlineEvaluatorNegativeCases:

@@ -31,7 +31,12 @@ def create_general_evaluator(client=None):
 
 class GeneralEvaluator(BaseEvaluator):
     def __init__(self, client=None):
-        super().__init__(client, fallback_policy=StrictSemanticPolicy())
+        super().__init__(
+            client,
+            fallback_policy=StrictSemanticPolicy(),
+            require_input=True,
+            require_expected=True,
+        )
 
     @staticmethod
     def _sanitize_input(text: str) -> str:

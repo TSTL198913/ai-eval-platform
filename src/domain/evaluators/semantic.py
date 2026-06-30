@@ -12,7 +12,9 @@ logger = logging.getLogger(__name__)
 class SemanticEvaluator(BaseEvaluator):
     def __init__(self, client=None):
         # 注入语义降级策略（LLM 挂了自动走本地 Embedding 相似度）
-        super().__init__(client, fallback_policy=SemanticTaskPolicy())
+        super().__init__(
+            client, fallback_policy=SemanticTaskPolicy(), require_input=True, require_expected=True
+        )
 
     def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
         # 1. 契约前置验证

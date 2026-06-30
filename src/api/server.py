@@ -24,6 +24,7 @@ from src.api.common import success_response
 from src.domain.evaluators import EVALUATOR_REGISTRY
 from src.exceptions import BasePlatformError
 from src.infra.db.session import init_tables
+from src.infra.security.fastapi_rbac import RBACMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,6 @@ async def lifespan(app: FastAPI):
         db = next(db_gen)
         _ = db.execute(text("SELECT 1"))
         db.commit()
-        time.sleep(0.5)
         next(db_gen, None)
         logger.info(f"[2/5] 连接池预热完成: {time.time() - t0:.0f}s")
     except Exception as e:
@@ -142,6 +142,7 @@ register_metrics_middleware(app)
 from src.api.security_middleware import SecurityMiddleware
 
 app.add_middleware(SecurityMiddleware)
+app.add_middleware(RBACMiddleware)
 
 # =====================================================================
 # 注册异常处理器
@@ -273,6 +274,23 @@ app.include_router(statistics_router)
 app.include_router(dashboard_router)
 app.include_router(annotation_router)
 app.include_router(eval_config_router)
+
+# =====================================================================
+# v2 API 路由聚合（精简后：8个功能域）
+# =====================================================================
+from src.api.routes.v2 import (
+    analytics_v2_router,
+    config_v2_router,
+    data_v2_router,
+    evaluation_v2_router,
+    models_v2_router,
+)
+
+app.include_router(evaluation_v2_router, prefix="/v2")
+app.include_router(models_v2_router, prefix="/v2")
+app.include_router(data_v2_router, prefix="/v2")
+app.include_router(analytics_v2_router, prefix="/v2")
+app.include_router(config_v2_router, prefix="/v2")
 
 
 # =====================================================================

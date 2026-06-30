@@ -411,7 +411,7 @@ class TestMemoryEvaluatorAlgorithmTests:
 
     def test_coverage_calculation_no_coverage(self, target):
         """无覆盖应有0分"""
-        coverage = target._calculate_coverage("关键信息", "不相关信息")
+        coverage = target._calculate_coverage("苹果香蕉", "汽车飞机")
         assert coverage == 0.0
 
     def test_factual_consistency_numbers_match(self, target):

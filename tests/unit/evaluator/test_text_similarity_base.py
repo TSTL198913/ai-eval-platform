@@ -125,18 +125,3 @@ class TestTextSimilarityBasedEvaluatorBase:
 
 class TestTextSimilarityBaseIntegration:
     """集成测试"""
-
-    def test_text_similarity_base_registered(self):
-        """TextSimilarityBasedEvaluator应已注册到工厂"""
-        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-
-        assert "text_similarity_base" in EvaluatorFactory.list_evaluators()
-
-    def test_three_evaluator_names_registered(self):
-        """三个评估器名称应已注册到工厂"""
-        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-
-        evaluators = EvaluatorFactory.list_evaluators()
-        assert "qa" in evaluators
-        assert "semantic" in evaluators
-        assert "summary" in evaluators

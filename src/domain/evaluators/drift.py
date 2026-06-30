@@ -28,7 +28,7 @@ class DriftDetectionEvaluator(BaseEvaluator):
     DEFAULT_DRIFT_THRESHOLD = 0.2
 
     def __init__(self, client: Any | None = None):
-        super().__init__(client)
+        super().__init__(client, require_input=True)
         self.repository = EvaluationRepository()
         self._baseline_store: dict[str, float] = {}
         self._baseline_lock = threading.Lock()

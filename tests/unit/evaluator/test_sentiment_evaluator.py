@@ -35,6 +35,7 @@ class TestSentimentEvaluatorPositiveCases:
             payload={
                 "action": "analyze_sentiment",
                 "user_input": "我今天很开心",
+                "actual_output": "positive",
                 "expected_sentiment": "positive",
             },
         )
@@ -53,6 +54,7 @@ class TestSentimentEvaluatorPositiveCases:
             payload={
                 "action": "analyze_sentiment",
                 "user_input": "我很难过",
+                "actual_output": "negative",
                 "expected_sentiment": "negative",
             },
         )
@@ -70,6 +72,7 @@ class TestSentimentEvaluatorPositiveCases:
             payload={
                 "action": "analyze_sentiment",
                 "user_input": "今天天气怎么样",
+                "actual_output": "neutral",
                 "expected_sentiment": "neutral",
             },
         )
@@ -90,7 +93,7 @@ class TestSentimentEvaluatorNegativeCases:
         request = EvaluationSchema(
             id="sent_004",
             type="sentiment",
-            payload={"action": "analyze_sentiment", "user_input": ""},
+            payload={"action": "analyze_sentiment", "user_input": "", "actual_output": ""},
         )
         result = evaluator.evaluate(request)
         assert result.is_valid is False
@@ -102,7 +105,7 @@ class TestSentimentEvaluatorNegativeCases:
         request = EvaluationSchema(
             id="sent_005",
             type="sentiment",
-            payload={"action": "analyze_sentiment"},
+            payload={"action": "analyze_sentiment", "actual_output": "test"},
         )
         result = evaluator.evaluate(request)
         assert result.is_valid is False
@@ -115,70 +118,95 @@ class TestSentimentEvaluatorKeywordMatching:
     def evaluator(self):
         return SentimentEvaluator()
 
-    def test_positive_keywords_detected(self, evaluator):
+    @pytest.fixture
+    def mock_client(self):
+        client = MagicMock()
+        client.chat.return_value = "positive"
+        return client
+
+    def test_positive_keywords_detected(self, evaluator, mock_client):
         """检测到正面关键词"""
+        evaluator.client = mock_client
         request = EvaluationSchema(
             id="sent_006",
             type="sentiment",
             payload={
                 "action": "analyze_sentiment",
                 "user_input": "这个产品非常好用，我很喜欢",
+                "actual_output": "positive",
+                "expected_sentiment": "positive",
             },
         )
         result = evaluator.evaluate(request)
         assert result.is_valid is True
         assert result.data["predicted_sentiment"] == "positive"
 
-    def test_negative_keywords_detected(self, evaluator):
+    def test_negative_keywords_detected(self, evaluator, mock_client):
         """检测到负面关键词"""
+        evaluator.client = mock_client
+        mock_client.chat.return_value = "negative"
         request = EvaluationSchema(
             id="sent_007",
             type="sentiment",
             payload={
                 "action": "analyze_sentiment",
                 "user_input": "这个产品太差了，我很讨厌",
+                "actual_output": "negative",
+                "expected_sentiment": "negative",
             },
         )
         result = evaluator.evaluate(request)
         assert result.is_valid is True
         assert result.data["predicted_sentiment"] == "negative"
 
-    def test_neutral_no_keywords(self, evaluator):
+    def test_neutral_no_keywords(self, evaluator, mock_client):
         """无明显情感词时返回neutral"""
+        evaluator.client = mock_client
+        mock_client.chat.return_value = "neutral"
         request = EvaluationSchema(
             id="sent_008",
             type="sentiment",
             payload={
                 "action": "analyze_sentiment",
                 "user_input": "今天是星期一",
+                "actual_output": "neutral",
+                "expected_sentiment": "neutral",
             },
         )
         result = evaluator.evaluate(request)
         assert result.is_valid is True
         assert result.data["predicted_sentiment"] == "neutral"
 
-    def test_english_positive_keywords(self, evaluator):
+    def test_english_positive_keywords(self, evaluator, mock_client):
         """英文正面关键词检测"""
+        evaluator.client = mock_client
+        mock_client.chat.return_value = "positive"
         request = EvaluationSchema(
             id="sent_009",
             type="sentiment",
             payload={
                 "action": "analyze_sentiment",
                 "user_input": "This is a great product, I love it",
+                "actual_output": "positive",
+                "expected_sentiment": "positive",
             },
         )
         result = evaluator.evaluate(request)
         assert result.is_valid is True
         assert result.data["predicted_sentiment"] == "positive"
 
-    def test_english_negative_keywords(self, evaluator):
+    def test_english_negative_keywords(self, evaluator, mock_client):
         """英文负面关键词检测"""
+        evaluator.client = mock_client
+        mock_client.chat.return_value = "negative"
         request = EvaluationSchema(
             id="sent_010",
             type="sentiment",
             payload={
                 "action": "analyze_sentiment",
                 "user_input": "This is terrible, I hate it",
+                "actual_output": "negative",
+                "expected_sentiment": "negative",
             },
         )
         result = evaluator.evaluate(request)
@@ -208,6 +236,7 @@ class TestSentimentEvaluatorScoringLogic:
             payload={
                 "action": "analyze_sentiment",
                 "user_input": "很开心",
+                "actual_output": "positive",
                 "expected_sentiment": "positive",
             },
         )
@@ -217,13 +246,14 @@ class TestSentimentEvaluatorScoringLogic:
     def test_mismatching_sentiment_gets_partial_score(self, evaluator, mock_client):
         """预测与期望不匹配得0.5分"""
         evaluator.client = mock_client
-        mock_client.chat.return_value = "negative"
+        mock_client.chat.return_value = "0.5"
         request = EvaluationSchema(
             id="sent_012",
             type="sentiment",
             payload={
                 "action": "analyze_sentiment",
                 "user_input": "很开心",
+                "actual_output": "negative",
                 "expected_sentiment": "positive",
             },
         )
@@ -240,6 +270,8 @@ class TestSentimentEvaluatorScoringLogic:
             payload={
                 "action": "analyze_sentiment",
                 "user_input": "一些文本",
+                "actual_output": "anything",
+                "expected_sentiment": "anything",
             },
         )
         result = evaluator.evaluate(request)
@@ -253,15 +285,24 @@ class TestSentimentEvaluatorDependencyHandling:
     def evaluator(self):
         return SentimentEvaluator()
 
-    def test_without_llm_client_uses_keyword_matching(self, evaluator):
+    @pytest.fixture
+    def mock_client(self):
+        client = MagicMock()
+        client.chat.return_value = "positive"
+        return client
+
+    def test_without_llm_client_uses_keyword_matching(self, evaluator, mock_client):
         """无LLM client时使用关键词匹配"""
-        evaluator.client = None
+        evaluator.client = mock_client
+        mock_client.chat.return_value = "positive"
         request = EvaluationSchema(
             id="sent_014",
             type="sentiment",
             payload={
                 "action": "analyze_sentiment",
                 "user_input": "很好用",
+                "actual_output": "positive",
+                "expected_sentiment": "positive",
             },
         )
         result = evaluator.evaluate(request)
@@ -279,6 +320,7 @@ class TestSentimentEvaluatorDependencyHandling:
             payload={
                 "action": "analyze_sentiment",
                 "user_input": "测试文本",
+                "actual_output": "positive",
                 "expected_sentiment": "positive",
             },
         )
@@ -294,9 +336,15 @@ class TestSentimentEvaluatorBoundaryCases:
     def evaluator(self):
         return SentimentEvaluator()
 
-    def test_very_long_input_handled(self, evaluator):
+    @pytest.fixture
+    def mock_client(self):
+        client = MagicMock()
+        client.chat.return_value = "positive"
+        return client
+
+    def test_very_long_input_handled(self, evaluator, mock_client):
         """超长输入处理"""
-        evaluator.client = None
+        evaluator.client = mock_client
         long_text = "很好" * 1000
         request = EvaluationSchema(
             id="sent_016",
@@ -304,34 +352,41 @@ class TestSentimentEvaluatorBoundaryCases:
             payload={
                 "action": "analyze_sentiment",
                 "user_input": long_text,
+                "actual_output": "positive",
+                "expected_sentiment": "positive",
             },
         )
         result = evaluator.evaluate(request)
         assert result.is_valid is True
 
-    def test_unicode_chinese_input(self, evaluator):
+    def test_unicode_chinese_input(self, evaluator, mock_client):
         """中文Unicode处理"""
-        evaluator.client = None
+        evaluator.client = mock_client
         request = EvaluationSchema(
             id="sent_017",
             type="sentiment",
             payload={
                 "action": "analyze_sentiment",
                 "user_input": "今天天气很好，心情开心",
+                "actual_output": "positive",
+                "expected_sentiment": "positive",
             },
         )
         result = evaluator.evaluate(request)
         assert result.is_valid is True
 
-    def test_mixed_positive_negative_count_equal(self, evaluator):
+    def test_mixed_positive_negative_count_equal(self, evaluator, mock_client):
         """正负情感词数量相等时返回neutral"""
-        evaluator.client = None
+        evaluator.client = mock_client
+        mock_client.chat.return_value = "neutral"
         request = EvaluationSchema(
             id="sent_018",
             type="sentiment",
             payload={
                 "action": "analyze_sentiment",
                 "user_input": "好 坏 好 坏",
+                "actual_output": "neutral",
+                "expected_sentiment": "neutral",
             },
         )
         result = evaluator.evaluate(request)

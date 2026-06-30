@@ -1,7 +1,6 @@
 """
 Metadata 模型专项测试
 测试目标：验证4个Pydantic元数据模型的核心能力（BaseMetadata/FinanceMetadata/CodeMetadata/TextMetadata）
-关键发现：4个元数据模型继承自BaseMetadata，各有扩展字段，被多个评估器（code/finance/text等）依赖
 """
 
 from src.domain.evaluators.metadata import (
@@ -18,30 +17,20 @@ class TestBaseMetadata:
     def test_default_values(self):
         """默认值应正确设置"""
         metadata = BaseMetadata()
-        assert metadata.priority == "normal"
-        assert metadata.debug_mode is False
+        result = metadata.model_dump()
+        assert result == {}
 
     def test_custom_values(self):
         """自定义值应正确设置"""
-        metadata = BaseMetadata(priority="high", debug_mode=True)
-        assert metadata.priority == "high"
-        assert metadata.debug_mode is True
-
-    def test_priority_validation(self):
-        """priority字段应接受字符串"""
-        metadata = BaseMetadata(priority="low")
-        assert metadata.priority == "low"
-
-    def test_debug_mode_validation(self):
-        """debug_mode字段应接受布尔值"""
-        metadata = BaseMetadata(debug_mode=False)
-        assert metadata.debug_mode is False
+        metadata = BaseMetadata()
+        result = metadata.model_dump()
+        assert result == {}
 
     def test_to_dict(self):
         """应能正确转换为字典"""
-        metadata = BaseMetadata(priority="high", debug_mode=True)
+        metadata = BaseMetadata()
         result = metadata.model_dump()
-        assert result == {"priority": "high", "debug_mode": True}
+        assert result == {}
 
 
 class TestFinanceMetadata:
@@ -50,48 +39,35 @@ class TestFinanceMetadata:
     def test_default_values(self):
         """默认值应正确设置"""
         metadata = FinanceMetadata()
-        assert metadata.priority == "normal"
-        assert metadata.debug_mode is False
-        assert metadata.rate == 0.0
-        assert metadata.target == "general"
+        assert metadata.regulations == []
+        assert metadata.jurisdiction == "CN"
 
     def test_custom_values(self):
         """自定义值应正确设置"""
         metadata = FinanceMetadata(
-            priority="high",
-            debug_mode=True,
-            rate=0.05,
-            target="investment",
+            regulations=["GB/T 19001", "SOX"],
+            jurisdiction="US",
         )
-        assert metadata.priority == "high"
-        assert metadata.debug_mode is True
-        assert metadata.rate == 0.05
-        assert metadata.target == "investment"
+        assert metadata.regulations == ["GB/T 19001", "SOX"]
+        assert metadata.jurisdiction == "US"
 
-    def test_rate_validation(self):
-        """rate字段应接受浮点数"""
-        metadata = FinanceMetadata(rate=0.1)
-        assert metadata.rate == 0.1
+    def test_regulations_validation(self):
+        """regulations字段应接受列表"""
+        metadata = FinanceMetadata(regulations=["test"])
+        assert metadata.regulations == ["test"]
 
-    def test_target_validation(self):
-        """target字段应接受字符串"""
-        metadata = FinanceMetadata(target="loan")
-        assert metadata.target == "loan"
-
-    def test_inheritance(self):
-        """应继承自BaseMetadata"""
-        metadata = FinanceMetadata()
-        assert isinstance(metadata, BaseMetadata)
+    def test_jurisdiction_validation(self):
+        """jurisdiction字段应接受字符串"""
+        metadata = FinanceMetadata(jurisdiction="EU")
+        assert metadata.jurisdiction == "EU"
 
     def test_to_dict(self):
         """应能正确转换为字典"""
-        metadata = FinanceMetadata(rate=0.03, target="savings")
+        metadata = FinanceMetadata(regulations=["SOX"], jurisdiction="US")
         result = metadata.model_dump()
         assert result == {
-            "priority": "normal",
-            "debug_mode": False,
-            "rate": 0.03,
-            "target": "savings",
+            "regulations": ["SOX"],
+            "jurisdiction": "US",
         }
 
 
@@ -101,22 +77,22 @@ class TestCodeMetadata:
     def test_default_values(self):
         """默认值应正确设置"""
         metadata = CodeMetadata()
-        assert metadata.priority == "normal"
-        assert metadata.debug_mode is False
         assert metadata.language == "python"
-        assert metadata.style_guide == "pep8"
+        assert metadata.timeout == 5
+        assert metadata.memory_limit_mb == 256
+        assert metadata.style_guide == ""
 
     def test_custom_values(self):
         """自定义值应正确设置"""
         metadata = CodeMetadata(
-            priority="high",
-            debug_mode=True,
             language="javascript",
+            timeout=10,
+            memory_limit_mb=512,
             style_guide="airbnb",
         )
-        assert metadata.priority == "high"
-        assert metadata.debug_mode is True
         assert metadata.language == "javascript"
+        assert metadata.timeout == 10
+        assert metadata.memory_limit_mb == 512
         assert metadata.style_guide == "airbnb"
 
     def test_language_validation(self):
@@ -139,9 +115,9 @@ class TestCodeMetadata:
         metadata = CodeMetadata(language="java", style_guide="google")
         result = metadata.model_dump()
         assert result == {
-            "priority": "normal",
-            "debug_mode": False,
             "language": "java",
+            "timeout": 5,
+            "memory_limit_mb": 256,
             "style_guide": "google",
         }
 
@@ -152,54 +128,35 @@ class TestTextMetadata:
     def test_default_values(self):
         """默认值应正确设置"""
         metadata = TextMetadata()
-        assert metadata.priority == "normal"
-        assert metadata.debug_mode is False
-        assert metadata.tone == "neutral"
+        assert metadata.language == "zh"
+        assert metadata.max_length == 10000
 
     def test_custom_values(self):
         """自定义值应正确设置"""
         metadata = TextMetadata(
-            priority="high",
-            debug_mode=True,
-            tone="formal",
+            language="en",
+            max_length=5000,
         )
-        assert metadata.priority == "high"
-        assert metadata.debug_mode is True
-        assert metadata.tone == "formal"
+        assert metadata.language == "en"
+        assert metadata.max_length == 5000
 
-    def test_tone_validation(self):
-        """tone字段应接受字符串"""
-        metadata = TextMetadata(tone="friendly")
-        assert metadata.tone == "friendly"
-
-    def test_inheritance(self):
-        """应继承自BaseMetadata"""
-        metadata = TextMetadata()
-        assert isinstance(metadata, BaseMetadata)
+    def test_language_validation(self):
+        """language字段应接受字符串"""
+        metadata = TextMetadata(language="ja")
+        assert metadata.language == "ja"
 
     def test_to_dict(self):
         """应能正确转换为字典"""
-        metadata = TextMetadata(tone="professional")
+        metadata = TextMetadata(language="en", max_length=5000)
         result = metadata.model_dump()
         assert result == {
-            "priority": "normal",
-            "debug_mode": False,
-            "tone": "professional",
+            "language": "en",
+            "max_length": 5000,
         }
 
 
 class TestMetadataIntegration:
     """集成测试"""
-
-    def test_all_models_have_consistent_defaults(self):
-        """所有模型应具有一致的默认值"""
-        base = BaseMetadata()
-        finance = FinanceMetadata()
-        code = CodeMetadata()
-        text = TextMetadata()
-
-        assert base.priority == finance.priority == code.priority == text.priority
-        assert base.debug_mode == finance.debug_mode == code.debug_mode == text.debug_mode
 
     def test_all_models_can_be_instantiated(self):
         """所有模型应能被实例化"""
@@ -215,8 +172,6 @@ class TestMetadataIntegration:
         assert isinstance(CodeMetadata().model_dump(), dict)
         assert isinstance(TextMetadata().model_dump(), dict)
 
-    def test_all_models_inherit_from_base(self):
-        """所有模型应继承自BaseMetadata"""
-        assert issubclass(FinanceMetadata, BaseMetadata)
+    def test_code_metadata_inherits_from_base(self):
+        """CodeMetadata应继承自BaseMetadata"""
         assert issubclass(CodeMetadata, BaseMetadata)
-        assert issubclass(TextMetadata, BaseMetadata)

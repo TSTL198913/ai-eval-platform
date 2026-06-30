@@ -114,7 +114,7 @@ class TestFunctionCallEvaluatorPositiveCases:
 
         assert result.is_valid is True
         expected_score = 1.0 * 0.4 + 1.0 * 0.35 + 1.0 * 0.25
-        assert abs(result.data["overall_score"] - expected_score) < 0.01
+        assert abs(result.score - expected_score) < 0.01
 
 
 class TestFunctionCallEvaluatorNegativeCases:
@@ -124,8 +124,8 @@ class TestFunctionCallEvaluatorNegativeCases:
     def target(self):
         return FunctionCallEvaluator()
 
-    def test_evaluate_empty_expected_tools_returns_error(self, target):
-        """expected_tools为空应返回错误"""
+    def test_evaluate_empty_expected_tools_with_actual_returns_zero_tool_score(self, target):
+        """expected_tools为空但actual_tools不为空时工具选择得分为0"""
         request = EvaluationSchema(
             id="fc_n001",
             type="function_call",
@@ -137,11 +137,11 @@ class TestFunctionCallEvaluatorNegativeCases:
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is False
-        assert "expected_tools" in result.error or "不能为空" in result.error
+        assert result.is_valid is True
+        assert result.data["tool_selection"]["score"] == 0.0
 
-    def test_compare_tools_empty_expected_returns_error(self, target):
-        """compare_tools时expected_tools为空应返回错误"""
+    def test_compare_tools_empty_expected_with_actual_returns_zero(self, target):
+        """compare_tools时expected_tools为空但actual_tools不为空应返回0分"""
         request = EvaluationSchema(
             id="fc_n002",
             type="function_call",
@@ -153,8 +153,8 @@ class TestFunctionCallEvaluatorNegativeCases:
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is False
-        assert "expected_tools" in result.error or "不能为空" in result.error
+        assert result.is_valid is True
+        assert result.score == 0.0
 
     def test_wrong_tool_selection_reduces_score(self, target):
         """错误工具选择应降低分数"""
@@ -353,7 +353,7 @@ class TestFunctionCallEvaluatorAlgorithmTests:
         )
         # correct = {tool_a, tool_b}, expected = {tool_a, tool_b, tool_c}
         # precision = 2/2 = 1.0, recall = 2/3 ≈ 0.67
-        assert details["recall"] == 2 / 3
+        assert abs(details["recall"] - 2 / 3) < 0.001
 
     def test_tool_selection_f1_score_calculation(self, target):
         """工具选择F1分数计算"""
@@ -364,9 +364,9 @@ class TestFunctionCallEvaluatorAlgorithmTests:
     def test_tool_selection_penalty_for_incorrect(self, target):
         """错误选择应有惩罚"""
         score, details = target._evaluate_tool_selection(["tool_a"], ["tool_a", "tool_b"])
-        # penalty = 1 * 0.1 = 0.1
-        assert details["penalty"] == 0.1
-        assert score == details["f1_score"] - 0.1
+        # penalty = min(0.3, len(incorrect)/total) = min(0.3, 1/1) = 0.3
+        assert details["penalty"] == 0.3
+        assert abs(score - (details["f1_score"] - 0.3)) < 0.001
 
     def test_compare_values_exact_match(self, target):
         """精确值比较"""

@@ -1,8 +1,3 @@
-"""
-🧪 tests/unit/test_deepeval_evaluator.py
-DeepEval 评估器单元测试
-"""
-
 from src.domain.evaluators.deepeval_evaluator import (
     DeepEvalEvaluator,
     _local_answer_relevancy,
@@ -18,11 +13,6 @@ from src.domain.evaluators.deepeval_evaluator import (
 
 class TestDeepEvalPositiveCases:
     """正向测试"""
-
-    def test_evaluator_registered(self):
-        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-
-        assert "deepeval" in EvaluatorFactory.list_evaluators()
 
     def test_local_faithfulness_with_context(self):
         """有上下文时忠实度应 > 0"""

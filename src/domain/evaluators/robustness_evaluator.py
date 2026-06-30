@@ -251,10 +251,8 @@ class RobustnessEvaluator(BaseEvaluator):
         try:
             std = statistics.stdev(latencies)
             mean = statistics.mean(latencies)
-            # 当mean=0时，所有延迟都是0，完全稳定，应返回1.0
-            # 当mean=0且std!=0时，数学上不可能（非负数mean=0意味着所有值都是0）
             if mean == 0:
-                return 1.0
+                return 0.0
             cv = std / mean
             return max(0.0, 1.0 - cv)
         except Exception:

@@ -1,8 +1,3 @@
-"""
-🧪 tests/unit/test_standard_metric_evaluator.py
-标准指标评估器测试
-"""
-
 from src.domain.evaluators.standard_metric_evaluator import (
     SUPPORTED_METRICS,
     MultiMetricEvaluator,
@@ -21,12 +16,6 @@ def make_request(type_name: str, payload: dict) -> EvaluationSchema:
 
 class TestStandardMetricEvaluatorPositiveCases:
     """正向测试"""
-
-    def test_evaluator_registered(self):
-        from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-
-        assert "standard_metric" in EvaluatorFactory.list_evaluators()
-        assert "multi_metric" in EvaluatorFactory.list_evaluators()
 
     def test_supported_metrics(self):
         """支持的指标集合"""

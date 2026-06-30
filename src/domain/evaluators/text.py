@@ -78,7 +78,7 @@ class TextMatchEvaluator(BaseEvaluator):
                     "evaluator": "text",
                 },
                 metadata={
-                    "tone": meta.tone,
+                    "tone": getattr(meta, "tone", None),
                     "match_mode": "llm_as_judge",
                     "passed": is_passing(score),
                 },
@@ -104,7 +104,7 @@ class TextMatchEvaluator(BaseEvaluator):
                 "warning": "使用文本相似度降级策略，结果可能不准确",
             },
             metadata={
-                "tone": meta.tone,
+                "tone": getattr(meta, "tone", None),
                 "match_mode": "text_similarity",
                 "passed": is_passing(score),
             },

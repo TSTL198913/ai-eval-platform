@@ -135,9 +135,8 @@ class TestPlanningEvaluatorNegativeCases:
 
         result = target.evaluate(request)
 
-        # 错误信息在data中，DomainResponse的is_valid默认是True
-        assert result.data["is_valid"] is False
-        assert "不能为空" in result.data["error"]
+        assert result.is_valid is False
+        assert "generated_plan" in result.error or "为空" in result.error
 
     def test_unknown_action_returns_error(self, target):
         """未知action应返回错误"""
@@ -151,9 +150,8 @@ class TestPlanningEvaluatorNegativeCases:
 
         result = target.evaluate(request)
 
-        # 错误信息在data中，DomainResponse的is_valid默认是True
-        assert result.data["is_valid"] is False
-        assert "Unknown action" in result.data["error"]
+        assert result.is_valid is False
+        assert "未知的动作" in result.error
 
 
 class TestPlanningEvaluatorBoundaryCases:
@@ -226,7 +224,8 @@ class TestPlanningEvaluatorBoundaryCases:
 
         result = target.evaluate(request)
 
-        assert result.data["score"] == 1.0
+        assert result.is_valid is True
+        assert result.data["dependency_score"] == 1.0
 
     def test_single_step_generated(self, target):
         """单步骤计划应正常处理"""
@@ -319,13 +318,14 @@ class TestPlanningEvaluatorAlgorithmTests:
         assert score > 0.5
 
     def test_redundancy_calculation_high_similarity(self, target):
-        """冗余度计算：高相似度应得低分"""
+        """冗余度计算：高相似度应得低分（使用温和惩罚公式）"""
         generated = ["数据分析", "数据分析", "数据分析"]
 
         score = target._calc_redundancy(generated)
 
         # 步骤间相似度高，冗余度高
-        assert score < 0.5
+        # 公式：1.0 - avg_sim * 0.5，完全相同步骤得分 0.5
+        assert score <= 0.5
 
     def test_redundancy_single_step_returns_full(self, target):
         """单步骤应返回冗余度满分"""

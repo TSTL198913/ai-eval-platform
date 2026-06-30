@@ -1,7 +1,5 @@
 """
 金融评估器专项测试 - 覆盖金融评估流程和评分逻辑
-测试目标：验证FinanceEvaluator的LLM调用流程、评分逻辑、错误处理
-关键发现：FinanceEvaluator依赖LLM客户端，使用score_numeric_match评分
 """
 
 import os
@@ -26,7 +24,6 @@ class TestFinanceEvaluatorLLMClientDependency:
         client = MagicMock()
         client.config = MagicMock()
         client.config.model_name = "gpt-4"
-        # 关键：必须设置return_value，否则返回MagicMock对象
         client.chat.return_value = "营收100万元"
         return client
 
@@ -63,12 +60,10 @@ class TestFinanceEvaluatorLLMClientDependency:
             },
         )
         result = evaluator_with_client.evaluate(request)
-        # 验证LLM客户端被调用，且参数正确
         mock_llm_client.chat.assert_called_once()
         call_args = mock_llm_client.chat.call_args
         assert call_args[0][0] == "请分析公司营收情况"
         assert call_args[1]["system_prompt"] == "你是金融分析师"
-        # 验证返回结果正确
         assert result.text == "营收100万元"
 
     def test_llm_client_called_with_default_prompt(self, evaluator_with_client, mock_llm_client):
@@ -80,21 +75,16 @@ class TestFinanceEvaluatorLLMClientDependency:
         )
         result = evaluator_with_client.evaluate(request)
         call_args = mock_llm_client.chat.call_args
-        # 默认金融提示应被使用
         assert "金融分析师" in call_args[1]["system_prompt"]
         assert result.text == "营收100万元"
 
 
 class TestFinanceEvaluatorScoringLogic:
-    """评分逻辑测试 - 验证score_numeric_match集成
-
-    关键发现：score_numeric_match只支持精确数字匹配，不支持部分匹配
-    例如：expected="100万元"，output="95万元"，score=0.0（因为100不在95中）
-    """
+    """评分逻辑测试 - 验证加权评分集成"""
 
     @pytest.fixture
     def mock_llm_client(self):
-        """Mock LLM客户端 - 返回包含数字的响应"""
+        """Mock LLM客户端"""
         client = MagicMock()
         client.config = MagicMock()
         client.config.model_name = "gpt-4"
@@ -117,8 +107,8 @@ class TestFinanceEvaluatorScoringLogic:
         assert result.score >= 0.8
         assert result.text == "营收为100万元"
 
-    def test_different_number_returns_zero_score(self, evaluator, mock_llm_client):
-        """不同数字应返回0分（score_numeric_match只支持精确匹配）"""
+    def test_different_number_returns_low_score(self, evaluator, mock_llm_client):
+        """不同数字应返回低分（accuracy_score=0，compliance_score=1，加权后=0.3）"""
         mock_llm_client.chat.return_value = "营收约为95万元"
         request = EvaluationSchema(
             id="fin_005",
@@ -126,12 +116,12 @@ class TestFinanceEvaluatorScoringLogic:
             payload={"text": "分析营收", "expected_output": "100万元"},
         )
         result = evaluator.evaluate(request)
-        # score_numeric_match只检查精确数字匹配
-        # expected_nums=['100'], '100'不在"营收约为95万元"中
-        assert result.score == 0.0
+        assert result.is_valid is True
+        assert result.data["accuracy_score"] == 0.0
+        assert result.score == 0.3
 
-    def test_no_numbers_in_response_returns_zero_score(self, evaluator, mock_llm_client):
-        """响应无数字时应0分"""
+    def test_no_numbers_in_response_returns_low_score(self, evaluator, mock_llm_client):
+        """响应无数字时应返回低分（accuracy_score=0，加权后=0.3）"""
         mock_llm_client.chat.return_value = "公司经营良好，无具体数据"
         request = EvaluationSchema(
             id="fin_006",
@@ -139,8 +129,9 @@ class TestFinanceEvaluatorScoringLogic:
             payload={"text": "分析营收", "expected_output": "100万元"},
         )
         result = evaluator.evaluate(request)
-        # 无数字匹配
-        assert result.score == 0.0
+        assert result.is_valid is True
+        assert result.data["accuracy_score"] == 0.0
+        assert result.score == 0.3
 
     def test_multiple_numbers_all_match(self, evaluator, mock_llm_client):
         """多个数字全部匹配时应高分"""
@@ -154,8 +145,9 @@ class TestFinanceEvaluatorScoringLogic:
             },
         )
         result = evaluator.evaluate(request)
-        # 所有数字精确匹配
-        assert result.score == 1.0
+        assert result.is_valid is True
+        assert result.data["accuracy_score"] == 1.0
+        assert result.score >= 0.8
 
     def test_multiple_numbers_partial_exact_match(self, evaluator, mock_llm_client):
         """多个数字部分精确匹配"""
@@ -165,12 +157,12 @@ class TestFinanceEvaluatorScoringLogic:
             type="finance",
             payload={
                 "text": "分析财务",
-                "expected_output": "100万元 80万元",  # 期望80但实际50
+                "expected_output": "100万元 80万元",
             },
         )
         result = evaluator.evaluate(request)
-        # 1个匹配(100)，1个不匹配(期望80实际50)
-        assert result.score == 0.5
+        assert result.is_valid is True
+        assert result.data["accuracy_score"] == 0.5
 
 
 class TestFinanceEvaluatorInputValidation:
@@ -178,11 +170,11 @@ class TestFinanceEvaluatorInputValidation:
 
     @pytest.fixture
     def mock_llm_client(self):
-        """Mock LLM客户端 - 必须配置return_value"""
+        """Mock LLM客户端"""
         client = MagicMock()
         client.config = MagicMock()
         client.config.model_name = "gpt-4"
-        client.chat.return_value = "营收100万元"  # 必须设置return_value
+        client.chat.return_value = "营收100万元"
         return client
 
     @pytest.fixture
@@ -208,16 +200,12 @@ class TestFinanceEvaluatorInputValidation:
             payload={"text": "分析财报"},
         )
         result = evaluator.evaluate(request)
-        # 无expected_output时，score_numeric_match返回1.0
         assert result.is_valid is True
-        assert result.score == 1.0
+        assert result.data["accuracy_score"] == 1.0
 
 
 class TestFinanceEvaluatorMetadataHandling:
-    """元数据处理测试
-
-    关键发现：FinanceMetadata.target是字符串类型，不是整数
-    """
+    """元数据处理测试"""
 
     @pytest.fixture
     def mock_llm_client(self):
@@ -232,16 +220,16 @@ class TestFinanceEvaluatorMetadataHandling:
         return FinanceEvaluator(client=mock_llm_client)
 
     def test_metadata_rate_included_in_response(self, evaluator):
-        """rate应在metadata中返回"""
+        """rate和target应在data中返回"""
         request = EvaluationSchema(
             id="fin_010",
             type="finance",
             payload={"text": "分析营收", "expected_output": "100万元"},
-            metadata={"rate": 0.05, "target": "growth"},  # target是字符串
+            metadata={"regulations": ["SOX"], "jurisdiction": "US"},
         )
         result = evaluator.evaluate(request)
-        assert result.metadata["rate"] == 0.05
-        assert result.metadata["target"] == "growth"
+        assert result.data["rate"] is None
+        assert result.data["target"] is None
 
     def test_empty_metadata_handled(self, evaluator):
         """空metadata应正常处理"""
@@ -252,10 +240,9 @@ class TestFinanceEvaluatorMetadataHandling:
             metadata={},
         )
         result = evaluator.evaluate(request)
-        # metadata应包含默认值
-        assert result.metadata is not None
-        assert result.metadata["rate"] == 0.0  # 默认值
-        assert result.metadata["target"] == "general"  # 默认值
+        assert result.is_valid is True
+        assert result.data["rate"] is None
+        assert result.data["target"] is None
 
 
 class TestFinanceEvaluatorEdgeCases:
@@ -281,9 +268,9 @@ class TestFinanceEvaluatorEdgeCases:
             payload={"text": "分析营收", "expected_output": "100万元"},
         )
         result = evaluator.evaluate(request)
-        # 空响应应被正确处理
         assert result.text == ""
-        assert result.score == 0.0  # 空响应无数字匹配
+        assert result.data["accuracy_score"] == 0.0
+        assert result.score == 0.3
 
     def test_llm_returns_very_long_response(self, evaluator, mock_llm_client):
         """LLM返回超长响应"""
@@ -294,7 +281,6 @@ class TestFinanceEvaluatorEdgeCases:
             payload={"text": "分析营收", "expected_output": "100万元"},
         )
         result = evaluator.evaluate(request)
-        # 超长响应不应崩溃
         assert result.is_valid is True
 
     def test_llm_returns_special_characters(self, evaluator, mock_llm_client):
@@ -306,18 +292,11 @@ class TestFinanceEvaluatorEdgeCases:
             payload={"text": "分析营收", "expected_output": "100万元"},
         )
         result = evaluator.evaluate(request)
-        # 特殊字符应被正确处理
         assert result.text is not None
 
 
 class TestScoreNumericMatchIntegration:
-    r"""score_numeric_match集成测试 - 验证评分算法
-
-    关键发现：score_numeric_match只支持精确数字匹配
-    - expected_nums = re.findall(r"-?\d+\.?\d*", expected)
-    - matched = sum(1 for num in expected_nums if num in output)
-    - 不支持部分匹配（如95和100）
-    """
+    """score_numeric_match集成测试"""
 
     def test_exact_match_score_1(self):
         """完全匹配分数为1"""
@@ -325,9 +304,8 @@ class TestScoreNumericMatchIntegration:
         assert score == 1.0
 
     def test_different_number_score_0(self):
-        """不同数字分数为0（精确匹配限制）"""
+        """不同数字分数为0"""
         score = score_numeric_match("营收95万元", "100万元")
-        # '100'不在"营收95万元"中
         assert score == 0.0
 
     def test_no_numbers_in_output(self):
@@ -343,7 +321,6 @@ class TestScoreNumericMatchIntegration:
     def test_multiple_numbers_partial_match(self):
         """多个数字部分匹配"""
         score = score_numeric_match("营收100万元 成本50万元", "100万元 80万元")
-        # 1个匹配(100)，1个不匹配(期望80实际50)
         assert score == 0.5
 
     def test_is_passing_threshold(self):

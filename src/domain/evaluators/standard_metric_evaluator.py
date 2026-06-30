@@ -46,7 +46,7 @@ class StandardMetricEvaluator(BaseEvaluator):
     """
 
     def __init__(self, client: Any | None = None) -> None:
-        super().__init__(client)
+        super().__init__(client, require_expected=True)
 
     def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
         # 1. 基础输入验证

@@ -133,6 +133,9 @@ if not _cors_origins:
         "http://127.0.0.1:80",
         "http://localhost",
         "http://127.0.0.1",
+        "http://192.168.30.134",
+        "http://192.168.30.134:80",
+        "http://192.168.10.134",
     ]
 
 app.add_middleware(

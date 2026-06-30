@@ -473,7 +473,7 @@ jobs:
           --health-timeout 10s
           --health-retries 3
         env:
-          - TOXIPROXY_LOG_LEVEL=info
+          TOXIPROXY_LOG_LEVEL: info
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

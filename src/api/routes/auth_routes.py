@@ -3,6 +3,7 @@
 包含登录、刷新令牌、获取当前用户信息等端点
 """
 
+import logging
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -17,8 +18,11 @@ from src.api.auth import (
     decode_token,
     fake_users_db,
     get_current_user,
+    verify_password,
 )
 from src.api.common import error_response, success_response
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/auth", tags=["认证"])
 
@@ -52,6 +56,8 @@ async def login_endpoint(request: LoginRequest, response: Response):
     username = request.username.strip()
     password = request.password.strip()
 
+    logger.info(f"Login attempt: username={username}, has_auth={HAS_AUTH}")
+
     if not HAS_AUTH:
         return success_response(
             {
@@ -62,8 +68,21 @@ async def login_endpoint(request: LoginRequest, response: Response):
             }
         )
 
+    logger.info(f"User db keys: {list(fake_users_db.keys())}")
+
+    if username in fake_users_db:
+        stored_user = fake_users_db[username]
+        logger.info(
+            f"User found: username={stored_user['username']}, role={stored_user.get('role')}, hashed_password_length={len(stored_user['hashed_password'])}"
+        )
+        password_match = verify_password(password, stored_user["hashed_password"])
+        logger.info(f"Password verification result: {password_match}")
+    else:
+        logger.info(f"User not found in db: {username}")
+
     user = authenticate_user(fake_users_db, username, password)
     if not user:
+        logger.warning(f"Login failed for username: {username}")
         response.status_code = status.HTTP_401_UNAUTHORIZED
         return error_response(401, "Invalid username or password")
 

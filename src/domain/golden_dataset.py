@@ -77,6 +77,24 @@ class GoldenDatasetManager:
         self._sample_index[sample.id] = sample
         return sample
 
+    def add_evaluation_result(self, dataset_id: str, request: dict, response: dict) -> GoldenSample | None:
+        """从评估结果创建样本"""
+        sample_data = {
+            "user_input": request.get("user_input", request.get("input", "")),
+            "actual_output": request.get("actual_output", request.get("output", "")),
+            "expected_output": request.get("expected_output"),
+            "dimensions": response.get("dimensions_evaluated", ["correctness"]),
+            "scores": {
+                "overall": response.get("score", 0.0),
+            },
+            "metadata": {
+                "evaluator_type": response.get("evaluator_type"),
+                "evaluation_status": response.get("evaluation_status"),
+                "confidence": response.get("confidence"),
+            },
+        }
+        return self.add_sample(dataset_id, sample_data)
+
     def correct_sample(
         self, sample_id: str, corrected_scores: dict[str, float], corrected_by: str
     ) -> GoldenSample | None:
@@ -84,13 +102,62 @@ class GoldenDatasetManager:
         sample = self._sample_index.get(sample_id)
         if not sample:
             return None
-        # 合并校正分数，只更新指定维度，保留其他维度
         sample.scores.update(corrected_scores)
         sample.human_corrected = True
         sample.corrected_by = corrected_by
         sample.corrected_at = datetime.utcnow()
         sample.updated_at = datetime.utcnow()
         return sample
+
+    def get_samples(self, dataset_id: str, limit: int = 100, offset: int = 0) -> list[GoldenSample]:
+        """获取样本列表"""
+        dataset = self._datasets.get(dataset_id)
+        if not dataset:
+            return []
+        return dataset.samples[offset : offset + limit]
+
+    def get_high_conflict_samples(
+        self, dataset_id: str, inconsistency_threshold: float = 0.3, limit: int = 20
+    ) -> list[GoldenSample]:
+        """获取高冲突样本（多评审员不一致度 > 阈值）"""
+        dataset = self._datasets.get(dataset_id)
+        if not dataset:
+            return []
+
+        conflict_samples = []
+        for sample in dataset.samples:
+            if len(sample.scores) >= 2:
+                scores = list(sample.scores.values())
+                score_range = max(scores) - min(scores)
+                normalized_range = score_range / max(max(scores), 1.0)
+                if normalized_range > inconsistency_threshold:
+                    conflict_samples.append((sample, normalized_range))
+
+        conflict_samples.sort(key=lambda x: x[1], reverse=True)
+        return [s[0] for s in conflict_samples[:limit]]
+
+    def get_sample_statistics(self, dataset_id: str) -> dict[str, Any]:
+        """获取数据集统计信息"""
+        dataset = self._datasets.get(dataset_id)
+        if not dataset:
+            return {}
+
+        total_samples = len(dataset.samples)
+        corrected_samples = sum(1 for s in dataset.samples if s.human_corrected)
+        avg_score = 0.0
+        score_count = 0
+        for sample in dataset.samples:
+            if sample.scores:
+                avg_score += sum(sample.scores.values()) / len(sample.scores)
+                score_count += 1
+
+        return {
+            "total_samples": total_samples,
+            "corrected_samples": corrected_samples,
+            "corrected_ratio": corrected_samples / total_samples if total_samples > 0 else 0,
+            "avg_score": avg_score / score_count if score_count > 0 else 0,
+            "conflict_samples": len(self.get_high_conflict_samples(dataset_id)),
+        }
 
     def get_few_shot_examples(self, dataset_id: str, limit: int = 5) -> list[str]:
         dataset = self._datasets.get(dataset_id)

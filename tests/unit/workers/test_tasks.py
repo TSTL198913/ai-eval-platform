@@ -39,6 +39,7 @@ class TestBufferService:
             flush_interval_seconds=0.1,
             adaptive_batch_size=False,
             priority_enabled=False,
+            async_flush=False,
         )
 
     def test_init(self, buffer_service):
@@ -56,7 +57,7 @@ class TestBufferService:
 
     def test_add_priority(self):
         """添加高优先级记录"""
-        buffer_service = EvaluationBufferService(batch_size=5, priority_enabled=True)
+        buffer_service = EvaluationBufferService(batch_size=5, priority_enabled=True, async_flush=False)
         mock_item = MagicMock(spec=EvaluationResultModel)
         count = buffer_service.add(mock_item, priority=True)
 
@@ -69,6 +70,7 @@ class TestBufferService:
             batch_size=2,
             adaptive_batch_size=False,
             priority_enabled=False,
+            async_flush=False,
         )
         mock_item1 = MagicMock(spec=EvaluationResultModel)
         mock_item2 = MagicMock(spec=EvaluationResultModel)
@@ -87,6 +89,7 @@ class TestBufferService:
             batch_size=2,
             adaptive_batch_size=False,
             priority_enabled=False,
+            async_flush=False,
         )
         mock_item1 = MagicMock(spec=EvaluationResultModel)
         mock_item2 = MagicMock(spec=EvaluationResultModel)
@@ -112,6 +115,7 @@ class TestBufferService:
             batch_size=10,
             adaptive_batch_size=False,
             priority_enabled=False,
+            async_flush=False,
         )
         mock_item = MagicMock(spec=EvaluationResultModel)
         buffer_service.add(mock_item)
@@ -132,6 +136,7 @@ class TestBufferService:
             batch_size=10,
             adaptive_batch_size=False,
             priority_enabled=False,
+            async_flush=False,
         )
         mock_item = MagicMock(spec=EvaluationResultModel)
         buffer_service.add(mock_item)
@@ -150,6 +155,7 @@ class TestBufferService:
             batch_size=10,
             adaptive_batch_size=False,
             priority_enabled=False,
+            async_flush=False,
         )
         mock_item = MagicMock(spec=EvaluationResultModel)
         buffer_service.add(mock_item)
@@ -195,6 +201,7 @@ class TestBufferService:
             min_batch_size=5,
             max_batch_size=50,
             priority_enabled=False,
+            async_flush=False,
         )
 
         for _i in range(20):
@@ -212,6 +219,7 @@ class TestBufferService:
             batch_size=10,
             adaptive_batch_size=False,
             priority_enabled=False,
+            async_flush=False,
         )
 
         with patch("src.workers.tasks.get_session_local") as mock_get_session:
@@ -229,6 +237,7 @@ class TestBufferService:
             batch_size=10,
             adaptive_batch_size=False,
             priority_enabled=False,
+            async_flush=False,
         )
 
         mock_session = MagicMock()
@@ -245,6 +254,7 @@ class TestBufferService:
             batch_size=10,
             adaptive_batch_size=False,
             priority_enabled=False,
+            async_flush=False,
         )
 
         with patch.object(buffer_service, "flush") as mock_flush:
@@ -259,6 +269,7 @@ class TestBufferService:
             batch_size=10,
             adaptive_batch_size=False,
             priority_enabled=False,
+            async_flush=False,
         )
         mock_item = MagicMock(spec=EvaluationResultModel)
         buffer_service.add(mock_item)
@@ -275,6 +286,7 @@ class TestBufferService:
             flush_interval_seconds=0.01,
             adaptive_batch_size=False,
             priority_enabled=False,
+            async_flush=False,
         )
         mock_item = MagicMock(spec=EvaluationResultModel)
         buffer_service.add(mock_item)
@@ -292,6 +304,7 @@ class TestBufferService:
             flush_interval_seconds=0.01,
             adaptive_batch_size=False,
             priority_enabled=False,
+            async_flush=False,
         )
         mock_item = MagicMock(spec=EvaluationResultModel)
         buffer_service.add(mock_item)
@@ -310,6 +323,7 @@ class TestBufferService:
             batch_size=10,
             adaptive_batch_size=False,
             priority_enabled=False,
+            async_flush=False,
         )
         mock_item = MagicMock(spec=EvaluationResultModel)
 
@@ -329,6 +343,7 @@ class TestBufferService:
             batch_size=10,
             adaptive_batch_size=False,
             priority_enabled=False,
+            async_flush=False,
         )
 
         mock_session = MagicMock()
@@ -347,6 +362,7 @@ class TestBufferService:
             batch_size=10,
             adaptive_batch_size=False,
             priority_enabled=False,
+            async_flush=False,
         )
         mock_item = MagicMock(spec=EvaluationResultModel)
         buffer_service.add(mock_item)
@@ -505,3 +521,73 @@ class TestHelperFunctions:
 
         assert result.ready() is True
         assert result.get() == {"status": "success", "data": {"id": "1"}}
+
+
+class TestBufferServiceAsyncFlush:
+    """异步flush专项测试"""
+
+    def test_async_flush_enabled(self):
+        """验证异步flush模式可正常启用"""
+        buffer_service = EvaluationBufferService(
+            batch_size=5,
+            adaptive_batch_size=False,
+            priority_enabled=False,
+            async_flush=True,
+        )
+
+        assert buffer_service._async_flush is True
+        assert buffer_service._flush_thread is not None
+        assert buffer_service._flush_thread.is_alive() is True
+
+        buffer_service._closed = True
+        buffer_service._flush_event.set()
+        buffer_service._flush_thread.join(timeout=5)
+
+    def test_async_flush_with_real_mock_objects(self):
+        """验证异步flush使用包含_sa_instance_state属性的Mock对象"""
+        from sqlalchemy.orm import InstanceState
+        from unittest.mock import MagicMock, PropertyMock
+
+        buffer_service = EvaluationBufferService(
+            batch_size=5,
+            adaptive_batch_size=False,
+            priority_enabled=False,
+            async_flush=True,
+        )
+
+        mock_instance_state = MagicMock(spec=InstanceState)
+        mock_item = MagicMock(spec=EvaluationResultModel)
+        type(mock_item)._sa_instance_state = PropertyMock(return_value=mock_instance_state)
+
+        buffer_service.add(mock_item)
+
+        with patch("src.workers.tasks.get_session_local") as mock_get_session:
+            mock_session = MagicMock()
+            mock_get_session.return_value.return_value = mock_session
+
+            buffer_service.flush()
+
+        buffer_service._closed = True
+        buffer_service._flush_event.set()
+        buffer_service._flush_thread.join(timeout=5)
+
+    def test_async_flush_submits_to_background_thread(self):
+        """验证flush提交到后台线程"""
+        buffer_service = EvaluationBufferService(
+            batch_size=5,
+            adaptive_batch_size=False,
+            priority_enabled=False,
+            async_flush=True,
+        )
+
+        mock_item = MagicMock(spec=EvaluationResultModel)
+        buffer_service.add(mock_item)
+
+        with patch.object(buffer_service, "_submit_async_flush") as mock_submit:
+            buffer_service.flush()
+
+            mock_submit.assert_called_once()
+
+        buffer_service._closed = True
+        buffer_service._flush_event.set()
+        buffer_service._flush_thread.join(timeout=5)

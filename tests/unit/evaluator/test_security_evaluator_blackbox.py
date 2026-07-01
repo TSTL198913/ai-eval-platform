@@ -52,9 +52,14 @@ class TestSecurityEvaluatorBlackBox:
 
         # 强断言：验证具体业务逻辑
         assert result.is_valid is True
-        assert result.score >= 0.8  # 无攻击时分数应 >= 0.8（安全）
+        assert result.score >= 0.8, f"无攻击时分数应 >= 0.8，实际为{result.score}"
         assert result.data is not None
-        assert result.data.get("risk_level") in ["low", "none"]
+        assert result.data.get("risk_level") in ["low", "none"], f"risk_level应为low或none，实际为{result.data.get('risk_level')}"
+        assert result.confidence is not None, "confidence不应为None"
+        assert 0.0 <= result.confidence <= 1.0, f"confidence应在0-1之间，实际为{result.confidence}"
+        # NOTE: SecurityEvaluator可能返回partial状态（降级评估）
+        assert result.evaluation_status.value in ["success", "partial"], f"evaluation_status应为success或partial，实际为{result.evaluation_status.value}"
+        assert result.data.get("overall_score") >= 0.8, f"overall_score应 >= 0.8，实际为{result.data.get('overall_score')}"
 
     def test_normal_conversation_passes(self, evaluator):
         """正常对话内容应通过安全检测"""
@@ -66,11 +71,16 @@ class TestSecurityEvaluatorBlackBox:
         result = evaluator.evaluate(request)
 
         assert result.is_valid is True
-        assert result.score >= 0.8
+        assert result.score >= 0.8, f"正常对话分数应 >= 0.8，实际为{result.score}"
+        assert result.confidence is not None, "confidence不应为None"
+        assert 0.0 <= result.confidence <= 1.0, f"confidence应在0-1之间，实际为{result.confidence}"
+        # NOTE: SecurityEvaluator可能返回partial状态（降级评估）
+        assert result.evaluation_status.value in ["success", "partial"], f"evaluation_status应为success或partial，实际为{result.evaluation_status.value}"
         # 验证未检测到任何攻击类型
         security_tests = result.data.get("security_tests", {})
         for _test_type, test_result in security_tests.items():
-            assert test_result.get("detected") is False
+            assert test_result.get("detected") is False, f"测试类型 {_test_type} 不应检测到攻击"
+            assert test_result.get("score") >= 0.9, f"测试类型 {_test_type} 的分数应 >= 0.9，实际为{test_result.get('score')}"
 
     # ========================================
     # Prompt注入检测 - SecurityEvaluator实际检测的类型
@@ -87,13 +97,20 @@ class TestSecurityEvaluatorBlackBox:
 
         # 验证评估成功执行
         assert result.is_valid is True
+        assert result.confidence is not None, "confidence不应为None"
+        # NOTE: SecurityEvaluator可能返回partial状态（降级评估）
+        assert result.evaluation_status.value in ["success", "partial"], f"evaluation_status应为success或partial，实际为{result.evaluation_status.value}"
 
         # 验证威胁类型被正确识别（通过data字段）
         security_tests = result.data.get("security_tests", {})
         injection_result = security_tests.get("injection", {})
-        assert injection_result.get("detected") is True
-        assert len(injection_result.get("patterns", [])) > 0
-        assert injection_result.get("score") < 1.0  # 检测到攻击，injection分数应降低
+        assert injection_result.get("detected") is True, "应检测到Prompt注入攻击"
+        assert len(injection_result.get("patterns", [])) > 0, "应检测到攻击模式"
+        assert injection_result.get("score") < 1.0, f"检测到攻击，injection分数应 < 1.0，实际为{injection_result.get('score')}"
+        assert injection_result.get("risk_level") in ["medium", "high"], f"风险等级应为medium或high，实际为{result.injection_result.get('risk_level')}"
+        # NOTE: SecurityEvaluator综合多个测试类型的分数，即使检测到注入，总分也可能较高
+        # 重点验证注入测试本身的分数降低
+        assert injection_result.get("score") < 0.8, f"检测到攻击，injection分数应 < 0.8，实际为{injection_result.get('score')}"
 
     def test_prompt_injection_variants(self, evaluator):
         """多种Prompt注入变体都应被检测"""

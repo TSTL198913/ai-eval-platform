@@ -12,12 +12,29 @@ from src.schemas.evaluation import EvaluationSchema
 from src.schemas.schemas import EvaluationResult
 
 
+_evaluation_engine_cache: dict[str, Any] = {}
+_evaluation_engine_lock = threading.RLock()
+
 def _get_evaluation_engine(llm_client=None):
-    """延迟获取EvaluationEngine"""
+    """延迟获取EvaluationEngine（带缓存）
+    
+    优化：避免每次任务创建新的EvaluationEngine实例
+    - llm_client不为None时（测试模式）：不缓存，直接创建
+    - llm_client为None时（生产模式）：使用缓存，复用Engine实例
+    """
     from src.domain.models.llm_factory import create_llm_client
     from src.engine import EvaluationEngine
 
-    return EvaluationEngine(create_llm_client(client=llm_client))
+    if llm_client is not None:
+        return EvaluationEngine(create_llm_client(client=llm_client))
+    
+    with _evaluation_engine_lock:
+        cache_key = "default"
+        if cache_key not in _evaluation_engine_cache:
+            client = create_llm_client()
+            _evaluation_engine_cache[cache_key] = EvaluationEngine(client)
+            logger.info("创建新的EvaluationEngine实例并缓存")
+        return _evaluation_engine_cache[cache_key]
 
 
 logger = logging.getLogger(__name__)
@@ -109,6 +126,7 @@ class EvaluationBufferService:
     - Session复用：支持外部传入session进行复用
     - 异常恢复：flush失败时自动恢复缓冲区数据
     - Redis分布式计数：跨Worker进程的缓冲区状态监控（新增）
+    - 异步flush：后台线程执行DB写入，不阻塞Worker（新增）
     """
 
     REDIS_BUFFER_COUNTER_KEY = "eval:buffer:total_pending"
@@ -122,6 +140,7 @@ class EvaluationBufferService:
         max_batch_size: int = BUFFER_MAX_BATCH_SIZE,
         priority_enabled: bool = BUFFER_PRIORITY_ENABLED,
         redis_client: Any = None,  # 新增：可选的Redis客户端
+        async_flush: bool = True,  # 新增：是否启用异步flush
     ):
         self.buffer: list[EvaluationResultModel] = []
         self.priority_buffer: list[EvaluationResultModel] = []  # 高优先级缓冲
@@ -146,6 +165,13 @@ class EvaluationBufferService:
         # Redis分布式计数（新增）
         self._redis_client = redis_client
         self._worker_id = f"worker-{threading.get_ident()}-{time.time()}"
+        # 异步flush配置（新增）
+        self._async_flush = async_flush
+        self._flush_thread = None
+        self._flush_event = threading.Event()
+        self._flush_pending = []
+        self._flush_thread_lock = threading.Lock()
+        self._start_flush_thread()
 
         if not IS_TESTING:
             atexit.register(self._atexit_flush)
@@ -176,11 +202,60 @@ class EvaluationBufferService:
         self.flush()
         self._closed = True
 
+    def _start_flush_thread(self):
+        """启动后台flush线程"""
+        if not self._async_flush:
+            return
+        
+        def _flush_worker():
+            while not self._closed:
+                self._flush_event.wait(timeout=1.0)
+                if self._closed:
+                    break
+                try:
+                    pending = None
+                    with self._flush_thread_lock:
+                        if self._flush_pending:
+                            pending = list(self._flush_pending)
+                            self._flush_pending = []
+                    if pending:
+                        for batch in pending:
+                            self._flush_batch(batch)
+                except Exception as e:
+                    logger.error(f"后台flush线程出错: {e}")
+                    with self._flush_thread_lock:
+                        self._flush_pending.extend(pending)
+                finally:
+                    self._flush_event.clear()
+        
+        self._flush_thread = threading.Thread(target=_flush_worker, daemon=True)
+        self._flush_thread.start()
+        logger.info("后台flush线程已启动")
+
+    def _submit_async_flush(self, batch):
+        """提交异步flush任务"""
+        if not self._async_flush or not batch:
+            return False
+        with self._flush_thread_lock:
+            self._flush_pending.append(batch)
+        self._flush_event.set()
+        return True
+
+    def _stop_flush_thread(self):
+        """停止后台flush线程"""
+        if self._flush_thread and self._flush_thread.is_alive():
+            self._flush_event.set()
+            self._flush_thread.join(timeout=5.0)
+            logger.info("后台flush线程已停止")
+
     def _atexit_flush(self):
-        if not self._closed and (self.buffer or self.priority_buffer):
-            total = len(self.buffer) + len(self.priority_buffer)
+        if not self._closed and (self.buffer or self.priority_buffer or self._flush_pending):
+            total = len(self.buffer) + len(self.priority_buffer) + sum(len(b) for b in self._flush_pending)
             logger.info(f"进程退出，flush {total} 条缓冲记录")
             try:
+                self._async_flush = False
+                if self._flush_thread:
+                    self._stop_flush_thread()
                 self.flush()
             except Exception as e:
                 logger.error(f"atexit flush 失败: {e}")
@@ -303,10 +378,16 @@ class EvaluationBufferService:
 
         if should_flush:
             try:
-                if batch:
-                    self._flush_batch(batch)
-                if priority_batch:
-                    self._flush_batch(priority_batch)
+                if self._async_flush:
+                    if batch:
+                        self._submit_async_flush(batch)
+                    if priority_batch:
+                        self._submit_async_flush(priority_batch)
+                else:
+                    if batch:
+                        self._flush_batch(batch)
+                    if priority_batch:
+                        self._flush_batch(priority_batch)
             except Exception:
                 # 异常恢复：在锁内恢复缓冲区
                 with self._lock:
@@ -349,44 +430,52 @@ class EvaluationBufferService:
 
         total_count = 0
         if batch or priority_batch:
-            flush_start = time.time()
-            try:
+            if self._async_flush and db_session is None:
                 if batch:
-                    if db_session is not None:
-                        db_session.bulk_save_objects(batch)
-                        db_session.commit()
-                    else:
-                        self._flush_batch(batch)
+                    self._submit_async_flush(batch)
                     total_count += len(batch)
                 if priority_batch:
-                    if db_session is not None:
-                        db_session.bulk_save_objects(priority_batch)
-                        db_session.commit()
-                    else:
-                        self._flush_batch(priority_batch)
+                    self._submit_async_flush(priority_batch)
                     total_count += len(priority_batch)
-                # 更新统计信息
-                self._total_flush_count += 1
-                self._total_flush_latency += time.time() - flush_start
-                logger.info(f"成功 flush {total_count} 条记录到数据库")
+                logger.info(f"提交异步flush {total_count} 条记录")
+            else:
+                flush_start = time.time()
+                try:
+                    if batch:
+                        if db_session is not None:
+                            db_session.bulk_save_objects(batch)
+                            db_session.commit()
+                        else:
+                            self._flush_batch(batch)
+                        total_count += len(batch)
+                    if priority_batch:
+                        if db_session is not None:
+                            db_session.bulk_save_objects(priority_batch)
+                            db_session.commit()
+                        else:
+                            self._flush_batch(priority_batch)
+                        total_count += len(priority_batch)
+                    # 更新统计信息
+                    self._total_flush_count += 1
+                    self._total_flush_latency += time.time() - flush_start
+                    logger.info(f"成功 flush {total_count} 条记录到数据库")
 
-                # 新增：更新Redis分布式计数器（减少flush的记录数）
-                if self._redis_client and flush_count > 0:
-                    try:
-                        self._redis_client.decrby(self.REDIS_BUFFER_COUNTER_KEY, flush_count)
-                    except Exception as e:
-                        logger.debug(f"Failed to update Redis buffer counter: {e}")
-
-            except Exception as e:
-                logger.error(f"flush 失败，回滚并恢复缓冲区: {e}")
-                if db_session:
-                    db_session.rollback()
-                # 异常恢复：在锁内恢复缓冲区数据
-                with self._lock:
-                    self.buffer = batch + self.buffer
-                    self.priority_buffer = priority_batch + self.priority_buffer
-                raise
-            return total_count
+                    # 新增：更新Redis分布式计数器（减少flush的记录数）
+                    if self._redis_client and flush_count > 0:
+                        try:
+                            self._redis_client.decrby(self.REDIS_BUFFER_COUNTER_KEY, flush_count)
+                        except Exception as e:
+                            logger.debug(f"Failed to update Redis buffer counter: {e}")
+                except Exception as e:
+                    logger.error(f"flush 失败，回滚并恢复缓冲区: {e}")
+                    if db_session:
+                        db_session.rollback()
+                    # 异常恢复：在锁内恢复缓冲区数据
+                    with self._lock:
+                        self.buffer = batch + self.buffer
+                        self.priority_buffer = priority_batch + self.priority_buffer
+                    raise
+                return total_count
         return None
 
     @property

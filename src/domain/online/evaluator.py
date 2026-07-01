@@ -4,6 +4,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from src.domain.evaluators.base import BaseEvaluator
+from src.schemas.evaluation import EvaluationSchema
+
 
 @dataclass
 class SampledRequest:
@@ -105,16 +108,42 @@ class ProductionSampler:
 class OnlineEvaluator:
     def __init__(
         self,
-        llm_judge: Callable[[str, str], tuple[bool, float, str | None]] | None = None,
+        evaluator: BaseEvaluator | None = None,
         dataset_manager=None,
+        llm_judge: Callable[[str, str], tuple[bool, float, str | None]] | None = None,
     ):
+        self.evaluator = evaluator
         self.llm_judge = llm_judge or (lambda u, o: (True, 0.85, None))
         self.dataset_manager = dataset_manager
         self._results: list[OnlineEvaluationResult] = []
         self._sampled_requests: list[SampledRequest] = []
 
     def evaluate(self, request: SampledRequest) -> OnlineEvaluationResult:
-        is_success, score, feedback = self.llm_judge(request.user_input, request.model_output)
+        if self.evaluator:
+            eval_schema = EvaluationSchema(
+                id=request.request_id,
+                type="online",
+                payload={
+                    "input": request.user_input,
+                    "output": request.model_output,
+                },
+                metadata=request.metadata,
+            )
+            try:
+                response = self.evaluator.safe_evaluate(eval_schema)
+                is_success = response.evaluation_status.value == "success"
+                score = response.score if response.score is not None else 0.0
+                feedback = response.text or response.error
+            except Exception as e:
+                return OnlineEvaluationResult(
+                    request_id=request.request_id,
+                    is_success=False,
+                    score=0.0,
+                    feedback=str(e),
+                    error_type="evaluation_error",
+                )
+        else:
+            is_success, score, feedback = self.llm_judge(request.user_input, request.model_output)
 
         result = OnlineEvaluationResult(
             request_id=request.request_id,
@@ -284,7 +313,17 @@ class OnlineEvaluationPipeline:
         if not sampled:
             return None
 
-        result = self.evaluator.evaluate(sampled)
+        try:
+            result = self.evaluator.evaluate(sampled)
+        except Exception as e:
+            return OnlineEvaluationResult(
+                request_id=request_id,
+                is_success=False,
+                score=0.0,
+                feedback=str(e),
+                error_type="evaluation_error",
+            )
+
         self._count_since_last_recycle += 1
 
         if self._count_since_last_recycle >= self.recycle_interval and self.dataset_manager:

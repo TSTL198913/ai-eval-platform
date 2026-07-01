@@ -47,6 +47,11 @@ class TestClassificationEvaluatorPositiveCases:
         assert result.is_valid is True
         assert result.score == 1.0
         assert result.text == "正类"
+        
+        # 强断言：验证置信度和状态
+        assert result.confidence is not None, "confidence不应为None"
+        assert 0.0 <= result.confidence <= 1.0, f"confidence应在0-1之间，实际为{result.confidence}"
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success"
 
     def test_valid_input_with_labels_returns_valid(self, target, mock_client):
         """带labels的合法输入应返回有效响应"""
@@ -65,6 +70,11 @@ class TestClassificationEvaluatorPositiveCases:
 
         assert result.is_valid is True
         assert result.score is not None
+        
+        # 强断言：验证评分范围和置信度
+        assert 0.0 <= result.score <= 1.0, f"score应在0-1之间，实际为{result.score}"
+        assert result.score == pytest.approx(0.9, abs=0.01), f"score应接近0.9，实际为{result.score}"
+        assert result.confidence is not None, "confidence不应为None"
 
     def test_text_field_instead_of_user_input_works(self, target, mock_client):
         """使用text字段代替user_input也应正常工作"""

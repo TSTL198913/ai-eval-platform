@@ -1,15 +1,12 @@
 import os
-import tempfile
 
 from celery import Celery
 
 # celery -A src.workers.celery_app worker --loglevel=info
 
-# 使用文件系统作为broker，避免依赖Redis
-BROKER_URL = os.getenv("CELERY_BROKER_URL", f"filesystem://{tempfile.gettempdir()}/celery_broker")
-BACKEND_URL = os.getenv(
-    "CELERY_RESULT_BACKEND", f"filesystem://{tempfile.gettempdir()}/celery_backend"
-)
+# 使用Redis作为broker和backend
+BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
+BACKEND_URL = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/1")
 
 # 任务并发数配置
 WORKER_CONCURRENCY = int(os.getenv("CELERY_WORKER_CONCURRENCY", "4"))

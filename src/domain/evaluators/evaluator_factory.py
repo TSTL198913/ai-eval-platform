@@ -102,19 +102,18 @@ class EvaluatorFactory:
                 logger.debug(f"评估器 '{name}' 在黑名单中，跳过注册")
                 return func
 
-            if isclass(func):
-                if not issubclass(func, BaseEvaluator):
-                    raise TypeError(
-                        f"评估器类必须继承自 BaseEvaluator，当前类: {func.__name__}, "
-                        f"基类: {[base.__name__ for base in func.__bases__]}"
-                    )
-                if (
-                    hasattr(func, "__abstractmethods__")
-                    and "_do_evaluate" in func.__abstractmethods__
-                ):
-                    raise TypeError(f"评估器类必须实现 _do_evaluate 方法，当前类: {func.__name__}")
-
             with cls._lock:
+                if isclass(func):
+                    if not issubclass(func, BaseEvaluator):
+                        raise TypeError(
+                            f"评估器类必须继承自 BaseEvaluator，当前类: {func.__name__}, "
+                            f"基类: {[base.__name__ for base in func.__bases__]}"
+                        )
+                    if (
+                        hasattr(func, "__abstractmethods__")
+                        and "_do_evaluate" in func.__abstractmethods__
+                    ):
+                        raise TypeError(f"评估器类必须实现 _do_evaluate 方法，当前类: {func.__name__}")
                 if name in cls._registry:
                     if strategy == RegisterStrategy.SKIP:
                         return cls._registry[name]

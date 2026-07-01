@@ -17,7 +17,7 @@ from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.domain.evaluators.metadata import CodeMetadata
 from src.domain.evaluators.scoring import score_keyword_overlap, score_text_similarity
 from src.domain.evaluators.security_rules import SAFE_BUILTINS, validate_code_safety
-from src.schemas.evaluation import DomainResponse
+from src.schemas.evaluation import DomainResponse, EvaluatorStatus
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,9 @@ DEFAULT_SYNTAX_WEIGHT = 0.20
 DEFAULT_EXECUTION_WEIGHT = 0.50
 DEFAULT_SEMANTIC_WEIGHT = 0.30
 
-EXECUTION_TIMEOUT = 5.0
+# 🧠 2026 架构：沙箱执行超时配置
+# Windows 下 multiprocessing 使用 spawn 模式，启动开销较大，需要更长超时
+EXECUTION_TIMEOUT = 5.0 if sys.platform != "win32" else 15.0  # Windows: 15秒
 MAX_MEMORY_MB = 256
 
 DEFAULT_CODE_PROMPT = (
@@ -95,42 +97,79 @@ def _safe_exec_batch_worker(
 class CodeEvaluator(BaseEvaluator):
     """代码综合能力评估器"""
 
+    def __init__(self, client=None, fallback_policy=None):
+        super().__init__(
+            client=client,
+            fallback_policy=fallback_policy,
+            require_input=True,
+            require_expected=False,
+        )
+
+    def validate_input(self, request) -> DomainResponse | None:
+        """验证代码输入是否有效
+
+        重写基类方法：CodeEvaluator 的输入字段是 code，而不是 user_input/text。
+        """
+        code = self.get_payload_data(request, "code") or self.get_input_text(request)
+        if not code or (isinstance(code, str) and not code.strip()):
+            return self.create_error_response(
+                error_message="code/user_input/text 不能为空",
+                error_code="MISSING_CODE",
+            )
+        return None
+
     def _do_evaluate(self, request) -> DomainResponse:
         """执行代码评估"""
+        if error := self.validate_input(request):
+            return error
+
         code = self.get_payload_data(request, "code") or self.get_input_text(request)
         expected_output = self.get_payload_data(request, "expected_output")
         test_cases = self.get_payload_data(request, "test_cases")
         system_prompt = self.get_payload_data(request, "system_prompt") or DEFAULT_CODE_PROMPT
         meta = CodeMetadata.model_validate(request.metadata or {})
 
-        if not code:
-            return self.create_error_response(
-                error_message="评测代码(code/text) 不能为空",
-                error_code="MISSING_CODE",
-            )
-
         syntax_ok, syntax_error = self._check_syntax(code)
         if not syntax_ok:
-            return self.create_success_response(
+            return DomainResponse(
+                evaluation_status=EvaluatorStatus.ERROR,
                 text=f"代码静态语法检查未通过: {syntax_error}",
-                score=0.0,
-                data={
+                score=None,
+                error=f"代码静态语法检查未通过: {syntax_error}",
+                metadata={
                     "language": meta.language,
                     "syntax_valid": False,
-                    "execution_score": 0.0,
-                    "semantic_score": 0.0,
+                    "error_code": "SYNTAX_ERROR",
+                },
+            )
+
+        structure_ok, structure_error = self._check_code_structure(code)
+        if not structure_ok:
+            return DomainResponse(
+                evaluation_status=EvaluatorStatus.ERROR,
+                text=f"代码结构校验未通过: {structure_error}",
+                score=None,
+                error=f"代码结构校验未通过: {structure_error}",
+                metadata={
+                    "language": meta.language,
+                    "syntax_valid": True,
+                    "structure_valid": False,
+                    "error_code": "INVALID_CODE_STRUCTURE",
                 },
             )
 
         safety_ok, safety_error = validate_code_safety(code)
         if not safety_ok:
-            return self.create_success_response(
+            return DomainResponse(
+                evaluation_status=EvaluatorStatus.ERROR,
                 text=f"代码安全合规性审计未通过拦截: {safety_error}",
-                score=0.0,
-                data={
+                score=None,
+                error=f"代码安全合规性审计未通过拦截: {safety_error}",
+                metadata={
                     "language": meta.language,
                     "safety_valid": False,
                     "security_violation": True,
+                    "error_code": "SECURITY_VIOLATION",
                 },
             )
 
@@ -161,6 +200,42 @@ class CodeEvaluator(BaseEvaluator):
             llm_output = None
             raw_semantic_score = 0.0
 
+        has_execution_capability = bool(test_cases and meta.language == "python")
+        has_semantic_capability = bool(self.client)
+
+        if not has_execution_capability and not has_semantic_capability and not syntax_ok:
+            return self.create_error_response(
+                error_message=f"代码静态语法检查未通过: {syntax_error}",
+                error_code="SYNTAX_ERROR",
+                metadata={
+                    "language": meta.language,
+                    "syntax_valid": False,
+                    "safety_valid": True,
+                },
+            )
+
+        if not has_execution_capability and not has_semantic_capability and syntax_ok:
+            return self.create_partial_response(
+                text=f"代码语法检查通过（{meta.language}），但缺少测试用例和LLM客户端，无法进行完整评估",
+                score=DEFAULT_SYNTAX_WEIGHT / (DEFAULT_SYNTAX_WEIGHT + DEFAULT_EXECUTION_WEIGHT + DEFAULT_SEMANTIC_WEIGHT),
+                dimensions_evaluated=["syntax"],
+                dimensions_skipped=["execution", "semantic"],
+                skip_reasons={
+                    "execution": "缺少测试用例或非Python语言",
+                    "semantic": "缺少LLM客户端",
+                },
+                data={
+                    "language": meta.language,
+                    "style_guide": meta.style_guide,
+                    "syntax_valid": True,
+                    "scores_breakdown": {
+                        "syntax": DEFAULT_SYNTAX_WEIGHT,
+                        "execution": 0.0,
+                        "semantic": 0.0,
+                    },
+                },
+            )
+
         request_meta = request.metadata or {}
         w_syntax = request_meta.get("weight_syntax", DEFAULT_SYNTAX_WEIGHT)
         w_exec = request_meta.get("weight_execution", DEFAULT_EXECUTION_WEIGHT)
@@ -179,12 +254,43 @@ class CodeEvaluator(BaseEvaluator):
         semantic_score_part = raw_semantic_score * w_semantic
 
         total_score = syntax_score_part + execution_score_part + semantic_score_part
-
-        if not self.client and syntax_ok and not test_cases:
-            total_score = 0.8
-
         total_score = round(min(max(total_score, 0.0), 1.0), 4)
+
         response_text = self._build_response_text(llm_output, execution_details)
+
+        evaluated_dims = ["syntax"]
+        skipped_dims = []
+        if has_execution_capability:
+            evaluated_dims.append("execution")
+        else:
+            skipped_dims.append("execution")
+        if has_semantic_capability:
+            evaluated_dims.append("semantic")
+        else:
+            skipped_dims.append("semantic")
+
+        if skipped_dims:
+            return self.create_partial_response(
+                text=response_text,
+                score=total_score,
+                dimensions_evaluated=evaluated_dims,
+                dimensions_skipped=skipped_dims,
+                skip_reasons={
+                    "execution": "缺少测试用例或非Python语言" if "execution" in skipped_dims else None,
+                    "semantic": "缺少LLM客户端" if "semantic" in skipped_dims else None,
+                },
+                data={
+                    "language": meta.language,
+                    "style_guide": meta.style_guide,
+                    "syntax_valid": syntax_ok,
+                    "scores_breakdown": {
+                        "syntax": round(syntax_score_part, 4),
+                        "execution": round(execution_score_part, 4),
+                        "semantic": round(semantic_score_part, 4),
+                    },
+                    "execution_details": execution_details,
+                },
+            )
 
         return self.create_success_response(
             text=response_text,
@@ -212,6 +318,53 @@ class CodeEvaluator(BaseEvaluator):
             return True, ""
         except SyntaxError as exc:
             return False, f"语法错误: {exc.msg} (第 {exc.lineno} 行)"
+
+    def _check_code_structure(self, code: str) -> tuple[bool, str | None]:
+        """检查代码是否包含有效的代码结构（而非纯文本/简单表达式）
+
+        Python 3 支持 Unicode 标识符，纯文本（如"写一个Python函数"）也能通过
+        ast.parse() 语法检查（被解析为一个 Name 表达式）。此方法验证代码是否
+        包含真实的代码结构元素（函数、类、控制流、函数调用等），防止纯文本被误判为有效代码。
+        """
+        try:
+            tree = ast.parse(code)
+            has_structure = any(
+                isinstance(node, (
+                    ast.FunctionDef,
+                    ast.AsyncFunctionDef,
+                    ast.ClassDef,
+                    ast.If,
+                    ast.For,
+                    ast.AsyncFor,
+                    ast.While,
+                    ast.Try,
+                    ast.With,
+                    ast.AsyncWith,
+                    ast.Import,
+                    ast.ImportFrom,
+                    ast.Assign,
+                    ast.AugAssign,
+                    ast.AnnAssign,
+                    ast.Return,
+                    ast.Yield,
+                    ast.YieldFrom,
+                    ast.Raise,
+                    ast.Assert,
+                    ast.Global,
+                    ast.Nonlocal,
+                    ast.Pass,
+                    ast.Break,
+                    ast.Continue,
+                    ast.Delete,
+                    ast.Call,
+                ))
+                for node in ast.walk(tree)
+            )
+            if not has_structure:
+                return False, "代码缺少有效结构（无函数、类、控制流、函数调用等），可能不是有效代码"
+            return True, None
+        except SyntaxError:
+            return True, None
 
     def _execute_test_cases_sandboxed(self, code: str, test_cases: list) -> list:
         """使用沙箱执行测试用例"""
@@ -256,7 +409,7 @@ class CodeEvaluator(BaseEvaluator):
                 process.join(timeout=1.0)
                 if process.is_alive():
                     process.kill()
-                raise TimeoutError(f"沙箱执行超时，超过限制的 {EXECUTION_TIMEOUT} 秒")
+                raise TimeoutError(f"沙箱执行超时，超过限制的 {EXECUTION_TIMEOUT} 秒（平台: {sys.platform}）")
 
             if queue.empty():
                 raise RuntimeError("沙箱进程异常失联，未能返回评测结果")

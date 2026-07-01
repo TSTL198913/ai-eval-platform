@@ -1,7 +1,7 @@
 {
-  "llm_as_judge:5fbe53ba": {
-    "is_calibrated": false,
-    "mean_deviation": 10.0,
-    "timestamp": "2026-06-29T05:09:50.037690"
+  "test_evaluator:test_dataset_id": {
+    "is_calibrated": true,
+    "mean_deviation": 0.0,
+    "timestamp": "2026-07-01T14:01:14.069839"
   }
 }

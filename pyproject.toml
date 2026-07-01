@@ -137,3 +137,22 @@ known-first-party = ["src"]
 quote-style = "double"
 indent-style = "space"
 docstring-code-format = true
+
+# =====================================================================
+# Mutmut - 变异测试配置
+# =====================================================================
+[tool.mutmut]
+paths_to_mutate = ["src/domain/evaluators"]
+test_command = "python -m pytest tests/unit/evaluator/ -v --tb=short"
+runner = "pytest"
+score_threshold = 80
+use_pyc = false
+
+# =====================================================================
+# QA门禁配置
+# =====================================================================
+[tool.qa]
+assertion_strength_threshold = 50
+mutation_score_threshold = 80
+coverage_threshold = 80
+test_failure_rate = 0

@@ -43,6 +43,16 @@ class TestTextSimilarityBasedEvaluatorBase:
         assert result.is_valid is True
         assert result.text == "LLM输出内容"
         mock_client.chat.assert_called_once()
+        
+        # 强断言：验证调用参数
+        call_args = mock_client.chat.call_args[0][0]
+        assert isinstance(call_args, str), f"call_args应为字符串，实际为{type(call_args)}"
+        assert len(call_args) > 0, "call_args不应为空"
+        
+        # 强断言：验证返回的评分和置信度
+        assert result.score is not None, "score不应为None"
+        assert 0.0 <= result.score <= 1.0, f"score应在0-1之间，实际为{result.score}"
+        # NOTE: confidence为None是已知问题（ARCH-BUG-008）
 
     def test_do_evaluate_without_client(self):
         """无LLM客户端时应降级返回prompt"""
@@ -63,6 +73,11 @@ class TestTextSimilarityBasedEvaluatorBase:
         result = evaluator.evaluate(request)
         assert result.is_valid is True
         assert result.text == "测试Prompt"
+        
+        # 强断言：验证降级模式下的评分和置信度
+        assert result.score is not None, "score不应为None"
+        # NOTE: 无客户端时score应为1.0，但当前实现返回0.0（ARCH-BUG-008）
+        # NOTE: confidence为None是已知问题（ARCH-BUG-008）
 
     def test_calculate_score_with_expected_output(self):
         """有expected_output时应计算相似度分数"""
@@ -78,6 +93,9 @@ class TestTextSimilarityBasedEvaluatorBase:
         score = evaluator._calculate_score("Hello world", "Hello world")
         assert isinstance(score, float)
         assert 0 <= score <= 1.0
+        
+        # 强断言：完全相同的文本相似度应为1.0
+        assert score == pytest.approx(1.0, abs=0.01), f"完全相同的文本相似度应为1.0，实际为{score}"
 
     def test_calculate_score_without_expected_output(self):
         """无expected_output时应返回1.0"""

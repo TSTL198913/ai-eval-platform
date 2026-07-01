@@ -51,7 +51,7 @@ class PromptSensitivityEvaluator(BaseEvaluator):
         )
 
         if not base_prompt:
-            return DomainResponse(is_valid=False, error="base_prompt不能为空")
+            return self.create_error_response(error_message="base_prompt不能为空")
 
         # 生成Prompt变体
         if variants is None:
@@ -71,8 +71,7 @@ class PromptSensitivityEvaluator(BaseEvaluator):
         # 分析结果
         analysis = self._analyze_results(results, evaluation_dimensions)
 
-        return DomainResponse(
-            is_valid=True,
+        return self.create_success_response(
             text=analysis["summary"],
             score=analysis["stability_score"],
             data=analysis,
@@ -403,4 +402,4 @@ class PromptSensitivityEvaluatorFactory(BaseEvaluator):
 
     def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
         evaluator = PromptSensitivityEvaluator(client=self.client)
-        return evaluator.evaluate(request)
+        return evaluator.safe_evaluate(request)

@@ -49,6 +49,11 @@ class TestMultiAgentEvaluatorPositiveCases:
         assert result.is_valid is True
         assert result.data["agent_id"] == "agent_001"
         assert result.data["role"] == "coordinator"
+        
+        # 强断言：验证评分、置信度和状态
+        assert result.score == 1.0, f"注册成功score应为1.0，实际为{result.score}"
+        assert result.confidence is not None, "confidence不应为None"
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success"
 
     def test_record_message_success(self, target):
         """记录消息应成功"""
@@ -94,6 +99,10 @@ class TestMultiAgentEvaluatorPositiveCases:
 
         assert result.is_valid is True
         assert result.data["message_id"] == "msg_001"
+        
+        # 强断言：验证评分、置信度和状态
+        assert result.score == 1.0, f"记录消息成功score应为1.0，实际为{result.score}"
+        assert result.confidence is not None, "confidence不应为None"
 
     def test_assign_task_success(self, target):
         """分配任务应成功"""

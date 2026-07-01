@@ -106,7 +106,7 @@ const Dashboard: React.FC = () => {
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => {
-        const color = status === 'passed' ? 'green' : status === 'failed' ? 'red' : 'orange';
+        const color = status === 'completed' ? 'green' : status === 'failed' ? 'red' : status === 'running' ? 'blue' : 'orange';
         return <Tag color={color}>{status}</Tag>;
       }
     },
@@ -189,7 +189,7 @@ const Dashboard: React.FC = () => {
     { title: '通过记录', value: stats.status_distribution?.passed?.toLocaleString() || '0', icon: <CheckCircle className='w-6 h-6' />, color: 'green', suffix: <ArrowUp className='w-4 h-4 text-green-500' /> },
     { title: '平均延迟', value: '245ms', icon: <Clock className='w-6 h-6' />, color: 'orange', suffix: <ArrowDown className='w-4 h-4 text-red-500' /> },
     { title: '成功率', value: '98.5%', icon: <TrendingUp className='w-6 h-6' />, color: 'cyan', suffix: <ArrowUp className='w-4 h-4 text-green-500' /> },
-    { title: '月度成本', value: ',560', icon: <DollarSign className='w-6 h-6' />, color: 'pink', suffix: <span className='text-xs text-gray-400'>预算内</span> },
+    { title: '月度成本', value: '5,560', icon: <DollarSign className='w-6 h-6' />, color: 'pink', suffix: <span className='text-xs text-gray-400'>预算内</span> },
   ] : [];
 
   const COLORS = ['#ef4444', '#10b981', '#10b981', '#10b981', '#f59e0b'];

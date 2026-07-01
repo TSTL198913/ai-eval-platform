@@ -318,9 +318,8 @@ class TestFactualityEvaluatorBoundaryCases:
 
         result = evaluator.evaluate(request)
 
-        # 强断言：中文内容应正常处理
         assert result.is_valid is True
-        assert 0.0 <= result.score <= 1.0
+        assert result.score == pytest.approx(0.75, abs=0.01)
 
     def test_unicode_content_handled(self, evaluator):
         """Unicode内容应被正确处理"""

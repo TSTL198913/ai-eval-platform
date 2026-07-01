@@ -10,7 +10,7 @@ from typing import Any
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
 
 logger = logging.getLogger(__name__)
 
@@ -60,13 +60,16 @@ class FunctionCallEvaluator(BaseEvaluator):
         actual_results = self.get_payload_data(request, "actual_results", {})
         tool_definitions = self.get_payload_data(request, "tool_definitions", [])
 
-        # 🧠 2026 架构升级：测试数据异常不属于系统崩溃(is_valid=False)。转换为业务错误表现。
+        # 🧠 2026 架构升级：无评估依据时应返回 CANNOT_EVALUATE，而非"无数据=满分"
+        # 这是状态机设计的核心原则：明确区分"表现差"和"无法评估"
         if not expected_tools and not actual_tools:
-            return DomainResponse(
-                is_valid=True,
-                text="工具调用评估完成：期望和实际调用的工具列表均为空（负向空置通过）。",
-                score=1.0,
-                data={"passed": True, "message": "No tools expected and no tools called."},
+            return self.create_cannot_evaluate_response(
+                reason="缺少评估依据：期望和实际工具列表均为空，无法进行工具选择评估",
+                dimensions_skipped=["tool_selection", "param_validation", "result_validation"],
+                metadata={
+                    "expected_tools_count": 0,
+                    "actual_tools_count": 0,
+                },
             )
 
         # 1. 工具选择路由评估
@@ -94,8 +97,40 @@ class FunctionCallEvaluator(BaseEvaluator):
         overall_score = (tool_score * w_tool) + (param_score * w_param) + (result_score * w_result)
         overall_score = round(min(max(overall_score, 0.0), 1.0), 4)
 
-        return DomainResponse(
-            is_valid=True,
+        evaluated_dims = []
+        skipped_dims = []
+        if expected_tools:
+            evaluated_dims.append("tool_selection")
+        if expected_params:
+            evaluated_dims.append("param_validation")
+        if expected_results:
+            evaluated_dims.append("result_validation")
+
+        if not expected_params:
+            skipped_dims.append("param_validation")
+        if not expected_results:
+            skipped_dims.append("result_validation")
+
+        if skipped_dims:
+            return self.create_partial_response(
+                text=f"Function Calling 综合审计完成（部分维度），最终评测得分: {overall_score:.2f}",
+                score=overall_score,
+                dimensions_evaluated=evaluated_dims,
+                dimensions_skipped=skipped_dims,
+                skip_reasons={
+                    "param_validation": "缺少 expected_params" if "param_validation" in skipped_dims else None,
+                    "result_validation": "缺少 expected_results" if "result_validation" in skipped_dims else None,
+                },
+                data={
+                    "passed": overall_score >= meta.get("passing_threshold", 0.6),
+                    "tool_selection": {"score": round(tool_score, 4), "details": tool_details},
+                    "param_validation": {"score": round(param_score, 4), "details": param_details},
+                    "result_validation": {"score": round(result_score, 4), "details": result_details},
+                    "weights_applied": {"tool": w_tool, "param": w_param, "result": w_result},
+                },
+            )
+
+        return self.create_success_response(
             text=f"Function Calling 综合审计完成，最终评测得分: {overall_score:.2f}",
             score=overall_score,
             data={
@@ -113,8 +148,7 @@ class FunctionCallEvaluator(BaseEvaluator):
         actual_tools = self.get_payload_data(request, "actual_tools", [])
 
         score, details = self._evaluate_tool_selection(expected_tools, actual_tools)
-        return DomainResponse(
-            is_valid=True,
+        return self.create_success_response(
             text=f"工具路由选择评估完成，得分: {score:.2f}",
             score=round(score, 4),
             data={
@@ -131,8 +165,7 @@ class FunctionCallEvaluator(BaseEvaluator):
         tool_definitions = self.get_payload_data(request, "tool_definitions", [])
 
         score, details = self._evaluate_params(expected_params, actual_params, tool_definitions)
-        return DomainResponse(
-            is_valid=True,
+        return self.create_success_response(
             text=f"工具参数拟合验证完成，得分: {score:.2f}",
             score=round(score, 4),
             data={
@@ -148,8 +181,7 @@ class FunctionCallEvaluator(BaseEvaluator):
         actual_results = self.get_payload_data(request, "actual_results", {})
 
         score, details = self._evaluate_results(expected_results, actual_results)
-        return DomainResponse(
-            is_valid=True,
+        return self.create_success_response(
             text=f"执行结果一致性比对完成，得分: {score:.2f}",
             score=round(score, 4),
             data={

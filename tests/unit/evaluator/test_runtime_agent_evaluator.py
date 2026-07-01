@@ -41,6 +41,12 @@ class TestRuntimeAgentEvaluatorPositiveCases:
         assert result.is_valid is True
         assert "agent_id" in result.data
         assert "trajectory" in result.data
+        
+        # 强断言：验证评分、置信度和状态
+        assert result.score is not None, "score不应为None"
+        assert 0.0 <= result.score <= 1.0, f"score应在0-1之间，实际为{result.score}"
+        assert result.confidence is not None, "confidence不应为None"
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success"
 
     def test_run_react_mode_success(self, target):
         """ReAct模式应正确执行"""
@@ -60,6 +66,10 @@ class TestRuntimeAgentEvaluatorPositiveCases:
         assert result.data["mode"] == "react"
         assert "trajectory" in result.data
         assert len(result.data["trajectory"]) > 0
+        
+        # 强断言：验证评分、置信度和状态
+        assert result.score is not None, "score不应为None"
+        assert result.confidence is not None, "confidence不应为None"
 
     def test_run_plan_execute_mode_success(self, target):
         """Plan-and-Execute模式应正确执行"""
@@ -78,6 +88,10 @@ class TestRuntimeAgentEvaluatorPositiveCases:
         assert result.is_valid is True
         assert result.data["mode"] == "plan_execute"
         assert "trajectory" in result.data
+        
+        # 强断言：验证评分、置信度和状态
+        assert result.score is not None, "score不应为None"
+        assert result.confidence is not None, "confidence不应为None"
 
     def test_get_state_existing_agent(self, target):
         """获取已存在Agent状态应成功"""

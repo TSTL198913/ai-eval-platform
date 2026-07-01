@@ -59,6 +59,8 @@ class TestCircuitBreakerThreadSafety:
         assert breaker.state == CircuitState.OPEN
         assert breaker.stats.failed_calls >= 3
         assert breaker.stats.total_calls >= 3
+        assert breaker.stats.successful_calls == 0
+        assert all(state == "open" for _, state in results)
 
     def test_breaker_concurrent_access(self):
         """多个线程同时访问熔断器应保持状态一致性"""
@@ -91,6 +93,7 @@ class TestCircuitBreakerThreadSafety:
         assert breaker.state == CircuitState.CLOSED
         assert breaker.stats.successful_calls == 100
         assert breaker.stats.total_calls == 100
+        assert breaker.stats.failed_calls == 0
         assert success_count[0] == 100
 
 
@@ -130,7 +133,9 @@ class TestEvaluatorThreadSafety:
         assert len(results) == 10
         for result in results:
             assert result.is_valid is True
-            assert result.score >= 0
+            assert result.score is not None
+            assert 0 <= result.score <= 1.0
+            assert result.evaluation_status.value in ["success", "partial"]
 
     def test_breaker_cache_thread_safe(self):
         """评估器熔断器缓存应线程安全"""
@@ -153,6 +158,7 @@ class TestEvaluatorThreadSafety:
             t.join()
 
         assert len(set(breakers)) == 1
+        assert all(b.state == CircuitState.CLOSED for b in breakers)
 
 
 class TestCircuitBreakerAsyncSafety:
@@ -179,6 +185,8 @@ class TestCircuitBreakerAsyncSafety:
 
         assert breaker.state == CircuitState.CLOSED
         assert breaker.stats.successful_calls == 50
+        assert breaker.stats.total_calls == 50
+        assert breaker.stats.failed_calls == 0
 
     @pytest.mark.asyncio
     async def test_breaker_async_failure_transition(self):
@@ -203,6 +211,8 @@ class TestCircuitBreakerAsyncSafety:
         await asyncio.gather(*tasks)
 
         assert breaker.state == CircuitState.OPEN
+        assert breaker.stats.failed_calls >= 3
+        assert breaker.stats.total_calls >= 3
 
 
 class TestEvaluatorFactoryThreadSafety:
@@ -236,6 +246,7 @@ class TestEvaluatorFactoryThreadSafety:
             t.join()
 
         evaluators = EvaluatorFactory.list_evaluators()
+        assert len(registered_names) == 10
         for name in registered_names:
             assert name in evaluators
 

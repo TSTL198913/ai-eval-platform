@@ -4,6 +4,7 @@
 """
 
 import logging
+import threading
 import time
 from typing import Any
 
@@ -18,10 +19,61 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["评估"])
 
 # 同步任务结果缓存（用于 Celery 不可用时的降级处理）
-_sync_task_results: dict[str, Any] = {}
+# 存储格式: {task_id: (result, timestamp)}
+_sync_task_results: dict[str, tuple[Any, float]] = {}
+_sync_task_results_lock = threading.Lock()
+_sync_task_results_ttl = 3600  # 缓存过期时间（秒）
+_sync_task_results_max_size = 1000  # 最大缓存数量
 
 # 幂等性检查器单例（通过Service层注入，避免API层直接依赖distributed/infra）
 _idempotency_checker = None
+
+
+def _cleanup_expired_sync_results():
+    """清理过期的同步任务结果缓存（线程安全）"""
+    now = time.time()
+    expired_keys = []
+    
+    with _sync_task_results_lock:
+        for task_id, (_, timestamp) in _sync_task_results.items():
+            if now - timestamp > _sync_task_results_ttl:
+                expired_keys.append(task_id)
+        
+        for key in expired_keys:
+            del _sync_task_results[key]
+        
+        # 如果缓存数量超过最大限制，删除最旧的条目
+        while len(_sync_task_results) > _sync_task_results_max_size:
+            oldest_key = min(_sync_task_results, key=lambda k: _sync_task_results[k][1])
+            del _sync_task_results[oldest_key]
+    
+    if expired_keys:
+        logger.debug(f"清理了 {len(expired_keys)} 个过期的同步任务结果")
+
+
+def _get_sync_task_result(task_id: str) -> Any | None:
+    """线程安全地获取同步任务结果"""
+    with _sync_task_results_lock:
+        entry = _sync_task_results.get(task_id)
+        if entry:
+            # 向后兼容：处理旧格式（直接存储result）和新格式（(result, timestamp)）
+            if isinstance(entry, tuple) and len(entry) == 2:
+                result, timestamp = entry
+                # 检查是否过期
+                if time.time() - timestamp > _sync_task_results_ttl:
+                    del _sync_task_results[task_id]
+                    return None
+                return result
+            else:
+                # 旧格式：直接返回结果
+                return entry
+        return None
+
+
+def _set_sync_task_result(task_id: str, result: Any):
+    """线程安全地设置同步任务结果"""
+    with _sync_task_results_lock:
+        _sync_task_results[task_id] = (result, time.time())
 
 
 def _get_idempotency_service():
@@ -168,7 +220,8 @@ async def evaluate_async_endpoint(raw_data: dict, response: Response):
             )
         else:
             task_id = f"sync-{case.id}-{int(time.time())}"
-            _sync_task_results[task_id] = result
+            _set_sync_task_result(task_id, result)
+            _cleanup_expired_sync_results()
             return success_response(
                 {
                     "task_id": task_id,
@@ -183,8 +236,8 @@ async def evaluate_async_endpoint(raw_data: dict, response: Response):
 async def get_task_status(task_id: str, response: Response):
     """查询异步任务状态"""
     if task_id.startswith("sync-"):
-        if task_id in _sync_task_results:
-            result = _sync_task_results[task_id]
+        result = _get_sync_task_result(task_id)
+        if result is not None:
             return success_response(
                 {
                     "task_id": task_id,

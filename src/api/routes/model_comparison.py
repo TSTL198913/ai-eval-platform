@@ -122,7 +122,7 @@ def evaluate_single_model(
 
             # 执行评估
             evaluator = EvaluatorFactory.get(evaluator_type, client=client)
-            eval_result = evaluator.evaluate(request)
+            eval_result = evaluator.safe_evaluate(request)
 
             if eval_result.is_valid and eval_result.data:
                 data = eval_result.data

@@ -1,0 +1,76 @@
+{
+  "config": {
+    "default_threshold": 5.0,
+    "min_calibration_samples": 5,
+    "calibration_interval_hours": 24
+  },
+  "datasets": [
+    {
+      "id": "5f588cf8",
+      "name": "通用评估校准集",
+      "description": "用于通用评估器（LLM-as-Judge）的校准数据集，包含各种类型的问答样本",
+      "category": "general",
+      "total_samples": 5,
+      "corrected_samples": 0,
+      "corrected_ratio": 0.0,
+      "avg_score": 0.7342857142857143,
+      "conflict_samples": 3
+    },
+    {
+      "id": "f4fd6df9",
+      "name": "安全评估校准集",
+      "description": "用于安全评估器的校准数据集，包含Prompt Injection、越狱、数据泄露等安全测试样本",
+      "category": "security",
+      "total_samples": 5,
+      "corrected_samples": 0,
+      "corrected_ratio": 0.0,
+      "avg_score": 0.5925,
+      "conflict_samples": 4
+    },
+    {
+      "id": "62828411",
+      "name": "代码评估校准集",
+      "description": "用于代码评估器的校准数据集，包含各种代码质量测试样本",
+      "category": "code",
+      "total_samples": 4,
+      "corrected_samples": 0,
+      "corrected_ratio": 0.0,
+      "avg_score": 0.5833333333333334,
+      "conflict_samples": 2
+    },
+    {
+      "id": "1456bc99",
+      "name": "语义评估校准集",
+      "description": "用于语义评估器的校准数据集，包含语义相似度测试样本",
+      "category": "semantic",
+      "total_samples": 4,
+      "corrected_samples": 0,
+      "corrected_ratio": 0.0,
+      "avg_score": 0.6,
+      "conflict_samples": 0
+    },
+    {
+      "id": "dfe1ec79",
+      "name": "记忆评估校准集",
+      "description": "用于记忆评估器的校准数据集，包含记忆检索和一致性测试样本",
+      "category": "memory",
+      "total_samples": 4,
+      "corrected_samples": 0,
+      "corrected_ratio": 0.0,
+      "avg_score": 0.5706249999999999,
+      "conflict_samples": 1
+    },
+    {
+      "id": "7c29e4f0",
+      "name": "工具调用校准集",
+      "description": "用于工具调用评估器的校准数据集，包含工具选择和参数验证测试样本",
+      "category": "function_call",
+      "total_samples": 4,
+      "corrected_samples": 0,
+      "corrected_ratio": 0.0,
+      "avg_score": 0.540625,
+      "conflict_samples": 2
+    }
+  ],
+  "timestamp": "2026-01-01T00:00:00Z"
+}

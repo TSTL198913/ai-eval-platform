@@ -96,7 +96,6 @@ class CircuitBreaker:
         self._success_count = 0
         self._last_failure_time: float | None = None
         self._half_open_calls = 0
-        self._lock = asyncio.Lock()
         self._sync_lock = threading.RLock()
         self.stats = CircuitBreakerStats()
         self._redis_client = redis_client
@@ -297,8 +296,12 @@ class CircuitBreaker:
             return
 
         try:
+            import json
+
             state_data = self._redis_client.get_circuit_breaker_state(self.name)
             if state_data:
+                if isinstance(state_data, str):
+                    state_data = json.loads(state_data)
                 with self._sync_lock:
                     self._state = CircuitState(state_data["state"])
                     self._failure_count = state_data["failure_count"]
@@ -373,6 +376,13 @@ class CircuitBreaker:
         Raises:
             CircuitBreakerError: 熔断器打开时
         """
+        def _acquire_half_open_permit():
+            with self._sync_lock:
+                if self._half_open_calls >= self.config.half_open_max_calls:
+                    return False
+                self._half_open_calls += 1
+            return True
+
         current_state = self.state
 
         if current_state == CircuitState.OPEN:
@@ -380,13 +390,12 @@ class CircuitBreaker:
             raise CircuitBreakerError(f"Circuit breaker [{self.name}] is OPEN, call rejected")
 
         if current_state == CircuitState.HALF_OPEN:
-            async with self._lock:
-                if self._half_open_calls >= self.config.half_open_max_calls:
-                    self.stats.rejected_calls += 1
-                    raise CircuitBreakerError(
-                        f"Circuit breaker [{self.name}] HALF_OPEN max calls reached"
-                    )
-                self._half_open_calls += 1
+            acquired = await asyncio.to_thread(_acquire_half_open_permit)
+            if not acquired:
+                self.stats.rejected_calls += 1
+                raise CircuitBreakerError(
+                    f"Circuit breaker [{self.name}] HALF_OPEN max calls reached"
+                )
 
         try:
             if asyncio.iscoroutinefunction(func):
@@ -473,7 +482,6 @@ class CircuitBreakerRegistry:
 
     def __init__(self, redis_client: Any = None):
         self._breakers: dict[str, CircuitBreaker] = {}
-        self._lock = asyncio.Lock()
         self._redis_client = redis_client
 
     @classmethod

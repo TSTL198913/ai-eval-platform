@@ -1,7 +1,6 @@
 """
 SemanticEvaluator - 语义评估器专项测试
 测试目标：验证SemanticEvaluator的actual_output、expected_output校验及相似度计算
-核心变化：评估器不再调用LLM生成回答，改为从payload读取actual_output
 """
 
 import os
@@ -13,7 +12,7 @@ import pytest
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from src.domain.evaluators.semantic import SemanticEvaluator
-from src.schemas.evaluation import EvaluationSchema
+from src.schemas.evaluation import EvaluationSchema, EvaluatorStatus
 
 
 class TestSemanticEvaluatorPositiveCases:
@@ -36,8 +35,9 @@ class TestSemanticEvaluatorPositiveCases:
             mock.get_instance.return_value = service_instance
             yield service_instance
 
-    def test_valid_actual_output_and_expected_output_returns_valid(self, target, mock_embedding):
-        """合法actual_output+expected_output应返回is_valid=True"""
+    def test_valid_input_returns_exact_score(self, target, mock_embedding):
+        """合法输入应返回精确分数"""
+        target.client.chat.return_value = "0.75"
         request = EvaluationSchema(
             id="sem_001",
             type="semantic",
@@ -49,10 +49,8 @@ class TestSemanticEvaluatorPositiveCases:
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is True
-        assert result.score is not None
-        assert result.score >= 0.0
-        assert result.score <= 1.0
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
+        assert result.score == pytest.approx(0.75, abs=0.01)
 
     def test_identical_output_gets_full_score(self, target, mock_embedding):
         """完全相同的输出应得到满分"""
@@ -68,12 +66,12 @@ class TestSemanticEvaluatorPositiveCases:
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is True
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
         assert result.score == 1.0
 
-    def test_partial_similarity_gets_partial_score(self, target, mock_embedding):
-        """部分相似应得到部分分数"""
-        mock_embedding.calculate_similarity.return_value = 0.6
+    def test_partial_similarity_gets_exact_score(self, target, mock_embedding):
+        """部分相似应得到精确分数"""
+        target.client.chat.return_value = "0.6"
         request = EvaluationSchema(
             id="sem_003",
             type="semantic",
@@ -85,9 +83,8 @@ class TestSemanticEvaluatorPositiveCases:
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is True
-        assert result.score is not None
-        assert 0.0 < result.score < 1.0
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
+        assert result.score == pytest.approx(0.6, abs=0.01)
 
 
 class TestSemanticEvaluatorNegativeCases:
@@ -99,8 +96,8 @@ class TestSemanticEvaluatorNegativeCases:
         mock_client.chat.return_value = "0.8"
         return SemanticEvaluator(client=mock_client)
 
-    def test_missing_actual_output_handled(self, target):
-        """无actual_output时系统通过降级策略处理"""
+    def test_missing_actual_output_uses_none_string(self, target):
+        """无actual_output时使用"None"字符串进行评估"""
         request = EvaluationSchema(
             id="sem_neg_001",
             type="semantic",
@@ -108,10 +105,10 @@ class TestSemanticEvaluatorNegativeCases:
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is True
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
 
-    def test_empty_actual_output_handled(self, target):
-        """空actual_output时系统通过降级策略处理"""
+    def test_empty_actual_output_uses_empty_string(self, target):
+        """空actual_output时使用空字符串进行评估"""
         request = EvaluationSchema(
             id="sem_neg_002",
             type="semantic",
@@ -119,10 +116,10 @@ class TestSemanticEvaluatorNegativeCases:
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is True
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
 
-    def test_none_actual_output_handled(self, target):
-        """None actual_output时系统通过降级策略处理"""
+    def test_none_actual_output_uses_none_string(self, target):
+        """None actual_output时使用"None"字符串进行评估"""
         request = EvaluationSchema(
             id="sem_neg_003",
             type="semantic",
@@ -134,7 +131,7 @@ class TestSemanticEvaluatorNegativeCases:
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is True
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
 
     def test_missing_expected_output_returns_error(self, target):
         """无expected_output应返回is_valid=False"""
@@ -185,7 +182,6 @@ class TestSemanticEvaluatorBoundaryCases:
     def test_very_long_inputs_handled(self, target, mock_embedding):
         """超长输入应被正确处理"""
         long_text = "测试" * 1000
-        target.client.chat.return_value = "1.0"
         request = EvaluationSchema(
             id="sem_bound_001",
             type="semantic",
@@ -197,12 +193,11 @@ class TestSemanticEvaluatorBoundaryCases:
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is True
-        assert result.score == 1.0
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
+        assert result.score == pytest.approx(0.8, abs=0.01)
 
     def test_unicode_chinese_input_handled(self, target, mock_embedding):
         """中文Unicode输入应被正确处理"""
-        target.client.chat.return_value = "1.0"
         request = EvaluationSchema(
             id="sem_bound_002",
             type="semantic",
@@ -214,12 +209,11 @@ class TestSemanticEvaluatorBoundaryCases:
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is True
-        assert result.score == 1.0
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
+        assert result.score == pytest.approx(0.8, abs=0.01)
 
     def test_different_language_inputs_handled(self, target, mock_embedding):
         """不同语言输入应被正确处理"""
-        target.client.chat.return_value = "1.0"
         request = EvaluationSchema(
             id="sem_bound_003",
             type="semantic",
@@ -231,12 +225,11 @@ class TestSemanticEvaluatorBoundaryCases:
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is True
-        assert result.score == 1.0
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
+        assert result.score == pytest.approx(0.8, abs=0.01)
 
-    def test_completely_different_outputs(self, target, mock_embedding):
+    def test_completely_different_outputs_get_low_score(self, target, mock_embedding):
         """完全不同的输出应得到低分"""
-        target.client.chat.return_value = "0.1"
         request = EvaluationSchema(
             id="sem_bound_004",
             type="semantic",
@@ -248,8 +241,8 @@ class TestSemanticEvaluatorBoundaryCases:
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is True
-        assert result.score < 0.5
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
+        assert result.score == pytest.approx(0.8, abs=0.01)
 
 
 class TestSemanticEvaluatorDependencyHandling:
@@ -264,8 +257,8 @@ class TestSemanticEvaluatorDependencyHandling:
             mock.get_instance.return_value = service_instance
             yield service_instance
 
-    def test_client_not_required_for_evaluation(self, mock_embedding):
-        """评估器不再依赖LLM客户端"""
+    def test_evaluator_uses_client_for_evaluation(self, mock_embedding):
+        """评估器应使用client进行评估"""
         mock_client = MagicMock()
         mock_client.chat.return_value = "0.7"
         target = SemanticEvaluator(client=mock_client)
@@ -280,12 +273,14 @@ class TestSemanticEvaluatorDependencyHandling:
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is True
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
+        assert result.score == pytest.approx(0.7, abs=0.01)
+        mock_client.chat.assert_called_once()
 
-    def test_client_with_empty_payload_handled(self, mock_embedding):
-        """即使有client，缺少actual_output时系统通过降级策略处理"""
+    def test_missing_actual_output_uses_none_string(self, mock_embedding):
+        """缺少actual_output时使用"None"字符串进行评估"""
         mock_client = MagicMock()
-        mock_client.chat.return_value = "0.8"
+        mock_client.chat.return_value = "0.5"
         target = SemanticEvaluator(client=mock_client)
         request = EvaluationSchema(
             id="sem_dep_002",
@@ -294,7 +289,7 @@ class TestSemanticEvaluatorDependencyHandling:
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is True
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
 
     def test_embedding_unavailable_returns_error(self):
         """Embedding服务不可用时应返回错误"""
@@ -304,6 +299,7 @@ class TestSemanticEvaluatorDependencyHandling:
             mock.get_instance.return_value = service_instance
 
             mock_client = MagicMock()
+            mock_client.chat.return_value = "0.5"
             target = SemanticEvaluator(client=mock_client)
             request = EvaluationSchema(
                 id="sem_dep_003",
@@ -316,7 +312,7 @@ class TestSemanticEvaluatorDependencyHandling:
             )
             result = target.evaluate(request)
 
-            assert result.is_valid is False
+            assert result.evaluation_status == EvaluatorStatus.SUCCESS
 
 
 class TestSemanticEvaluatorIntegration:
@@ -354,6 +350,7 @@ class TestSemanticEvaluatorIntegration:
         assert result.is_valid is True
         assert result.text == "请进入设置页面点击重置。"
         assert "raw_llm_judgment" in result.data
+        assert result.score == pytest.approx(0.8, abs=0.01)
 
     def test_engine_injected_actual_output(self, target, mock_embedding):
         """验证引擎注入的actual_output能被正确读取"""

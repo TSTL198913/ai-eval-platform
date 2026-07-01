@@ -47,14 +47,13 @@ class NumericExtractStrategy(ScoreParseStrategy):
         cleaned = re.sub(r"(问题\d+|答案\d+|case\d+|Case\d+|第\d+句|第\d+个|文本\d+)", "", text)
         cleaned_end = cleaned.strip().rstrip(".。，, ")
 
-        match = re.search(r"(\d+\.?\d*)$", cleaned_end)
+        match = re.search(r"(-?\d+\.?\d*)$", cleaned_end)
         if match:
             before = cleaned_end[: match.start()].strip()
             if before == "分":
                 return None
             try:
                 score = float(match.group(1))
-                # 修复：智能判断评分制式，避免百分制误判
                 score = self._normalize_score(score, text)
                 if score is not None and 0.0 <= score <= 1.0:
                     return ParsedScore(
@@ -63,7 +62,7 @@ class NumericExtractStrategy(ScoreParseStrategy):
             except ValueError:
                 pass
 
-        match = re.search(r"(\d+\.?\d*)", cleaned)
+        match = re.search(r"(-?\d+\.?\d*)", cleaned)
         if match:
             before = cleaned[: match.start()].strip()
             after = cleaned[match.end() :].strip()
@@ -73,7 +72,6 @@ class NumericExtractStrategy(ScoreParseStrategy):
                 return None
             try:
                 score = float(match.group(1))
-                # 修复：智能判断评分制式，避免百分制误判
                 score = self._normalize_score(score, text)
                 if score is not None and 0.0 <= score <= 1.0:
                     return ParsedScore(
@@ -97,8 +95,13 @@ class NumericExtractStrategy(ScoreParseStrategy):
         """
         import logging
 
+        # 0. 负数分数无效，返回 None
+        if score < 0:
+            logging.warning(f"负分数值 {score}，无效，上下文：{context[:50]}")
+            return None
+
         # 1. 如果分数已经在 0-1 区间，不需要转换
-        if score <= 1.0:
+        if 0.0 <= score <= 1.0:
             return score
 
         # 2. 如果分数在 1-100 区间，可能是百分制
@@ -111,7 +114,7 @@ class NumericExtractStrategy(ScoreParseStrategy):
             if has_percentage_marker:
                 return score / 100.0
 
-            # 如果分数接近常见的百分制整数（如 80, 90, 100），倾向于转换
+            # 如果分数接近常见的百分制整数（如 60, 70, 80, 90, 95, 100），倾向于转换
             if abs(score - round(score)) < 0.01 and round(score) in [60, 70, 80, 90, 95, 100]:
                 return score / 100.0
 
@@ -176,6 +179,26 @@ class SemanticMappingStrategy(ScoreParseStrategy):
         "acceptable": (0.6, 0.74, 0.75),
         "poor": (0.4, 0.59, 0.80),
         "very poor": (0.0, 0.39, 0.90),
+        "detected": (0.2, 0.4, 0.90),
+        "malicious": (0.1, 0.3, 0.95),
+        "rejected": (0.2, 0.4, 0.90),
+        "attack": (0.1, 0.3, 0.95),
+        "injection": (0.1, 0.3, 0.95),
+        "jailbreak": (0.1, 0.3, 0.95),
+        "appropriate": (0.75, 0.90, 0.85),
+        "relevant": (0.75, 0.90, 0.85),
+        "correct": (0.85, 1.0, 0.95),
+        "accurate": (0.85, 1.0, 0.95),
+        "precise": (0.85, 1.0, 0.95),
+        "complete": (0.80, 0.95, 0.90),
+        "satisfactory": (0.70, 0.85, 0.85),
+        "adequate": (0.65, 0.80, 0.80),
+        "reasonable": (0.65, 0.80, 0.80),
+        "incomplete": (0.30, 0.50, 0.85),
+        "inaccurate": (0.20, 0.40, 0.90),
+        "irrelevant": (0.10, 0.30, 0.90),
+        "wrong": (0.10, 0.30, 0.95),
+        "incorrect": (0.10, 0.30, 0.95),
     }
 
     def try_parse(self, text: str) -> ParsedScore | None:

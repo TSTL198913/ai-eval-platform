@@ -312,7 +312,7 @@ class TestExceptionChainIntegration:
 
         @EvaluatorFactory.register("contract_err_chain")
         class ContractErrEval(BaseEvaluator):
-            def evaluate(self, req):
+            def _do_evaluate(self, req):
                 raise ContractValidationError("字段缺失")
 
         client = MagicMock()

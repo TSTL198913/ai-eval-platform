@@ -35,7 +35,7 @@ def mock_evaluator_service():
 @pytest.fixture(autouse=True)
 def mock_idempotency_checker():
     """Mock幂等性检查器（自动应用）"""
-    with patch("src.api.routes.evaluation_routes._get_idempotency_checker") as mock:
+    with patch("src.api.routes.evaluation_routes._get_idempotency_service") as mock:
         checker = MagicMock()
         checker.get_cached_result.return_value = None
         checker.mark_processing.return_value = True

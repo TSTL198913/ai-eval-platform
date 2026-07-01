@@ -111,7 +111,7 @@ class TestDistributedLockExtend:
 
 
 class TestLockResult:
-    """锁结果测试"""
+    """锁结果测�?""
 
     def test_lock_result_properties(self):
         result = LockResult(
@@ -127,7 +127,7 @@ class TestLockResult:
 
 
 class TestLockState:
-    """锁状态测试"""
+    """锁状态测�?""
 
     def test_lock_state_values(self):
         assert LockState.ACQUIRED.value == "acquired"

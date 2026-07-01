@@ -1,0 +1,42 @@
+# 评估阈值配置 - 2026工业级标准
+#
+# 每个评估器类型可以配置独立的通过阈值
+# confidence_threshold: 全局置信度阈值，低于此值的评估结果应被标记为不可信
+
+thresholds:
+  # 代码评估器
+  code: 0.8
+
+  # 语义评估器
+  semantic: 0.8
+
+  # 安全评估器（更严格，因为安全问题不能妥协）
+  security: 0.9
+
+  # LLM裁判评估器
+  llm_as_judge: 0.8
+
+  # 记忆评估器
+  memory: 0.75
+
+  # 函数调用评估器
+  function_call: 0.8
+
+  # 分类评估器
+  classification: 0.85
+
+  # 通用评估器
+  general: 0.8
+
+  # 问答评估器
+  qa: 0.8
+
+  # 事实性评估器
+  factuality: 0.85
+
+  # 默认阈值（用于未知评估器类型）
+  default: 0.8
+
+# 全局置信度阈值
+# 当评估结果的置信度低于此值时，应标记为不可信或触发警告
+confidence_threshold: 0.7

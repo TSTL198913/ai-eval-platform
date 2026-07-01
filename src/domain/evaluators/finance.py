@@ -15,7 +15,7 @@ from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.domain.evaluators.metadata import FinanceMetadata
 from src.domain.evaluators.scoring import is_passing, score_numeric_match
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
 
 logger = logging.getLogger(__name__)
 
@@ -65,10 +65,10 @@ class FinanceEvaluator(BaseEvaluator):
         # 1. 严格的输入防御检查
         user_input = self.get_input_text(request)
         if not user_input:
-            return DomainResponse(is_valid=False, error="🚨 评测输入失败：user_input/text 不能为空")
+            return self.create_error_response(error_message="🚨 评测输入失败：user_input/text 不能为空")
 
         if not self.client:
-            return DomainResponse(is_valid=False, error="🚨 基础配置错误：LLM client 未配置")
+            return self.create_error_response(error_message="🚨 基础配置错误：LLM client 未配置")
 
         expected_output = self.get_payload_data(request, "expected_output")
         system_prompt = self.get_payload_data(request, "system_prompt") or DEFAULT_FINANCE_PROMPT
@@ -134,12 +134,11 @@ class FinanceEvaluator(BaseEvaluator):
         # 🧠 2026 架构升级：is_valid 仅代表系统本身执行成功；业务通过性下沉至字段
         passed_business_line = is_passing(total_score)
 
-        return DomainResponse(
-            is_valid=True,  # 流程完美执行结束，系统合法
+        return self.create_success_response(
             text=llm_output,
             score=round(total_score, 4),
             data={
-                "passed": passed_business_line,  # 显式输出业务红线达标状态
+                "passed": passed_business_line,
                 "expected_output": expected_output,
                 "rate": getattr(meta, "rate", None),
                 "target": getattr(meta, "target", None),

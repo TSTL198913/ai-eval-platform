@@ -5,7 +5,10 @@
 
 import re
 
-PASS_THRESHOLD = 0.8
+from src.config.thresholds import get_pass_threshold, DEFAULT_PASS_THRESHOLD
+
+# 保留向后兼容的常量（已废弃，建议使用 config.thresholds）
+PASS_THRESHOLD = DEFAULT_PASS_THRESHOLD
 
 # 否定词集合（用于语义反转检测）
 NEGATION_WORDS = {

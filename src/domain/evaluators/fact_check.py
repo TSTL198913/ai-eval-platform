@@ -60,7 +60,10 @@ class FactCheckEvaluator(BaseEvaluator):
         # 4. 调用 LLM 并解析结果
         try:
             llm_output = self.client.chat(prompt)
-            category = self.safe_parse_category(llm_output, allowed_categories=["true", "false"])
+            category = self.safe_parse_category(
+                llm_output, 
+                allowed_categories=["true", "false", "是", "否", "yes", "no"]
+            )
 
             if not category:
                 logger.error(f"事实核查标签提取失败: '{llm_output}'")
@@ -69,8 +72,9 @@ class FactCheckEvaluator(BaseEvaluator):
                     error_code="CATEGORY_PARSE_ERROR",
                 )
 
-            # 二分类评分：true=1.0, false=0.0
-            score = 1.0 if category == "true" else 0.0
+            # 二分类评分：true/是/yes=1.0, false/否/no=0.0
+            positive_categories = {"true", "是", "yes"}
+            score = 1.0 if category in positive_categories else 0.0
 
             return self.create_success_response(
                 text=actual_output,

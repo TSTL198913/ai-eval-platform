@@ -232,7 +232,7 @@ async def evaluate_with_fine_tuned(data: dict):
             },
         )
 
-        result = evaluator.evaluate(request)
+        result = evaluator.safe_evaluate(request)
 
         return success_response(
             {"result": result.data, "model_status": evaluator.model_info.status.value}

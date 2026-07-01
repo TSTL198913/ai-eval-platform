@@ -37,7 +37,7 @@ class CodeReviewEvaluator(BaseEvaluator):
             )
 
         security_result = detect_security_vulnerabilities(code)
-        quality_response = self._delegate.evaluate(request)
+        quality_response = self._delegate._do_evaluate(request)
 
         security_score = security_result["score"]
         quality_score = quality_response.score

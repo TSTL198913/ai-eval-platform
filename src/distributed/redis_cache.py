@@ -139,10 +139,7 @@ class RedisCache:
                 self._connected = False
 
         with self._memory_cache_lock:
-            self._memory_cache[key] = {
-                "value": value,
-                "expire_at": time.time() + ex if ex else None,
-            }
+            self._memory_cache[key] = {"value": value, "expire_at": time.time() + ex if ex else None}
 
     def set_json(self, key: str, value: dict, ex: int | None = None):
         """设置JSON值（降级到内存缓存）"""
@@ -155,10 +152,7 @@ class RedisCache:
                 self._connected = False
 
         with self._memory_cache_lock:
-            self._memory_cache[key] = {
-                "value": value,
-                "expire_at": time.time() + ex if ex else None,
-            }
+            self._memory_cache[key] = {"value": value, "expire_at": time.time() + ex if ex else None}
 
     def get_json(self, key: str) -> dict | None:
         """获取JSON值（降级到内存缓存）"""

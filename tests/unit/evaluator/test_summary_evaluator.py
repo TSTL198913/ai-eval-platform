@@ -32,6 +32,11 @@ class TestSummaryEvaluatorPositiveCases:
         assert result.is_valid is True
         assert result.score is not None
         assert 0.0 <= result.score <= 1.0
+        
+        # 强断言：验证置信度和状态
+        assert result.confidence is not None, "confidence不应为None"
+        assert 0.0 <= result.confidence <= 1.0, f"confidence应在0-1之间，实际为{result.confidence}"
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success"
 
     @staticmethod
     def test_identical_summary_gets_full_score():
@@ -49,6 +54,10 @@ class TestSummaryEvaluatorPositiveCases:
 
         assert result.is_valid is True
         assert result.score == 1.0
+        
+        # 强断言：验证置信度和状态
+        assert result.confidence is not None, "confidence不应为None"
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success"
 
 
 class TestSummaryEvaluatorNegativeCases:

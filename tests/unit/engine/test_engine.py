@@ -78,7 +78,7 @@ class TestEngineNormalExecution:
         assert result.latency_ms >= 0
 
     def test_run_failed_evaluation(self):
-        """评估失败应返回 FAILED 状态"""
+        """评估失败应返回 ERROR 状态"""
         EvaluatorFactory.register("test_fail")(MockFailingEvaluator)
         client = MagicMock()
         client.config = MagicMock()
@@ -88,7 +88,7 @@ class TestEngineNormalExecution:
         request = EvaluationSchema(id="case_2", type="test_fail", payload={})
         result = engine.run(request)
 
-        assert result.status == EvaluationStatus.FAILED
+        assert result.status == EvaluationStatus.ERROR
         assert result.response.is_valid is False
 
     def test_run_latency_is_positive(self):

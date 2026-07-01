@@ -18,14 +18,14 @@ class CodeMetadata(BaseMetadata):
     style_guide: str = ""
 
 
-class FinanceMetadata(BaseModel):
+class FinanceMetadata(BaseMetadata):
     """金融评估器元数据"""
 
     regulations: list[str] = []
     jurisdiction: str = "CN"
 
 
-class TextMetadata(BaseModel):
+class TextMetadata(BaseMetadata):
     """文本评估器元数据"""
 
     language: str = "zh"

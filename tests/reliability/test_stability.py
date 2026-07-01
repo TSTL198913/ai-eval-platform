@@ -140,7 +140,7 @@ class TestLongRunningStability:
                             adapter_name="GeneralEvaluator",
                             status=EvaluationStatus.PASSED,
                             latency_ms=100.0,
-                            response=DomainResponse(is_valid=True, score=0.9, reason="test"),
+                            response=DomainResponse(text="test", score=0.9),
                         )
                         repo.save(result)
                     else:
@@ -198,7 +198,7 @@ class TestResourceLeakDetection:
                 adapter_name="GeneralEvaluator",
                 status=EvaluationStatus.PASSED,
                 latency_ms=100.0,
-                response=DomainResponse(is_valid=True, score=0.9, reason="test"),
+                response=DomainResponse(text="test", score=0.9),
             )
             repo.save(result)
 
@@ -271,7 +271,7 @@ class TestResourceLeakDetection:
                 adapter_name="GeneralEvaluator",
                 status=EvaluationStatus.PASSED,
                 latency_ms=100.0,
-                response=DomainResponse(is_valid=True, score=0.9, reason="test"),
+                response=DomainResponse(text="test", score=0.9),
             )
             obj_refs.append(weakref.ref(result))
 
@@ -300,7 +300,7 @@ class TestErrorRecoveryStability:
             adapter_name="GeneralEvaluator",
             status=EvaluationStatus.PASSED,
             latency_ms=100.0,
-            response=DomainResponse(is_valid=True, score=0.9, reason="test"),
+            response=DomainResponse(text="test", score=0.9),
         )
         repo.save(result)
 
@@ -312,7 +312,7 @@ class TestErrorRecoveryStability:
                 adapter_name="GeneralEvaluator",
                 status=EvaluationStatus.PASSED,
                 latency_ms=100.0,
-                response=DomainResponse(is_valid=True, score=0.9, reason="test"),
+                response=DomainResponse(text="test", score=0.9),
             )
             repo.save(invalid_result)
         except ValueError:
@@ -325,7 +325,7 @@ class TestErrorRecoveryStability:
             adapter_name="GeneralEvaluator",
             status=EvaluationStatus.PASSED,
             latency_ms=100.0,
-            response=DomainResponse(is_valid=True, score=0.9, reason="test"),
+            response=DomainResponse(text="test", score=0.9),
         )
         record_id = repo.save(result2)
         assert record_id > 0, "错误后系统无法正常操作"
@@ -422,7 +422,7 @@ class TestSelfHealingStability:
             adapter_name="GeneralEvaluator",
             status=EvaluationStatus.PASSED,
             latency_ms=100.0,
-            response=DomainResponse(is_valid=True, score=0.9, reason="test"),
+            response=DomainResponse(text="test", score=0.9),
         )
         repo.save(result)
 
@@ -436,7 +436,7 @@ class TestSelfHealingStability:
             adapter_name="GeneralEvaluator",
             status=EvaluationStatus.PASSED,
             latency_ms=100.0,
-            response=DomainResponse(is_valid=True, score=0.9, reason="test"),
+            response=DomainResponse(text="test", score=0.9),
         )
         record_id = repo.save(result2)
         assert record_id > 0

@@ -486,7 +486,7 @@ const Evaluators: React.FC = () => {
                   </div>
                   <div>
                     <p className='text-gray-500 text-sm'>分数</p>
-                    <p className='text-xl font-bold text-blue-600'>{testResult.data?.score !== undefined ? String(testResult.data.score) : '-'}</p>
+                    <p className='text-xl font-bold text-blue-600'>{testResult.score !== undefined ? String(testResult.score) : '-'}</p>
                   </div>
                   <div>
                     <p className='text-gray-500 text-sm'>延迟</p>

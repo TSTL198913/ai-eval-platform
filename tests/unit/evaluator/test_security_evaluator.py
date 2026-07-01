@@ -208,10 +208,8 @@ class TestSecurityEvaluatorBoundaryCases:
 
         result = evaluator.evaluate(request)
 
-        # 修复：base.py日志格式化bug导致原始错误消息丢失
-        # 当前实现：返回错误（is_valid=False）但错误消息与"不能为空"不匹配
         assert result.is_valid is False
-        # 注：原断言"不能为空 in result.error"因base.py的log格式化bug而失败
+        assert result.error is not None
 
     def test_only_common_words_returns_high_score(self, evaluator):
         """仅包含普通词汇的输入应得高分"""

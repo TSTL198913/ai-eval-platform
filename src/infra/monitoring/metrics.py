@@ -120,6 +120,36 @@ ROUTING_LATENCY = Histogram(
     registry=registry,
 )
 
+# ===================== 状态机监控指标 =====================
+EVAL_STATUS_COUNTER = Counter(
+    "eval_status_total",
+    "Total number of evaluation status transitions",
+    ["evaluator", "status"],
+    registry=registry,
+)
+
+EVAL_STATUS_TRANSITIONS = Counter(
+    "eval_status_transitions_total",
+    "Total number of status transitions",
+    ["from_status", "to_status"],
+    registry=registry,
+)
+
+EVAL_CONFIDENCE_HISTOGRAM = Histogram(
+    "eval_confidence_distribution",
+    "Distribution of evaluation confidence scores",
+    ["evaluator", "confidence_level"],
+    buckets=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+    registry=registry,
+)
+
+EVAL_FIELD_ACCESS_COUNTER = Counter(
+    "eval_field_access_total",
+    "Total number of field accesses",
+    ["evaluator", "field_name"],
+    registry=registry,
+)
+
 
 def expose_metrics():
     """暴露 metrics 端点内容"""

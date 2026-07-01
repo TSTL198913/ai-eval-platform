@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 from fastapi.testclient import TestClient
 
 from src.domain.evaluators import auto_discover
+from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.infra.cost_governance import CostGovernance
 from src.infra.db.repository import EvaluationRepository
@@ -118,7 +119,7 @@ class TestHighConcurrencyStress:
                     adapter_name="GeneralEvaluator",
                     status=EvaluationStatus.PASSED,
                     latency_ms=100.0,
-                    response=DomainResponse(is_valid=True, score=0.9, reason="test"),
+                    response=DomainResponse(text="test", score=0.9),
                 )
                 repo.save(result)
                 latency = (time.perf_counter() - start_time) * 1000
@@ -194,7 +195,7 @@ class TestLargeDataVolumeStress:
                 adapter_name="GeneralEvaluator",
                 status=EvaluationStatus.PASSED,
                 latency_ms=100.0,
-                response=DomainResponse(is_valid=True, score=0.9, reason="test"),
+                response=DomainResponse(text="test", score=0.9),
             )
             repo.save(result)
 
@@ -221,7 +222,7 @@ class TestLargeDataVolumeStress:
                 adapter_name="GeneralEvaluator",
                 status=EvaluationStatus.PASSED if i % 2 == 0 else EvaluationStatus.FAILED,
                 latency_ms=100.0,
-                response=DomainResponse(is_valid=True, score=0.9, reason="test"),
+                response=DomainResponse(text="test", score=0.9),
             )
             repo.save(result)
 
@@ -352,7 +353,7 @@ class TestSustainedLoadStress:
                         adapter_name="GeneralEvaluator",
                         status=EvaluationStatus.PASSED,
                         latency_ms=100.0,
-                        response=DomainResponse(is_valid=True, score=0.9, reason="test"),
+                        response=DomainResponse(text="test", score=0.9),
                     )
                     repo.save(result)
                     with lock:
@@ -425,9 +426,9 @@ class TestMemoryAndResourceStress:
         EvaluatorFactory._registry = {}
 
         # 注册大量评估器
-        class DummyEvaluator:
-            def evaluate(self, user_input, expected_output=None):
-                return DomainResponse(is_valid=True, score=1.0, reason="test")
+        class DummyEvaluator(BaseEvaluator):
+            def _do_evaluate(self, request):
+                return DomainResponse(text="test", score=1.0)
 
         for i in range(100):
             EvaluatorFactory.register(f"memory_eval_{i}")(DummyEvaluator)

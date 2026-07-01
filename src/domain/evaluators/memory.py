@@ -6,7 +6,7 @@ import logging
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.domain.evaluators.fallback_policy import SemanticTaskPolicy
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +35,9 @@ class MemoryEvaluator(BaseEvaluator):
         elif action == "evaluate_forgetting":
             return self._evaluate_forgetting(request)
         else:
-            return DomainResponse(
-                is_valid=False,
-                error=f"未知的 action: {action}，支持的 action: evaluate_retrieval, evaluate_consistency, evaluate_forgetting",
+            return self.create_error_response(
+                error_message=f"未知的 action: {action}，支持的 action: evaluate_retrieval, evaluate_consistency, evaluate_forgetting",
+                error_code="INVALID_ACTION",
             )
 
     def _evaluate_retrieval(self, request: EvaluationSchema) -> DomainResponse:
@@ -48,10 +48,16 @@ class MemoryEvaluator(BaseEvaluator):
         ground_truth = self.get_payload_data(request, "ground_truth")
 
         if not query:
-            return DomainResponse(is_valid=False, error="query/user_input/text 不能为空")
+            return self.create_error_response(
+                error_message="query/user_input/text 不能为空",
+                error_code="MISSING_QUERY",
+            )
 
         if not retrieved_context:
-            return DomainResponse(is_valid=False, error="retrieved_context 不能为空")
+            return self.create_error_response(
+                error_message="retrieved_context 不能为空",
+                error_code="MISSING_CONTEXT",
+            )
 
         # 计算检索相关性
         relevance_score = self._calculate_relevance(query, retrieved_context)
@@ -78,8 +84,37 @@ class MemoryEvaluator(BaseEvaluator):
 
         retrieval_quality = self._get_quality_level(final_score)
 
-        return DomainResponse(
-            is_valid=True,
+        evaluated_dims = ["relevance"]
+        skipped_dims = []
+        if expected_context:
+            evaluated_dims.append("coverage")
+        else:
+            skipped_dims.append("coverage")
+        if ground_truth:
+            evaluated_dims.append("factual_consistency")
+        else:
+            skipped_dims.append("factual_consistency")
+
+        if skipped_dims:
+            return self.create_partial_response(
+                text=f"检索评估完成（部分维度），检索质量: {retrieval_quality}",
+                score=final_score,
+                dimensions_evaluated=evaluated_dims,
+                dimensions_skipped=skipped_dims,
+                skip_reasons={
+                    "coverage": "缺少 expected_context" if "coverage" in skipped_dims else None,
+                    "factual_consistency": "缺少 ground_truth" if "factual_consistency" in skipped_dims else None,
+                },
+                data={
+                    "relevance_score": relevance_score,
+                    "coverage_score": coverage_score,
+                    "factual_score": factual_score,
+                    "retrieval_quality": retrieval_quality,
+                    "retrieval_acceptable": final_score >= 0.7,
+                },
+            )
+
+        return self.create_success_response(
             text=f"检索评估完成，检索质量: {retrieval_quality}",
             score=final_score,
             data={
@@ -98,7 +133,10 @@ class MemoryEvaluator(BaseEvaluator):
         update_intent = self.get_payload_data(request, "update_intent")
 
         if not old_memory or not new_memory:
-            return DomainResponse(is_valid=False, error="old_memory 和 new_memory 不能为空")
+            return self.create_error_response(
+                error_message="old_memory 和 new_memory 不能为空",
+                error_code="MISSING_MEMORY_DATA",
+            )
 
         # 计算内容变化程度
         change_score = self._calculate_similarity(old_memory, new_memory)
@@ -117,16 +155,39 @@ class MemoryEvaluator(BaseEvaluator):
 
         # 如果有更新意图，检测是否遵循了意图
         intent_following_score = 1.0
+        evaluated_dims = ["change_detection", "info_loss", "contradiction"]
+        skipped_dims = []
         if update_intent:
             intent_following_score = self._evaluate_intent_following(
                 old_memory, new_memory, update_intent
             )
             consistency_score = consistency_score * 0.7 + intent_following_score * 0.3
+            evaluated_dims.append("intent_following")
+        else:
+            skipped_dims.append("intent_following")
 
         consistency_level = self._get_consistency_level(consistency_score)
 
-        return DomainResponse(
-            is_valid=True,
+        if skipped_dims:
+            return self.create_partial_response(
+                text=f"一致性评估完成（部分维度），一致性级别: {consistency_level}",
+                score=consistency_score,
+                dimensions_evaluated=evaluated_dims,
+                dimensions_skipped=skipped_dims,
+                skip_reasons={
+                    "intent_following": "缺少 update_intent" if "intent_following" in skipped_dims else None,
+                },
+                data={
+                    "change_score": change_score,
+                    "info_loss_detected": info_loss,
+                    "contradiction_detected": contradiction,
+                    "intent_following_score": intent_following_score,
+                    "consistency_level": consistency_level,
+                    "consistency_acceptable": consistency_score >= 0.7,
+                },
+            )
+
+        return self.create_success_response(
             text=f"一致性评估完成，一致性级别: {consistency_level}",
             score=consistency_score,
             data={
@@ -146,8 +207,9 @@ class MemoryEvaluator(BaseEvaluator):
         important_facts = self.get_payload_data(request, "important_facts", [])
 
         if not original_memory or not current_memory:
-            return DomainResponse(
-                is_valid=False, error="original_memory 和 current_memory 不能为空"
+            return self.create_error_response(
+                error_message="original_memory 和 current_memory 不能为空",
+                error_code="MISSING_MEMORY_DATA",
             )
 
         # 计算记忆保留度
@@ -158,21 +220,44 @@ class MemoryEvaluator(BaseEvaluator):
 
         # 检测重要事实的遗忘情况
         fact_retention_scores = []
+        avg_fact_retention = retention_score
+        evaluated_dims = ["retention"]
+        skipped_dims = []
+
         if important_facts:
             for fact in important_facts:
                 fact_retention = self._check_fact_retention(fact, current_memory)
                 fact_retention_scores.append(fact_retention)
 
             avg_fact_retention = sum(fact_retention_scores) / len(fact_retention_scores)
+            evaluated_dims.append("important_facts")
         else:
-            avg_fact_retention = retention_score
+            skipped_dims.append("important_facts")
 
         forgetting_level = self._get_forgetting_level(forgetting_rate)
 
-        return DomainResponse(
-            is_valid=True,
+        if skipped_dims:
+            return self.create_partial_response(
+                text=f"遗忘率评估完成（部分维度），遗忘级别: {forgetting_level}",
+                score=1.0 - forgetting_rate,
+                dimensions_evaluated=evaluated_dims,
+                dimensions_skipped=skipped_dims,
+                skip_reasons={
+                    "important_facts": "缺少 important_facts" if "important_facts" in skipped_dims else None,
+                },
+                data={
+                    "retention_score": retention_score,
+                    "forgetting_rate": forgetting_rate,
+                    "fact_retention_scores": fact_retention_scores,
+                    "avg_fact_retention": avg_fact_retention,
+                    "forgetting_level": forgetting_level,
+                    "forgetting_acceptable": forgetting_rate <= 0.3,
+                },
+            )
+
+        return self.create_success_response(
             text=f"遗忘率评估完成，遗忘级别: {forgetting_level}",
-            score=1.0 - forgetting_rate,  # 得分越高越好
+            score=1.0 - forgetting_rate,
             data={
                 "retention_score": retention_score,
                 "forgetting_rate": forgetting_rate,

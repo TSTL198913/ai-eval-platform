@@ -8,15 +8,16 @@ AI Eval Platform 端到端集成测试
 运行方式: python tests/e2e/run_e2e_integration.py
 """
 
+import os
 import sys
 import time
 
 import requests
 
 # 测试配置
-API_BASE_URL = "http://127.0.0.1:8000"
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "admin123"
+API_BASE_URL = os.environ.get("API_BASE_URL", "http://127.0.0.1:8000")
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 
 # 测试结果统计
 results: list[dict] = []

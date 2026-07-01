@@ -40,7 +40,9 @@ class TestEvaluatorEmptyInput:
         )
         result = evaluator.evaluate(request)
         assert result.is_valid is False
+        assert result.evaluation_status.value == "error"
         assert "input" in result.error.lower()
+        assert result.score is None
 
     def test_none_user_input(self):
         """None用户输入应被正确处理"""
@@ -52,6 +54,8 @@ class TestEvaluatorEmptyInput:
         )
         result = evaluator.evaluate(request)
         assert result.is_valid is False
+        assert result.evaluation_status.value == "error"
+        assert result.score is None
 
     def test_empty_payload(self):
         """空payload应返回错误"""
@@ -63,6 +67,7 @@ class TestEvaluatorEmptyInput:
         )
         result = evaluator.evaluate(request)
         assert result.is_valid is False
+        assert result.evaluation_status.value == "error"
 
     def test_missing_required_field(self):
         """缺失必填字段应返回错误"""
@@ -74,9 +79,10 @@ class TestEvaluatorEmptyInput:
         )
         result = evaluator.evaluate(request)
         assert result.is_valid is False
+        assert result.evaluation_status.value == "error"
 
     def test_empty_expected_output(self):
-        """空预期输出应被允许"""
+        """空预期输出应返回ERROR状态"""
         evaluator = GeneralEvaluator()
         request = EvaluationSchema(
             id="empty_expected_001",
@@ -84,14 +90,16 @@ class TestEvaluatorEmptyInput:
             payload={"user_input": "test input", "expected_output": ""},
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is not None
+        assert result.is_valid is False
+        assert result.evaluation_status.value == "error"
+        assert "expected_output" in result.error
 
 
 class TestEvaluatorLongText:
     """超长文本边界测试"""
 
     def test_long_user_input(self):
-        """超长用户输入应被正确处理"""
+        """超长用户输入缺少expected_output应返回ERROR"""
         long_text = "x" * 10000
         evaluator = GeneralEvaluator()
         request = EvaluationSchema(
@@ -100,10 +108,12 @@ class TestEvaluatorLongText:
             payload={"user_input": long_text},
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is not None
+        assert result.is_valid is False
+        assert result.evaluation_status.value == "error"
+        assert "expected_output" in result.error
 
     def test_very_long_text(self):
-        """极长文本（50000字符）应被正确处理"""
+        """极长文本缺少expected_output应返回ERROR"""
         very_long_text = "a" * 50000
         evaluator = GeneralEvaluator()
         request = EvaluationSchema(
@@ -112,10 +122,12 @@ class TestEvaluatorLongText:
             payload={"user_input": very_long_text},
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is not None
+        assert result.is_valid is False
+        assert result.evaluation_status.value == "error"
+        assert "expected_output" in result.error
 
     def test_long_expected_output(self):
-        """超长预期输出应被正确处理"""
+        """超长预期输出缺少LLM客户端应返回ERROR"""
         long_expected = "expected " * 1000
         evaluator = GeneralEvaluator()
         request = EvaluationSchema(
@@ -124,14 +136,16 @@ class TestEvaluatorLongText:
             payload={"user_input": "test", "expected_output": long_expected},
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is not None
+        assert result.is_valid is False
+        assert result.evaluation_status.value == "error"
+        assert "CLIENT_REQUIRED" in result.metadata.get("error_code", "")
 
 
 class TestEvaluatorSpecialCharacters:
     """特殊字符边界测试"""
 
     def test_xss_attack(self):
-        """XSS攻击字符应被正确处理"""
+        """XSS攻击字符缺少expected_output应返回ERROR"""
         xss_input = '<script>alert("XSS")</script>'
         evaluator = GeneralEvaluator()
         request = EvaluationSchema(
@@ -140,10 +154,12 @@ class TestEvaluatorSpecialCharacters:
             payload={"user_input": xss_input},
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is not None
+        assert result.is_valid is False
+        assert result.evaluation_status.value == "error"
+        assert "expected_output" in result.error
 
     def test_sql_injection(self):
-        """SQL注入字符应被正确处理"""
+        """SQL注入字符缺少expected_output应返回ERROR"""
         sql_input = "' OR '1'='1"
         evaluator = GeneralEvaluator()
         request = EvaluationSchema(
@@ -152,10 +168,12 @@ class TestEvaluatorSpecialCharacters:
             payload={"user_input": sql_input},
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is not None
+        assert result.is_valid is False
+        assert result.evaluation_status.value == "error"
+        assert "expected_output" in result.error
 
     def test_unicode_emoji(self):
-        """Unicode表情符号应被正确处理"""
+        """Unicode表情符号缺少expected_output应返回ERROR"""
         unicode_input = "Hello 😊🎉🤖"
         evaluator = GeneralEvaluator()
         request = EvaluationSchema(
@@ -164,10 +182,12 @@ class TestEvaluatorSpecialCharacters:
             payload={"user_input": unicode_input},
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is not None
+        assert result.is_valid is False
+        assert result.evaluation_status.value == "error"
+        assert "expected_output" in result.error
 
     def test_mixed_encoding(self):
-        """混合编码字符应被正确处理"""
+        """混合编码字符缺少expected_output应返回ERROR"""
         mixed_input = "中文 text 日本語 ハロー 🌍"
         evaluator = GeneralEvaluator()
         request = EvaluationSchema(
@@ -176,10 +196,12 @@ class TestEvaluatorSpecialCharacters:
             payload={"user_input": mixed_input},
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is not None
+        assert result.is_valid is False
+        assert result.evaluation_status.value == "error"
+        assert "expected_output" in result.error
 
     def test_control_characters(self):
-        """控制字符应被正确处理"""
+        """控制字符缺少expected_output应返回ERROR"""
         control_input = "normal\ttext\nwith\rcontrol"
         evaluator = GeneralEvaluator()
         request = EvaluationSchema(
@@ -188,10 +210,12 @@ class TestEvaluatorSpecialCharacters:
             payload={"user_input": control_input},
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is not None
+        assert result.is_valid is False
+        assert result.evaluation_status.value == "error"
+        assert "expected_output" in result.error
 
     def test_null_byte(self):
-        """Null字节应被正确处理"""
+        """Null字节缺少expected_output应返回ERROR"""
         null_input = "test\x00null"
         evaluator = GeneralEvaluator()
         request = EvaluationSchema(
@@ -200,14 +224,16 @@ class TestEvaluatorSpecialCharacters:
             payload={"user_input": null_input},
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is not None
+        assert result.is_valid is False
+        assert result.evaluation_status.value == "error"
+        assert "expected_output" in result.error
 
 
 class TestEvaluatorBoundaryValues:
     """边界数值测试"""
 
     def test_zero_score(self):
-        """零分应被正确处理"""
+        """零分场景缺少LLM客户端应返回ERROR"""
         evaluator = GeneralEvaluator()
         request = EvaluationSchema(
             id="zero_score_001",
@@ -215,12 +241,12 @@ class TestEvaluatorBoundaryValues:
             payload={"user_input": "bad answer", "expected_output": "good answer"},
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is not None
-        if result.score is not None:
-            assert 0.0 <= result.score <= 1.0
+        assert result.is_valid is False
+        assert result.evaluation_status.value == "error"
+        assert "CLIENT_REQUIRED" in result.metadata.get("error_code", "")
 
     def test_max_score(self):
-        """满分应被正确处理"""
+        """满分场景缺少LLM客户端应返回ERROR"""
         evaluator = GeneralEvaluator()
         request = EvaluationSchema(
             id="max_score_001",
@@ -228,10 +254,12 @@ class TestEvaluatorBoundaryValues:
             payload={"user_input": "correct answer", "expected_output": "correct answer"},
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is not None
+        assert result.is_valid is False
+        assert result.evaluation_status.value == "error"
+        assert "CLIENT_REQUIRED" in result.metadata.get("error_code", "")
 
     def test_large_number(self):
-        """超大数值应被正确处理"""
+        """超大数值缺少expected_output应返回ERROR"""
         large_input = {"number": 9999999999999999999}
         evaluator = GeneralEvaluator()
         request = EvaluationSchema(
@@ -240,7 +268,9 @@ class TestEvaluatorBoundaryValues:
             payload={"user_input": str(large_input)},
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is not None
+        assert result.is_valid is False
+        assert result.evaluation_status.value == "error"
+        assert "expected_output" in result.error
 
 
 class TestSecurityEvaluatorEdgeCases:
@@ -256,6 +286,8 @@ class TestSecurityEvaluatorEdgeCases:
         )
         result = evaluator.evaluate(request)
         assert result.is_valid is False
+        assert result.evaluation_status.value == "error"
+        assert result.score is None
 
     def test_long_payload(self):
         """长payload应被正确处理"""
@@ -268,6 +300,9 @@ class TestSecurityEvaluatorEdgeCases:
         )
         result = evaluator.evaluate(request)
         assert result.is_valid is True
+        assert result.evaluation_status.value in ["success", "partial"]
+        assert result.score is not None
+        assert 0 <= result.score <= 1.0
 
     def test_injection_patterns(self):
         """各种注入模式应被检测"""
@@ -286,6 +321,7 @@ class TestSecurityEvaluatorEdgeCases:
             )
             result = evaluator.evaluate(request)
             assert result.is_valid is True
+            assert result.evaluation_status.value == "partial"
 
     def test_none_payload(self):
         """None payload应抛出验证错误"""

@@ -3,14 +3,14 @@
 import pytest
 
 from src.domain.evaluators.base import BaseEvaluator
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus, ConfidenceLevel
 
 
 class ConcreteEvaluator(BaseEvaluator):
     """BaseEvaluator的具体实现用于测试"""
 
     def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
-        return DomainResponse(is_valid=True, text="测试评估完成", score=1.0, data={})
+        return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, text="测试评估完成", score=1.0, confidence=0.9, confidence_level=ConfidenceLevel.HIGH, data={})
 
 
 class TestBaseEvaluatorHelpers:

@@ -4,7 +4,7 @@ import difflib
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
 
 
 @EvaluatorFactory.register("prompt_regression")
@@ -26,7 +26,7 @@ class PromptRegressionEvaluator(BaseEvaluator):
         i = self._analyze_impact(request)
         s = c.score * 0.4 + d.score * 0.3 + i.score * 0.3
         return DomainResponse(
-            is_valid=True,
+            evaluation_status=EvaluatorStatus.SUCCESS,
             text="Prompt回归测试完成",
             score=s,
             data={
@@ -45,9 +45,9 @@ class PromptRegressionEvaluator(BaseEvaluator):
         no = self.get_payload_data(request, "new_output")
         ti = self.get_input_text(request)
         if not op or not np:
-            return DomainResponse(is_valid=False, error="old_prompt 和 new_prompt 不能为空")
+            return self.create_error_response(error_message="old_prompt 和 new_prompt 不能为空")
         if not oo or not no:
-            return DomainResponse(is_valid=False, error="old_output 和 new_output 不能为空")
+            return self.create_error_response(error_message="old_output 和 new_output 不能为空")
         ps = self._calculate_similarity(op, np)
         os = self._calculate_similarity(oo, no)
         pc = self._detect_prompt_changes(op, np)
@@ -56,7 +56,7 @@ class PromptRegressionEvaluator(BaseEvaluator):
         # 输出相似度权重0.7，Prompt相似度权重0.3
         score = os * 0.7 + ps * 0.3
         return DomainResponse(
-            is_valid=True,
+            evaluation_status=EvaluatorStatus.SUCCESS,
             text=f"Prompt对比完成，输出相似度: {os:.2f}",
             score=score,
             data={
@@ -73,9 +73,7 @@ class PromptRegressionEvaluator(BaseEvaluator):
         co = self.get_payload_data(request, "current_output")
         ti = self.get_input_text(request)
         if not bo or not co:
-            return DomainResponse(
-                is_valid=False, error="baseline_output 和 current_output 不能为空"
-            )
+            return self.create_error_response(error_message="baseline_output 和 current_output 不能为空")
         ss = self._calculate_similarity(bo, co)
         ds = 1.0 - ss
         sd = self._detect_structural_drift(bo, co)
@@ -84,7 +82,7 @@ class PromptRegressionEvaluator(BaseEvaluator):
         th = self.get_payload_data(request, "threshold", 0.2)
         dd = od > th
         return DomainResponse(
-            is_valid=True,
+            evaluation_status=EvaluatorStatus.SUCCESS,
             text=f"漂移检测完成，漂移分数: {od:.2f}",
             score=1.0 - od,
             data={
@@ -105,7 +103,7 @@ class PromptRegressionEvaluator(BaseEvaluator):
         no = self.get_payload_data(request, "new_output")
         crit = self.get_payload_data(request, "criteria", [])
         if not oo or not no:
-            return DomainResponse(is_valid=False, error="old_output 和 new_output 不能为空")
+            return self.create_error_response(error_message="old_output 和 new_output 不能为空")
         dims = {}
         ts = 0
         dc = 0
@@ -118,7 +116,7 @@ class PromptRegressionEvaluator(BaseEvaluator):
                 dc += 1
         ascore = ts / dc if dc > 0 else 0.5
         return DomainResponse(
-            is_valid=True,
+            evaluation_status=EvaluatorStatus.SUCCESS,
             text=f"影响评估完成，综合影响分数: {ascore:.2f}",
             score=ascore,
             data={

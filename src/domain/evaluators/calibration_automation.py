@@ -246,7 +246,7 @@ class CalibrationManager:
             try:
                 request = item.get("request")
                 if request:
-                    response = evaluator.evaluate(request)
+                    response = evaluator.safe_evaluate(request)
                     model_score = response.score if response.score is not None else 0.5
                     model_scores.append(model_score)
 

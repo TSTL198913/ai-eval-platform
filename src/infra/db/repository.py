@@ -314,7 +314,7 @@ class EvaluationRepository(BaseRepository):
 
             records = []
             for row in results:
-                response_data = row[6]
+                response_data = row[7]
                 # 如果是字符串，尝试解析为JSON
                 if isinstance(response_data, str):
                     try:
@@ -329,11 +329,12 @@ class EvaluationRepository(BaseRepository):
                         "adapter_name": row[3],
                         "status": row[4],
                         "latency_ms": row[5],
+                        "score": row[6],
                         "response_data": response_data,
                         "created_at": (
-                            row[7].isoformat()
-                            if row[7] and hasattr(row[7], "isoformat")
-                            else row[7]
+                            row[8].isoformat()
+                            if row[8] and hasattr(row[8], "isoformat")
+                            else row[8]
                         ),
                     }
                 )
@@ -360,9 +361,10 @@ class EvaluationRepository(BaseRepository):
                     "adapter_name": row[3],
                     "status": row[4],
                     "latency_ms": row[5],
-                    "response_data": row[6],
+                    "score": row[6],
+                    "response_data": row[7],
                     "created_at": (
-                        row[7].isoformat() if row[7] and hasattr(row[7], "isoformat") else row[7]
+                        row[8].isoformat() if row[8] and hasattr(row[8], "isoformat") else row[8]
                     ),
                 }
                 for row in results

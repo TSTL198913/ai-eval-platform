@@ -1,11 +1,13 @@
 import asyncio
-import logging
 import re
 import threading
 import time
 import uuid
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any, Optional
+
+from loguru import logger
 
 from src.distributed.circuit_breaker import (
     CircuitBreaker,
@@ -15,18 +17,32 @@ from src.distributed.circuit_breaker import (
 )
 from src.domain.evaluators.strategies.score_parsing import DEFAULT_PARSER
 from src.exceptions import BasePlatformError
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.infra.monitoring.metrics import (
+    EVALUATION_COUNTER,
+    EVALUATION_ERRORS,
+    EVALUATION_LATENCY,
+    EVAL_STATUS_COUNTER,
+    EVAL_CONFIDENCE_HISTOGRAM,
+)
+from src.infra.monitoring.tracing import TraceContext, get_tracer
+from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
 
 if TYPE_CHECKING:
     from src.domain.evaluators.fallback_policy import BaseFallbackPolicy
     from src.domain.models.base import BaseLLMClient
 
-logger = logging.getLogger(__name__)
-
 
 class BaseEvaluator(ABC):
     _breaker_cache: dict[str, CircuitBreaker] = {}
     _breaker_cache_lock = threading.Lock()
+
+    _evaluation_executor: ThreadPoolExecutor | None = None
+    _executor_lock = threading.Lock()
+    _default_executor_max_workers = 16
+
+    _score_cache: dict[str, list[float]] = {}
+    _score_cache_lock = threading.Lock()
+    _score_cache_max_size = 100
 
     def __init__(
         self,
@@ -50,104 +66,144 @@ class BaseEvaluator(ABC):
         """
         pass
 
+    @classmethod
+    def _get_executor(cls) -> ThreadPoolExecutor:
+        """获取专用的评估线程池，避免耗尽默认 asyncio 线程池"""
+        with cls._executor_lock:
+            if cls._evaluation_executor is None:
+                cls._evaluation_executor = ThreadPoolExecutor(
+                    max_workers=cls._default_executor_max_workers,
+                    thread_name_prefix="eval-worker-",
+                )
+        return cls._evaluation_executor
+
     async def _do_evaluate_async(self, request: EvaluationSchema) -> DomainResponse:
         """
         异步核心逻辑：子类可选择性重写。
-        默认利用 asyncio.to_thread 将同步方法分发至线程池执行。
+        使用专用线程池执行同步评估任务，避免耗尽默认 asyncio 线程池。
         对于外接异步 Client 的高级评估器，重写此方法可以获得极高的并发性能。
         """
-        return await asyncio.to_thread(self._do_evaluate, request)
+        return await asyncio.get_event_loop().run_in_executor(
+            self._get_executor(),
+            self._do_evaluate,
+            request,
+        )
 
     # ===================== 同步编排中枢 =====================
 
     def evaluate(self, request: EvaluationSchema) -> DomainResponse:
-        """全局统一的同步评测入口，负责拦截异常、触发熔断和执行降级"""
+        """同步评测核心逻辑：仅做编排（前置处理→熔断保护→后置处理），不处理异常
+
+        设计原则：
+        - 保留熔断器保护（circuit breaker）
+        - BasePlatformError 向上传播，由上层处理
+        - 非业务异常（Exception）向上传播，由 safe_evaluate() 统一处理
+        - fallback 逻辑上移到 safe_evaluate()
+        - 集成 tracing 和 metrics
+        """
         evaluator_name = type(self).__name__
         breaker = self._get_breaker()
         trace_id = request.id or str(uuid.uuid4())
         start_time = time.perf_counter()
 
-        try:
+        tracer = get_tracer()
+        with TraceContext(
+            tracer,
+            f"evaluator.{evaluator_name}",
+            attributes={
+                "evaluator.name": evaluator_name,
+                "request.id": trace_id,
+                "request.type": request.type,
+            },
+        ):
             result = breaker.call_sync(lambda: self._do_evaluate(request))
             elapsed = time.perf_counter() - start_time
+
+            if result is None:
+                error_msg = f"{evaluator_name}._do_evaluate() 返回 None，违反评估器实现规范"
+                logger.error(f"评估失败 | trace_id={trace_id} | evaluator={evaluator_name} | error={error_msg}")
+                return self.create_error_response(error_message=error_msg)
+
+            status_label = result.evaluation_status.value
+            EVALUATION_LATENCY.labels(domain=evaluator_name, status=status_label).observe(elapsed)
+            EVALUATION_COUNTER.labels(domain=evaluator_name, status=status_label).inc()
+
             logger.info(
                 f"评估完成 | trace_id={trace_id} | evaluator={evaluator_name} | "
                 f"score={result.score if result.score is not None else 0.0:.4f} | "
-                f"valid={result.is_valid} | "
+                f"status={result.evaluation_status} | "
                 f"elapsed={elapsed:.4f}s"
             )
             if result.data is None:
                 result.data = {}
             result.data["execution_time_ms"] = round(elapsed * 1000, 2)
             result.data["trace_id"] = trace_id
-            return result
-        except CircuitBreakerError as e:
-            elapsed = time.perf_counter() - start_time
-            logger.error(
-                f"熔断触发 | trace_id={trace_id} | evaluator={evaluator_name} | "
-                f"elapsed={elapsed:.4f}s | error={e}"
-            )
-            return self._execute_fallback_infrastructure(request, error=e)
-        except BasePlatformError:
-            raise
-        except Exception as e:
-            elapsed = time.perf_counter() - start_time
-            logger.error(
-                f"运行时异常 | trace_id={trace_id} | evaluator={evaluator_name} | "
-                f"elapsed={elapsed:.4f}s | error={e}",
-                exc_info=True,
-            )
-            return self._execute_fallback_infrastructure(request, error=e)
+            
+            result = self._auto_compute_confidence(result)
+            
+        return result
 
     # ===================== 🚀 2026 高并发异步编排中枢 =====================
 
     async def evaluate_async(self, request: EvaluationSchema) -> DomainResponse:
-        """
-        全局统一的异步评测入口（原生支持 asyncio）。
-        完美承接上层业务的 asyncio.gather() 批量并发调用。
+        """异步评测核心逻辑：仅做编排（前置处理→熔断保护→后置处理），不处理异常
+
+        设计原则：
+        - 保留熔断器保护（circuit breaker）
+        - BasePlatformError 向上传播，由上层处理
+        - 非业务异常（Exception）向上传播，由 safe_evaluate_async() 统一处理
+        - fallback 逻辑上移到 safe_evaluate_async()
+        - 集成 tracing 和 metrics
         """
         evaluator_name = type(self).__name__
         breaker = self._get_breaker()
         trace_id = request.id or str(uuid.uuid4())
         start_time = time.perf_counter()
 
-        try:
-            result = await breaker.call(lambda: self._do_evaluate_async(request))
+        tracer = get_tracer()
+        with TraceContext(
+            tracer,
+            f"evaluator.{evaluator_name}.async",
+            attributes={
+                "evaluator.name": evaluator_name,
+                "request.id": trace_id,
+                "request.type": request.type,
+                "execution.mode": "async",
+            },
+        ):
+            result = await breaker.call(self._do_evaluate_async, request)
             elapsed = time.perf_counter() - start_time
+
+            if result is None:
+                error_msg = f"{evaluator_name}._do_evaluate_async() 返回 None，违反评估器实现规范"
+                logger.error(f"异步评估失败 | trace_id={trace_id} | evaluator={evaluator_name} | error={error_msg}")
+                return self.create_error_response(error_message=error_msg)
+
+            status_label = result.evaluation_status.value
+            EVALUATION_LATENCY.labels(domain=evaluator_name, status=status_label).observe(elapsed)
+            EVALUATION_COUNTER.labels(domain=evaluator_name, status=status_label).inc()
+
             logger.info(
                 f"异步评估完成 | trace_id={trace_id} | evaluator={evaluator_name} | "
-                f"score={result.score:.4f} | valid={result.is_valid} | "
+                f"score={result.score if result.score is not None else 0.0:.4f} | status={result.evaluation_status} | "
                 f"elapsed={elapsed:.4f}s"
             )
             if result.data is None:
                 result.data = {}
             result.data["execution_time_ms"] = round(elapsed * 1000, 2)
             result.data["trace_id"] = trace_id
-            return result
-        except CircuitBreakerError as e:
-            elapsed = time.perf_counter() - start_time
-            logger.error(
-                f"异步熔断触发 | trace_id={trace_id} | evaluator={evaluator_name} | "
-                f"elapsed={elapsed:.4f}s | error={e}"
-            )
-            return await self._execute_fallback_infrastructure_async(request, error=e)
-        except BasePlatformError:
-            raise
-        except Exception as e:
-            elapsed = time.perf_counter() - start_time
-            logger.error(
-                f"异步运行时异常 | trace_id={trace_id} | evaluator={evaluator_name} | "
-                f"elapsed={elapsed:.4f}s | error={e}",
-                exc_info=True,
-            )
-            return await self._execute_fallback_infrastructure_async(request, error=e)
+        return result
 
     # ===================== 容错与策略沉降编排 =====================
 
     def _execute_fallback_infrastructure(
         self, request: EvaluationSchema, error: Exception
     ) -> DomainResponse:
-        """同步降级中枢"""
+        """同步降级中枢
+
+        🧠 2026 架构升级：降级结果应返回 PARTIAL 状态，而非 SUCCESS。
+        这样下游系统可以区分"LLM评估（高置信）"和"Embedding降级（低置信）"。
+        """
         evaluator_name = type(self).__name__
         if not self.fallback_policy:
             return self.create_error_response(
@@ -161,12 +217,15 @@ class BaseEvaluator(ABC):
             score = self.fallback_policy.get_fallback_score(actual_output, expected_output)
             metadata = self._build_fallback_metadata(error)
 
-            return DomainResponse(
-                is_valid=True,
-                text=actual_output,
+            return self.create_partial_response(
+                text=f"降级评估结果（基于 Embedding 相似度）：{actual_output}",
                 score=score,
-                data={"notice": "Derived from backup pipeline"},
+                dimensions_evaluated=["fallback_similarity"],
+                dimensions_skipped=["llm_semantic"],
+                skip_reasons={"llm_semantic": f"LLM 评估失败: {str(error)}"},
+                data={"notice": "Derived from backup pipeline (Embedding fallback)"},
                 metadata=metadata,
+                evaluation_method="embedding",
             )
         except Exception as fallback_err:
             return self._handle_cascading_failure(evaluator_name, error, fallback_err)
@@ -174,7 +233,10 @@ class BaseEvaluator(ABC):
     async def _execute_fallback_infrastructure_async(
         self, request: EvaluationSchema, error: Exception
     ) -> DomainResponse:
-        """异步降级中枢，防止耗时的 CPU 密集型向量计算阻塞异步事件循环"""
+        """异步降级中枢，防止耗时的 CPU 密集型向量计算阻塞异步事件循环
+
+        🧠 2026 架构升级：降级结果应返回 PARTIAL 状态，而非 SUCCESS。
+        """
         evaluator_name = type(self).__name__
         if not self.fallback_policy:
             return self.create_error_response(
@@ -191,12 +253,15 @@ class BaseEvaluator(ABC):
             )
             metadata = self._build_fallback_metadata(error)
 
-            return DomainResponse(
-                is_valid=True,
-                text=actual_output,
+            return self.create_partial_response(
+                text=f"降级评估结果（基于 Embedding 相似度）：{actual_output}",
                 score=score,
-                data={"notice": "Derived from async backup pipeline"},
+                dimensions_evaluated=["fallback_similarity"],
+                dimensions_skipped=["llm_semantic"],
+                skip_reasons={"llm_semantic": f"LLM 评估失败: {str(error)}"},
+                data={"notice": "Derived from async backup pipeline (Embedding fallback)"},
                 metadata=metadata,
+                evaluation_method="embedding",
             )
         except Exception as fallback_err:
             return self._handle_cascading_failure(evaluator_name, error, fallback_err)
@@ -220,6 +285,62 @@ class BaseEvaluator(ABC):
             error_message=f"评估器全面崩溃，拒绝不安全静默降级: {combined_msg}",
             error_code="CASCADING_FALLBACK_FAILURE",
         )
+
+    # ===================== 置信度自动计算（2026工业级标准） =====================
+
+    def _auto_compute_confidence(self, result: DomainResponse) -> DomainResponse:
+        """自动计算置信度（当置信度未设置或为0时）
+        
+        2026工业级标准：根据评估状态、分数、执行时间综合计算置信度
+        
+        置信度计算规则：
+        1. 如果已设置置信度且>0，保持不变
+        2. 根据 evaluation_status 确定基础置信度
+        3. 根据分数距离边界的远近调整（极端分数置信度更高）
+        4. 根据执行时间调整（超时或极短时间完成置信度降低）
+        """
+        if result.confidence is not None and result.confidence > 0:
+            return result
+        
+        base_confidence = 0.5
+        
+        if result.evaluation_status == EvaluatorStatus.SUCCESS:
+            base_confidence = 0.85
+        elif result.evaluation_status == EvaluatorStatus.PARTIAL:
+            base_confidence = 0.65
+        elif result.evaluation_status == EvaluatorStatus.CANNOT_EVALUATE:
+            base_confidence = 0.20
+        elif result.evaluation_status == EvaluatorStatus.ERROR:
+            base_confidence = 0.05
+        
+        score_bonus = 0.0
+        if result.score is not None:
+            distance_from_boundary = min(result.score, 1.0 - result.score)
+            if distance_from_boundary < 0.1:
+                score_bonus = 0.08
+            elif distance_from_boundary < 0.2:
+                score_bonus = 0.04
+        
+        time_penalty = 0.0
+        exec_time_ms = result.data.get("execution_time_ms", 0) if result.data else 0
+        if exec_time_ms > 60000:
+            time_penalty = 0.10
+        elif exec_time_ms < 10:
+            time_penalty = 0.05
+        
+        final_confidence = max(0.05, min(0.95, base_confidence + score_bonus - time_penalty))
+        
+        if result.data is None:
+            result.data = {}
+        
+        result.data["confidence_auto_computed"] = True
+        result.data["confidence_components"] = {
+            "base": base_confidence,
+            "score_bonus": score_bonus,
+            "time_penalty": time_penalty,
+        }
+        
+        return result.model_copy(update={"confidence": final_confidence})
 
     # ===================== 文本/数字全防御盾牌（DRY 沉淀） =====================
 
@@ -319,12 +440,30 @@ class BaseEvaluator(ABC):
         return None
 
     def create_error_response(
-        self, error_message: str, error_code: str | None = None, metadata: dict | None = None
+        self,
+        error_message: str,
+        error_code: str | None = None,
+        metadata: dict | None = None,
+        confidence: float | None = None,
     ) -> DomainResponse:
+        """创建错误响应
+
+        Args:
+            error_message: 错误信息
+            error_code: 错误码
+            metadata: 元数据
+            confidence: 置信度（默认0.0表示完全不可信）
+        """
         response_metadata = metadata or {}
         if error_code:
             response_metadata["error_code"] = error_code
-        return DomainResponse(is_valid=False, error=error_message, metadata=response_metadata)
+        final_confidence = confidence if confidence is not None else 0.0
+        return DomainResponse(
+            error=error_message,
+            metadata=response_metadata,
+            evaluation_status=EvaluatorStatus.ERROR,
+            confidence=final_confidence,
+        )
 
     def create_success_response(
         self,
@@ -332,20 +471,261 @@ class BaseEvaluator(ABC):
         score: float = 1.0,
         data: dict | None = None,
         metadata: dict | None = None,
+        confidence: float | None = None,
+        is_full_evaluation: bool = True,
     ) -> DomainResponse:
+        """创建成功响应
+
+        Args:
+            text: 评估文本
+            score: 评分
+            data: 数据
+            metadata: 元数据
+            confidence: 置信度（默认0.95表示LLM完整评估）
+            is_full_evaluation: 是否为完整评估（决定默认置信度）
+        """
+        final_confidence = confidence if confidence is not None else (0.95 if is_full_evaluation else 0.85)
         return DomainResponse(
-            is_valid=True, text=text, score=score, data=data or {}, metadata=metadata or {}
+            text=text,
+            score=score,
+            data=data or {},
+            metadata=metadata or {},
+            evaluation_status=EvaluatorStatus.SUCCESS,
+            confidence=final_confidence,
+        )
+
+    def create_cannot_evaluate_response(
+        self,
+        reason: str,
+        dimensions_skipped: list[str] | None = None,
+        metadata: dict | None = None,
+        confidence: float | None = None,
+    ) -> DomainResponse:
+        """创建无法评估响应
+
+        Args:
+            reason: 无法评估的原因
+            dimensions_skipped: 跳过的维度
+            metadata: 元数据
+            confidence: 置信度（无法评估时通常为None，表示无置信度）
+        """
+        response_data = {
+            "dimensions_skipped": dimensions_skipped or [],
+            "skip_reason": reason,
+        }
+        return DomainResponse(
+            score=None,
+            text=f"无法评估: {reason}",
+            data=response_data,
+            metadata=metadata or {},
+            evaluation_status=EvaluatorStatus.CANNOT_EVALUATE,
+            confidence=confidence,
+        )
+
+    def create_partial_response(
+        self,
+        text: str,
+        score: float,
+        dimensions_evaluated: list[str],
+        dimensions_skipped: list[str],
+        skip_reasons: dict[str, str] | None = None,
+        data: dict | None = None,
+        metadata: dict | None = None,
+        confidence: float | None = None,
+        evaluation_method: str = "llm",
+    ) -> DomainResponse:
+        """创建部分评估响应
+
+        Args:
+            text: 评估文本
+            score: 评分
+            dimensions_evaluated: 已评估的维度
+            dimensions_skipped: 跳过的维度
+            skip_reasons: 跳过原因
+            data: 数据
+            metadata: 元数据
+            confidence: 置信度
+            evaluation_method: 评估方法 ("llm", "embedding", "heuristic")
+        """
+        response_data = (data or {}).copy()
+        response_data.update({
+            "dimensions_evaluated": dimensions_evaluated,
+            "dimensions_skipped": dimensions_skipped,
+            "skip_reasons": skip_reasons or {},
+        })
+
+        if confidence is None:
+            total_dims = len(dimensions_evaluated) + len(dimensions_skipped)
+            coverage_ratio = len(dimensions_evaluated) / max(total_dims, 1)
+
+            if evaluation_method == "llm":
+                final_confidence = 0.7 * coverage_ratio + 0.25
+            elif evaluation_method == "embedding":
+                final_confidence = 0.5 * coverage_ratio + 0.3
+            else:
+                final_confidence = 0.3 * coverage_ratio + 0.2
+
+            confidence = round(final_confidence, 2)
+
+        return DomainResponse(
+            text=text,
+            score=score,
+            data=response_data,
+            metadata=metadata or {},
+            evaluation_status=EvaluatorStatus.PARTIAL,
+            confidence=confidence,
         )
 
     def safe_evaluate(self, request: EvaluationSchema) -> DomainResponse:
-        """安全评估入口：包装 evaluate 方法，确保返回 DomainResponse 而不抛出异常"""
+        """安全评估入口：统一异常处理、降级策略和日志记录
+
+        设计原则：
+        - BasePlatformError 向上传播，由 engine.py 处理业务异常
+        - CircuitBreakerError 触发降级评估（fallback）
+        - 非业务异常（Exception）触发降级评估（fallback）
+        - 只有成功评估或降级成功时才记录日志
+        """
+        evaluator_name = type(self).__name__
+        trace_id = request.id or str(uuid.uuid4())
+        start_time = time.perf_counter()
+
         try:
-            return self.evaluate(request)
-        except Exception as e:
-            logger.error(f"安全评估捕获异常: {e}", exc_info=True)
-            return self.create_error_response(
-                error_message=f"安全评估失败: {str(e)}", error_code="SAFE_EVALUATE_ERROR"
+            response = self.evaluate(request)
+            if response is None:
+                raise ValueError("评估器返回 None")
+            self._log_evaluation_result(request, response)
+            return response
+        except BasePlatformError:
+            raise
+        except CircuitBreakerError as e:
+            elapsed = time.perf_counter() - start_time
+            logger.error(
+                f"熔断触发 | trace_id={trace_id} | evaluator={evaluator_name} | "
+                f"elapsed={elapsed:.4f}s | error={e}"
             )
+            fallback_response = self._execute_fallback_infrastructure(request, error=e)
+            self._log_evaluation_result(request, fallback_response)
+            return fallback_response
+        except Exception as e:
+            elapsed = time.perf_counter() - start_time
+            logger.error(
+                f"运行时异常 | trace_id={trace_id} | evaluator={evaluator_name} | "
+                f"elapsed={elapsed:.4f}s | error={e}",
+                exc_info=True,
+            )
+            fallback_response = self._execute_fallback_infrastructure(request, error=e)
+            self._log_evaluation_result(request, fallback_response)
+            return fallback_response
+
+    async def safe_evaluate_async(self, request: EvaluationSchema) -> DomainResponse:
+        """安全异步评估入口：统一异常处理、降级策略和日志记录
+
+        设计原则：
+        - BasePlatformError 向上传播，由 engine.py 处理业务异常
+        - CircuitBreakerError 触发降级评估（fallback）
+        - 非业务异常（Exception）触发降级评估（fallback）
+        - 只有成功评估或降级成功时才记录日志
+        """
+        evaluator_name = type(self).__name__
+        trace_id = request.id or str(uuid.uuid4())
+        start_time = time.perf_counter()
+
+        try:
+            response = await self.evaluate_async(request)
+            if response is None:
+                raise ValueError("评估器返回 None")
+            self._log_evaluation_result(request, response)
+            return response
+        except BasePlatformError:
+            raise
+        except CircuitBreakerError as e:
+            elapsed = time.perf_counter() - start_time
+            logger.error(
+                f"异步熔断触发 | trace_id={trace_id} | evaluator={evaluator_name} | "
+                f"elapsed={elapsed:.4f}s | error={e}"
+            )
+            fallback_response = await self._execute_fallback_infrastructure_async(request, error=e)
+            self._log_evaluation_result(request, fallback_response)
+            return fallback_response
+        except Exception as e:
+            elapsed = time.perf_counter() - start_time
+            logger.error(
+                f"异步运行时异常 | trace_id={trace_id} | evaluator={evaluator_name} | "
+                f"elapsed={elapsed:.4f}s | error={e}",
+                exc_info=True,
+            )
+            fallback_response = await self._execute_fallback_infrastructure_async(request, error=e)
+            self._log_evaluation_result(request, fallback_response)
+            return fallback_response
+
+    def _log_evaluation_result(self, request: EvaluationSchema, response: DomainResponse) -> None:
+        """记录评估结果日志，为基准测试收集数据
+        
+        根据 Phase 1.5 诊断期要求，记录每次评估的：
+        - 评估器类型
+        - 输入内容
+        - 评估结果（分数、状态、置信度）
+        - 原始请求元数据
+        同时更新状态机监控指标和统计置信度分析
+        """
+        import json
+        from datetime import datetime
+        
+        evaluator_type = type(self).__name__
+        input_text = self.get_input_text(request)
+        actual_output = self.get_payload_data(request, "actual_output")
+        expected_output = self.get_payload_data(request, "expected_output")
+        
+        # 状态机监控指标记录
+        status_label = response.evaluation_status.value
+        EVAL_STATUS_COUNTER.labels(evaluator=evaluator_type, status=status_label).inc()
+        
+        # 置信度分布记录
+        if response.confidence is not None and response.confidence_level is not None:
+            EVAL_CONFIDENCE_HISTOGRAM.labels(
+                evaluator=evaluator_type,
+                confidence_level=response.confidence_level.value,
+            ).observe(response.confidence)
+        
+        # 统计置信度分析：缓存最近评分并计算统计指标
+        confidence_analysis = None
+        if response.score is not None:
+            with self._score_cache_lock:
+                if evaluator_type not in self._score_cache:
+                    self._score_cache[evaluator_type] = []
+                scores = self._score_cache[evaluator_type]
+                scores.append(response.score)
+                if len(scores) > self._score_cache_max_size:
+                    scores.pop(0)
+            
+            if len(scores) >= 5:
+                from tests.utils.confidence_analyzer import analyze_confidence
+                try:
+                    confidence_analysis = analyze_confidence(scores)
+                except Exception as e:
+                    logger.warning(f"置信度分析失败: {e}")
+        
+        log_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "evaluator_type": evaluator_type,
+            "request_id": request.id,
+            "evaluation_type": request.type,
+            "input_text": input_text[:500] if input_text else None,
+            "actual_output": actual_output[:500] if actual_output else None,
+            "expected_output": expected_output[:500] if expected_output else None,
+            "score": response.score,
+            "evaluation_status": response.evaluation_status.value,
+            "confidence": response.confidence,
+            "confidence_level": response.confidence_level.value if response.confidence_level else None,
+            "is_valid": response.is_valid,
+            "error": response.error,
+            "metadata_keys": list(request.metadata.keys()) if request.metadata else [],
+            "dimensions_evaluated": response.data.get("dimensions_evaluated") if response.data else None,
+            "dimensions_skipped": response.data.get("dimensions_skipped") if response.data else None,
+            "confidence_analysis": confidence_analysis,
+        }
+        
+        logger.info(f"[EVALUATION_LOG] {json.dumps(log_entry, ensure_ascii=False)}")
 
     def _get_breaker(self) -> CircuitBreaker:
         """获取熔断器实例（线程安全双重检查锁定）"""

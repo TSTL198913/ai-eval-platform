@@ -18,7 +18,7 @@ from typing import Any
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +141,7 @@ class MultiJudgeEnsembleEvaluator(BaseEvaluator):
             )
 
         try:
-            response = evaluator.evaluate(request)
+            response = evaluator.safe_evaluate(request)
 
             score = response.score if response.score is not None else 0.5
             confidence = getattr(response, "confidence", 0.7)
@@ -421,8 +421,7 @@ class MultiJudgeEnsembleEvaluator(BaseEvaluator):
         }
 
         return DomainResponse(
-            evaluation_id=request.id,
-            is_valid=True,
+            evaluation_status=EvaluatorStatus.SUCCESS,
             score=final_score,
             level=final_level,
             details=details,

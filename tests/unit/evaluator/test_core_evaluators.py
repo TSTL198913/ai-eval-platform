@@ -60,6 +60,11 @@ class TestFactualityEvaluator:
         assert result.is_valid is True
         assert 0.7 <= result.score <= 1.0
         assert "raw_score" in result.data
+        
+        # 强断言：验证置信度和状态
+        assert result.confidence is not None, "confidence不应为None"
+        assert 0.0 <= result.confidence <= 1.0, f"confidence应在0-1之间，实际为{result.confidence}"
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success"
 
     def test_evaluate_factuality_empty_response(self, evaluator):
         """空response应返回错误"""
@@ -474,32 +479,39 @@ class TestBaseEvaluator:
     def test_validate_input(self):
         """验证输入方法"""
         from src.domain.evaluators.base import BaseEvaluator
-        from src.schemas.evaluation import EvaluationSchema
+        from src.schemas.evaluation import EvaluationSchema, EvaluatorStatus
 
         class TestEvaluator(BaseEvaluator):
             def __init__(self, client=None):
                 super().__init__(client, require_input=True)
 
             def _do_evaluate(self, request):
-                pass
+                if error := self.validate_input(request):
+                    return error
+                return self.create_success_response(text="ok", score=0.0)
 
         evaluator = TestEvaluator()
-        request = EvaluationSchema(id="test", type="test", payload={"user_input": ""})
+        request = EvaluationSchema(id="test", type="test", payload={})
         result = evaluator.evaluate(request)
-        assert result.is_valid is False
+        assert result.evaluation_status == EvaluatorStatus.ERROR
+        assert "user_input/text 不能为空" in result.error
 
     def test_require_client(self):
         """客户端检查方法"""
         from src.domain.evaluators.base import BaseEvaluator
+        from src.schemas.evaluation import EvaluatorStatus
 
         class TestEvaluator(BaseEvaluator):
+            def __init__(self, client=None):
+                super().__init__(client)
+
             def _do_evaluate(self, request):
-                pass
+                return self.create_success_response(text="ok", score=0.0)
 
         evaluator = TestEvaluator(client=None)
         result = evaluator.require_client_with_error()
         assert result is not None
-        assert result.is_valid is False
+        assert result.evaluation_status == EvaluatorStatus.ERROR
         assert "需要 LLM 客户端" in result.error
 
 

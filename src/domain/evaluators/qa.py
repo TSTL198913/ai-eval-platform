@@ -118,7 +118,7 @@ class QAEvaluator(BaseEvaluator):
         Returns:
             str: 实际输出文本
         """
-        return self.get_payload_data(request, "actual_output", default="")
+        return self.get_payload_data(request, "actual_output", "") or self.get_payload_data(request, "text", "")
 
     def _extract_expected_output(self, request: EvaluationSchema) -> str:
         """提取期望输出

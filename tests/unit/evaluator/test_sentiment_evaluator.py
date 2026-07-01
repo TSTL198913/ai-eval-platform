@@ -40,9 +40,25 @@ class TestSentimentEvaluatorPositiveCases:
             },
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is True
-        assert result.score == 1.0
-        assert result.data["predicted_sentiment"] == "positive"
+
+        # 强断言：验证精确评分
+        assert result.score == pytest.approx(1.0, abs=0.001), f"score应为1.0，实际为{result.score}"
+        
+        # 强断言：验证评估状态
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success，实际为{result.evaluation_status.value}"
+        
+        # 强断言：验证置信度
+        assert result.confidence is not None, "confidence不应为None"
+        assert 0.0 <= result.confidence <= 1.0, f"confidence应在0-1之间，实际为{result.confidence}"
+        
+        # 强断言：验证data字段
+        assert result.data["predicted_sentiment"] == "positive", f"predicted_sentiment应为positive，实际为{result.data['predicted_sentiment']}"
+        
+        # 强断言：验证Mock调用参数
+        mock_client.chat.assert_called_once()
+        call_args = mock_client.chat.call_args[0][0]
+        assert "我今天很开心" in call_args, "prompt应包含用户输入"
+        assert "情感分析" in call_args or "sentiment" in call_args.lower(), "prompt应包含情感分析指令"
 
     def test_negative_sentiment_with_llm_client(self, evaluator, mock_client):
         """使用LLM client分析负面情感"""
@@ -59,8 +75,19 @@ class TestSentimentEvaluatorPositiveCases:
             },
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is True
-        assert result.data["predicted_sentiment"] == "negative"
+
+        # 强断言：验证精确评分（预测与期望匹配时应得满分）
+        assert result.score == pytest.approx(1.0, abs=0.001), f"score应为1.0，实际为{result.score}"
+        
+        # 强断言：验证评估状态
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success，实际为{result.evaluation_status.value}"
+        
+        # 强断言：验证data字段
+        assert result.data["predicted_sentiment"] == "negative", f"predicted_sentiment应为negative，实际为{result.data['predicted_sentiment']}"
+        
+        # 强断言：验证置信度
+        assert result.confidence is not None, "confidence不应为None"
+        assert 0.0 <= result.confidence <= 1.0, f"confidence应在0-1之间，实际为{result.confidence}"
 
     def test_neutral_sentiment_with_llm_client(self, evaluator, mock_client):
         """使用LLM client分析中性情感"""
@@ -77,8 +104,19 @@ class TestSentimentEvaluatorPositiveCases:
             },
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is True
-        assert result.data["predicted_sentiment"] == "neutral"
+
+        # 强断言：验证精确评分（预测与期望匹配时应得满分）
+        assert result.score == pytest.approx(1.0, abs=0.001), f"score应为1.0，实际为{result.score}"
+        
+        # 强断言：验证评估状态
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success，实际为{result.evaluation_status.value}"
+        
+        # 强断言：验证data字段
+        assert result.data["predicted_sentiment"] == "neutral", f"predicted_sentiment应为neutral，实际为{result.data['predicted_sentiment']}"
+        
+        # 强断言：验证置信度
+        assert result.confidence is not None, "confidence不应为None"
+        assert 0.0 <= result.confidence <= 1.0, f"confidence应在0-1之间，实际为{result.confidence}"
 
 
 class TestSentimentEvaluatorNegativeCases:
@@ -96,9 +134,15 @@ class TestSentimentEvaluatorNegativeCases:
             payload={"action": "analyze_sentiment", "user_input": "", "actual_output": ""},
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is False
-        assert result.error is not None
-        assert "不能为空" in str(result.error)
+
+        # 强断言：验证错误状态
+        assert result.is_valid is False, "is_valid应为False"
+        assert result.evaluation_status.value == "error", f"evaluation_status应为error，实际为{result.evaluation_status.value}"
+        assert result.score is None, f"score应为None，实际为{result.score}"
+        
+        # 强断言：验证错误信息
+        assert result.error is not None, "error不应为None"
+        assert "不能为空" in str(result.error), f"error应包含'不能为空'，实际为{result.error}"
 
     def test_missing_input_field_returns_error(self, evaluator):
         """缺少user_input字段应返回错误"""
@@ -108,7 +152,11 @@ class TestSentimentEvaluatorNegativeCases:
             payload={"action": "analyze_sentiment", "actual_output": "test"},
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is False
+
+        # 强断言：验证错误状态
+        assert result.is_valid is False, "is_valid应为False"
+        assert result.evaluation_status.value == "error", f"evaluation_status应为error，实际为{result.evaluation_status.value}"
+        assert result.score is None, f"score应为None，实际为{result.score}"
 
 
 class TestSentimentEvaluatorKeywordMatching:
@@ -138,8 +186,11 @@ class TestSentimentEvaluatorKeywordMatching:
             },
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is True
-        assert result.data["predicted_sentiment"] == "positive"
+
+        # 强断言：验证精确评分和状态
+        assert result.score == pytest.approx(1.0, abs=0.001), f"score应为1.0，实际为{result.score}"
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success"
+        assert result.data["predicted_sentiment"] == "positive", f"predicted_sentiment应为positive"
 
     def test_negative_keywords_detected(self, evaluator, mock_client):
         """检测到负面关键词"""
@@ -156,8 +207,11 @@ class TestSentimentEvaluatorKeywordMatching:
             },
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is True
-        assert result.data["predicted_sentiment"] == "negative"
+
+        # 强断言：验证精确评分和状态
+        assert result.score == pytest.approx(1.0, abs=0.001), f"score应为1.0，实际为{result.score}"
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success"
+        assert result.data["predicted_sentiment"] == "negative", f"predicted_sentiment应为negative"
 
     def test_neutral_no_keywords(self, evaluator, mock_client):
         """无明显情感词时返回neutral"""
@@ -174,8 +228,11 @@ class TestSentimentEvaluatorKeywordMatching:
             },
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is True
-        assert result.data["predicted_sentiment"] == "neutral"
+
+        # 强断言：验证精确评分和状态
+        assert result.score == pytest.approx(1.0, abs=0.001), f"score应为1.0，实际为{result.score}"
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success"
+        assert result.data["predicted_sentiment"] == "neutral", f"predicted_sentiment应为neutral"
 
     def test_english_positive_keywords(self, evaluator, mock_client):
         """英文正面关键词检测"""
@@ -192,8 +249,11 @@ class TestSentimentEvaluatorKeywordMatching:
             },
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is True
-        assert result.data["predicted_sentiment"] == "positive"
+
+        # 强断言：验证精确评分和状态
+        assert result.score == pytest.approx(1.0, abs=0.001), f"score应为1.0，实际为{result.score}"
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success"
+        assert result.data["predicted_sentiment"] == "positive", f"predicted_sentiment应为positive"
 
     def test_english_negative_keywords(self, evaluator, mock_client):
         """英文负面关键词检测"""
@@ -210,8 +270,11 @@ class TestSentimentEvaluatorKeywordMatching:
             },
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is True
-        assert result.data["predicted_sentiment"] == "negative"
+
+        # 强断言：验证精确评分和状态
+        assert result.score == pytest.approx(1.0, abs=0.001), f"score应为1.0，实际为{result.score}"
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success"
+        assert result.data["predicted_sentiment"] == "negative", f"predicted_sentiment应为negative"
 
 
 class TestSentimentEvaluatorScoringLogic:
@@ -241,7 +304,10 @@ class TestSentimentEvaluatorScoringLogic:
             },
         )
         result = evaluator.evaluate(request)
-        assert result.score == 1.0
+
+        # 强断言：验证精确评分
+        assert result.score == pytest.approx(1.0, abs=0.001), f"score应为1.0，实际为{result.score}"
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success"
 
     def test_mismatching_sentiment_gets_partial_score(self, evaluator, mock_client):
         """预测与期望不匹配得0.5分"""
@@ -258,7 +324,10 @@ class TestSentimentEvaluatorScoringLogic:
             },
         )
         result = evaluator.evaluate(request)
-        assert result.score == 0.5
+
+        # 强断言：验证精确评分
+        assert result.score == pytest.approx(0.5, abs=0.001), f"score应为0.5，实际为{result.score}"
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success"
 
     def test_no_expected_sentiment_gets_full_score(self, evaluator, mock_client):
         """无期望情感时得满分"""
@@ -275,7 +344,10 @@ class TestSentimentEvaluatorScoringLogic:
             },
         )
         result = evaluator.evaluate(request)
-        assert result.score == 1.0
+
+        # 强断言：验证精确评分
+        assert result.score == pytest.approx(1.0, abs=0.001), f"score应为1.0，实际为{result.score}"
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success"
 
 
 class TestSentimentEvaluatorDependencyHandling:
@@ -306,8 +378,11 @@ class TestSentimentEvaluatorDependencyHandling:
             },
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is True
-        assert result.data["predicted_sentiment"] == "positive"
+
+        # 强断言：验证精确评分和状态
+        assert result.score == pytest.approx(1.0, abs=0.001), f"score应为1.0，实际为{result.score}"
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success"
+        assert result.data["predicted_sentiment"] == "positive", f"predicted_sentiment应为positive"
 
     def test_with_mock_client_calls_chat(self, evaluator):
         """使用mock client验证调用"""
@@ -325,8 +400,15 @@ class TestSentimentEvaluatorDependencyHandling:
             },
         )
         result = evaluator.evaluate(request)
+
+        # 强断言：验证Mock调用参数
         mock_client.chat.assert_called_once()
-        assert result.is_valid is True
+        call_args = mock_client.chat.call_args[0][0]
+        assert "测试文本" in call_args, "prompt应包含用户输入"
+        
+        # 强断言：验证精确评分和状态
+        assert result.score == pytest.approx(1.0, abs=0.001), f"score应为1.0，实际为{result.score}"
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success"
 
 
 class TestSentimentEvaluatorBoundaryCases:
@@ -357,7 +439,10 @@ class TestSentimentEvaluatorBoundaryCases:
             },
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is True
+
+        # 强断言：验证精确评分和状态
+        assert result.score == pytest.approx(1.0, abs=0.001), f"score应为1.0，实际为{result.score}"
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success"
 
     def test_unicode_chinese_input(self, evaluator, mock_client):
         """中文Unicode处理"""
@@ -373,7 +458,10 @@ class TestSentimentEvaluatorBoundaryCases:
             },
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is True
+
+        # 强断言：验证精确评分和状态
+        assert result.score == pytest.approx(1.0, abs=0.001), f"score应为1.0，实际为{result.score}"
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success"
 
     def test_mixed_positive_negative_count_equal(self, evaluator, mock_client):
         """正负情感词数量相等时返回neutral"""
@@ -390,5 +478,8 @@ class TestSentimentEvaluatorBoundaryCases:
             },
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is True
-        assert result.data["predicted_sentiment"] == "neutral"
+
+        # 强断言：验证精确评分和状态
+        assert result.score == pytest.approx(1.0, abs=0.001), f"score应为1.0，实际为{result.score}"
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success"
+        assert result.data["predicted_sentiment"] == "neutral", f"predicted_sentiment应为neutral"

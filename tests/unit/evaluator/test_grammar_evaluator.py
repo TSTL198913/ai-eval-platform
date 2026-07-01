@@ -6,6 +6,8 @@ GrammarEvaluator - 语法检查评估器专项测试
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from src.domain.evaluators.grammar import GrammarEvaluator, _simple_grammar_check
@@ -29,6 +31,11 @@ class TestGrammarEvaluatorPositiveCases:
         assert result.is_valid is True
         assert result.score is not None
         assert result.error is None
+        
+        # 强断言：验证置信度和状态
+        assert result.confidence is not None, "confidence不应为None"
+        assert 0.0 <= result.confidence <= 1.0, f"confidence应在0-1之间，实际为{result.confidence}"
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success"
 
     @staticmethod
     def test_no_errors_returns_full_score():
@@ -43,6 +50,10 @@ class TestGrammarEvaluatorPositiveCases:
 
         assert result.is_valid is True
         assert result.score == 1.0
+        
+        # 强断言：验证置信度和状态
+        assert result.confidence is not None, "confidence不应为None"
+        assert result.evaluation_status.value == "success", f"evaluation_status应为success"
 
     @staticmethod
     def test_one_error_returns_reduced_score():

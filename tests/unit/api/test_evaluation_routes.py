@@ -83,9 +83,9 @@ class TestEvaluationRoutesPositiveCases:
 
     def test_get_task_status_sync_task_returns_result(self):
         """获取同步任务状态应返回结果"""
-        from src.api.routes.evaluation_routes import _sync_task_results
+        from src.api.routes.evaluation_routes import _set_sync_task_result
 
-        _sync_task_results["sync-test-001"] = {"status": "success", "data": {}}
+        _set_sync_task_result("sync-test-001", {"status": "success", "data": {}})
         response = client.get("/api/v1/tasks/sync-test-001")
         assert response.status_code == 200
         assert response.json()["data"]["status"] == "completed"

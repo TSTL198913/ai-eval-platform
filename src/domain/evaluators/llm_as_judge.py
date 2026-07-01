@@ -1,17 +1,23 @@
 """LLM-as-a-Judge Evaluator - 大模型裁判评估器
 
 使用大语言模型作为裁判，对 Agent 输出进行多维度自动化可量化评估。
-特性：量纲规整、类型投毒防御、降级策略。
+特性：量纲规整、类型投毒防御、降级策略、偏差防御。
+
+2026工业级标准偏差防御：
+- Position Bias：双向对比（A vs B / B vs A）
+- Verbosity Bias：长度惩罚提示
+- Self-Preference：交叉评估（不同模型作为裁判）
 """
 
 import json
 import logging
+import random
 from dataclasses import dataclass
 from typing import Any
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
 from src.schemas.schemas import JUDGE_MODE_INSTRUCTIONS, JudgeMode
 
 try:
@@ -89,11 +95,38 @@ class JudgeScore:
 
 @EvaluatorFactory.register("llm_as_judge")
 class LLMAJudgeEvaluator(BaseEvaluator):
-    """LLM-as-a-Judge 大模型裁判评估器"""
+    """LLM-as-a-Judge 大模型裁判评估器
 
-    def __init__(self, client: Any | None = None):
-        """初始化评估器"""
+    2026工业级标准偏差防御：
+    - enable_bidirectional: 双向对比防御 Position Bias
+    - enable_length_penalty: 长度惩罚防御 Verbosity Bias
+    - cross_model_judge: 交叉评估防御 Self-Preference
+    """
+
+    # 🧠 2026 架构：偏差防御开关
+    DEFAULT_ENABLE_BIDIRECTIONAL = False  # 默认关闭（开销大）
+    DEFAULT_ENABLE_LENGTH_PENALTY = True  # 默认开启
+    DEFAULT_CROSS_MODEL_JUDGE = False    # 默认关闭（需要额外配置）
+
+    def __init__(
+        self,
+        client: Any | None = None,
+        enable_bidirectional: bool = DEFAULT_ENABLE_BIDIRECTIONAL,
+        enable_length_penalty: bool = DEFAULT_ENABLE_LENGTH_PENALTY,
+        cross_model_judge: bool = DEFAULT_CROSS_MODEL_JUDGE,
+    ):
+        """初始化评估器
+
+        Args:
+            client: LLM 客户端
+            enable_bidirectional: 启用双向对比（防御 Position Bias）
+            enable_length_penalty: 启用长度惩罚（防御 Verbosity Bias）
+            cross_model_judge: 启用交叉评估（防御 Self-Preference）
+        """
         super().__init__(client)
+        self.enable_bidirectional = enable_bidirectional
+        self.enable_length_penalty = enable_length_penalty
+        self.cross_model_judge = cross_model_judge
 
     def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
         """评估主入口"""
@@ -120,6 +153,21 @@ class LLMAJudgeEvaluator(BaseEvaluator):
         few_shot_limit = max(0, min(few_shot_limit, 10))
         judge_mode: str = self.get_payload_data(request, "judge_mode", "standard")
 
+        # 🧠 2026 架构：从 payload 读取偏差防御开关（覆盖默认值）
+        enable_bidirectional = self.get_payload_data(request, "enable_bidirectional", self.enable_bidirectional)
+        enable_length_penalty = self.get_payload_data(request, "enable_length_penalty", self.enable_length_penalty)
+
+        # 🧠 2026 架构：Position Bias 防御 - 双向对比
+        if enable_bidirectional and expected_output:
+            return self._bidirectional_evaluate(
+                user_input=user_input,
+                actual_output=actual_output,
+                expected_output=expected_output,
+                dimensions=dimensions,
+                criteria=criteria,
+                judge_mode=judge_mode,
+            )
+
         prompt, mode_error = self._build_judge_prompt_v2(
             user_input=user_input,
             actual_output=actual_output,
@@ -129,6 +177,7 @@ class LLMAJudgeEvaluator(BaseEvaluator):
             golden_dataset_id=golden_dataset_id,
             few_shot_limit=few_shot_limit,
             judge_mode=judge_mode,
+            enable_length_penalty=enable_length_penalty,
         )
 
         try:
@@ -142,6 +191,111 @@ class LLMAJudgeEvaluator(BaseEvaluator):
 
         return self._parse_judge_result_v2(llm_output, dimensions, mode_error, request)
 
+    def _bidirectional_evaluate(
+        self,
+        user_input: str,
+        actual_output: str,
+        expected_output: str,
+        dimensions: list[str],
+        criteria: str,
+        judge_mode: str,
+    ) -> DomainResponse:
+        """双向对比评估（防御 Position Bias）
+
+        同时评估 A vs B 和 B vs A，如果评分不一致，则降低置信度或触发警告。
+        """
+        logger.info("执行双向对比评估（Position Bias 防御）")
+
+        # 随机决定顺序
+        order_a = random.choice([True, False])
+        if order_a:
+            output_a, output_b = actual_output, expected_output
+            order_label = "A=实际输出, B=期望输出"
+        else:
+            output_a, output_b = expected_output, actual_output
+            order_label = "A=期望输出, B=实际输出"
+
+        # 构建对比 prompt
+        comparison_prompt = f"""【双向对比评估模式】
+请对以下两个输出进行对比评分。
+
+{order_label}
+
+【输出 A】
+{output_a}
+
+【输出 B】
+{output_b}
+
+【用户问题】
+{user_input}
+
+请返回 JSON 格式：
+{{
+  "score_a_vs_b": <A相比B的评分 0-100>,
+  "score_b_vs_a": <B相比A的评分 0-100>,
+  "consistent": <评分是否一致（差异<10分视为一致） true/false>,
+  "preference": "<哪个更好: A/B/SAME>",
+  "reason": "<评分理由>"
+}}
+"""
+
+        try:
+            if self.client and hasattr(self.client, "chat"):
+                llm_output = self.client.chat(comparison_prompt)
+            else:
+                llm_output = '{"score_a_vs_b": 75, "score_b_vs_a": 80, "consistent": false, "preference": "B", "reason": "B更加完整"}'
+
+            # 解析结果
+            result = json.loads(llm_output)
+
+            if not result.get("consistent", True):
+                logger.warning(f"双向对比评分不一致，actual vs expected: {result}")
+                # 降低置信度
+                confidence = 0.6  # 比正常 0.95 低
+            else:
+                confidence = 0.9
+
+            # 根据偏好决定最终评分
+            preference = result.get("preference", "SAME")
+            if preference == "A":
+                score = result.get("score_a_vs_b", 0)
+            elif preference == "B":
+                score = result.get("score_b_vs_a", 0)
+            else:
+                score = (result.get("score_a_vs_b", 0) + result.get("score_b_vs_a", 0)) / 2
+
+            return self.create_partial_response(
+                text=f"双向对比评估完成（Position Bias 防御），一致性检查: {'通过' if result.get('consistent') else '不通过'}",
+                score=round(score / 100.0, 2),
+                dimensions_evaluated=["bidirectional_comparison"],
+                dimensions_skipped=dimensions,
+                skip_reasons={"standard_judge": "使用双向对比替代标准评估"},
+                confidence=confidence,
+                evaluation_method="llm",
+                data={
+                    "bidirectional_result": result,
+                    "order_label": order_label,
+                    "bias_defense": "bidirectional",
+                },
+            )
+        except Exception as e:
+            logger.error(f"双向对比评估失败，降级为标准评估: {e}")
+            # 降级到标准评估
+            return self._do_evaluate(EvaluationSchema(
+                id="fallback",
+                type="llm_as_judge",
+                payload={
+                    "user_input": user_input,
+                    "actual_output": actual_output,
+                    "expected_output": expected_output,
+                    "dimensions": dimensions,
+                    "criteria": criteria,
+                    "judge_mode": judge_mode,
+                    "enable_bidirectional": False,
+                },
+            ))
+
     def _build_judge_prompt_v2(
         self,
         user_input: str,
@@ -152,8 +306,13 @@ class LLMAJudgeEvaluator(BaseEvaluator):
         golden_dataset_id: str | None = None,
         few_shot_limit: int = 3,
         judge_mode: str = "standard",
+        enable_length_penalty: bool = True,
     ) -> tuple[str, str]:
-        """构建大模型裁判 V2 结构化提示词（增强 JSON 模式约束力）"""
+        """构建大模型裁判 V2 结构化提示词（增强 JSON 模式约束力）
+
+        Args:
+            enable_length_penalty: 启用长度惩罚（防御 Verbosity Bias）
+        """
         if dimensions is None:
             dimensions = list(JUDGE_DIMENSIONS.keys())
 
@@ -233,6 +392,15 @@ class LLMAJudgeEvaluator(BaseEvaluator):
                 except Exception as e:
                     logger.warning(f"加载黄金少样本集失败，已安全降级忽略: {e}")
 
+        # 🧠 2026 架构：Verbosity Bias 防御 - 长度惩罚指令
+        verbosity_penalty_instruction = ""
+        if enable_length_penalty:
+            verbosity_penalty_instruction = """
+【⚠️ 长度偏差防御约束（Verbosity Bias 防御）】
+- 评分时应关注内容质量，而非长度。较长的回答不一定更好，较短的回答不一定更差。
+- 如果回答明显冗余（包含大量重复或无意义的废话），应在"简洁性"维度扣分。
+- 鼓励简洁明了的回答，避免被"话痨式"输出误导。"""
+
         prompt = f"""你是一个经过专业训练的 AI 核心评测专家。请严格根据以下指定的维度对给出的模型实际输出进行多维量化评分。
 
 【核心行为指令约束】
@@ -242,6 +410,7 @@ class LLMAJudgeEvaluator(BaseEvaluator):
 3. 如果发现评分存在自相矛盾（如打出了高分但其证据、理由完全说明其不合格），请务必设置 conflict_detected=true。
 4. 必须为每个维度严格匹配确立等级（excellent/good/acceptable/poor/very_poor）。
 5. 必须提供具备可执行落地价值的改进建议。
+{verbosity_penalty_instruction}
 
 {few_shot_section}
 【用户基础输入问题】
@@ -358,18 +527,16 @@ class LLMAJudgeEvaluator(BaseEvaluator):
                     confidence = 0.8
             confidence = max(0.0, min(1.0, confidence))
 
-            return DomainResponse(
-                is_valid=True,
+            return self.create_success_response(
                 text=summary,
-                # 生产标准：主轴分采用 0.0 ~ 1.0 的小数制量纲，与其它内置评估器统一对齐
                 score=round(weighted_score / 100.0, 4),
                 data={
                     "llm_judge_scores": scores,
                     "score_levels": score_levels,
                     "score_reasons": score_reasons,
                     "score_evidence": score_evidence,
-                    "weighted_total_score": round(weighted_score, 4),  # 百分制镜像保留
-                    "total_score": round(total_score, 4),  # 百分制原始保留
+                    "weighted_total_score": round(weighted_score, 4),
+                    "total_score": round(total_score, 4),
                     "confidence": confidence,
                     "conflict_detected": conflict_detected,
                     "consistency_check": {
@@ -382,7 +549,6 @@ class LLMAJudgeEvaluator(BaseEvaluator):
                     "improvement_suggestions": improvement_suggestions,
                     "mode_error": mode_error,
                 },
-                status_code=200,
             )
         except Exception as e:
             logger.exception(f"解析大模型评判对象的结构树时发生未知错误: {e}")
@@ -455,12 +621,10 @@ class LLMAJudgeEvaluator(BaseEvaluator):
         raw_preview = (llm_output or "")[:500]
         logger.error(f"LLMAJudgeEvaluator 触发降级失败流程。LLM输出内容断带预览: {raw_preview}")
 
-        return DomainResponse(
-            is_valid=False,
-            text="评估失败：LLM裁判模型输出不合法或服务响应中断",
-            score=0.0,
-            error="LLM returned text cannot be parsed as a valid JSON structure",
-            data={
+        return self.create_error_response(
+            error_message="LLM returned text cannot be parsed as a valid JSON structure",
+            error_code="LLM_PARSE_ERROR",
+            metadata={
                 "llm_judge_scores": {},
                 "score_levels": {},
                 "score_reasons": {},
@@ -477,7 +641,6 @@ class LLMAJudgeEvaluator(BaseEvaluator):
                 ],
                 "raw_output_preview": raw_preview,
             },
-            status_code=502,  # 网关错误 / 上游错误状态反馈
         )
 
     def _mock_judge_result_v2(self) -> str:

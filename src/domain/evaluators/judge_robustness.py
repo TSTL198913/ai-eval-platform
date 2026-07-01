@@ -24,7 +24,7 @@ from typing import Any
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +119,7 @@ class JudgeRobustnessEvaluator(BaseEvaluator):
                 payload=modified_payload,
             )
 
-            response = evaluator.evaluate(modified_request)
+            response = evaluator.safe_evaluate(modified_request)
             scores.append(response.score if response.score is not None else 0.5)
 
         score_range = max(scores) - min(scores)
@@ -150,7 +150,7 @@ class JudgeRobustnessEvaluator(BaseEvaluator):
             type=request.type,
             payload=original_payload,
         )
-        baseline_response = evaluator.evaluate(baseline_request)
+        baseline_response = evaluator.safe_evaluate(baseline_request)
         baseline_score = baseline_response.score if baseline_response.score is not None else 0.5
 
         sycophantic_payload = original_payload.copy()
@@ -161,7 +161,7 @@ class JudgeRobustnessEvaluator(BaseEvaluator):
             type=request.type,
             payload=sycophantic_payload,
         )
-        sycophantic_response = evaluator.evaluate(sycophantic_request)
+        sycophantic_response = evaluator.safe_evaluate(sycophantic_request)
         attacked_score = (
             sycophantic_response.score if sycophantic_response.score is not None else 0.5
         )
@@ -193,7 +193,7 @@ class JudgeRobustnessEvaluator(BaseEvaluator):
             type=request.type,
             payload=original_payload,
         )
-        baseline_response = evaluator.evaluate(baseline_request)
+        baseline_response = evaluator.safe_evaluate(baseline_request)
         baseline_score = baseline_response.score if baseline_response.score is not None else 0.5
 
         injection_success_count = 0
@@ -213,7 +213,7 @@ class JudgeRobustnessEvaluator(BaseEvaluator):
                 payload=injected_payload,
             )
 
-            injected_response = evaluator.evaluate(injected_request)
+            injected_response = evaluator.safe_evaluate(injected_request)
             attacked_score = injected_response.score if injected_response.score is not None else 0.5
             attacked_scores.append(attacked_score)
 
@@ -249,7 +249,7 @@ class JudgeRobustnessEvaluator(BaseEvaluator):
             type=request.type,
             payload=with_answer_payload,
         )
-        with_answer_response = evaluator.evaluate(with_answer_request)
+        with_answer_response = evaluator.safe_evaluate(with_answer_request)
         with_answer_score = (
             with_answer_response.score if with_answer_response.score is not None else 0.5
         )
@@ -265,7 +265,7 @@ class JudgeRobustnessEvaluator(BaseEvaluator):
             type=request.type,
             payload=without_answer_payload,
         )
-        without_answer_response = evaluator.evaluate(without_answer_request)
+        without_answer_response = evaluator.safe_evaluate(without_answer_request)
         without_answer_score = (
             without_answer_response.score if without_answer_response.score is not None else 0.5
         )
@@ -308,7 +308,7 @@ class JudgeRobustnessEvaluator(BaseEvaluator):
             type=request.type,
             payload=original_payload,
         )
-        baseline_response = evaluator.evaluate(baseline_request)
+        baseline_response = evaluator.safe_evaluate(baseline_request)
         baseline_score = baseline_response.score if baseline_response.score is not None else 0.5
 
         shortened_output = actual_output[: max(1, len(actual_output) // 3)]
@@ -321,7 +321,7 @@ class JudgeRobustnessEvaluator(BaseEvaluator):
             type=request.type,
             payload=shortened_payload,
         )
-        shortened_response = evaluator.evaluate(shortened_request)
+        shortened_response = evaluator.safe_evaluate(shortened_request)
         shortened_score = shortened_response.score if shortened_response.score is not None else 0.5
 
         expanded_payload = original_payload.copy()
@@ -331,7 +331,7 @@ class JudgeRobustnessEvaluator(BaseEvaluator):
             type=request.type,
             payload=expanded_payload,
         )
-        expanded_response = evaluator.evaluate(expanded_request)
+        expanded_response = evaluator.safe_evaluate(expanded_request)
         expanded_score = expanded_response.score if expanded_response.score is not None else 0.5
 
         deviation = expanded_score - shortened_score
@@ -415,8 +415,7 @@ class JudgeRobustnessEvaluator(BaseEvaluator):
         }
 
         return DomainResponse(
-            evaluation_id=request.id,
-            is_valid=overall_pass,
+            evaluation_status=EvaluatorStatus.SUCCESS,
             score=passed_count / len(test_results) if test_results else 0,
             level="excellent" if overall_pass else ("poor" if passed_count == 0 else "acceptable"),
             details=details,

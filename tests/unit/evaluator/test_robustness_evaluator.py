@@ -46,7 +46,7 @@ class TestRobustnessEvaluatorPositiveCases:
         result = target.evaluate(request)
 
         assert result.is_valid is True
-        assert result.data["is_valid"] is True
+        assert result.is_valid is True
         assert "robustness_index" in result.data
         assert result.data["robustness_index"] >= 0.7
         assert "robustness_level" in result.data
@@ -69,7 +69,7 @@ class TestRobustnessEvaluatorPositiveCases:
         result = target.evaluate(request)
 
         assert result.is_valid is True
-        assert result.data["is_valid"] is True
+        assert result.is_valid is True
         assert "perturbation_resistance_score" in result.data
         assert 0.0 <= result.data["perturbation_resistance_score"] <= 1.0
 
@@ -92,7 +92,7 @@ class TestRobustnessEvaluatorPositiveCases:
         result = target.evaluate(request)
 
         assert result.is_valid is True
-        assert result.data["is_valid"] is True
+        assert result.is_valid is True
         assert "stability_score" in result.data
         assert result.data["test_count"] == 4
 
@@ -114,7 +114,7 @@ class TestRobustnessEvaluatorPositiveCases:
         result = target.evaluate(request)
 
         assert result.is_valid is True
-        assert result.data["is_valid"] is True
+        assert result.is_valid is True
         assert "error_recovery_score" in result.data
         assert result.data["error_recovery_score"] == pytest.approx(2 / 3, rel=0.01)
 
@@ -143,7 +143,7 @@ class TestRobustnessEvaluatorNegativeCases:
         result = target.evaluate(request)
 
         assert result.is_valid is True
-        assert result.data["is_valid"] is True
+        assert result.is_valid is True
         assert "robustness_index" in result.data
 
     def test_no_perturbation_results_returns_neutral(self, target):
@@ -180,8 +180,8 @@ class TestRobustnessEvaluatorNegativeCases:
         result = target.evaluate(request)
 
         # 错误信息在data中，DomainResponse的is_valid默认是True
-        assert result.data["is_valid"] is False
-        assert "Unknown action" in result.data["error"]
+        assert result.is_valid is False
+        assert "Unknown action" in result.error
 
 
 class TestRobustnessEvaluatorBoundaryCases:

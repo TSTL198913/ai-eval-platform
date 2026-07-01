@@ -59,11 +59,12 @@ class GeneralEvaluator(BaseEvaluator):
 
         user_input = self.get_input_text(request)
         expected_output = self.get_payload_data(request, "expected_output")
+        actual_output = self.get_payload_data(request, "actual_output", "") or self.get_payload_data(request, "text", "")
         system_prompt = self.get_payload_data(request, "system_prompt")
 
         sanitized_input = self._sanitize_input(user_input)
 
-        prompt = self._build_evaluation_prompt(sanitized_input, expected_output, system_prompt)
+        prompt = self._build_evaluation_prompt(sanitized_input, expected_output, actual_output, system_prompt)
 
         try:
             llm_output = self.client.chat(prompt)
@@ -94,7 +95,7 @@ class GeneralEvaluator(BaseEvaluator):
             )
 
     def _build_evaluation_prompt(
-        self, user_input: str, expected_output: str, system_prompt: str | None
+        self, user_input: str, expected_output: str, actual_output: str, system_prompt: str | None
     ) -> str:
         """构建通用评估 Prompt"""
         system_context = f"【系统指令】：{system_prompt}\n\n" if system_prompt else ""
@@ -106,6 +107,6 @@ class GeneralEvaluator(BaseEvaluator):
             f"{system_context}"
             f"【输入问题/指令】：{user_input}\n"
             f"【期望输出】：{expected_output}\n"
-            f"【实际输出】：需要你基于上述信息进行评估\n\n"
+            f"【实际输出】：{actual_output}\n\n"
             "最终评分（仅输出数字）："
         )

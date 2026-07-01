@@ -147,7 +147,7 @@ const Records: React.FC = () => {
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => {
-        const color = status === 'passed' ? 'green' : status === 'failed' ? 'red' : 'orange';
+        const color = status === 'completed' ? 'green' : status === 'failed' ? 'red' : status === 'running' ? 'blue' : 'orange';
         return <Tag color={color}>{status}</Tag>;
       }
     },

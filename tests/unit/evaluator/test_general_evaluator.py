@@ -1,7 +1,6 @@
 """
 GeneralEvaluator - 通用评估器专项测试
-测试目标：验证GeneralEvaluator的validate_input、_sanitize_input脱敏、无LLM client时直接返回score=1.0等核心功能
-关键发现：（测试过程中记录）
+测试目标：验证GeneralEvaluator的validate_input、_sanitize_input脱敏、评分逻辑等核心功能
 """
 
 import os
@@ -32,8 +31,8 @@ class TestGeneralEvaluatorPositiveCases:
     def target(self, mock_client):
         return GeneralEvaluator(client=mock_client)
 
-    def test_valid_input_with_expected_output_calls_llm(self, target, mock_client):
-        """合法输入+expected_output应调用LLM并评分"""
+    def test_valid_input_returns_exact_score(self, target, mock_client):
+        """合法输入应返回精确分数"""
         request = EvaluationSchema(
             id="gen_001",
             type="general",
@@ -45,24 +44,28 @@ class TestGeneralEvaluatorPositiveCases:
         result = target.evaluate(request)
 
         assert result.is_valid is True
-        mock_client.chat.assert_called_once()
-        assert result.score is not None
+        assert result.score == pytest.approx(0.85, abs=0.01)
+        assert mock_client.chat.called
 
     def test_valid_input_with_system_prompt_uses_custom_prompt(self, target, mock_client):
         """带system_prompt的输入应传递给LLM"""
+        custom_system_prompt = "你是一个通用助手"
         request = EvaluationSchema(
             id="gen_002",
             type="general",
             payload={
                 "user_input": "测试问题",
                 "expected_output": "通用评估的回答内容",
-                "system_prompt": "你是一个通用助手",
+                "system_prompt": custom_system_prompt,
             },
         )
         result = target.evaluate(request)
 
         assert result.is_valid is True
         mock_client.chat.assert_called_once()
+        call_args = mock_client.chat.call_args
+        prompt = call_args[0][0] if call_args[0] else call_args[1].get("user_input", "")
+        assert custom_system_prompt in prompt
 
     def test_text_field_instead_of_user_input_works(self, target, mock_client):
         """使用text字段代替user_input也应正常工作"""
@@ -77,6 +80,7 @@ class TestGeneralEvaluatorPositiveCases:
         result = target.evaluate(request)
 
         assert result.is_valid is True
+        assert result.score == pytest.approx(0.85, abs=0.01)
 
 
 class TestGeneralEvaluatorNegativeCases:
@@ -109,6 +113,8 @@ class TestGeneralEvaluatorNegativeCases:
         result = target.evaluate(request)
 
         assert result.is_valid is False
+        assert result.error is not None
+        assert "不能为空" in result.error
 
     def test_missing_input_returns_error(self, target):
         """缺少输入字段应返回错误"""
@@ -120,6 +126,7 @@ class TestGeneralEvaluatorNegativeCases:
         result = target.evaluate(request)
 
         assert result.is_valid is False
+        assert result.error is not None
 
 
 class TestGeneralEvaluatorBoundaryCases:
@@ -149,6 +156,7 @@ class TestGeneralEvaluatorBoundaryCases:
         result = target.evaluate(request)
 
         assert result.is_valid is False
+        assert result.error is not None
 
     def test_empty_expected_output_returns_error(self):
         """无expected_output时应返回错误"""
@@ -273,7 +281,7 @@ class TestGeneralEvaluatorSanitization:
             id="gen_san_006",
             type="general",
             payload={
-                "user_input": "sk-12345678901234567890",  # 22字符，满足{20,}
+                "user_input": "sk-12345678901234567890",
                 "expected_output": "处理后的回答",
             },
         )
@@ -311,8 +319,8 @@ class TestGeneralEvaluatorScoringLogic:
         assert result.is_valid is False
         assert "expected_output" in result.error
 
-    def test_with_expected_output_uses_similarity(self, mock_client):
-        """有expected_output时应使用相似度评分"""
+    def test_with_expected_output_returns_exact_score(self, mock_client):
+        """有expected_output时应返回精确分数"""
         mock_client.chat.return_value = "0.85"
         target = GeneralEvaluator(client=mock_client)
         request = EvaluationSchema(
@@ -327,3 +335,67 @@ class TestGeneralEvaluatorScoringLogic:
 
         assert result.is_valid is True
         assert result.score == 0.85
+
+
+class TestGeneralEvaluatorExceptionScenarios:
+    """异常场景测试 - LLM调用失败、分数解析失败等"""
+
+    @pytest.fixture
+    def mock_client(self):
+        client = MagicMock()
+        client.config = MagicMock()
+        client.config.model_name = "gpt-4"
+        return client
+
+    def test_llm_call_failure_returns_error(self, mock_client):
+        """LLM调用失败应返回错误"""
+        mock_client.chat.side_effect = RuntimeError("LLM服务不可用")
+        target = GeneralEvaluator(client=mock_client)
+        request = EvaluationSchema(
+            id="gen_exc_001",
+            type="general",
+            payload={
+                "user_input": "测试问题",
+                "expected_output": "测试回答",
+            },
+        )
+        result = target.evaluate(request)
+
+        assert result.is_valid is False
+        assert result.error is not None
+        assert "LLM 调用异常" in result.error
+
+    def test_score_parse_failure_returns_error(self, mock_client):
+        """分数解析失败应返回错误"""
+        mock_client.chat.return_value = "无法解析的输出"
+        target = GeneralEvaluator(client=mock_client)
+        request = EvaluationSchema(
+            id="gen_exc_002",
+            type="general",
+            payload={
+                "user_input": "测试问题",
+                "expected_output": "测试回答",
+            },
+        )
+        result = target.evaluate(request)
+
+        assert result.is_valid is False
+        assert result.error is not None
+        assert "无法解析评分" in result.error
+
+    def test_empty_llm_output_returns_error(self, mock_client):
+        """LLM返回空字符串应返回错误"""
+        mock_client.chat.return_value = ""
+        target = GeneralEvaluator(client=mock_client)
+        request = EvaluationSchema(
+            id="gen_exc_003",
+            type="general",
+            payload={
+                "user_input": "测试问题",
+                "expected_output": "测试回答",
+            },
+        )
+        result = target.evaluate(request)
+
+        assert result.is_valid is False
+        assert result.error is not None

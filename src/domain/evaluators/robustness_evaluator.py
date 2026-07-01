@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
 
 if TYPE_CHECKING:
     from src.domain.models.base import BaseLLMClient
@@ -60,14 +60,16 @@ class RobustnessEvaluator(BaseEvaluator):
         }.get(action)
         if handler is None:
             return DomainResponse(
-                data={"is_valid": False, "error": f"Unknown action: {action}"},
+                evaluation_status=EvaluatorStatus.ERROR,
+                error=f"Unknown action: {action}",
                 status_code=400,
             )
         try:
             return handler(request)
         except Exception as e:
             return DomainResponse(
-                data={"is_valid": False, "error": str(e)},
+                evaluation_status=EvaluatorStatus.ERROR,
+                error=str(e),
                 status_code=500,
             )
 
@@ -123,8 +125,8 @@ class RobustnessEvaluator(BaseEvaluator):
             level = "poor"
 
         return DomainResponse(
+            evaluation_status=EvaluatorStatus.SUCCESS,
             data={
-                "is_valid": True,
                 "robustness_index": round(robustness_index, 4),
                 "robustness_level": level,
                 "dimension_scores": {k: round(v, 4) for k, v in scores.items()},
@@ -142,8 +144,8 @@ class RobustnessEvaluator(BaseEvaluator):
         details = self._analyze_perturbations(perturbation_results)
 
         return DomainResponse(
+            evaluation_status=EvaluatorStatus.SUCCESS,
             data={
-                "is_valid": True,
                 "perturbation_resistance_score": round(score, 4),
                 "details": details,
             },
@@ -156,8 +158,8 @@ class RobustnessEvaluator(BaseEvaluator):
         score = self._calc_stability(test_results)
 
         return DomainResponse(
+            evaluation_status=EvaluatorStatus.SUCCESS,
             data={
-                "is_valid": True,
                 "stability_score": round(score, 4),
                 "test_count": len(test_results),
             },
@@ -170,8 +172,8 @@ class RobustnessEvaluator(BaseEvaluator):
         score = self._calc_error_recovery(test_results)
 
         return DomainResponse(
+            evaluation_status=EvaluatorStatus.SUCCESS,
             data={
-                "is_valid": True,
                 "error_recovery_score": round(score, 4),
             },
             status_code=200,

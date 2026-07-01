@@ -379,12 +379,14 @@ def mock_embedding_service():
             return 0.6
         return 0.4
 
+    mock_instance = MagicMock()
+    mock_instance.is_available.return_value = True
+    mock_instance.calculate_similarity.side_effect = calculate_similarity
+    mock_instance.calculate_similarity_async.side_effect = calculate_similarity
+
     with patch("src.domain.evaluators.embedding_service.EmbeddingService") as MockEmbeddingService:
-        mock_instance = MagicMock()
-        mock_instance.is_available.return_value = True
-        mock_instance.calculate_similarity.side_effect = calculate_similarity
-        mock_instance.calculate_similarity_async.side_effect = calculate_similarity
         MockEmbeddingService.get_instance.return_value = mock_instance
+        MockEmbeddingService.return_value = mock_instance
         yield mock_instance
 
 

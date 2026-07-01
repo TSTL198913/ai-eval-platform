@@ -11,7 +11,7 @@ from typing import Any
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
 
 # 工业级结构化日志
 logger = logging.getLogger(__name__)
@@ -75,14 +75,14 @@ class PlanningEvaluator(BaseEvaluator):
                     return self._evaluate_dependency(request)
                 case _:
                     return DomainResponse(
-                        is_valid=False,
+                        evaluation_status=EvaluatorStatus.ERROR,
                         error=f"未知的动作请求类型: {action}",
                         status_code=400,
                     )
         except Exception as e:
             logger.exception(f"PlanningEvaluator 执行 {action} 期间发生未捕获的系统异常")
             return DomainResponse(
-                is_valid=False,
+                evaluation_status=EvaluatorStatus.ERROR,
                 error=f"内部执行错误: {str(e)}",
                 status_code=500,
             )
@@ -101,7 +101,7 @@ class PlanningEvaluator(BaseEvaluator):
 
         if not generated:
             return DomainResponse(
-                is_valid=False,
+                evaluation_status=EvaluatorStatus.ERROR,
                 error="generated_plan 字段不可为空或缺少步骤数据",
                 status_code=400,
             )
@@ -126,7 +126,7 @@ class PlanningEvaluator(BaseEvaluator):
         overall = sum(scores[k] * weights[k] for k in scores)
 
         return DomainResponse(
-            is_valid=True,
+            evaluation_status=EvaluatorStatus.SUCCESS,
             score=round(overall, 4),
             text="综合计划生成评估执行成功",
             data={
@@ -150,7 +150,7 @@ class PlanningEvaluator(BaseEvaluator):
         decomposition_quality = (granularity + completeness) / 2
 
         return DomainResponse(
-            is_valid=True,
+            evaluation_status=EvaluatorStatus.SUCCESS,
             score=round(decomposition_quality, 4),
             text="任务拆解质量评估完成",
             data={
@@ -176,7 +176,7 @@ class PlanningEvaluator(BaseEvaluator):
         ]
 
         return DomainResponse(
-            is_valid=True,
+            evaluation_status=EvaluatorStatus.SUCCESS,
             score=round(score, 4),
             text="计划完整性检查完毕",
             data={
@@ -196,7 +196,7 @@ class PlanningEvaluator(BaseEvaluator):
         score = self._calc_ordering(generated, expected)
 
         return DomainResponse(
-            is_valid=True,
+            evaluation_status=EvaluatorStatus.SUCCESS,
             score=round(score, 4),
             text="时序依赖及执行顺序正确性解算完成",
             data={
@@ -216,7 +216,7 @@ class PlanningEvaluator(BaseEvaluator):
 
         if not expected_deps:
             return DomainResponse(
-                is_valid=True,
+                evaluation_status=EvaluatorStatus.SUCCESS,
                 score=1.0,
                 text="标准用例中无需强制进行依赖关系拓扑验证",
                 data={"dependency_score": 1.0, "message": "无需评估依赖关系"},
@@ -234,7 +234,7 @@ class PlanningEvaluator(BaseEvaluator):
             score = correct / len(expected_set)
 
         return DomainResponse(
-            is_valid=True,
+            evaluation_status=EvaluatorStatus.SUCCESS,
             score=round(score, 4),
             text="显式依赖链图结构校验完成",
             data={

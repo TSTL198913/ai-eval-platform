@@ -1,0 +1,8 @@
+{
+  "type": "code",
+  "payload": {
+    "user_input": "写一个Python函数计算斐波那契数列",
+    "actual_output": "def fib(n):\n    if n <= 0:\n        return []\n    elif n == 1:\n        return \n    a, b = 0, 1\n    result = [a, b]\n    for _ in range(2, n):\n        a, b = b, a + b\n        result.append(b)\n    return result",
+    "language": "python"
+  }
+}

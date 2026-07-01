@@ -20,17 +20,10 @@ class TestBaseMetadata:
         result = metadata.model_dump()
         assert result == {}
 
-    def test_custom_values(self):
-        """自定义值应正确设置"""
+    def test_empty_instance(self):
+        """空实例应无任何字段"""
         metadata = BaseMetadata()
-        result = metadata.model_dump()
-        assert result == {}
-
-    def test_to_dict(self):
-        """应能正确转换为字典"""
-        metadata = BaseMetadata()
-        result = metadata.model_dump()
-        assert result == {}
+        assert len(metadata.model_fields) == 0
 
 
 class TestFinanceMetadata:
@@ -51,24 +44,33 @@ class TestFinanceMetadata:
         assert metadata.regulations == ["GB/T 19001", "SOX"]
         assert metadata.jurisdiction == "US"
 
-    def test_regulations_validation(self):
-        """regulations字段应接受列表"""
-        metadata = FinanceMetadata(regulations=["test"])
-        assert metadata.regulations == ["test"]
+    def test_regulations_accepts_multiple_items(self):
+        """regulations字段应接受多个监管项"""
+        metadata = FinanceMetadata(regulations=["SOX", "GDPR", "PCI-DSS"])
+        assert len(metadata.regulations) == 3
+        assert "SOX" in metadata.regulations
+        assert "GDPR" in metadata.regulations
 
-    def test_jurisdiction_validation(self):
-        """jurisdiction字段应接受字符串"""
+    def test_jurisdiction_supports_standard_codes(self):
+        """jurisdiction字段应支持标准国家代码"""
+        metadata = FinanceMetadata(jurisdiction="US")
+        assert metadata.jurisdiction == "US"
         metadata = FinanceMetadata(jurisdiction="EU")
         assert metadata.jurisdiction == "EU"
 
-    def test_to_dict(self):
-        """应能正确转换为字典"""
+    def test_to_dict_serializes_correctly(self):
+        """应能正确序列化为字典"""
         metadata = FinanceMetadata(regulations=["SOX"], jurisdiction="US")
         result = metadata.model_dump()
         assert result == {
             "regulations": ["SOX"],
             "jurisdiction": "US",
         }
+
+    def test_inheritance(self):
+        """应继承自BaseMetadata"""
+        metadata = FinanceMetadata()
+        assert isinstance(metadata, BaseMetadata)
 
 
 class TestCodeMetadata:
@@ -95,23 +97,30 @@ class TestCodeMetadata:
         assert metadata.memory_limit_mb == 512
         assert metadata.style_guide == "airbnb"
 
-    def test_language_validation(self):
-        """language字段应接受字符串"""
-        metadata = CodeMetadata(language="go")
-        assert metadata.language == "go"
+    def test_timeout_positive_integer(self):
+        """timeout字段应为正整数"""
+        metadata = CodeMetadata(timeout=30)
+        assert metadata.timeout == 30
 
-    def test_style_guide_validation(self):
-        """style_guide字段应接受字符串"""
+    def test_memory_limit_reasonable_range(self):
+        """memory_limit_mb字段应在合理范围内"""
+        metadata = CodeMetadata(memory_limit_mb=1024)
+        assert metadata.memory_limit_mb == 1024
+
+    def test_style_guide_recognized_values(self):
+        """style_guide字段应接受常见规范"""
         metadata = CodeMetadata(style_guide="google")
         assert metadata.style_guide == "google"
+        metadata = CodeMetadata(style_guide="pep8")
+        assert metadata.style_guide == "pep8"
 
     def test_inheritance(self):
         """应继承自BaseMetadata"""
         metadata = CodeMetadata()
         assert isinstance(metadata, BaseMetadata)
 
-    def test_to_dict(self):
-        """应能正确转换为字典"""
+    def test_to_dict_serializes_all_fields(self):
+        """应能正确序列化所有字段"""
         metadata = CodeMetadata(language="java", style_guide="google")
         result = metadata.model_dump()
         assert result == {
@@ -140,19 +149,31 @@ class TestTextMetadata:
         assert metadata.language == "en"
         assert metadata.max_length == 5000
 
-    def test_language_validation(self):
-        """language字段应接受字符串"""
+    def test_language_supports_multiple_codes(self):
+        """language字段应支持多语言代码"""
         metadata = TextMetadata(language="ja")
         assert metadata.language == "ja"
+        metadata = TextMetadata(language="fr")
+        assert metadata.language == "fr"
 
-    def test_to_dict(self):
-        """应能正确转换为字典"""
+    def test_max_length_positive_integer(self):
+        """max_length字段应为正整数"""
+        metadata = TextMetadata(max_length=20000)
+        assert metadata.max_length == 20000
+
+    def test_to_dict_serializes_correctly(self):
+        """应能正确序列化为字典"""
         metadata = TextMetadata(language="en", max_length=5000)
         result = metadata.model_dump()
         assert result == {
             "language": "en",
             "max_length": 5000,
         }
+
+    def test_inheritance(self):
+        """应继承自BaseMetadata"""
+        metadata = TextMetadata()
+        assert isinstance(metadata, BaseMetadata)
 
 
 class TestMetadataIntegration:
@@ -172,6 +193,8 @@ class TestMetadataIntegration:
         assert isinstance(CodeMetadata().model_dump(), dict)
         assert isinstance(TextMetadata().model_dump(), dict)
 
-    def test_code_metadata_inherits_from_base(self):
-        """CodeMetadata应继承自BaseMetadata"""
+    def test_all_metadata_models_inherit_from_base(self):
+        """所有元数据模型应继承自BaseMetadata"""
         assert issubclass(CodeMetadata, BaseMetadata)
+        assert issubclass(FinanceMetadata, BaseMetadata)
+        assert issubclass(TextMetadata, BaseMetadata)

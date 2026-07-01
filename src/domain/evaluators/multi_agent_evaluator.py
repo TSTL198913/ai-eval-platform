@@ -18,7 +18,7 @@ from typing import Any
 # 假设的基础依赖导入路径
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
 
 # 设置工业级结构化日志
 logger = logging.getLogger(__name__)
@@ -185,14 +185,13 @@ class MultiAgentEvaluator(BaseEvaluator):
         capabilities = self.get_payload_data(request, "capabilities", [])
 
         if not agent_id:
-            return DomainResponse(is_valid=False, error="agent_id 不能为空")
+            return self.create_error_response(error_message="agent_id 不能为空")
 
         agent = AgentInfo(agent_id=agent_id, role=role, capabilities=capabilities)
         with self._agents_lock:
             self.agents[agent_id] = agent
 
-        return DomainResponse(
-            is_valid=True,
+        return self.create_success_response(
             text=f"Agent {agent_id} 注册成功",
             score=1.0,
             data={"agent_id": agent_id, "role": role, "capabilities": capabilities},
@@ -211,12 +210,12 @@ class MultiAgentEvaluator(BaseEvaluator):
         metadata = self.get_payload_data(request, "metadata", {})
 
         if not sender_id or not receiver_id:
-            return DomainResponse(is_valid=False, error="sender_id 和 receiver_id 不能为空")
+            return self.create_error_response(error_message="sender_id 和 receiver_id 不能为空")
 
         try:
             msg_type = MessageType(message_type)
         except ValueError:
-            return DomainResponse(is_valid=False, error=f"无效的 message_type: {message_type}")
+            return self.create_error_response(error_message=f"无效的 message_type: {message_type}")
 
         with self._messages_lock:
             msg_id = message_id or f"msg-{len(self.messages)}"
@@ -238,8 +237,7 @@ class MultiAgentEvaluator(BaseEvaluator):
             if sender_id in self.agents:
                 self.agents[sender_id].message_count += 1
 
-        return DomainResponse(
-            is_valid=True,
+        return self.create_success_response(
             text="消息记录成功",
             score=1.0,
             data={
@@ -258,11 +256,11 @@ class MultiAgentEvaluator(BaseEvaluator):
         dependencies = self.get_payload_data(request, "dependencies", [])
 
         if not task_id or not agent_id:
-            return DomainResponse(is_valid=False, error="task_id 和 agent_id 不能为空")
+            return self.create_error_response(error_message="task_id 和 agent_id 不能为空")
 
         with self._agents_lock:
             if agent_id not in self.agents:
-                return DomainResponse(is_valid=False, error=f"Agent {agent_id} 未注册")
+                return self.create_error_response(error_message=f"Agent {agent_id} 未注册")
 
         task = AgentTask(
             task_id=task_id,
@@ -279,8 +277,7 @@ class MultiAgentEvaluator(BaseEvaluator):
         with self._agents_lock:
             self.agents[agent_id].current_tasks.append(task_id)
 
-        return DomainResponse(
-            is_valid=True,
+        return self.create_success_response(
             text=f"任务 {task_id} 已分配给 Agent {agent_id}",
             score=1.0,
             data={"task_id": task_id, "agent_id": agent_id, "status": "assigned"},
@@ -296,11 +293,11 @@ class MultiAgentEvaluator(BaseEvaluator):
         try:
             new_status = TaskStatus(status)
         except ValueError:
-            return DomainResponse(is_valid=False, error=f"无效的 status: {status}")
+            return self.create_error_response(error_message=f"无效的 status: {status}")
 
         with self._tasks_lock:
             if task_id not in self.tasks:
-                return DomainResponse(is_valid=False, error=f"任务 {task_id} 不存在")
+                return self.create_error_response(error_message=f"任务 {task_id} 不存在")
             task = self.tasks[task_id]
             old_status = task.status
             task.status = new_status
@@ -326,8 +323,7 @@ class MultiAgentEvaluator(BaseEvaluator):
                     if task_id in agent_info.current_tasks:
                         agent_info.current_tasks.remove(task_id)
 
-        return DomainResponse(
-            is_valid=True,
+        return self.create_success_response(
             text=f"任务 {task_id} 状态已更新为 {status}",
             score=1.0,
             data={"task_id": task_id, "old_status": old_status.value, "new_status": status},
@@ -341,12 +337,12 @@ class MultiAgentEvaluator(BaseEvaluator):
         description = sanitize_input(self.get_payload_data(request, "description", ""))
 
         if not agent_ids:
-            return DomainResponse(is_valid=False, error="agent_ids 不能为空")
+            return self.create_error_response(error_message="agent_ids 不能为空")
 
         try:
             conflict_type_enum = ConflictType(conflict_type)
         except ValueError:
-            return DomainResponse(is_valid=False, error=f"无效的 conflict_type: {conflict_type}")
+            return self.create_error_response(error_message=f"无效的 conflict_type: {conflict_type}")
 
         with self._conflicts_lock:
             c_id = conflict_id or f"conflict-{len(self.conflicts)}"
@@ -359,8 +355,7 @@ class MultiAgentEvaluator(BaseEvaluator):
             )
             self.conflicts.append(conflict)
 
-        return DomainResponse(
-            is_valid=True,
+        return self.create_success_response(
             text="冲突已记录",
             score=1.0,
             data={
@@ -383,13 +378,12 @@ class MultiAgentEvaluator(BaseEvaluator):
                     break
 
             if not conflict:
-                return DomainResponse(is_valid=False, error=f"冲突 {conflict_id} 不存在")
+                return self.create_error_response(error_message=f"冲突 {conflict_id} 不存在")
 
             conflict.resolved = True
             conflict.resolution = resolution
 
-        return DomainResponse(
-            is_valid=True,
+        return self.create_success_response(
             text=f"冲突 {conflict_id} 已解决",
             score=1.0,
             data={"conflict_id": conflict_id, "resolution": resolution},
@@ -402,7 +396,7 @@ class MultiAgentEvaluator(BaseEvaluator):
         goal = self.get_payload_data(request, "goal", "")
 
         if not session_id:
-            return DomainResponse(is_valid=False, error="session_id 不能为空")
+            return self.create_error_response(error_message="session_id 不能为空")
 
         with self._sessions_lock:
             self.collaboration_sessions[session_id] = {
@@ -414,8 +408,7 @@ class MultiAgentEvaluator(BaseEvaluator):
                 "status": "active",
             }
 
-        return DomainResponse(
-            is_valid=True,
+        return self.create_success_response(
             text=f"协作会话 {session_id} 已开始",
             score=1.0,
             data={"session_id": session_id, "agent_ids": agent_ids, "goal": goal},
@@ -428,15 +421,14 @@ class MultiAgentEvaluator(BaseEvaluator):
 
         with self._sessions_lock:
             if session_id not in self.collaboration_sessions:
-                return DomainResponse(is_valid=False, error=f"会话 {session_id} 不存在")
+                return self.create_error_response(error_message=f"会话 {session_id} 不存在")
 
             session = self.collaboration_sessions[session_id]
             session["end_time"] = time.time()
             session["status"] = status
             duration_seconds = session["end_time"] - session["start_time"]
 
-        return DomainResponse(
-            is_valid=True,
+        return self.create_success_response(
             text=f"协作会话 {session_id} 已结束",
             score=1.0,
             data={"session_id": session_id, "status": status, "duration_seconds": duration_seconds},
@@ -451,8 +443,7 @@ class MultiAgentEvaluator(BaseEvaluator):
 
         analysis = self._analyze_session(session_id) if session_exists else self._analyze_overall()
 
-        return DomainResponse(
-            is_valid=True,
+        return self.create_success_response(
             text="协作分析完成",
             score=analysis.get("overall_score", 0.5),
             data=analysis,
@@ -481,8 +472,7 @@ class MultiAgentEvaluator(BaseEvaluator):
             conflicts_list=parsed_conflicts,
         )
 
-        return DomainResponse(
-            is_valid=True,
+        return self.create_success_response(
             text="多Agent协作沙盒评估完成",
             score=analysis.get("overall_score", 0.5),
             data=analysis,

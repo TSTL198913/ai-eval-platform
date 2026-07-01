@@ -41,7 +41,7 @@ def sample_result():
         status=EvaluationStatus.PASSED,
         model_name="gpt-4",
         adapter_name="GeneralEvaluator",
-        response=DomainResponse(is_valid=True, score=0.95, text="good result"),
+        response=DomainResponse(text="good result", score=0.95),
         latency_ms=150.5,
     )
 
@@ -69,7 +69,7 @@ class TestRepositorySave:
             status=EvaluationStatus.PASSED,
             model_name="test",
             adapter_name="test",
-            response=DomainResponse(is_valid=True),
+            response=DomainResponse(text="", score=0.0),
             latency_ms=0.0,
         )
         with pytest.raises(InfrastructureError) as exc_info:
@@ -83,7 +83,7 @@ class TestRepositorySave:
             status=EvaluationStatus.PASSED,
             model_name="test",
             adapter_name="test",
-            response=DomainResponse(is_valid=True),
+            response=DomainResponse(text="", score=0.0),
             latency_ms=0.0,
         )
         with pytest.raises(InfrastructureError) as exc_info:

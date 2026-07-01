@@ -18,14 +18,10 @@ class ToolUseEvaluator(BaseEvaluator):
 
         # 验证期望工具列表不为空
         if not expected_tool_calls:
-            return DomainResponse(
-                is_valid=False,
-                error="expected_tool_calls 不能为空",
-            )
+            return self.create_error_response(error_message="expected_tool_calls 不能为空")
 
         if not tool_calls:
-            return DomainResponse(
-                is_valid=True,
+            return self.create_success_response(
                 score=0.0,
                 text="No tool calls made",
                 data={
@@ -47,8 +43,7 @@ class ToolUseEvaluator(BaseEvaluator):
         if len(tool_calls) > len(expected_tool_calls) * 2:
             score *= 0.5
 
-        return DomainResponse(
-            is_valid=True,
+        return self.create_success_response(
             score=score,
             text=f"Tool use evaluation: {correct_calls}/{len(expected_tool_calls)} correct",
             data={

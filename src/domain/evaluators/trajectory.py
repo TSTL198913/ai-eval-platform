@@ -77,7 +77,7 @@ class TrajectoryEvaluator(BaseEvaluator):
         steps_data = self.get_payload_data(request, "steps", [])
 
         if not trajectory_id:
-            return DomainResponse(is_valid=False, error="trajectory_id 不能为空")
+            return self.create_error_response(error_message="trajectory_id 不能为空")
 
         trajectory = AgentTrajectory(
             trajectory_id=trajectory_id,
@@ -106,8 +106,7 @@ class TrajectoryEvaluator(BaseEvaluator):
         with self._trajectory_lock:
             self.trajectories[trajectory_id] = trajectory
 
-        return DomainResponse(
-            is_valid=True,
+        return self.create_success_response(
             text=f"轨迹 {trajectory_id} 已成功记录",
             score=1.0,
             data={
@@ -122,16 +121,15 @@ class TrajectoryEvaluator(BaseEvaluator):
     def _replay_trajectory(self, trajectory_id: str | None) -> DomainResponse:
         """回放指定轨迹"""
         if not trajectory_id:
-            return DomainResponse(is_valid=False, error="请求中未提供 trajectory_id")
+            return self.create_error_response(error_message="请求中未提供 trajectory_id")
 
         with self._trajectory_lock:
             trajectory = self.trajectories.get(trajectory_id)
 
         if not trajectory:
-            return DomainResponse(is_valid=False, error=f"轨迹 {trajectory_id} 不存在")
+            return self.create_error_response(error_message=f"轨迹 {trajectory_id} 不存在")
 
-        return DomainResponse(
-            is_valid=True,
+        return self.create_success_response(
             text=f"轨迹 {trajectory_id} 回放数据加载完成",
             score=1.0,
             data={
@@ -151,18 +149,17 @@ class TrajectoryEvaluator(BaseEvaluator):
         trajectory_id = self.get_payload_data(request, "trajectory_id")
 
         if not trajectory_id:
-            return DomainResponse(is_valid=False, error="trajectory_id 不能为空")
+            return self.create_error_response(error_message="trajectory_id 不能为空")
 
         with self._trajectory_lock:
             trajectory = self.trajectories.get(trajectory_id)
 
         if not trajectory:
-            return DomainResponse(is_valid=False, error=f"轨迹 {trajectory_id} 不存在")
+            return self.create_error_response(error_message=f"轨迹 {trajectory_id} 不存在")
 
         analysis = self._perform_analysis(trajectory)
 
-        return DomainResponse(
-            is_valid=True,
+        return self.create_success_response(
             text=f"轨迹 {trajectory_id} 分析完成",
             score=analysis.get("overall_score", 0.5),
             data={"trajectory_id": trajectory_id, **analysis},
@@ -198,8 +195,7 @@ class TrajectoryEvaluator(BaseEvaluator):
             analysis["output_similarity"] = similarity
             analysis["overall_score"] = (analysis.get("overall_score", 0.5) + similarity) / 2
 
-        return DomainResponse(
-            is_valid=True,
+        return self.create_success_response(
             text="轨迹沙盒评估完成",
             score=analysis.get("overall_score", 0.5),
             data=analysis,
@@ -291,9 +287,7 @@ class TrajectoryEvaluator(BaseEvaluator):
                     )
                 steps = local_trajectory.steps
             else:
-                return DomainResponse(
-                    is_valid=False, error="无法验证：未找到有效的 trajectory_id 且未传入 steps 数据"
-                )
+                return self.create_error_response(error_message="无法验证：未找到有效的 trajectory_id 且未传入 steps 数据")
 
         actual_actions = [step.action for step in steps]
         actual_tools = [step.tool_name for step in steps if step.tool_name]
@@ -308,8 +302,7 @@ class TrajectoryEvaluator(BaseEvaluator):
             + goal_relevance["score"] * 0.3
         )
 
-        return DomainResponse(
-            is_valid=True,
+        return self.create_success_response(
             text="决策路径验证完成",
             score=round(overall_score, 4),
             data={
@@ -513,7 +506,7 @@ class TrajectoryEvaluator(BaseEvaluator):
         steps_data = self.get_payload_data(request, "steps", [])
 
         if not actual_output:
-            return DomainResponse(is_valid=False, error="actual_output 不能为空")
+            return self.create_error_response(error_message="actual_output 不能为空")
 
         tier1_score, tier1_details = self._evaluate_l1_syntax(actual_output, format_spec)
         tier2_score, tier2_details = self._evaluate_l2_semantic(actual_output, expected_output)
@@ -523,8 +516,7 @@ class TrajectoryEvaluator(BaseEvaluator):
 
         overall_score = tier1_score * 0.25 + tier2_score * 0.35 + tier3_score * 0.4
 
-        return DomainResponse(
-            is_valid=True,
+        return self.create_success_response(
             text="三层成功标准评估完成",
             score=round(overall_score, 4),
             data={

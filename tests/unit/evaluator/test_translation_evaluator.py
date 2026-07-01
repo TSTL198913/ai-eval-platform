@@ -4,6 +4,8 @@ import os
 import sys
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from src.domain.evaluators.translation import TranslationEvaluator
@@ -35,6 +37,11 @@ class TestTranslationEvaluatorPositiveCases:
             result = evaluator.evaluate(request)
             assert result.is_valid is True
             assert result.score == 1.0
+            
+            # 强断言：验证置信度和状态
+            assert result.confidence is not None, "confidence不应为None"
+            assert 0.0 <= result.confidence <= 1.0, f"confidence应在0-1之间，实际为{result.confidence}"
+            assert result.evaluation_status.value == "success", f"evaluation_status应为success"
 
     @staticmethod
     def test_partial_similarity_translation():
@@ -58,6 +65,10 @@ class TestTranslationEvaluatorPositiveCases:
             result = evaluator.evaluate(request)
             assert result.is_valid is True
             assert 0.0 <= result.score <= 1.0
+            
+            # 强断言：验证评分值和置信度
+            assert result.score == pytest.approx(0.7, abs=0.01), f"score应接近0.7，实际为{result.score}"
+            assert result.confidence is not None, "confidence不应为None"
 
 
 class TestTranslationEvaluatorNegativeCases:

@@ -1,14 +1,9 @@
 """
-可靠性修复验证测试
-测试目标：验证 P0/P1 级问题修复的有效性
-
-关键发现：
-1. Celery 超时配置修复：soft_time_limit < time_limit，启动时验证
-2. 熔断器状态竞态修复：将状态检查移到 _check_timeout_transition 方法
-3. RedisListQueue 消息丢失修复：使用 BRPOPLPUSH 实现可靠消息投递
-4. 缓冲服务进程间隔离：增加 Redis 分布式计数器
-5. safe_parse_score 误判修复：增加智能评分制式判断
-"""
+可靠性修复验证测�?测试目标：验�?P0/P1 级问题修复的有效�?
+关键发现�?1. Celery 超时配置修复：soft_time_limit < time_limit，启动时验证
+2. 熔断器状态竞态修复：将状态检查移�?_check_timeout_transition 方法
+3. RedisListQueue 消息丢失修复：使�?BRPOPLPUSH 实现可靠消息投�?4. 缓冲服务进程间隔离：增加 Redis 分布式计数器
+5. safe_parse_score 误判修复：增加智能评分制式判�?"""
 
 import os
 import sys
@@ -42,24 +37,24 @@ class TestCeleryTimeoutConfigurationFix:
         from src.workers.tasks import TASK_SOFT_TIME_LIMIT, TASK_TIME_LIMIT
 
         # 软超时应给任务足够的优雅退出时间（推荐45-55秒）
-        assert TASK_SOFT_TIME_LIMIT >= 30, "软超时过短，任务可能无法优雅退出"
-        assert TASK_SOFT_TIME_LIMIT <= 55, "软超时过长，接近硬超时"
+        assert TASK_SOFT_TIME_LIMIT >= 30, "软超时过短，任务可能无法优雅退�?
+        assert TASK_SOFT_TIME_LIMIT <= 55, "软超时过长，接近硬超�?
 
         # 硬超时应明显大于软超时（推荐60秒以上）
-        assert TASK_TIME_LIMIT >= 60, "硬超时过短，任务可能被过早终止"
+        assert TASK_TIME_LIMIT >= 60, "硬超时过短，任务可能被过早终�?
         assert TASK_TIME_LIMIT <= 120, "硬超时过长，可能阻塞队列"
 
     def test_celery_app_config_consistent(self):
-        """Celery应用配置应与tasks.py一致"""
+        """Celery应用配置应与tasks.py一�?""
         from src.workers.celery_app import TASK_SOFT_TIME_LIMIT as APP_SOFT
         from src.workers.celery_app import TASK_TIME_LIMIT as APP_HARD
         from src.workers.tasks import TASK_SOFT_TIME_LIMIT, TASK_TIME_LIMIT
 
-        assert TASK_SOFT_TIME_LIMIT == APP_SOFT, "tasks.py 和 celery_app.py 的软超时配置不一致"
-        assert TASK_TIME_LIMIT == APP_HARD, "tasks.py 和 celery_app.py 的硬超时配置不一致"
+        assert TASK_SOFT_TIME_LIMIT == APP_SOFT, "tasks.py �?celery_app.py 的软超时配置不一�?
+        assert TASK_TIME_LIMIT == APP_HARD, "tasks.py �?celery_app.py 的硬超时配置不一�?
 
     def test_startup_validation_enforced(self):
-        """启动时应验证配置正确性"""
+        """启动时应验证配置正确�?""
         # 这个测试验证：如果配置错误，启动时会抛出 ValueError
         # 我们无法直接测试启动时的异常，但可以验证配置文件中的逻辑
 
@@ -79,12 +74,11 @@ class TestCeleryTimeoutConfigurationFix:
 
 
 # =====================================================================
-# P0修复验证：熔断器状态竞态
-# =====================================================================
+# P0修复验证：熔断器状态竞�?# =====================================================================
 
 
 class TestCircuitBreakerRaceConditionFix:
-    """熔断器状态竞态修复验证"""
+    """熔断器状态竞态修复验�?""
 
     @pytest.fixture
     def circuit_breaker(self):
@@ -99,26 +93,23 @@ class TestCircuitBreakerRaceConditionFix:
         return CircuitBreaker("test_breaker", config)
 
     def test_state_property_no_transition(self, circuit_breaker):
-        """state属性应不触发状态转换"""
+        """state属性应不触发状态转�?""
         from src.distributed.circuit_breaker import CircuitState
 
-        # 初始状态应为 CLOSED
+        # 初始状态应�?CLOSED
         assert circuit_breaker.state == CircuitState.CLOSED
 
-        # 多次读取 state 属性不应触发状态转换
-        for _ in range(10):
+        # 多次读取 state 属性不应触发状态转�?        for _ in range(10):
             state = circuit_breaker.state
             assert state == CircuitState.CLOSED
 
-        # 状态转换计数应为 0（未发生转换）
-        assert circuit_breaker.stats.state_changes == 0
+        # 状态转换计数应�?0（未发生转换�?        assert circuit_breaker.stats.state_changes == 0
 
     def test_check_timeout_transition_called_explicitly(self, circuit_breaker):
-        """_check_timeout_transition应显式调用"""
+        """_check_timeout_transition应显式调�?""
         from src.distributed.circuit_breaker import CircuitState
 
-        # 手动触发失败使其进入 OPEN 状态
-        circuit_breaker._record_failure()
+        # 手动触发失败使其进入 OPEN 状�?        circuit_breaker._record_failure()
         circuit_breaker._record_failure()
         circuit_breaker._record_failure()
 
@@ -127,8 +118,7 @@ class TestCircuitBreakerRaceConditionFix:
         # 等待超时
         time.sleep(5.5)
 
-        # state 属性仍应为 OPEN（因为未显式调用 _check_timeout_transition）
-        assert circuit_breaker.state == CircuitState.OPEN
+        # state 属性仍应为 OPEN（因为未显式调用 _check_timeout_transition�?        assert circuit_breaker.state == CircuitState.OPEN
 
         # 显式调用 _check_timeout_transition
         state = circuit_breaker._check_timeout_transition()
@@ -138,20 +128,19 @@ class TestCircuitBreakerRaceConditionFix:
         """call_sync应主动调用_check_timeout_transition"""
         from src.distributed.circuit_breaker import CircuitBreakerError
 
-        # 使熔断器进入 OPEN 状态
-        circuit_breaker._record_failure()
+        # 使熔断器进入 OPEN 状�?        circuit_breaker._record_failure()
         circuit_breaker._record_failure()
         circuit_breaker._record_failure()
 
-        # 立即调用应被拒绝（因为处于 OPEN 状态）
+        # 立即调用应被拒绝（因为处�?OPEN 状态）
         with pytest.raises(CircuitBreakerError):
             circuit_breaker.call_sync(lambda: "test")
 
         # 等待超时
         time.sleep(5.5)
 
-        # 再次调用应触发状态检查并转换为 HALF_OPEN
-        # 注意：由于 HALF_OPEN 状态下调用成功，状态会转换为 CLOSED
+        # 再次调用应触发状态检查并转换�?HALF_OPEN
+        # 注意：由�?HALF_OPEN 状态下调用成功，状态会转换�?CLOSED
         result = circuit_breaker.call_sync(lambda: "success")
         assert result == "success"
 
@@ -172,10 +161,10 @@ class TestCircuitBreakerRaceConditionFix:
         for t in threads:
             t.join()
 
-        # 所有读取结果应为 CLOSED
+        # 所有读取结果应�?CLOSED
         assert all(s == CircuitState.CLOSED for s in results)
 
-        # 状态转换计数应为 0
+        # 状态转换计数应�?0
         assert circuit_breaker.stats.state_changes == 0
 
 
@@ -185,11 +174,11 @@ class TestCircuitBreakerRaceConditionFix:
 
 
 class TestRedisListQueueMessageReliabilityFix:
-    """RedisListQueue消息可靠性修复验证"""
+    """RedisListQueue消息可靠性修复验�?""
 
     @pytest.fixture
     def mock_redis(self):
-        """Mock Redis客户端"""
+        """Mock Redis客户�?""
         redis_client = MagicMock()
 
         # 模拟 BRPOPLPUSH 行为
@@ -221,11 +210,11 @@ class TestRedisListQueueMessageReliabilityFix:
         # 验证：应调用 brpoplpush
         mock_redis.brpoplpush.assert_called_once()
 
-        # 验证：不应调用 rpop（已被替换）
+        # 验证：不应调�?rpop（已被替换）
         assert not hasattr(mock_redis, "rpop") or mock_redis.rpop.call_count == 0
 
     def test_ack_removes_from_processing_queue(self, queue, mock_redis):
-        """ACK应从处理中队列删除消息"""
+        """ACK应从处理中队列删除消�?""
         import asyncio
 
         from src.distributed.queue import MessagePriority, QueueMessage
@@ -241,7 +230,7 @@ class TestRedisListQueueMessageReliabilityFix:
         # 验证：应调用 lrem 从处理中队列删除
         mock_redis.lrem.assert_called_once()
         call_args = mock_redis.lrem.call_args
-        assert "processing" in call_args[0][0]  # key 应包含 processing
+        assert "processing" in call_args[0][0]  # key 应包�?processing
 
     def test_processing_queue_key_generated(self, queue):
         """应生成处理中队列key"""
@@ -257,11 +246,11 @@ class TestRedisListQueueMessageReliabilityFix:
 
 
 class TestBufferServiceDistributedCounterFix:
-    """缓冲服务分布式计数修复验证"""
+    """缓冲服务分布式计数修复验�?""
 
     @pytest.fixture
     def mock_redis(self):
-        """Mock Redis客户端"""
+        """Mock Redis客户�?""
         redis_client = MagicMock()
         redis_client.incr.return_value = 1
         redis_client.decrby.return_value = 0
@@ -297,7 +286,7 @@ class TestBufferServiceDistributedCounterFix:
 
     def test_flush_decrements_redis_counter(self, buffer_service, mock_redis, mock_record):
         """flush应减少Redis分布式计数器"""
-        # Mock 数据库 session
+        # Mock 数据�?session
         mock_session = MagicMock()
         mock_session.bulk_save_objects.return_value = None
         mock_session.commit.return_value = None
@@ -342,29 +331,26 @@ class TestSafeParseScoreIntelligentJudgmentFix:
         return NumericExtractStrategy()
 
     def test_normalize_score_keeps_decimal_values(self, parser):
-        """小数制分数（0-1）应不转换"""
-        result = parser._normalize_score(0.85, "分数是0.85")
+        """小数制分数（0-1）应不转�?""
+        result = parser._normalize_score(0.85, "分数�?.85")
 
         assert result == 0.85
 
     def test_normalize_score_converts_percentage_with_marker(self, parser):
         """有百分制标记的分数应转换"""
-        result = parser._normalize_score(85.0, "满分100，得分85%")
+        result = parser._normalize_score(85.0, "满分100，得�?5%")
 
         assert result == 0.85
 
     def test_normalize_score_converts_common_percentage_values(self, parser):
         """常见百分制整数应转换"""
-        # 80分
-        result = parser._normalize_score(80.0, "评分80")
+        # 80�?        result = parser._normalize_score(80.0, "评分80")
         assert result == 0.80
 
-        # 90分
-        result = parser._normalize_score(90.0, "评分90")
+        # 90�?        result = parser._normalize_score(90.0, "评分90")
         assert result == 0.90
 
-        # 100分
-        result = parser._normalize_score(100.0, "满分")
+        # 100�?        result = parser._normalize_score(100.0, "满分")
         assert result == 1.0
 
     def test_normalize_score_rejects_abnormal_values(self, parser):
@@ -374,7 +360,7 @@ class TestSafeParseScoreIntelligentJudgmentFix:
         assert result is None
 
     def test_parse_with_decimal_score_returns_expected(self, parser):
-        """小数制分数解析应返回预期值"""
+        """小数制分数解析应返回预期�?""
         from src.domain.evaluators.strategies.score_parsing import ParsedScore
 
         result = parser.try_parse("评分0.85")
@@ -384,10 +370,10 @@ class TestSafeParseScoreIntelligentJudgmentFix:
         assert result.score == 0.85
 
     def test_parse_with_percentage_score_normalizes(self, parser):
-        """百分制分数解析应归一化"""
+        """百分制分数解析应归一�?""
         from src.domain.evaluators.strategies.score_parsing import ParsedScore
 
-        result = parser.try_parse("得分90分")
+        result = parser.try_parse("得分90�?)
 
         assert result is not None
         assert isinstance(result, ParsedScore)
@@ -395,8 +381,7 @@ class TestSafeParseScoreIntelligentJudgmentFix:
 
 
 # =====================================================================
-# 集成测试：修复后的系统行为验证
-# =====================================================================
+# 集成测试：修复后的系统行为验�?# =====================================================================
 
 
 class TestIntegratedSystemBehaviorAfterFixes:
@@ -414,23 +399,18 @@ class TestIntegratedSystemBehaviorAfterFixes:
 
         evaluator = FailingEvaluator()
 
-        # 连续失败应触发熔断
-        request = EvaluationSchema(id="test_001", type="test", payload={})
+        # 连续失败应触发熔�?        request = EvaluationSchema(id="test_001", type="test", payload={})
         for _ in range(5):
             evaluator.evaluate(request)
 
-        # 熔断器应进入 OPEN 状态
-        breaker = evaluator._get_breaker()
+        # 熔断器应进入 OPEN 状�?        breaker = evaluator._get_breaker()
         from src.distributed.circuit_breaker import CircuitState
 
-        # 注意：由于修复后状态检查在 call 方法中，可能需要等待
-        assert breaker.state in [CircuitState.OPEN, CircuitState.CLOSED]
+        # 注意：由于修复后状态检查在 call 方法中，可能需要等�?        assert breaker.state in [CircuitState.OPEN, CircuitState.CLOSED]
 
     def test_message_queue_reliable_delivery(self):
-        """修复后消息队列应可靠投递"""
-        # 这个测试验证：消息在 Worker 崩溃场景下不会丢失
-        # 由于无法模拟真实崩溃，这里验证机制是否正确
-        from src.distributed.queue import QueueConfig, RedisListQueue
+        """修复后消息队列应可靠投�?""
+        # 这个测试验证：消息在 Worker 崩溃场景下不会丢�?        # 由于无法模拟真实崩溃，这里验证机制是否正�?        from src.distributed.queue import QueueConfig, RedisListQueue
 
         mock_redis = MagicMock()
         mock_redis.brpoplpush.return_value = '{"message_id": "test", "payload": "test", "priority": 5, "created_at": "2024-01-01T00:00:00"}'
@@ -443,16 +423,14 @@ class TestIntegratedSystemBehaviorAfterFixes:
         assert "processing" in processing_key
 
     def test_score_parser_intelligent_normalization(self):
-        """修复后评分解析器应智能归一化"""
+        """修复后评分解析器应智能归一�?""
         from src.domain.evaluators.strategies.score_parsing import DEFAULT_PARSER
 
-        # 小数制分数
-        result1 = DEFAULT_PARSER.parse("评分0.85")
+        # 小数制分�?        result1 = DEFAULT_PARSER.parse("评分0.85")
         assert result1 is not None
         assert result1.score == 0.85
 
-        # 百分制分数
-        result2 = DEFAULT_PARSER.parse("满分100，得分90")
+        # 百分制分�?        result2 = DEFAULT_PARSER.parse("满分100，得�?0")
         assert result2 is not None
         assert result2.score == 0.90
 

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.domain.models.base import BaseLLMClient
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
 
 
 @dataclass
@@ -60,6 +60,11 @@ class CompositeEvaluator(BaseEvaluator):
         total_weight = 0.0
         weighted_score_sum = 0.0
         all_data = {}
+        # 🧠 2026 架构升级：收集子评估器状态，用于聚合最终状态
+        all_statuses = []
+        dimensions_evaluated = []
+        dimensions_skipped = []
+        skip_reasons = {}
 
         for config in self.evaluators:
             if not config.enabled:
@@ -70,7 +75,10 @@ class CompositeEvaluator(BaseEvaluator):
                 evaluator = EvaluatorFactory.get(config.evaluator_type, client=self.client)
 
                 # 执行评估
-                result = evaluator.evaluate(request)
+                result = evaluator.safe_evaluate(request)
+
+                # 收集状态
+                all_statuses.append(result.evaluation_status)
 
                 # 收集结果
                 results.append(
@@ -80,10 +88,11 @@ class CompositeEvaluator(BaseEvaluator):
                         "score": result.score,
                         "is_valid": result.is_valid,
                         "error": result.error,
+                        "evaluation_status": result.evaluation_status.value,
                     }
                 )
 
-                if result.is_valid:
+                if result.is_valid and result.score is not None:
                     weighted_score_sum += result.score * config.weight
                     total_weight += config.weight
 
@@ -91,7 +100,25 @@ class CompositeEvaluator(BaseEvaluator):
                     if result.data:
                         all_data[config.evaluator_type] = result.data
 
+                    # 合并维度信息
+                    if hasattr(result, 'data') and result.data:
+                        if "dimensions_evaluated" in result.data:
+                            dims = result.data["dimensions_evaluated"]
+                            if isinstance(dims, list):
+                                dimensions_evaluated.extend([f"{config.evaluator_type}:{d}" for d in dims])
+                        if "dimensions_skipped" in result.data:
+                            dims = result.data["dimensions_skipped"]
+                            if isinstance(dims, list):
+                                dimensions_skipped.extend([f"{config.evaluator_type}:{d}" for d in dims])
+                        if "skip_reasons" in result.data:
+                            reasons = result.data["skip_reasons"]
+                            if isinstance(reasons, dict):
+                                for k, v in reasons.items():
+                                    if v:
+                                        skip_reasons[f"{config.evaluator_type}:{k}"] = v
+
             except Exception as e:
+                all_statuses.append(EvaluatorStatus.ERROR)
                 results.append(
                     {
                         "evaluator": config.evaluator_type,
@@ -99,6 +126,7 @@ class CompositeEvaluator(BaseEvaluator):
                         "score": 0.0,
                         "is_valid": False,
                         "error": str(e),
+                        "evaluation_status": "error",
                     }
                 )
 
@@ -107,6 +135,14 @@ class CompositeEvaluator(BaseEvaluator):
             final_score = weighted_score_sum / total_weight
         else:
             final_score = 0.0
+
+        # 🧠 2026 架构升级：聚合子评估器状态
+        # 状态聚合规则：
+        # - 有 ERROR → ERROR
+        # - 有 CANNOT_EVALUATE → CANNOT_EVALUATE
+        # - 有 PARTIAL → PARTIAL
+        # - 全部 SUCCESS → SUCCESS
+        final_status = self._aggregate_statuses(all_statuses)
 
         # 收集改进建议
         improvement_suggestions = []
@@ -117,22 +153,83 @@ class CompositeEvaluator(BaseEvaluator):
         # 检查是否有冲突
         conflict_detected = any(r.get("score", 0) < 0.3 for r in results if r["is_valid"])
 
-        return DomainResponse(
-            is_valid=True,
-            text=f"组合评估完成，调用了 {len([r for r in results if r['is_valid']])} 个评估器",
-            score=final_score,
-            data={
-                "composite_score": final_score,
-                "evaluator_results": results,
-                "total_evaluators": len(self.evaluators),
-                "successful_evaluators": len([r for r in results if r["is_valid"]]),
-                "conflict_detected": conflict_detected,
-                "improvement_suggestions": list(set(improvement_suggestions)),
-                "execution_mode": self.execution_mode,
-                "aggregate_method": self.aggregate_method,
-                "detailed_scores": all_data,
-            },
-        )
+        # 根据最终状态选择返回方法
+        if final_status == EvaluatorStatus.SUCCESS:
+            return self.create_success_response(
+                text=f"组合评估完成，调用了 {len([r for r in results if r['is_valid']])} 个评估器",
+                score=final_score,
+                data={
+                    "composite_score": final_score,
+                    "evaluator_results": results,
+                    "total_evaluators": len(self.evaluators),
+                    "successful_evaluators": len([r for r in results if r["is_valid"]]),
+                    "conflict_detected": conflict_detected,
+                    "improvement_suggestions": list(set(improvement_suggestions)),
+                    "execution_mode": self.execution_mode,
+                    "aggregate_method": self.aggregate_method,
+                    "detailed_scores": all_data,
+                    "dimensions_evaluated": dimensions_evaluated,
+                    "dimensions_skipped": dimensions_skipped,
+                    "skip_reasons": skip_reasons,
+                },
+            )
+        elif final_status == EvaluatorStatus.PARTIAL:
+            return self.create_partial_response(
+                text=f"组合评估完成（部分维度），调用了 {len([r for r in results if r['is_valid']])} 个评估器",
+                score=final_score,
+                dimensions_evaluated=dimensions_evaluated,
+                dimensions_skipped=dimensions_skipped,
+                skip_reasons=skip_reasons,
+                data={
+                    "composite_score": final_score,
+                    "evaluator_results": results,
+                    "total_evaluators": len(self.evaluators),
+                    "successful_evaluators": len([r for r in results if r["is_valid"]]),
+                    "conflict_detected": conflict_detected,
+                    "improvement_suggestions": list(set(improvement_suggestions)),
+                    "execution_mode": self.execution_mode,
+                    "aggregate_method": self.aggregate_method,
+                    "detailed_scores": all_data,
+                },
+            )
+        elif final_status == EvaluatorStatus.CANNOT_EVALUATE:
+            return self.create_cannot_evaluate_response(
+                reason="组合评估无法完成：部分子评估器无法评估",
+                dimensions_skipped=dimensions_skipped,
+                metadata={
+                    "evaluator_results": results,
+                    "failed_evaluators": [r["evaluator"] for r in results if r["evaluation_status"] == "cannot_evaluate"],
+                },
+            )
+        else:
+            return self.create_error_response(
+                error_message="组合评估失败：部分子评估器发生错误",
+                error_code="COMPOSITE_ERROR",
+                metadata={
+                    "evaluator_results": results,
+                    "error_evaluators": [r["evaluator"] for r in results if r["evaluation_status"] == "error"],
+                },
+            )
+
+    def _aggregate_statuses(self, statuses: list[EvaluatorStatus]) -> EvaluatorStatus:
+        """聚合子评估器状态
+
+        状态聚合规则（优先级从高到低）：
+        1. 有 ERROR → ERROR
+        2. 有 CANNOT_EVALUATE → CANNOT_EVALUATE
+        3. 有 PARTIAL → PARTIAL
+        4. 全部 SUCCESS → SUCCESS
+        """
+        if not statuses:
+            return EvaluatorStatus.SUCCESS
+
+        if EvaluatorStatus.ERROR in statuses:
+            return EvaluatorStatus.ERROR
+        if EvaluatorStatus.CANNOT_EVALUATE in statuses:
+            return EvaluatorStatus.CANNOT_EVALUATE
+        if EvaluatorStatus.PARTIAL in statuses:
+            return EvaluatorStatus.PARTIAL
+        return EvaluatorStatus.SUCCESS
 
     def evaluate_with_radar(self, request: EvaluationSchema) -> DomainResponse:
         """评估并生成雷达图数据"""

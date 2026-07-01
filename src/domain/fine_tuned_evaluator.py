@@ -11,7 +11,7 @@ from enum import Enum
 from typing import Any
 
 from src.domain.evaluators.base import BaseEvaluator
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
 
 
 class ModelStatus(Enum):
@@ -106,7 +106,7 @@ class FineTunedEvaluator(BaseEvaluator):
         dimensions = self.get_payload_data(request, "dimensions", ["correctness"])
 
         if not user_input or not actual_output:
-            return DomainResponse(is_valid=False, error="user_input/text 和 actual_output 不能为空")
+            return DomainResponse(evaluation_status=EvaluatorStatus.ERROR, error="user_input/text 和 actual_output 不能为空")
 
         # 如果本地模型可用，使用本地模型
         if self._status == ModelStatus.READY and self._model:
@@ -166,7 +166,7 @@ class FineTunedEvaluator(BaseEvaluator):
             total += 75
 
         return DomainResponse(
-            is_valid=True,
+            evaluation_status=EvaluatorStatus.SUCCESS,
             text=str(total // len(dimensions)),
             score=total / len(dimensions) / 100.0,
             data={
@@ -224,7 +224,7 @@ class FineTunedEvaluator(BaseEvaluator):
             scores = result.get("scores", {})
 
             return DomainResponse(
-                is_valid=True,
+                evaluation_status=EvaluatorStatus.SUCCESS,
                 text=str(total_score),
                 score=total_score / 100.0,
                 data={
@@ -260,7 +260,7 @@ class FineTunedEvaluator(BaseEvaluator):
         """回退响应"""
         scores = {dim: {"score": 70, "reason": "解析失败"} for dim in dimensions}
         return DomainResponse(
-            is_valid=True,
+            evaluation_status=EvaluatorStatus.SUCCESS,
             text="70",
             score=0.7,
             data={

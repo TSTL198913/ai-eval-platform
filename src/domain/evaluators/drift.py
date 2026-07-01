@@ -9,7 +9,7 @@ from typing import Any
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.infra.db.repository import EvaluationRepository
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ class DriftDetectionEvaluator(BaseEvaluator):
         case_id = self.get_payload_data(request, "case_id", request.id)
 
         if not actual_output:
-            return DomainResponse(is_valid=False, error="actual_output 不能为空")
+            return self.create_error_response(error_message="actual_output 不能为空")
 
         detection_methods = self.get_payload_data(
             request, "methods", ["similarity", "score_comparison", "statistical"]
@@ -97,7 +97,7 @@ class DriftDetectionEvaluator(BaseEvaluator):
         drift_detected = avg_drift_score > threshold
 
         return DomainResponse(
-            is_valid=True,
+            evaluation_status=EvaluatorStatus.SUCCESS,
             text="漂移检测完成",
             score=1.0 - avg_drift_score,
             data={
@@ -243,7 +243,7 @@ class DriftDetectionEvaluator(BaseEvaluator):
         )
 
         return DomainResponse(
-            is_valid=True,
+            evaluation_status=EvaluatorStatus.SUCCESS,
             text="版本对比完成",
             score=1.0 - comparison["drift_score"],
             data=comparison,
@@ -318,12 +318,12 @@ class DriftDetectionEvaluator(BaseEvaluator):
         user_input = self.get_input_text(request)
 
         if not actual_output or not baseline_output:
-            return DomainResponse(is_valid=False, error="actual_output 和 baseline_output 不能为空")
+            return self.create_error_response(error_message="actual_output 和 baseline_output 不能为空")
 
         drift_result = self._analyze_semantic_drift(actual_output, baseline_output, user_input)
 
         return DomainResponse(
-            is_valid=True,
+            evaluation_status=EvaluatorStatus.SUCCESS,
             text="语义漂移检测完成",
             score=1.0 - drift_result["drift_score"],
             data=drift_result,
@@ -453,7 +453,7 @@ class DriftDetectionEvaluator(BaseEvaluator):
         baseline_fingerprint = self.get_payload_data(request, "baseline_fingerprint")
 
         if not actual_output:
-            return DomainResponse(is_valid=False, error="actual_output 不能为空")
+            return self.create_error_response(error_message="actual_output 不能为空")
 
         current_fingerprint = self._compute_full_fingerprint(actual_output)
 
@@ -465,7 +465,7 @@ class DriftDetectionEvaluator(BaseEvaluator):
             match_result["fingerprint_changed"] = match_score < 0.8
 
         return DomainResponse(
-            is_valid=True,
+            evaluation_status=EvaluatorStatus.SUCCESS,
             text="行为指纹计算完成",
             score=match_result.get("match_score", 1.0),
             data={

@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from src.domain.evaluators.llm_as_judge import JUDGE_DIMENSIONS, SCORE_LEVELS, LLMAJudgeEvaluator
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
 
 
 class TestLLMAJudgeEvaluatorPositiveCases:
@@ -196,26 +196,26 @@ class TestLLMAJudgeEvaluatorPositiveCases:
         assert result.data["score_levels"]["accuracy"] == "good"
 
     def test_fallback_parse_v2(self, evaluator):
-        """fallback解析应返回默认值"""
+        """fallback解析应返回错误响应"""
         result = evaluator._fallback_parse_response_v2("无效输出", ["accuracy", "relevance"])
-        assert result.is_valid is False
-        assert result.score == 0.0
-        assert "raw_output_preview" in result.data
+        assert result.evaluation_status == EvaluatorStatus.ERROR
+        assert result.score is None
+        assert "raw_output_preview" in result.metadata
 
     def test_fallback_parse_response_v2(self, evaluator):
-        """fallback响应应暴露解析失败：is_valid=False, score=0.0
+        """fallback响应应暴露解析失败：evaluation_status=ERROR
 
         【行为变更】当 LLM 输出完全无法解析时（如纯文本 "Internal Server Error"），
-        评估器绝不能静默通过为 0.5 分。必须返回 is_valid=False 让上游告警系统感知到失败。
+        评估器绝不能静默通过为 0.5 分。必须返回 evaluation_status=ERROR 让上游告警系统感知到失败。
         详见 tests/meta_evaluation/test_evaluators.py 的【格式崩坏 Case】。
         """
         result = evaluator._fallback_parse_response_v2("无效JSON", ["accuracy"])
-        assert result.is_valid is False
-        assert result.score == 0.0
+        assert result.evaluation_status == EvaluatorStatus.ERROR
+        assert result.score is None
         # 必须保留 error 字段说明失败原因
         assert result.error is not None and len(result.error) > 0
         # 必须保留原始输出预览，便于排查
-        assert "raw_output_preview" in result.data
+        assert "raw_output_preview" in result.metadata
 
 
 class TestLLMAJudgeEvaluatorNegativeCases:
@@ -250,7 +250,7 @@ class TestLLMAJudgeEvaluatorNegativeCases:
         """LLM返回无效JSON时必须暴露失败，绝不能静默通过为 0.5 分
 
         【行为变更】旧实现返回 is_valid=True, score=0.5 掩盖了 LLM 服务异常。
-        新实现返回 is_valid=False, score=0.0 让上游告警系统能感知到。
+        新实现返回 evaluation_status=ERROR, score=None 让上游告警系统能感知到。
         详见 tests/meta_evaluation/test_evaluators.py::TestFormatCorruption。
         """
         mock_client = MagicMock()
@@ -266,8 +266,8 @@ class TestLLMAJudgeEvaluatorNegativeCases:
         )
         result = evaluator.evaluate(request)
         # 强断言：必须显式标记为失败
-        assert result.is_valid is False
-        assert result.score == 0.0
+        assert result.evaluation_status == EvaluatorStatus.ERROR
+        assert result.score is None
         assert result.error is not None
 
 
@@ -417,9 +417,11 @@ class TestLLMAJudgeEvaluatorIntegration:
 
     def test_safe_evaluate_returns_domain_response(self, evaluator):
         """safe_evaluate应返回DomainResponse"""
-        mock_request = MagicMock()
-        mock_request.type = "llm_as_judge"
-        mock_request.payload = {"user_input": "test", "actual_output": "test"}
+        mock_request = EvaluationSchema(
+            id="test-safe-eval",
+            type="llm_as_judge",
+            payload={"user_input": "test", "actual_output": "test"},
+        )
         result = evaluator.safe_evaluate(mock_request)
         assert isinstance(result, DomainResponse)
 

@@ -225,7 +225,7 @@ class TestRiskEvaluatorNegativeCases:
         assert result.error is not None, "error不应为None"
         assert "未知" in result.error or "unknown" in result.error.lower(), f"error字段应包含'未知'或'unknown'，实际为{result.error}"
         assert result.evaluation_status.value == "error", f"evaluation_status应为error"
-        assert result.score is None, f"score应为None，实际为{result.score}"
+        assert result.score == 0.0, f"score应为0.0，实际为{result.score}"
 
     def test_empty_action_uses_default(self, evaluator):
         """空action应使用默认detect_all"""

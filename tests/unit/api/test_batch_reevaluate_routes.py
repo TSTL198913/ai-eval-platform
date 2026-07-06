@@ -22,24 +22,30 @@ class TestBatchReevaluatePositiveCases:
     """正向测试 - 正常批量重新评估"""
 
     @patch("src.api.routes.records_routes._get_data_service")
-    @patch("src.api.routes.records_routes.run_evaluation_service")
-    def test_batch_reevaluate_returns_success(self, mock_eval, mock_svc, client):
+    @patch("src.services.evaluator_svc.EvaluatorService")
+    def test_batch_reevaluate_returns_success(self, mock_eval_svc, mock_svc, client):
         """批量重新评估应返回成功"""
-        # Mock数据服务
         mock_data_svc = MagicMock()
         mock_data_svc.get_by_id.return_value = {
             "id": 1,
             "adapter_name": "general",
-            "response_data": {"payload": {"user_input": "test"}},
+            "response_data": {"payload": {"user_input": "test", "expected_output": "expected"}},
         }
         mock_svc.return_value = mock_data_svc
 
-        # Mock评估服务
-        mock_eval.return_value = {
-            "status": "passed",
-            "data": {"score": 0.9},
-            "latency_ms": 100,
-        }
+        mock_instance = MagicMock()
+
+        from dataclasses import dataclass
+        @dataclass
+        class MockEvalResponse:
+            api_response: dict
+
+        mock_instance.run_batch_evaluation.return_value = [
+            MockEvalResponse(api_response={"record_id": "reeval_1_1", "status": "success", "data": {"score": 0.9}, "latency_ms": 100}),
+            MockEvalResponse(api_response={"record_id": "reeval_2_1", "status": "success", "data": {"score": 0.8}, "latency_ms": 100}),
+            MockEvalResponse(api_response={"record_id": "reeval_3_1", "status": "success", "data": {"score": 0.95}, "latency_ms": 100}),
+        ]
+        mock_eval_svc.return_value = mock_instance
 
         response = client.post(
             "/api/v1/records/batch/reevaluate",
@@ -54,21 +60,26 @@ class TestBatchReevaluatePositiveCases:
         assert len(data["data"]["results"]) == 3
 
     @patch("src.api.routes.records_routes._get_data_service")
-    @patch("src.api.routes.records_routes.run_evaluation_service")
-    def test_batch_reevaluate_single_record(self, mock_eval, mock_svc, client):
+    @patch("src.services.evaluator_svc.EvaluatorService")
+    def test_batch_reevaluate_single_record(self, mock_eval_svc, mock_svc, client):
         """单个记录重新评估应正常"""
         mock_data_svc = MagicMock()
         mock_data_svc.get_by_id.return_value = {
             "id": 1,
             "adapter_name": "security",
-            "response_data": {"payload": {"user_input": "test input"}},
+            "response_data": {"payload": {"user_input": "test input", "expected_output": "expected"}},
         }
         mock_svc.return_value = mock_data_svc
-        mock_eval.return_value = {
-            "status": "passed",
-            "data": {"score": 1.0},
-            "latency_ms": 50,
-        }
+
+        mock_instance = MagicMock()
+        from dataclasses import dataclass
+        @dataclass
+        class MockEvalResponse:
+            api_response: dict
+        mock_instance.run_batch_evaluation.return_value = [
+            MockEvalResponse(api_response={"record_id": "reeval_1_1", "status": "success", "data": {"score": 1.0}, "latency_ms": 50}),
+        ]
+        mock_eval_svc.return_value = mock_instance
 
         response = client.post(
             "/api/v1/records/batch/reevaluate",
@@ -118,8 +129,8 @@ class TestBatchReevaluateNegativeCases:
         assert "不存在" in data["data"]["results"][0]["message"]
 
     @patch("src.api.routes.records_routes._get_data_service")
-    @patch("src.api.routes.records_routes.run_evaluation_service")
-    def test_batch_reevaluate_partial_failure(self, mock_eval, mock_svc, client):
+    @patch("src.services.evaluator_svc.EvaluatorService")
+    def test_batch_reevaluate_partial_failure(self, mock_eval_svc, mock_svc, client):
         """部分失败应正确统计"""
         mock_data_svc = MagicMock()
 
@@ -128,17 +139,22 @@ class TestBatchReevaluateNegativeCases:
                 return {
                     "id": 1,
                     "adapter_name": "general",
-                    "response_data": {"payload": {"user_input": "test"}},
+                    "response_data": {"payload": {"user_input": "test", "expected_output": "expected"}},
                 }
             return None
 
         mock_data_svc.get_by_id.side_effect = get_by_id_side_effect
         mock_svc.return_value = mock_data_svc
-        mock_eval.return_value = {
-            "status": "passed",
-            "data": {"score": 0.9},
-            "latency_ms": 100,
-        }
+
+        mock_instance = MagicMock()
+        from dataclasses import dataclass
+        @dataclass
+        class MockEvalResponse:
+            api_response: dict
+        mock_instance.run_batch_evaluation.return_value = [
+            MockEvalResponse(api_response={"record_id": "reeval_1_1", "status": "success", "data": {"score": 0.9}, "latency_ms": 100}),
+        ]
+        mock_eval_svc.return_value = mock_instance
 
         response = client.post(
             "/api/v1/records/batch/reevaluate",
@@ -200,8 +216,8 @@ class TestBatchReevaluateExceptionHandling:
     """异常测试 - 异常情况处理"""
 
     @patch("src.api.routes.records_routes._get_data_service")
-    @patch("src.api.routes.records_routes.run_evaluation_service")
-    def test_batch_reevaluate_eval_service_exception(self, mock_eval, mock_svc, client):
+    @patch("src.services.evaluator_svc.EvaluatorService")
+    def test_batch_reevaluate_eval_service_exception(self, mock_eval_svc, mock_svc, client):
         """评估服务异常应标记为失败"""
         mock_data_svc = MagicMock()
         mock_data_svc.get_by_id.return_value = {
@@ -210,7 +226,10 @@ class TestBatchReevaluateExceptionHandling:
             "response_data": {"payload": {}},
         }
         mock_svc.return_value = mock_data_svc
-        mock_eval.side_effect = Exception("LLM service error")
+        
+        mock_instance = MagicMock()
+        mock_instance.run_batch_evaluation.side_effect = Exception("LLM service error")
+        mock_eval_svc.return_value = mock_instance
 
         response = client.post(
             "/api/v1/records/batch/reevaluate",

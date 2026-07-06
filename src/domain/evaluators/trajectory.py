@@ -18,7 +18,10 @@ from typing import Any
 # 假设的基础依赖导入路径
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.schemas.evaluation import AgentTrajectory, DomainResponse, EvaluationSchema, TrajectoryStep
+from src.schemas.evaluation import AgentTrajectory
+from src.schemas.evaluation import DomainResponse
+from src.schemas.evaluation import EvaluationSchema
+from src.schemas.evaluation import TrajectoryStep
 
 # 设置日志
 logger = logging.getLogger(__name__)

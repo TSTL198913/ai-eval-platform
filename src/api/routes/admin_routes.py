@@ -4,14 +4,24 @@
 提供用户、角色、权限的管理接口。
 """
 
-from datetime import datetime, timezone
+from datetime import datetime
+from datetime import timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter
+from fastapi import Depends
+from fastapi import HTTPException
+from fastapi import status
+from pydantic import BaseModel
+from pydantic import Field
 
-from src.api.auth import fake_users_db, get_password_hash, verify_password
-from src.api.dependencies import get_current_user, require_admin
-from src.infra.security import ROLE_PERMISSIONS, Permission, Role
+from src.api.auth import fake_users_db
+from src.api.auth import get_password_hash
+from src.api.auth import verify_password
+from src.api.dependencies import get_current_user
+from src.api.dependencies import require_admin
+from src.infra.security import ROLE_PERMISSIONS
+from src.infra.security import Permission
+from src.infra.security import Role
 
 router = APIRouter(prefix="/api/v1/admin", tags=["Admin"])
 

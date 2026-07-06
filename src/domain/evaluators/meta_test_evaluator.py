@@ -3,7 +3,8 @@
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.domain.evaluators.scoring_utils import ScoreCalculator
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse
+from src.schemas.evaluation import EvaluationSchema
 
 
 @EvaluatorFactory.register("meta_test")

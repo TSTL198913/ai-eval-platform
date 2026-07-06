@@ -229,9 +229,9 @@ class TestEvaluatorFactoryThreadSafety:
             @EvaluatorFactory.register(name)
             class TestConcurrentEvaluator(BaseEvaluator):
                 def _do_evaluate(self, request):
-                    from src.schemas.evaluation import DomainResponse
+                    from src.schemas.evaluation import DomainResponse, EvaluatorStatus
 
-                    return DomainResponse(is_valid=True, score=1.0)
+                    return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=1.0)
 
             with lock:
                 registered_names.append(name)
@@ -258,9 +258,9 @@ class TestEvaluatorFactoryThreadSafety:
         @EvaluatorFactory.register("test_thread_safe_eval")
         class TestThreadSafeEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                from src.schemas.evaluation import DomainResponse
+                from src.schemas.evaluation import DomainResponse, EvaluatorStatus
 
-                return DomainResponse(is_valid=True, score=1.0)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=1.0)
 
         def get_evaluator(id):
             evaluator = EvaluatorFactory.get("test_thread_safe_eval")

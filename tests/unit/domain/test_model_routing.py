@@ -167,20 +167,31 @@ class TestModelRouterCircuitBreaker:
         # 验证熔断器正常工作
         assert "failed_calls" in stats["circuit_breaker"]
 
-    def test_circuit_breaker_failure_recording(self):
-        router = ModelRouter()
+    @patch("src.infra.cache.get_redis_client")
+    def test_circuit_breaker_failure_recording(self, mock_redis):
+        """测试熔断器失败记录（使用内存模式）"""
+        mock_redis.side_effect = Exception("Redis connection error")
 
+        router = ModelRouter()
         router._circuit_breaker._record_failure()
         stats = router.get_routing_stats()
         assert stats["circuit_breaker"]["failed_calls"] == 1
 
-    def test_circuit_breaker_success_recording(self):
+    @patch("src.infra.cache.get_redis_client")
+    def test_circuit_breaker_success_recording(self, mock_redis):
+        """测试熔断器成功记录（使用内存模式）"""
+        mock_redis.side_effect = Exception("Redis connection error")
+
         router = ModelRouter()
         router._circuit_breaker._record_success()
         stats = router.get_routing_stats()
         assert stats["circuit_breaker"]["successful_calls"] == 1
 
-    def test_stats_reset(self):
+    @patch("src.infra.cache.get_redis_client")
+    def test_stats_reset(self, mock_redis):
+        """测试统计重置（使用内存模式）"""
+        mock_redis.side_effect = Exception("Redis connection error")
+
         router = ModelRouter()
         router._routing_stats["total_decisions"] = 100
         router._routing_stats["failures"] = 10
@@ -208,9 +219,11 @@ class TestModelRouterCreateClient:
         assert client == mock_client
         assert decision["source"] != "critical_fallback"
 
+    @patch("src.infra.cache.get_redis_client")
     @patch("src.domain.model_routing.create_llm_client")
     @patch("src.domain.model_routing.load_config")
-    def test_create_client_fallback_on_error(self, mock_load, mock_create):
+    def test_create_client_fallback_on_error(self, mock_load, mock_create, mock_redis):
+        mock_redis.side_effect = Exception("Redis connection error")
         mock_load.return_value = MagicMock(model_name="test-model")
         mock_create.side_effect = [Exception("API Error"), MagicMock()]
 
@@ -342,11 +355,13 @@ class TestModelRouterErrorHandling:
         # 应该静默处理，不抛出异常
         router._record_decision("test_source", "test_type", "test_provider", 0.1)
 
+    @patch("src.infra.cache.get_redis_client")
     @patch("src.domain.model_routing.create_llm_client")
     @patch("src.domain.model_routing.load_config")
     @patch("src.domain.model_routing.model_performance_analyzer")
-    def test_create_client_critical_failure(self, mock_analyzer, mock_load, mock_create):
+    def test_create_client_critical_failure(self, mock_analyzer, mock_load, mock_create, mock_redis):
         """测试创建客户端完全失败时的回退"""
+        mock_redis.side_effect = Exception("Redis connection error")
         mock_analyzer.get_model_recommendations.side_effect = Exception("Analyzer error")
         mock_load.side_effect = Exception("Config error")
         mock_create.side_effect = [Exception("API Error"), MagicMock()]

@@ -15,7 +15,8 @@ import hashlib
 import hmac
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from dataclasses import field
 from enum import Enum
 from typing import Any
 
@@ -665,6 +666,13 @@ def get_security(secret_key: str | None = None) -> SecurityManager:
     if _global_security is None:
         import os
 
-        secret = secret_key or os.getenv("AI_EVAL_SECRET_KEY", "default-secret-key")
+        secret = secret_key or os.getenv("AI_EVAL_SECRET_KEY")
+        if secret is None:
+            if os.getenv("TESTING") == "1":
+                import secrets
+                secret = secrets.token_urlsafe(32)
+            else:
+                raise RuntimeError("AI_EVAL_SECRET_KEY environment variable is not set. "
+                                  "Set it before running the application in production.")
         _global_security = SecurityManager(secret)
     return _global_security

@@ -122,7 +122,7 @@ class TestEngineEndToEndIntegration:
         from src.domain.evaluators.base import BaseEvaluator
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
         from src.engine import EvaluationEngine
-        from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluationStatus
+        from src.schemas.evaluation import DomainResponse, EvaluatorStatus, EvaluationSchema, EvaluationStatus
 
         # 注册一个独立的评估器，避免依赖 'general' (可能已被其他测试污染)
         @EvaluatorFactory.register("qa_test_passes")
@@ -161,7 +161,7 @@ class TestEngineEndToEndIntegration:
         from src.domain.evaluators.base import BaseEvaluator
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
         from src.engine import EvaluationEngine
-        from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluationStatus
+        from src.schemas.evaluation import DomainResponse, EvaluatorStatus, EvaluationSchema, EvaluationStatus
 
         @EvaluatorFactory.register("qa_test_fails")
         class QAEvalFail(BaseEvaluator):
@@ -262,7 +262,7 @@ class TestCrossServiceIntegration:
         from src.domain.evaluators.base import BaseEvaluator
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
         from src.engine import EvaluationEngine
-        from src.schemas.evaluation import DomainResponse, EvaluationSchema
+        from src.schemas.evaluation import DomainResponse, EvaluatorStatus, EvaluationSchema
 
         # 业务方注册自定义评估器
         @EvaluatorFactory.register("custom_business_eval")
@@ -356,7 +356,7 @@ class TestExceptionChainIntegration:
         request = EvaluationSchema(id="c1", type="unexpected_err", payload={})
         result = engine.run(request)
 
-        # safe_evaluate 返回 DomainResponse(is_valid=False, error="EVALUATION_ERROR: ...")
+        # safe_evaluate 返回 DomainResponse(evaluation_status=EvaluatorStatus.ERROR, error="EVALUATION_ERROR: ...")
         # engine 检测到 error 包含 "_ERROR"，返回 ERROR 状态
         assert result.status == EvaluationStatus.ERROR
         # 关键：内部错误信息包含在 error 字段中
@@ -412,17 +412,17 @@ class TestHighConcurrencyBusinessScenarios:
         from src.domain.evaluators.base import BaseEvaluator
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
         from src.engine import EvaluationEngine
-        from src.schemas.evaluation import DomainResponse, EvaluationSchema
+        from src.schemas.evaluation import DomainResponse, EvaluatorStatus, EvaluationSchema
 
         @EvaluatorFactory.register("type_a")
         class TypeAEval(BaseEvaluator):
             def evaluate(self, req):
-                return DomainResponse(is_valid=True, score=0.9)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=0.9)
 
         @EvaluatorFactory.register("type_b")
         class TypeBEval(BaseEvaluator):
             def evaluate(self, req):
-                return DomainResponse(is_valid=True, score=0.8)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=0.8)
 
         engine = EvaluationEngine(mock_llm_client)
         results = []

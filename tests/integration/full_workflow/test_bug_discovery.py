@@ -621,17 +621,17 @@ class TestDomainBugsDiscovery:
         业务风险：上游库和业务方同名时静默覆盖
         """
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-        from src.schemas.evaluation import DomainResponse
+        from src.schemas.evaluation import DomainResponse, EvaluatorStatus
 
         @EvaluatorFactory.register("overwrite_test")
         class First:
             def evaluate(self, req):
-                return DomainResponse(is_valid=True, score=0.5)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=0.5)
 
         @EvaluatorFactory.register("overwrite_test")
         class Second:
             def evaluate(self, req):
-                return DomainResponse(is_valid=True, score=0.9)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=0.9)
 
         if EvaluatorFactory._registry["overwrite_test"].__name__ != "Second":
             pytest.fail("BUG: register 应该被覆盖但未生效")
@@ -894,7 +894,7 @@ class TestPerformanceStabilityBugs:
         业务风险：多线程同时注册可能丢失
         """
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-        from src.schemas.evaluation import DomainResponse
+        from src.schemas.evaluation import DomainResponse, EvaluatorStatus
 
         def register_many(start_idx):
             for i in range(100):
@@ -903,7 +903,7 @@ class TestPerformanceStabilityBugs:
                 cls = type(
                     f"RaceEval_{start_idx}_{i}",
                     (),
-                    {"evaluate": lambda self, req: DomainResponse(is_valid=True)},
+                    {"evaluate": lambda self, req: DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS)},
                 )
                 EvaluatorFactory._registry[name] = cls
 
@@ -945,7 +945,7 @@ class TestPerformanceStabilityBugs:
         业务风险：未使用 LLM client 缓存，导致重复连接
         """
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-        from src.schemas.evaluation import DomainResponse
+        from src.schemas.evaluation import DomainResponse, EvaluatorStatus
 
         @EvaluatorFactory.register("singleton_test")
         class SingletonEval:
@@ -953,7 +953,7 @@ class TestPerformanceStabilityBugs:
                 self.client = client
 
             def evaluate(self, req):
-                return DomainResponse(is_valid=True)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS)
 
         client = MagicMock()
         e1 = EvaluatorFactory.get("singleton_test", client=client)

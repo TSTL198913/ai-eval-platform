@@ -61,7 +61,7 @@ class TestCircuitBreakerBasic:
 
 
 class TestCircuitBreakerStateTransitions:
-    """熔断器状态转换测�?""
+    """熔断器状态转换测试"""
 
     @pytest.fixture
     def breaker(self):
@@ -103,7 +103,7 @@ class TestCircuitBreakerStateTransitions:
 
 
 class TestCircuitBreakerStats:
-    """熔断器统计测�?""
+    """熔断器统计测试"""
 
     @pytest.fixture
     def breaker(self):
@@ -143,7 +143,7 @@ class TestCircuitBreakerStats:
 
 
 class TestCircuitBreakerEdgeCases:
-    """熔断器边界情况测�?""
+    """熔断器边界情况测试"""
 
     @pytest.fixture
     def breaker(self):
@@ -170,7 +170,7 @@ class TestCircuitBreakerEdgeCases:
 
 
 class TestCircuitBreakerConfig:
-    """熔断器配置测�?""
+    """熔断器配置测试"""
 
     def test_default_config(self):
         config = CircuitBreakerConfig()
@@ -193,7 +193,7 @@ class TestCircuitBreakerConfig:
 
 
 class TestCircuitBreakerRedisPersistence:
-    """熔断器Redis持久化测�?""
+    """熔断器Redis持久化测试"""
 
     @pytest.fixture
     def mock_redis(self):
@@ -249,7 +249,7 @@ class TestCircuitBreakerRedisPersistence:
 
 
 class TestCircuitBreakerRegistry:
-    """熔断器注册中心测�?""
+    """熔断器注册中心测试"""
 
     def test_get_instance(self):
         registry1 = CircuitBreakerRegistry.get_instance()
@@ -285,7 +285,7 @@ class TestCircuitBreakerRegistry:
 
 
 class TestCircuitBreakerReset:
-    """熔断器重置测�?""
+    """熔断器重置测试"""
 
     @pytest.fixture
     def breaker(self):
@@ -311,7 +311,7 @@ class TestCircuitBreakerReset:
 
 
 class TestCircuitBreakerAsyncFunction:
-    """熔断器异步函数测�?""
+    """熔断器异步函数测试"""
 
     @pytest.fixture
     def breaker(self):

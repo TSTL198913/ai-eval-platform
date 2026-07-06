@@ -8,11 +8,15 @@ import threading
 import time
 from typing import Any
 
-from fastapi import APIRouter, Response, status
+from fastapi import APIRouter
+from fastapi import Response
+from fastapi import status
 
-from src.api.common import error_response, success_response
+from src.api.common import error_response
+from src.api.common import success_response
 from src.schemas.evaluation import EvaluationSchema
-from src.services.evaluator_svc import _normalize_raw_data, run_evaluation_service
+from src.services.evaluator_svc import _normalize_raw_data
+from src.services.evaluator_svc import run_evaluation_service
 
 logger = logging.getLogger(__name__)
 
@@ -156,17 +160,29 @@ async def evaluate_endpoint(raw_data: EvaluationSchema, response: Response):
     # 记录评估指标
     evaluator_type = raw_data.type or "unknown"
     try:
-        from src.infra.monitoring.metrics import EVALUATION_COUNTER, EVALUATION_ERRORS
+        from src.infra.monitoring.metrics import EVALUATION_COUNTER
+        from src.infra.monitoring.metrics import EVALUATION_ERRORS
 
         if result["status"] == "error":
             error_type = result.get("code", "UNKNOWN")
             EVALUATION_ERRORS.labels(domain=evaluator_type, error_type=error_type).inc()
         else:
             EVALUATION_COUNTER.labels(domain=evaluator_type, status="success").inc()
-    except Exception:
-        pass  # 指标记录失败不影响主流程
+    except Exception as e:
+        logger.warning(f"Failed to record metrics: {e}")
 
     if result["status"] == "error":
+        # 业务错误（评估器已执行并返回响应，如不支持的指标、缺失输入等）
+        # 应返回 200 + is_valid=false，让客户端根据 is_valid 字段判断评估结果。
+        if result.get("data") is not None:
+            if checker and request_id:
+                try:
+                    checker.mark_processed(request_id, result)
+                except Exception as e:
+                    logger.warning(f"Failed to cache result: {e}")
+            response.status_code = status.HTTP_200_OK
+            return success_response(result)
+        # 系统错误（评估器未执行，如无适配器、payload 校验失败等）
         if result["code"] == "CONTRACT_ERROR":
             response.status_code = status.HTTP_400_BAD_REQUEST
         else:
@@ -175,8 +191,8 @@ async def evaluate_endpoint(raw_data: EvaluationSchema, response: Response):
         if checker and request_id:
             try:
                 checker.clear(request_id)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to clear idempotency key: {e}")
         return error_response(result.get("code", 400), result.get("message", "Evaluation failed"))
     else:
         # 成功时标记为已处理，缓存结果

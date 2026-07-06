@@ -9,15 +9,27 @@ import json
 import logging
 import time
 
-from fastapi import APIRouter, Response
-from fastapi.responses import JSONResponse, PlainTextResponse
-from pydantic import BaseModel, Field
+from fastapi import APIRouter
+from fastapi import Response
+from fastapi.responses import JSONResponse
+from fastapi.responses import PlainTextResponse
+from pydantic import BaseModel
+from pydantic import Field
 from starlette import status as status_module
 
-from src.api.common import error_response, success_response
-from src.schemas.schemas import BatchDeleteRequest, BatchUpdateRequest, RecordUpdateRequest
+from src.api.common import error_response
+from src.api.common import success_response
+from src.schemas.schemas import BatchDeleteRequest
+from src.schemas.schemas import BatchUpdateRequest
+from src.schemas.schemas import RecordUpdateRequest
 from src.services.data_svc import get_data_service
-from src.services.evaluator_svc import run_evaluation_service
+from src.services.evaluator_svc import EvaluatorService
+
+
+def run_evaluation_service(eval_request):
+    """单条评估服务入口（兼容旧测试）"""
+    service = EvaluatorService()
+    return service.run_evaluation(eval_request)
 
 logger = logging.getLogger(__name__)
 
@@ -290,9 +302,11 @@ async def batch_reevaluate_records(data: BatchReevaluateRequest, response: Respo
     try:
         svc = _get_data_service()
 
+        eval_requests = []
+        record_id_map = {}
+
         for record_id in data.record_ids:
             try:
-                # 获取原始记录
                 record = svc.get_by_id(record_id)
                 if not record:
                     results.append(
@@ -305,30 +319,17 @@ async def batch_reevaluate_records(data: BatchReevaluateRequest, response: Respo
                     failed_count += 1
                     continue
 
-                # 从原始记录中提取评估参数
                 response_data = record.get("response_data", {})
                 payload = response_data.get("payload", {})
 
-                # 构建评估请求
                 eval_request = {
                     "id": f"reeval_{record_id}_{int(time.time())}",
                     "type": record.get("adapter_name", "general"),
                     "payload": payload,
                 }
 
-                # 执行评估
-                result = run_evaluation_service(eval_request)
-
-                results.append(
-                    {
-                        "record_id": record_id,
-                        "case_id": eval_request["id"],
-                        "status": result.get("status", "error"),
-                        "score": result.get("data", {}).get("score"),
-                        "latency_ms": result.get("latency_ms"),
-                    }
-                )
-                success_count += 1
+                eval_requests.append(eval_request)
+                record_id_map[eval_request["id"]] = record_id
 
             except Exception as e:
                 logger.error(f"Reevaluate record {record_id} failed: {e}")
@@ -340,6 +341,44 @@ async def batch_reevaluate_records(data: BatchReevaluateRequest, response: Respo
                     }
                 )
                 failed_count += 1
+
+        if eval_requests:
+            from src.services.evaluator_svc import EvaluatorService
+
+            try:
+                service = EvaluatorService()
+                batch_results = service.run_batch_evaluation(eval_requests)
+
+                for eval_response in batch_results:
+                    api_result = eval_response.api_response
+                    record_id = record_id_map.get(api_result.get("record_id", ""), "")
+                    status = api_result.get("status", "error")
+                    results.append(
+                        {
+                            "record_id": record_id,
+                            "case_id": api_result.get("record_id"),
+                            "status": status,
+                            "score": api_result.get("data", {}).get("score"),
+                            "latency_ms": api_result.get("latency_ms"),
+                        }
+                    )
+                    if status == "success":
+                        success_count += 1
+                    else:
+                        failed_count += 1
+            except Exception as e:
+                logger.error(f"Batch evaluation failed: {e}")
+                for eval_request in eval_requests:
+                    record_id = record_id_map.get(eval_request["id"], "")
+                    results.append(
+                        {
+                            "record_id": record_id,
+                            "case_id": eval_request["id"],
+                            "status": "error",
+                            "message": str(e),
+                        }
+                    )
+                    failed_count += 1
 
         return success_response(
             {

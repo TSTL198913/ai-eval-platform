@@ -12,17 +12,16 @@
 from functools import lru_cache
 
 from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings
+from pydantic_settings import SettingsConfigDict
 
-from src.config.thresholds import (
-    get_pass_threshold,
-    get_confidence_threshold,
-    get_threshold_config,
-    is_result_trusted,
-    ThresholdConfig,
-    DEFAULT_PASS_THRESHOLD,
-    DEFAULT_CONFIDENCE_THRESHOLD,
-)
+from src.config.thresholds import DEFAULT_CONFIDENCE_THRESHOLD
+from src.config.thresholds import DEFAULT_PASS_THRESHOLD
+from src.config.thresholds import ThresholdConfig
+from src.config.thresholds import get_confidence_threshold
+from src.config.thresholds import get_pass_threshold
+from src.config.thresholds import get_threshold_config
+from src.config.thresholds import is_result_trusted
 
 
 class Settings(BaseSettings):

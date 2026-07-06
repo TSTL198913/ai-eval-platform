@@ -31,7 +31,7 @@ def analyze_confidence(scores: List[float], alpha: float = 0.05) -> Dict:
         'cv': cv,
         'ci_95_lower': ci_lower,
         'ci_95_upper': ci_upper,
-        'is_normal': norm_p > alpha if norm_p is not None else None,
+        'is_normal': bool(norm_p > alpha) if norm_p is not None else None,
         'normality_p_value': norm_p,
     }
 

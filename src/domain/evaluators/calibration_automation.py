@@ -22,10 +22,13 @@
 
 import logging
 import time
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from dataclasses import dataclass
+from dataclasses import field
+from datetime import datetime
+from datetime import timedelta
 from enum import Enum
-from statistics import mean, stdev
+from statistics import mean
+from statistics import stdev
 from typing import Any
 
 from src.domain.evaluators.agreement_metrics import AgreementMetrics
@@ -188,13 +191,43 @@ class CalibrationManager:
 
         return degradation > self.KAPPA_DEGRADATION_THRESHOLD
 
-    def needs_calibration(self) -> tuple[bool, CalibrationTrigger | None]:
+    def needs_calibration(
+        self,
+        current_scores: list[float] | None = None,
+        new_kappa: float | None = None,
+        rubric_version: str | None = None,
+        model_version: str | None = None,
+    ) -> tuple[bool, CalibrationTrigger | None]:
         """检查是否需要校准
+
+        Args:
+            current_scores: 当前评分列表，用于漂移检测
+            new_kappa: 新的Kappa值，用于Kappa下降检测
+            rubric_version: 当前rubric版本，用于版本变更检测
+            model_version: 当前模型版本，用于模型变更检测
 
         Returns:
             (是否需要校准, 触发器类型)
         """
         now = datetime.now()
+
+        if rubric_version and rubric_version != self.current_rubric_version:
+            logger.info(f"Rubric版本变更: {self.current_rubric_version} → {rubric_version}")
+            self.current_rubric_version = rubric_version
+            return True, CalibrationTrigger.RUBRIC_CHANGE
+
+        if model_version and model_version != self.current_model_version:
+            logger.info(f"模型版本变更: {self.current_model_version} → {model_version}")
+            self.current_model_version = model_version
+            return True, CalibrationTrigger.MODEL_CHANGE
+
+        if current_scores and self.detect_drift(current_scores):
+            logger.info("检测到评分漂移，触发校准")
+            return True, CalibrationTrigger.DRIFT_DETECTED
+
+        if new_kappa is not None and self.check_kappa_degradation(new_kappa):
+            logger.info("检测到Kappa下降，触发校准")
+            return True, CalibrationTrigger.KAPPA_DEGRADATION
 
         if self.last_calibration_time:
             days_since_last = (now - self.last_calibration_time).days

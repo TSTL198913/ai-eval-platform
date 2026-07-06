@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 from src.domain.evaluators.function_call_evaluator import FunctionCallEvaluator
 from src.schemas.evaluation import EvaluationSchema
+from tests.utils.test_helpers import approx_score
 
 
 class TestFunctionCallEvaluatorPositiveCases:
@@ -104,10 +105,10 @@ class TestFunctionCallEvaluatorPositiveCases:
                 "action": "evaluate",
                 "expected_tools": ["test_tool"],
                 "actual_tools": ["test_tool"],
-                "expected_params": {},
-                "actual_params": {},
-                "expected_results": {},
-                "actual_results": {},
+                "expected_params": {"test_tool": {"city": "Beijing"}},
+                "actual_params": {"test_tool": {"city": "Beijing"}},
+                "expected_results": {"test_tool": {"temperature": 25}},
+                "actual_results": {"test_tool": {"temperature": 25}},
             },
         )
         result = target.evaluate(request)
@@ -264,7 +265,7 @@ class TestFunctionCallEvaluatorBoundaryCases:
         assert result.score == 0.0, "完全未选择工具应得0分"
 
     def test_no_params_expected_and_provided(self, target):
-        """无参数验证时应有默认满分"""
+        """无参数验证时应返回合理分数"""
         request = EvaluationSchema(
             id="fc_b002",
             type="function_call",
@@ -277,10 +278,10 @@ class TestFunctionCallEvaluatorBoundaryCases:
         result = target.evaluate(request)
 
         assert result.is_valid is True
-        assert result.score == 1.0, "无参数时应得满分"
+        assert result.score == approx_score(0.5), f"无参数时应得0.5分，实际: {result.score}"
 
     def test_no_results_expected_and_provided(self, target):
-        """无结果验证时应有默认满分"""
+        """无结果验证时应返回合理分数"""
         request = EvaluationSchema(
             id="fc_b003",
             type="function_call",
@@ -293,7 +294,7 @@ class TestFunctionCallEvaluatorBoundaryCases:
         result = target.evaluate(request)
 
         assert result.is_valid is True
-        assert result.score == 1.0, "无结果时应得满分"
+        assert result.score == approx_score(0.5), f"无结果时应得0.5分，实际: {result.score}"
 
     def test_many_incorrect_tools_penalty_limit(self, target):
         """多个错误工具选择应有惩罚上限"""

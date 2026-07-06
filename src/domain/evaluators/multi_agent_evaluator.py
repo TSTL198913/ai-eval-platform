@@ -5,157 +5,90 @@
 - 任务分配效率评估
 - 协作完成率评估
 - 冲突检测评估
+
+遵循单一职责原则，状态管理由 MultiAgentStateManager 负责。
 """
 
+import concurrent.futures
 import logging
-import re
-import threading
 import time
-from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any
 
-# 假设的基础依赖导入路径
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
+from src.domain.evaluators.multi_agent_state_manager import AgentInfo
+from src.domain.evaluators.multi_agent_state_manager import AgentMessage
+from src.domain.evaluators.multi_agent_state_manager import AgentTask
+from src.domain.evaluators.multi_agent_state_manager import Conflict
+from src.domain.evaluators.multi_agent_state_manager import ConflictType
+from src.domain.evaluators.multi_agent_state_manager import MessageType
+from src.domain.evaluators.multi_agent_state_manager import MultiAgentStateManager
+from src.domain.evaluators.multi_agent_state_manager import TaskStatus
+from src.domain.evaluators.multi_agent_state_manager import sanitize_input
+from src.schemas.evaluation import DomainResponse
+from src.schemas.evaluation import EvaluationSchema
 
-# 设置工业级结构化日志
 logger = logging.getLogger(__name__)
-
-# 预编译安全过滤正则，提升高频调用下的 CPU 性能并防止 ReDoS
-_SCRIPT_RE = re.compile(r"<script[^>]*>.*?</script>", re.IGNORECASE | re.DOTALL)
-_HTML_RE = re.compile(r"<[^>]+>")
-_CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
-
-
-def sanitize_input(text: str, max_length: int = 1000) -> str:
-    """清理用户输入，防止 XSS 和注入攻击（高性能预编译版）"""
-    if not text:
-        return ""
-
-    text = text[:max_length]
-    text = _SCRIPT_RE.sub("", text)
-    text = _HTML_RE.sub("", text)
-    text = _CONTROL_CHAR_RE.sub("", text)
-    return text.strip()
-
-
-class MessageType(str, Enum):
-    """消息类型枚举"""
-
-    REQUEST = "request"
-    RESPONSE = "response"
-    BROADCAST = "broadcast"
-    NOTIFICATION = "notification"
-    ERROR = "error"
-
-
-class ConflictType(str, Enum):
-    """冲突类型枚举"""
-
-    RESOURCE = "resource"
-    TASK = "task"
-    COMMUNICATION = "communication"
-    PRIORITY = "priority"
-    DATA = "data"
-
-
-class TaskStatus(str, Enum):
-    """任务状态枚举"""
-
-    PENDING = "pending"
-    ASSIGNED = "assigned"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    FAILED = "failed"
-
-
-# 开启 slots=True 显著降低高吞吐智能体轨迹序列化的内存占用
-@dataclass(slots=True)
-class AgentMessage:
-    """Agent间消息模型"""
-
-    message_id: str
-    sender_id: str
-    receiver_id: str
-    message_type: MessageType
-    content: str
-    timestamp: float
-    latency_ms: float = 0.0
-    is_delivered: bool = True
-    is_acknowledged: bool = False
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass(slots=True)
-class AgentTask:
-    """Agent任务模型"""
-
-    task_id: str
-    agent_id: str
-    description: str
-    status: TaskStatus
-    priority: int = 1
-    assigned_at: float = 0.0
-    completed_at: float = 0.0
-    dependencies: list[str] = field(default_factory=list)
-    result: Any = None
-    error: str | None = None
-
-
-@dataclass(slots=True)
-class Conflict:
-    """冲突记录模型"""
-
-    conflict_id: str
-    conflict_type: ConflictType
-    agent_ids: list[str]
-    description: str
-    timestamp: float
-    resolved: bool = False
-    resolution: str | None = None
-
-
-@dataclass(slots=True)
-class AgentInfo:
-    """Agent信息统计模型"""
-
-    agent_id: str
-    role: str
-    capabilities: list[str] = field(default_factory=list)
-    status: str = "active"
-    current_tasks: list[str] = field(default_factory=list)
-    message_count: int = 0
-    completed_tasks: int = 0
-    failed_tasks: int = 0
 
 
 @EvaluatorFactory.register("multi_agent")
 class MultiAgentEvaluator(BaseEvaluator):
-    """多Agent协作评估器 (2026 工业级高并发版)"""
+    """多Agent协作评估器"""
 
     def __init__(self, client=None):
         super().__init__(client)
-        # 细粒度独立线程锁，最大化并发吞吐性能
-        self._agents_lock = threading.Lock()
-        self._messages_lock = threading.Lock()
-        self._tasks_lock = threading.Lock()
-        self._conflicts_lock = threading.Lock()
-        self._sessions_lock = threading.Lock()
+        self._state_manager = MultiAgentStateManager()
+        self.collaboration_sessions = {}
 
-        # 内存数据存储群
-        self.agents: dict[str, AgentInfo] = {}
-        self.messages: list[AgentMessage] = []
-        self.tasks: dict[str, AgentTask] = {}
-        self.conflicts: list[Conflict] = []
-        self.collaboration_sessions: dict[str, dict[str, Any]] = {}
+    async def _do_evaluate_async(self, request: EvaluationSchema) -> DomainResponse:
+        import asyncio
+        action = self.get_payload_data(request, "action", "evaluate")
+        timeout_seconds = self.get_payload_data(request, "timeout", 30)
+        logger.debug(f"MultiAgentEvaluator 异步执行动作: {action}, 超时时间: {timeout_seconds}秒")
+
+        try:
+            loop = asyncio.get_event_loop()
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = loop.run_in_executor(executor, self._execute_action, action, request)
+                try:
+                    return await asyncio.wait_for(future, timeout=timeout_seconds)
+                except asyncio.TimeoutError:
+                    logger.error(f"MultiAgentEvaluator 异步执行动作 '{action}' 超时（{timeout_seconds}秒）")
+                    return self.create_error_response(
+                        error_message=f"评估器异步执行超时，已超过 {timeout_seconds} 秒",
+                        error_code="EVALUATION_TIMEOUT",
+                    )
+        except Exception as e:
+            logger.error(f"MultiAgentEvaluator 异步执行动作 '{action}' 失败: {e}")
+            return self.create_error_response(
+                error_message=f"评估器异步执行失败: {str(e)}",
+                error_code="EVALUATION_ERROR",
+            )
 
     def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
-        """评估入口（采用现代 Python 模式匹配 match-case 路由）"""
         action = self.get_payload_data(request, "action", "evaluate")
-        logger.debug(f"MultiAgentEvaluator 正在执行动作: {action}")
+        timeout_seconds = self.get_payload_data(request, "timeout", 30)
+        logger.debug(f"MultiAgentEvaluator 正在执行动作: {action}, 超时时间: {timeout_seconds}秒")
 
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(self._execute_action, action, request)
+                try:
+                    return future.result(timeout=timeout_seconds)
+                except concurrent.futures.TimeoutError:
+                    logger.error(f"MultiAgentEvaluator 执行动作 '{action}' 超时（{timeout_seconds}秒）")
+                    return self.create_error_response(
+                        error_message=f"评估器执行超时，已超过 {timeout_seconds} 秒",
+                        error_code="EVALUATION_TIMEOUT",
+                    )
+        except Exception as e:
+            logger.error(f"MultiAgentEvaluator 执行动作 '{action}' 失败: {e}")
+            return self.create_error_response(
+                error_message=f"评估器执行失败: {str(e)}",
+                error_code="EVALUATION_ERROR",
+            )
+
+    def _execute_action(self, action: str, request: EvaluationSchema) -> DomainResponse:
         match action:
             case "register_agent":
                 return self._register_agent(request)
@@ -179,7 +112,6 @@ class MultiAgentEvaluator(BaseEvaluator):
                 return self._evaluate_collaboration(request)
 
     def _register_agent(self, request: EvaluationSchema) -> DomainResponse:
-        """注册 Agent"""
         agent_id = self.get_payload_data(request, "agent_id")
         role = self.get_payload_data(request, "role", "worker")
         capabilities = self.get_payload_data(request, "capabilities", [])
@@ -187,23 +119,21 @@ class MultiAgentEvaluator(BaseEvaluator):
         if not agent_id:
             return self.create_error_response(error_message="agent_id 不能为空")
 
-        agent = AgentInfo(agent_id=agent_id, role=role, capabilities=capabilities)
-        with self._agents_lock:
-            self.agents[agent_id] = agent
-
-        return self.create_success_response(
-            text=f"Agent {agent_id} 注册成功",
-            score=1.0,
-            data={"agent_id": agent_id, "role": role, "capabilities": capabilities},
-        )
+        success = self._state_manager.register_agent(agent_id, role, capabilities)
+        if success:
+            return self.create_success_response(
+                text=f"Agent {agent_id} 注册成功",
+                score=1.0,
+                data={"agent_id": agent_id, "role": role, "capabilities": capabilities},
+            )
+        return self.create_error_response(error_message="Agent 注册失败")
 
     def _record_message(self, request: EvaluationSchema) -> DomainResponse:
-        """记录 Agent 间消息"""
         message_id = self.get_payload_data(request, "message_id")
         sender_id = self.get_payload_data(request, "sender_id")
         receiver_id = self.get_payload_data(request, "receiver_id")
         message_type = self.get_payload_data(request, "message_type", "request")
-        content = sanitize_input(self.get_payload_data(request, "content", ""))
+        content = self.get_payload_data(request, "content", "")
         latency_ms = self.get_payload_data(request, "latency_ms", 0.0)
         is_delivered = self.get_payload_data(request, "is_delivered", True)
         is_acknowledged = self.get_payload_data(request, "is_acknowledged", False)
@@ -213,184 +143,150 @@ class MultiAgentEvaluator(BaseEvaluator):
             return self.create_error_response(error_message="sender_id 和 receiver_id 不能为空")
 
         try:
-            msg_type = MessageType(message_type)
+            from src.domain.evaluators.multi_agent_state_manager import MessageType
+            MessageType(message_type)
         except ValueError:
-            return self.create_error_response(error_message=f"无效的 message_type: {message_type}")
+            return self.create_error_response(error_message=f"无效的message_type: {message_type}")
 
-        with self._messages_lock:
-            msg_id = message_id or f"msg-{len(self.messages)}"
-            message = AgentMessage(
-                message_id=msg_id,
-                sender_id=sender_id,
-                receiver_id=receiver_id,
-                message_type=msg_type,
-                content=content,
-                timestamp=time.time(),
-                latency_ms=latency_ms,
-                is_delivered=is_delivered,
-                is_acknowledged=is_acknowledged,
-                metadata=metadata,
-            )
-            self.messages.append(message)
-
-        with self._agents_lock:
-            if sender_id in self.agents:
-                self.agents[sender_id].message_count += 1
-
-        return self.create_success_response(
-            text="消息记录成功",
-            score=1.0,
-            data={
-                "message_id": message.message_id,
-                "sender_id": sender_id,
-                "receiver_id": receiver_id,
-            },
+        msg_id = self._state_manager.record_message(
+            sender_id=sender_id,
+            receiver_id=receiver_id,
+            content=content,
+            message_type=message_type,
+            message_id=message_id,
+            latency_ms=latency_ms,
+            is_delivered=is_delivered,
+            is_acknowledged=is_acknowledged,
+            metadata=metadata,
         )
 
+        if msg_id:
+            return self.create_success_response(
+                text="消息记录成功",
+                score=1.0,
+                data={
+                    "message_id": msg_id,
+                    "sender_id": sender_id,
+                    "receiver_id": receiver_id,
+                    "message_type": message_type,
+                },
+            )
+        return self.create_error_response(error_message="消息记录失败")
+
     def _assign_task(self, request: EvaluationSchema) -> DomainResponse:
-        """分配任务给 Agent"""
         task_id = self.get_payload_data(request, "task_id")
         agent_id = self.get_payload_data(request, "agent_id")
-        description = sanitize_input(self.get_payload_data(request, "description", ""))
+        description = self.get_payload_data(request, "description", "")
         priority = self.get_payload_data(request, "priority", 1)
         dependencies = self.get_payload_data(request, "dependencies", [])
 
         if not task_id or not agent_id:
             return self.create_error_response(error_message="task_id 和 agent_id 不能为空")
 
-        with self._agents_lock:
-            if agent_id not in self.agents:
-                return self.create_error_response(error_message=f"Agent {agent_id} 未注册")
+        if not self._state_manager.get_agent_info(agent_id):
+            return self.create_error_response(error_message=f"Agent {agent_id} 未注册")
 
-        task = AgentTask(
+        success = self._state_manager.assign_task(
             task_id=task_id,
             agent_id=agent_id,
             description=description,
-            status=TaskStatus.ASSIGNED,
             priority=priority,
-            assigned_at=time.time(),
             dependencies=dependencies,
         )
 
-        with self._tasks_lock:
-            self.tasks[task_id] = task
-        with self._agents_lock:
-            self.agents[agent_id].current_tasks.append(task_id)
-
-        return self.create_success_response(
-            text=f"任务 {task_id} 已分配给 Agent {agent_id}",
-            score=1.0,
-            data={"task_id": task_id, "agent_id": agent_id, "status": "assigned"},
-        )
+        if success:
+            return self.create_success_response(
+                text=f"任务 {task_id} 已分配给 Agent {agent_id}",
+                score=1.0,
+                data={"task_id": task_id, "agent_id": agent_id, "status": "assigned"},
+            )
+        return self.create_error_response(error_message="任务分配失败")
 
     def _update_task(self, request: EvaluationSchema) -> DomainResponse:
-        """更新任务状态"""
         task_id = self.get_payload_data(request, "task_id")
         status = self.get_payload_data(request, "status")
         result = self.get_payload_data(request, "result")
-        error = sanitize_input(self.get_payload_data(request, "error", ""))
+        error = self.get_payload_data(request, "error", "")
 
         try:
-            new_status = TaskStatus(status)
+            from src.domain.evaluators.multi_agent_state_manager import TaskStatus
+            TaskStatus(status)
         except ValueError:
-            return self.create_error_response(error_message=f"无效的 status: {status}")
+            return self.create_error_response(error_message=f"无效的status: {status}")
 
-        with self._tasks_lock:
-            if task_id not in self.tasks:
-                return self.create_error_response(error_message=f"任务 {task_id} 不存在")
-            task = self.tasks[task_id]
-            old_status = task.status
-            task.status = new_status
+        if not self._state_manager.get_task_info(task_id):
+            return self.create_error_response(error_message=f"任务 {task_id} 不存在")
 
-            if task.status == TaskStatus.COMPLETED:
-                task.completed_at = time.time()
-                task.result = result
-                agent_id = task.agent_id
-            elif task.status == TaskStatus.FAILED:
-                task.error = error
-                agent_id = task.agent_id
-            else:
-                agent_id = None
-
-        if agent_id:
-            with self._agents_lock:
-                if agent_id in self.agents:
-                    agent_info = self.agents[agent_id]
-                    if new_status == TaskStatus.COMPLETED:
-                        agent_info.completed_tasks += 1
-                    elif new_status == TaskStatus.FAILED:
-                        agent_info.failed_tasks += 1
-                    if task_id in agent_info.current_tasks:
-                        agent_info.current_tasks.remove(task_id)
-
-        return self.create_success_response(
-            text=f"任务 {task_id} 状态已更新为 {status}",
-            score=1.0,
-            data={"task_id": task_id, "old_status": old_status.value, "new_status": status},
+        success = self._state_manager.update_task(
+            task_id=task_id,
+            status=status,
+            result=result,
+            error=error,
         )
 
+        if success:
+            return self.create_success_response(
+                text=f"任务 {task_id} 状态已更新为 {status}",
+                score=1.0,
+                data={"task_id": task_id, "new_status": status},
+            )
+        return self.create_error_response(error_message="任务更新失败")
+
     def _record_conflict(self, request: EvaluationSchema) -> DomainResponse:
-        """记录冲突"""
         conflict_id = self.get_payload_data(request, "conflict_id")
         conflict_type = self.get_payload_data(request, "conflict_type")
         agent_ids = self.get_payload_data(request, "agent_ids", [])
-        description = sanitize_input(self.get_payload_data(request, "description", ""))
+        description = self.get_payload_data(request, "description", "")
 
         if not agent_ids:
             return self.create_error_response(error_message="agent_ids 不能为空")
 
         try:
-            conflict_type_enum = ConflictType(conflict_type)
+            from src.domain.evaluators.multi_agent_state_manager import ConflictType
+            ConflictType(conflict_type)
         except ValueError:
-            return self.create_error_response(error_message=f"无效的 conflict_type: {conflict_type}")
+            return self.create_error_response(error_message=f"无效的conflict_type: {conflict_type}")
 
-        with self._conflicts_lock:
-            c_id = conflict_id or f"conflict-{len(self.conflicts)}"
-            conflict = Conflict(
-                conflict_id=c_id,
-                conflict_type=conflict_type_enum,
-                agent_ids=agent_ids,
-                description=description,
-                timestamp=time.time(),
-            )
-            self.conflicts.append(conflict)
-
-        return self.create_success_response(
-            text="冲突已记录",
-            score=1.0,
-            data={
-                "conflict_id": conflict.conflict_id,
-                "conflict_type": conflict_type,
-                "agent_ids": agent_ids,
-            },
+        c_id = self._state_manager.record_conflict(
+            conflict_type=conflict_type,
+            agent_ids=agent_ids,
+            description=description,
+            conflict_id=conflict_id,
         )
+
+        if c_id:
+            return self.create_success_response(
+                text="冲突已记录",
+                score=1.0,
+                data={
+                    "conflict_id": c_id,
+                    "conflict_type": conflict_type,
+                    "agent_ids": agent_ids,
+                },
+            )
+        return self.create_error_response(error_message="冲突记录失败")
 
     def _resolve_conflict(self, request: EvaluationSchema) -> DomainResponse:
-        """解决冲突"""
         conflict_id = self.get_payload_data(request, "conflict_id")
-        resolution = sanitize_input(self.get_payload_data(request, "resolution", ""))
+        resolution = self.get_payload_data(request, "resolution", "")
 
-        conflict = None
-        with self._conflicts_lock:
-            for c in self.conflicts:
-                if c.conflict_id == conflict_id:
-                    conflict = c
-                    break
+        if not self._state_manager.get_conflict_info(conflict_id):
+            return self.create_error_response(error_message=f"冲突 {conflict_id} 不存在")
 
-            if not conflict:
-                return self.create_error_response(error_message=f"冲突 {conflict_id} 不存在")
-
-            conflict.resolved = True
-            conflict.resolution = resolution
-
-        return self.create_success_response(
-            text=f"冲突 {conflict_id} 已解决",
-            score=1.0,
-            data={"conflict_id": conflict_id, "resolution": resolution},
+        success = self._state_manager.resolve_conflict(
+            conflict_id=conflict_id,
+            resolution=resolution,
         )
 
+        if success:
+            return self.create_success_response(
+                text=f"冲突 {conflict_id} 已解决",
+                score=1.0,
+                data={"conflict_id": conflict_id, "resolution": resolution},
+            )
+        return self.create_error_response(error_message="冲突解决失败")
+
     def _start_collaboration_session(self, request: EvaluationSchema) -> DomainResponse:
-        """开始协作会话"""
         session_id = self.get_payload_data(request, "session_id")
         agent_ids = self.get_payload_data(request, "agent_ids", [])
         goal = self.get_payload_data(request, "goal", "")
@@ -398,50 +294,51 @@ class MultiAgentEvaluator(BaseEvaluator):
         if not session_id:
             return self.create_error_response(error_message="session_id 不能为空")
 
-        with self._sessions_lock:
+        success = self._state_manager.start_session(session_id, agent_ids, goal)
+        if success:
             self.collaboration_sessions[session_id] = {
                 "session_id": session_id,
                 "agent_ids": agent_ids,
                 "goal": goal,
-                "start_time": time.time(),
-                "end_time": None,
                 "status": "active",
             }
-
-        return self.create_success_response(
-            text=f"协作会话 {session_id} 已开始",
-            score=1.0,
-            data={"session_id": session_id, "agent_ids": agent_ids, "goal": goal},
-        )
+            return self.create_success_response(
+                text=f"协作会话 {session_id} 已开始",
+                score=1.0,
+                data={"session_id": session_id, "agent_ids": agent_ids, "goal": goal},
+            )
+        return self.create_error_response(error_message="会话开始失败")
 
     def _end_collaboration_session(self, request: EvaluationSchema) -> DomainResponse:
-        """结束协作会话"""
         session_id = self.get_payload_data(request, "session_id")
         status = self.get_payload_data(request, "status", "completed")
 
-        with self._sessions_lock:
-            if session_id not in self.collaboration_sessions:
-                return self.create_error_response(error_message=f"会话 {session_id} 不存在")
+        if session_id not in self.collaboration_sessions:
+            return self.create_error_response(error_message=f"会话 {session_id} 不存在")
 
-            session = self.collaboration_sessions[session_id]
-            session["end_time"] = time.time()
-            session["status"] = status
-            duration_seconds = session["end_time"] - session["start_time"]
-
+        duration = self._state_manager.end_session(session_id, status)
+        if duration is None and session_id in self.collaboration_sessions:
+            session_data = self.collaboration_sessions[session_id]
+            if "end_time" in session_data and "start_time" in session_data:
+                if session_data["end_time"] is not None:
+                    duration = session_data["end_time"] - session_data["start_time"]
+                else:
+                    duration = time.time() - session_data["start_time"]
+            elif "start_time" in session_data:
+                duration = time.time() - session_data["start_time"]
+        if duration is None:
+            duration = 0.0
+        if session_id in self.collaboration_sessions:
+            self.collaboration_sessions[session_id]["status"] = status
         return self.create_success_response(
             text=f"协作会话 {session_id} 已结束",
             score=1.0,
-            data={"session_id": session_id, "status": status, "duration_seconds": duration_seconds},
+            data={"session_id": session_id, "status": status, "duration_seconds": duration},
         )
 
     def _analyze_collaboration(self, request: EvaluationSchema) -> DomainResponse:
-        """分析实时协作数据分布"""
         session_id = self.get_payload_data(request, "session_id")
-
-        with self._sessions_lock:
-            session_exists = session_id and session_id in self.collaboration_sessions
-
-        analysis = self._analyze_session(session_id) if session_exists else self._analyze_overall()
+        analysis = self._analyze_session(session_id) if session_id else self._analyze_overall()
 
         return self.create_success_response(
             text="协作分析完成",
@@ -450,21 +347,40 @@ class MultiAgentEvaluator(BaseEvaluator):
         )
 
     def _evaluate_collaboration(self, request: EvaluationSchema) -> DomainResponse:
-        """【重构亮点】评估多Agent协作（纯函数无污染执行，完美防御高并发下的状态擦除）"""
         agents_data = self.get_payload_data(request, "agents", [])
         messages_data = self.get_payload_data(request, "messages", [])
         tasks_data = self.get_payload_data(request, "tasks", [])
         conflicts_data = self.get_payload_data(request, "conflicts", [])
 
-        # 将请求包中的原始数据完全解析为局部强类型结构，不直接触碰全局运行时属性
-        (
-            parsed_agents,
-            parsed_messages,
-            parsed_tasks,
-            parsed_conflicts,
-        ) = self._parse_collaboration_data(agents_data, messages_data, tasks_data, conflicts_data)
+        if not agents_data and not messages_data and not tasks_data:
+            actual_output = self.get_payload_data(request, "actual_output", "")
+            expected_output = self.get_payload_data(request, "expected_output", "")
+            
+            import difflib
+            similarity = difflib.SequenceMatcher(None, actual_output, expected_output).ratio()
+            
+            return self.create_partial_response(
+                text="多Agent协作评估（降级模式），基于输出相似度评估",
+                score=similarity,
+                dimensions_evaluated=["output_similarity"],
+                dimensions_skipped=["communication", "task_efficiency", "conflict_resolution"],
+                skip_reasons={
+                    "communication": "缺少多Agent通信数据",
+                    "task_efficiency": "缺少多Agent任务数据",
+                    "conflict_resolution": "缺少多Agent冲突数据",
+                },
+                confidence=0.5,
+                data={
+                    "overall_score": similarity,
+                    "output_similarity": similarity,
+                    "mode": "fallback",
+                },
+            )
 
-        # 驱动纯函数式流水线完成数学解算
+        parsed_agents, parsed_messages, parsed_tasks, parsed_conflicts = (
+            self._parse_collaboration_data(agents_data, messages_data, tasks_data, conflicts_data)
+        )
+
         analysis = self._analyze_overall(
             agents_map=parsed_agents,
             messages_list=parsed_messages,
@@ -485,7 +401,6 @@ class MultiAgentEvaluator(BaseEvaluator):
         tasks_data: list[dict],
         conflicts_data: list[dict],
     ) -> tuple[dict[str, AgentInfo], list[AgentMessage], list[AgentTask], list[Conflict]]:
-        """纯解算辅助：将原始报文结构化映射为强类型Slots实例"""
         parsed_agents: dict[str, AgentInfo] = {}
         for a in agents_data:
             aid = a.get("agent_id")
@@ -547,7 +462,6 @@ class MultiAgentEvaluator(BaseEvaluator):
         return parsed_agents, parsed_messages, parsed_tasks, parsed_conflicts
 
     def _analyze_communication(self, messages: list[AgentMessage]) -> dict[str, Any]:
-        """核心指标：分析通信质量"""
         if not messages:
             return {
                 "total_messages": 0,
@@ -588,7 +502,6 @@ class MultiAgentEvaluator(BaseEvaluator):
         }
 
     def _analyze_tasks(self, tasks: list[AgentTask]) -> dict[str, Any]:
-        """核心指标：分析任务分配效率与延迟惩罚项"""
         if not tasks:
             return {
                 "total_tasks": 0,
@@ -596,48 +509,30 @@ class MultiAgentEvaluator(BaseEvaluator):
                 "failure_rate": 0.0,
                 "avg_completion_time_ms": 0.0,
                 "task_efficiency_score": 0.5,
+                "agent_task_distribution": {},
             }
 
         total_tasks = len(tasks)
         completed_tasks = sum(1 for t in tasks if t.status == TaskStatus.COMPLETED)
         failed_tasks = sum(1 for t in tasks if t.status == TaskStatus.FAILED)
-        pending_tasks = sum(
-            1
-            for t in tasks
-            if t.status in (TaskStatus.PENDING, TaskStatus.ASSIGNED, TaskStatus.IN_PROGRESS)
-        )
+        pending_tasks = sum(1 for t in tasks if t.status == TaskStatus.PENDING)
 
-        completion_rate = completed_tasks / total_tasks
-        failure_rate = failed_tasks / total_tasks
+        completion_rate = completed_tasks / total_tasks if total_tasks > 0 else 0.0
+        failure_rate = failed_tasks / total_tasks if total_tasks > 0 else 0.0
 
         completion_times = [
-            (t.completed_at - t.assigned_at) * 1000
-            for t in tasks
-            if t.status == TaskStatus.COMPLETED and t.completed_at > 0 and t.assigned_at > 0
+            t.completed_at - t.assigned_at for t in tasks if t.completed_at > 0 and t.assigned_at > 0
         ]
-        avg_completion_time = (
-            sum(completion_times) / len(completion_times) if completion_times else 0.0
+        avg_completion_time_ms = (
+            sum(completion_times) / len(completion_times) * 1000 if completion_times else 0.0
         )
 
-        time_score = (
-            max(0.0, min(1.0, 1.0 - (avg_completion_time / 10000.0)))
-            if avg_completion_time > 0
-            else 1.0
-        )
-        task_efficiency_score = (
-            completion_rate * 0.5 + (1.0 - failure_rate) * 0.3 + time_score * 0.2
-        )
+        efficiency_score = completion_rate * 0.6 + (1.0 - failure_rate) * 0.4
 
-        agent_task_distribution: dict[str, dict[str, int]] = {}
+        agent_task_distribution: dict[str, int] = {}
         for task in tasks:
-            agent_id = task.agent_id
-            if agent_id not in agent_task_distribution:
-                agent_task_distribution[agent_id] = {"total": 0, "completed": 0, "failed": 0}
-            agent_task_distribution[agent_id]["total"] += 1
-            if task.status == TaskStatus.COMPLETED:
-                agent_task_distribution[agent_id]["completed"] += 1
-            elif task.status == TaskStatus.FAILED:
-                agent_task_distribution[agent_id]["failed"] += 1
+            aid = task.agent_id
+            agent_task_distribution[aid] = agent_task_distribution.get(aid, 0) + 1
 
         return {
             "total_tasks": total_tasks,
@@ -646,25 +541,21 @@ class MultiAgentEvaluator(BaseEvaluator):
             "pending_tasks": pending_tasks,
             "completion_rate": round(completion_rate, 4),
             "failure_rate": round(failure_rate, 4),
-            "avg_completion_time_ms": round(avg_completion_time, 2),
+            "avg_completion_time_ms": round(avg_completion_time_ms, 2),
+            "task_efficiency_score": round(efficiency_score, 4),
             "agent_task_distribution": agent_task_distribution,
-            "task_efficiency_score": round(task_efficiency_score, 4),
         }
 
     def _analyze_conflicts(self, conflicts: list[Conflict] | None = None) -> dict[str, Any]:
-        """分析系统冲突全局情况"""
         if conflicts is None:
-            with self._conflicts_lock:
-                conflicts = list(self.conflicts)
+            _, _, _, conflicts = self._state_manager.get_snapshot()
         return self._analyze_conflicts_for_agents(conflicts, None)
 
     def _analyze_conflicts_for_agents(
         self, conflicts: list[Conflict] | None, agent_ids: list[str] | None
     ) -> dict[str, Any]:
-        """分析指定拓扑范围内的 Agent 拓扑冲突率"""
         if conflicts is None:
-            with self._conflicts_lock:
-                conflicts = list(self.conflicts)
+            _, _, _, conflicts = self._state_manager.get_snapshot()
 
         filtered_conflicts = (
             [c for c in conflicts if any(aid in c.agent_ids for aid in agent_ids)]
@@ -692,8 +583,19 @@ class MultiAgentEvaluator(BaseEvaluator):
             c_type = conflict.conflict_type.value
             type_distribution[c_type] = type_distribution.get(c_type, 0) + 1
 
-        conflict_penalty = min(1.0, total_conflicts / 10.0)
-        conflict_resolution_score = resolution_rate * (1.0 - conflict_penalty * 0.5)
+        SEVERITY_WEIGHTS = {
+            "resource": 1.0,
+            "task": 0.8,
+            "priority": 0.6,
+            "communication": 0.4,
+            "data": 0.5,
+        }
+        weighted_severity = sum(
+            SEVERITY_WEIGHTS.get(c.conflict_type.value, 0.5)
+            for c in filtered_conflicts
+        ) / max(total_conflicts, 1)
+        conflict_penalty = min(0.5, total_conflicts * weighted_severity / 20.0)
+        conflict_resolution_score = resolution_rate * (1.0 - conflict_penalty)
 
         return {
             "total_conflicts": total_conflicts,
@@ -710,107 +612,127 @@ class MultiAgentEvaluator(BaseEvaluator):
         tasks_len: int | None = None,
         messages_len: int | None = None,
     ) -> dict[str, Any]:
-        """【函数式重构】基于变异系数(CV)计算群落负载均衡度"""
         if agents_map is None:
-            with self._agents_lock:
-                agents_map = dict(self.agents)
+            agents_map, _, _, _ = self._state_manager.get_snapshot()
         if tasks_len is None:
-            with self._tasks_lock:
-                tasks_len = len(self.tasks)
+            _, _, tasks_list, _ = self._state_manager.get_snapshot()
+            tasks_len = len(tasks_list)
         if messages_len is None:
-            with self._messages_lock:
-                messages_len = len(self.messages)
+            _, messages_list, _, _ = self._state_manager.get_snapshot()
+            messages_len = len(messages_list)
 
         if not agents_map:
             return {
                 "active_agents": 0,
-                "avg_tasks_per_agent": 0.0,
                 "avg_messages_per_agent": 0.0,
+                "avg_tasks_per_agent": 0.0,
                 "agent_utilization_rate": 0.0,
                 "collaboration_score": 0.5,
             }
 
-        total_agents = len(agents_map)
-        active_agents = sum(1 for a in agents_map.values() if a.status == "active")
-        avg_tasks_per_agent = tasks_len / total_agents
-        avg_messages_per_agent = messages_len / total_agents
+        active_agents = len(agents_map)
+        total_messages = messages_len
+        total_tasks = tasks_len
+
+        avg_messages_per_agent = total_messages / active_agents if active_agents > 0 else 0.0
+        avg_tasks_per_agent = total_tasks / active_agents if active_agents > 0 else 0.0
 
         agents_with_tasks = sum(
             1 for a in agents_map.values() if a.completed_tasks > 0 or len(a.current_tasks) > 0
         )
-        agent_utilization_rate = agents_with_tasks / total_agents
-        activity_score = active_agents / total_agents
+        agent_utilization_rate = agents_with_tasks / active_agents
 
-        # 基于精准变异系数 (CV = std_dev / mean) 计算负载均衡评分
-        task_counts = [a.completed_tasks + len(a.current_tasks) for a in agents_map.values()]
-        if task_counts and max(task_counts) > 0:
-            avg_tasks = sum(task_counts) / len(task_counts)
-            if avg_tasks > 0:
-                variance = sum((t - avg_tasks) ** 2 for t in task_counts) / len(task_counts)
-                std_dev = variance**0.5
-                cv = std_dev / avg_tasks
-                load_balance_score = max(0.0, 1.0 - cv)
+        if total_messages > 0 and total_tasks > 0:
+            msg_task_ratio = total_messages / total_tasks
+            if msg_task_ratio < 1:
+                ratio_score = msg_task_ratio
+            elif msg_task_ratio <= 5:
+                ratio_score = 1.0
             else:
-                load_balance_score = 1.0
+                ratio_score = max(0.5, 1.0 - (msg_task_ratio - 5) * 0.1)
+            collaboration_score = ratio_score * 0.5 + agent_utilization_rate * 0.5
         else:
-            load_balance_score = 1.0
+            collaboration_score = agent_utilization_rate if agents_map else 0.5
 
-        collaboration_score = (
-            activity_score * 0.3 + agent_utilization_rate * 0.4 + load_balance_score * 0.3
-        )
+        task_counts = [a.completed_tasks + len(a.current_tasks) for a in agents_map.values()]
+        if task_counts:
+            avg_task_count = sum(task_counts) / len(task_counts)
+            variance = sum((tc - avg_task_count) ** 2 for tc in task_counts) / len(task_counts)
+            std_dev = variance ** 0.5
+            balance_ratio = 1.0 - (std_dev / max(avg_task_count, 1))
+            balance_ratio = max(0.0, min(1.0, balance_ratio))
+        else:
+            balance_ratio = 1.0
+
+        resource_utilization = sum(
+            len(a.current_tasks) + a.completed_tasks for a in agents_map.values()
+        ) / max(active_agents * 10, 1)
+        resource_utilization = min(1.0, resource_utilization)
 
         return {
-            "total_agents": total_agents,
             "active_agents": active_agents,
-            "agents_with_tasks": agents_with_tasks,
-            "avg_tasks_per_agent": round(avg_tasks_per_agent, 2),
+            "total_agents": active_agents,
             "avg_messages_per_agent": round(avg_messages_per_agent, 2),
+            "avg_tasks_per_agent": round(avg_tasks_per_agent, 2),
             "agent_utilization_rate": round(agent_utilization_rate, 4),
-            "load_balance_score": round(load_balance_score, 4),
+            "task_balance_ratio": round(balance_ratio, 4),
+            "load_balance_score": round(balance_ratio, 4),
+            "resource_utilization": round(resource_utilization, 4),
             "collaboration_score": round(collaboration_score, 4),
         }
 
-    def _analyze_session(self, session_id: str) -> dict[str, Any]:
-        """分析特定隔离会话的协同质量"""
-        with self._sessions_lock:
-            session = self.collaboration_sessions.get(session_id)
-            if not session:
-                return {"error": f"会话 {session_id} 不存在"}
-            agent_ids = list(session["agent_ids"])
+    def _analyze_session(self, session_id: str | None = None) -> dict[str, Any]:
+        if not session_id:
+            return self._analyze_overall()
 
-        with self._messages_lock:
-            session_messages = [
-                m for m in self.messages if m.sender_id in agent_ids or m.receiver_id in agent_ids
-            ]
-        with self._tasks_lock:
-            session_tasks = [t for t in self.tasks.values() if t.agent_id in agent_ids]
+        agents_map, messages_list, tasks_list, conflicts_list = self._state_manager.get_snapshot()
+        session_info = self._state_manager.get_session_info(session_id)
 
-        communication_analysis = self._analyze_communication(session_messages)
-        task_analysis = self._analyze_tasks(session_tasks)
-
-        with self._conflicts_lock:
-            conflicts_snapshot = list(self.conflicts)
-        conflict_analysis = self._analyze_conflicts_for_agents(conflicts_snapshot, agent_ids)
-
-        with self._sessions_lock:
-            session = self.collaboration_sessions.get(session_id)
-            duration_seconds = (
-                (session.get("end_time") or time.time()) - session["start_time"] if session else 0.0
-            )
+        communication_analysis = self._analyze_communication(messages_list)
+        task_analysis = self._analyze_tasks(tasks_list)
+        conflict_analysis = self._analyze_conflicts_for_agents(conflicts_list, None)
+        collaboration_analysis = self._analyze_collaboration_quality(
+            agents_map=agents_map,
+            tasks_len=len(tasks_list),
+            messages_len=len(messages_list),
+        )
 
         overall_score = (
             communication_analysis.get("communication_score", 0.5) * 0.3
-            + task_analysis.get("task_efficiency_score", 0.5) * 0.4
-            + conflict_analysis.get("conflict_resolution_score", 0.5) * 0.3
+            + task_analysis.get("task_efficiency_score", 0.5) * 0.3
+            + conflict_analysis.get("conflict_resolution_score", 0.5) * 0.2
+            + collaboration_analysis.get("collaboration_score", 0.5) * 0.2
         )
+
+        duration_seconds = 0.0
+        if session_id in self.collaboration_sessions:
+            session_data = self.collaboration_sessions[session_id]
+            if "end_time" in session_data and "start_time" in session_data:
+                if session_data["end_time"] is not None:
+                    duration_seconds = session_data["end_time"] - session_data["start_time"]
+                else:
+                    duration_seconds = time.time() - session_data["start_time"]
+            elif "start_time" in session_data:
+                duration_seconds = time.time() - session_data["start_time"]
+        elif session_info and "end_time" in session_info and "start_time" in session_info:
+            if session_info["end_time"] is not None:
+                duration_seconds = session_info["end_time"] - session_info["start_time"]
+        elif session_info and "start_time" in session_info:
+            duration_seconds = time.time() - session_info["start_time"]
 
         return {
             "session_id": session_id,
+            "session_info": session_info,
+            "agents_count": len(agents_map),
+            "messages_count": len(messages_list),
+            "tasks_count": len(tasks_list),
+            "conflicts_count": len(conflicts_list),
+            "duration_seconds": duration_seconds,
             "communication": communication_analysis,
             "tasks": task_analysis,
             "conflicts": conflict_analysis,
+            "collaboration": collaboration_analysis,
             "overall_score": round(overall_score, 4),
-            "duration_seconds": round(duration_seconds, 2),
         }
 
     def _analyze_overall(
@@ -820,31 +742,27 @@ class MultiAgentEvaluator(BaseEvaluator):
         tasks_list: list[AgentTask] | None = None,
         conflicts_list: list[Conflict] | None = None,
     ) -> dict[str, Any]:
-        """核心解算大脑：全量管道指标聚合"""
-        # 函数式降级捕获：若无外注参数（生产环境Live运行场景），主动获取内部状态锁快照
-        if messages_list is None:
-            with self._messages_lock:
-                messages_list = list(self.messages)
-        if tasks_list is None:
-            with self._tasks_lock:
-                tasks_list = list(self.tasks.values())
-        if conflicts_list is None:
-            with self._conflicts_lock:
-                conflicts_list = list(self.conflicts)
         if agents_map is None:
-            with self._agents_lock:
-                agents_map = dict(self.agents)
+            agents_map, messages_list, tasks_list, conflicts_list = self._state_manager.get_snapshot()
+        if messages_list is None:
+            _, messages_list, _, _ = self._state_manager.get_snapshot()
+        if tasks_list is None:
+            _, _, tasks_list, _ = self._state_manager.get_snapshot()
+        if conflicts_list is None:
+            _, _, _, conflicts_list = self._state_manager.get_snapshot()
 
         communication_analysis = self._analyze_communication(messages_list)
         task_analysis = self._analyze_tasks(tasks_list)
         conflict_analysis = self._analyze_conflicts_for_agents(conflicts_list, None)
         collaboration_analysis = self._analyze_collaboration_quality(
-            agents_map, len(tasks_list), len(messages_list)
+            agents_map=agents_map,
+            tasks_len=len(tasks_list),
+            messages_len=len(messages_list),
         )
 
         overall_score = (
-            communication_analysis.get("communication_score", 0.5) * 0.25
-            + task_analysis.get("task_efficiency_score", 0.5) * 0.35
+            communication_analysis.get("communication_score", 0.5) * 0.3
+            + task_analysis.get("task_efficiency_score", 0.5) * 0.3
             + conflict_analysis.get("conflict_resolution_score", 0.5) * 0.2
             + collaboration_analysis.get("collaboration_score", 0.5) * 0.2
         )
@@ -861,51 +779,210 @@ class MultiAgentEvaluator(BaseEvaluator):
             "overall_score": round(overall_score, 4),
         }
 
-    # 元数据访问接口
-
     def get_agent_info(self, agent_id: str) -> AgentInfo | None:
-        """获取特定 Agent 信息"""
-        with self._agents_lock:
-            return self.agents.get(agent_id)
+        return self._state_manager.get_agent_info(agent_id)
 
     def get_task_info(self, task_id: str) -> AgentTask | None:
-        """获取特定任务信息"""
-        with self._tasks_lock:
-            return self.tasks.get(task_id)
+        return self._state_manager.get_task_info(task_id)
 
     def get_conflict_info(self, conflict_id: str) -> Conflict | None:
-        """获取特定冲突信息"""
-        with self._conflicts_lock:
-            for conflict in self.conflicts:
-                if conflict.conflict_id == conflict_id:
-                    return conflict
-        return None
+        return self._state_manager.get_conflict_info(conflict_id)
 
     def list_agents(self) -> list[str]:
-        """列出所有已注册的 Agent ID"""
-        with self._agents_lock:
-            return list(self.agents.keys())
+        return self._state_manager.list_agents()
 
     def list_tasks(self) -> list[str]:
-        """列出所有任务 ID"""
-        with self._tasks_lock:
-            return list(self.tasks.keys())
+        return self._state_manager.list_tasks()
 
     def list_conflicts(self) -> list[str]:
-        """列出所有冲突 ID"""
-        with self._conflicts_lock:
-            return [c.conflict_id for c in self.conflicts]
+        return self._state_manager.list_conflicts()
 
     def clear_data(self) -> None:
-        """清空数据仓库"""
-        with self._agents_lock:
-            self.agents.clear()
-        with self._messages_lock:
-            self.messages.clear()
-        with self._tasks_lock:
-            self.tasks.clear()
-        with self._conflicts_lock:
-            self.conflicts.clear()
-        with self._sessions_lock:
-            self.collaboration_sessions.clear()
-        logger.info("MultiAgentEvaluator 状态数据已完全重置清空")
+        self._state_manager.clear_data()
+
+    def generate_visualization_report(self, session_id: str | None = None) -> str:
+        analysis = self._analyze_session(session_id) if session_id else self._analyze_overall()
+        
+        html_template = """
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多Agent协作评估报告</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background: #f5f7fa; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); padding: 30px; }
+        h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+        h2 { color: #34495e; margin-top: 25px; }
+        .score-card { display: inline-block; background: linear-gradient(135deg, #3498db, #2980b9); color: white; padding: 20px 30px; border-radius: 10px; margin: 10px; }
+        .score-value { font-size: 48px; font-weight: bold; }
+        .score-label { font-size: 14px; opacity: 0.9; }
+        .section { background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 15px 0; }
+        .metric-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .metric-name { color: #7f8c8d; }
+        .metric-value { font-weight: bold; color: #2c3e50; }
+        .bar-container { height: 20px; background: #ecf0f1; border-radius: 10px; overflow: hidden; margin: 5px 0; }
+        .bar { height: 100%; border-radius: 10px; transition: width 0.3s; }
+        .bar-green { background: #27ae60; }
+        .bar-yellow { background: #f39c12; }
+        .bar-red { background: #e74c3c; }
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+        .stat-box { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center; }
+        .stat-number { font-size: 24px; font-weight: bold; color: #3498db; }
+        .stat-label { font-size: 12px; color: #7f8c8d; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>多Agent协作评估报告</h1>
+        <div style="margin: 20px 0;">
+            <div class="score-card">
+                <div class="score-value">{{overall_score}}</div>
+                <div class="score-label">综合评分</div>
+            </div>
+            <div class="score-card" style="background: linear-gradient(135deg, #27ae60, #2ecc71);">
+                <div class="score-value">{{comm_score}}</div>
+                <div class="score-label">通信质量</div>
+            </div>
+            <div class="score-card" style="background: linear-gradient(135deg, #f39c12, #e67e22);">
+                <div class="score-value">{{task_score}}</div>
+                <div class="score-label">任务效率</div>
+            </div>
+            <div class="score-card" style="background: linear-gradient(135deg, #9b59b6, #8e44ad);">
+                <div class="score-value">{{conflict_score}}</div>
+                <div class="score-label">冲突解决</div>
+            </div>
+        </div>
+        
+        <div class="grid">
+            <div class="stat-box">
+                <div class="stat-number">{{agents_count}}</div>
+                <div class="stat-label">Agent数量</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">{{messages_count}}</div>
+                <div class="stat-label">消息数量</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">{{tasks_count}}</div>
+                <div class="stat-label">任务数量</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">{{conflicts_count}}</div>
+                <div class="stat-label">冲突数量</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>通信分析</h2>
+            <div class="metric-row"><span class="metric-name">消息总数</span><span class="metric-value">{{comm_total}}</span></div>
+            <div class="metric-row"><span class="metric-name">投递率</span><span class="metric-value">{{comm_delivery}}%</span></div>
+            <div class="metric-row"><span class="metric-name">确认率</span><span class="metric-value">{{comm_ack}}%</span></div>
+            <div class="metric-row"><span class="metric-name">平均延迟</span><span class="metric-value">{{comm_latency}}ms</span></div>
+            <div class="bar-container"><div class="bar {{comm_bar_color}}" style="width: {{comm_bar_width}}%"></div></div>
+        </div>
+        
+        <div class="section">
+            <h2>任务分析</h2>
+            <div class="metric-row"><span class="metric-name">完成率</span><span class="metric-value">{{task_completion}}%</span></div>
+            <div class="metric-row"><span class="metric-name">失败率</span><span class="metric-value">{{task_failure}}%</span></div>
+            <div class="metric-row"><span class="metric-name">平均完成时间</span><span class="metric-value">{{task_time}}ms</span></div>
+            <div class="bar-container"><div class="bar {{task_bar_color}}" style="width: {{task_bar_width}}%"></div></div>
+        </div>
+        
+        <div class="section">
+            <h2>冲突分析</h2>
+            <div class="metric-row"><span class="metric-name">冲突总数</span><span class="metric-value">{{conflict_total}}</span></div>
+            <div class="metric-row"><span class="metric-name">已解决</span><span class="metric-value">{{conflict_resolved}}</span></div>
+            <div class="metric-row"><span class="metric-name">解决率</span><span class="metric-value">{{conflict_rate}}%</span></div>
+            <div class="bar-container"><div class="bar {{conflict_bar_color}}" style="width: {{conflict_bar_width}}%"></div></div>
+        </div>
+        
+        <div class="section">
+            <h2>协作质量</h2>
+            <div class="metric-row"><span class="metric-name">Agent利用率</span><span class="metric-value">{{collab_utilization}}%</span></div>
+            <div class="metric-row"><span class="metric-name">任务均衡度</span><span class="metric-value">{{collab_balance}}%</span></div>
+            <div class="metric-row"><span class="metric-name">资源利用率</span><span class="metric-value">{{collab_resource}}%</span></div>
+            <div class="bar-container"><div class="bar {{collab_bar_color}}" style="width: {{collab_bar_width}}%"></div></div>
+        </div>
+    </div>
+</body>
+</html>
+        """
+        
+        comm = analysis.get("communication", {})
+        task = analysis.get("tasks", {})
+        conflict = analysis.get("conflicts", {})
+        collab = analysis.get("collaboration", {})
+        
+        def get_bar_color(score):
+            if score >= 0.8: return "bar-green"
+            if score >= 0.5: return "bar-yellow"
+            return "bar-red"
+        
+        data = {
+            "overall_score": f"{analysis.get('overall_score', 0):.2f}",
+            "comm_score": f"{comm.get('communication_score', 0):.2f}",
+            "task_score": f"{task.get('task_efficiency_score', 0):.2f}",
+            "conflict_score": f"{conflict.get('conflict_resolution_score', 0):.2f}",
+            "agents_count": analysis.get("agents_count", 0),
+            "messages_count": analysis.get("messages_count", 0),
+            "tasks_count": analysis.get("tasks_count", 0),
+            "conflicts_count": analysis.get("conflicts_count", 0),
+            "comm_total": comm.get("total_messages", 0),
+            "comm_delivery": f"{comm.get('delivery_rate', 0) * 100:.1f}",
+            "comm_ack": f"{comm.get('acknowledgment_rate', 0) * 100:.1f}",
+            "comm_latency": comm.get("avg_latency_ms", 0),
+            "comm_bar_color": get_bar_color(comm.get("communication_score", 0)),
+            "comm_bar_width": f"{comm.get('communication_score', 0) * 100:.1f}",
+            "task_completion": f"{task.get('completion_rate', 0) * 100:.1f}",
+            "task_failure": f"{task.get('failure_rate', 0) * 100:.1f}",
+            "task_time": task.get("avg_completion_time_ms", 0),
+            "task_bar_color": get_bar_color(task.get("task_efficiency_score", 0)),
+            "task_bar_width": f"{task.get('task_efficiency_score', 0) * 100:.1f}",
+            "conflict_total": conflict.get("total_conflicts", 0),
+            "conflict_resolved": conflict.get("resolved_conflicts", 0),
+            "conflict_rate": f"{conflict.get('resolution_rate', 0) * 100:.1f}",
+            "conflict_bar_color": get_bar_color(conflict.get("conflict_resolution_score", 0)),
+            "conflict_bar_width": f"{conflict.get('conflict_resolution_score', 0) * 100:.1f}",
+            "collab_utilization": f"{collab.get('agent_utilization_rate', 0) * 100:.1f}",
+            "collab_balance": f"{collab.get('task_balance_ratio', 0) * 100:.1f}",
+            "collab_resource": f"{collab.get('resource_utilization', 0) * 100:.1f}",
+            "collab_bar_color": get_bar_color(collab.get("collaboration_score", 0)),
+            "collab_bar_width": f"{collab.get('collaboration_score', 0) * 100:.1f}",
+        }
+        
+        return html_template.format(**data)
+
+    @property
+    def agents(self):
+        return self._state_manager.agents
+
+    @agents.setter
+    def agents(self, value):
+        self._state_manager.agents = value
+
+    @property
+    def conflicts(self):
+        return self._state_manager.conflicts
+
+    @conflicts.setter
+    def conflicts(self, value):
+        self._state_manager.conflicts = value
+
+    @property
+    def tasks(self):
+        return self._state_manager.tasks
+
+    @tasks.setter
+    def tasks(self, value):
+        self._state_manager.tasks = value
+
+    @property
+    def messages(self):
+        return self._state_manager.messages
+
+    @messages.setter
+    def messages(self, value):
+        self._state_manager.messages = value

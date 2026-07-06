@@ -1,16 +1,34 @@
 import os
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
 
 import bcrypt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
+from fastapi import HTTPException
+from fastapi import status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+from jose import JWTError
+from jose import jwt
 
-SECRET_KEY = os.environ.get("JWT_SECRET_KEY", secrets.token_urlsafe(32))
+from src.config.thresholds import BCRYPT_MAX_PASSWORD_LENGTH
+from src.config.thresholds import DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES
+from src.config.thresholds import DEFAULT_JWT_SECRET_LENGTH
+from src.config.thresholds import DEFAULT_REFRESH_TOKEN_EXPIRE_DAYS
+
+_jwt_secret = os.environ.get("JWT_SECRET_KEY")
+if _jwt_secret is None:
+    if os.environ.get("TESTING") == "1":
+        SECRET_KEY = secrets.token_urlsafe(DEFAULT_JWT_SECRET_LENGTH)
+    else:
+        raise RuntimeError("JWT_SECRET_KEY environment variable is not set. "
+                          "Set it before running the application in production.")
+else:
+    SECRET_KEY = _jwt_secret
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
-REFRESH_TOKEN_EXPIRE_DAYS = int(os.environ.get("REFRESH_TOKEN_EXPIRE_DAYS", 7))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES))
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.environ.get("REFRESH_TOKEN_EXPIRE_DAYS", DEFAULT_REFRESH_TOKEN_EXPIRE_DAYS))
 
 # 认证模块可用性标志（始终为True，因为auth模块已加载）
 HAS_AUTH = True
@@ -20,16 +38,16 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=F
 
 def get_password_hash(password: str) -> str:
     password_bytes = password.encode("utf-8")
-    if len(password_bytes) > 72:
-        password_bytes = password_bytes[:72]
+    if len(password_bytes) > BCRYPT_MAX_PASSWORD_LENGTH:
+        password_bytes = password_bytes[:BCRYPT_MAX_PASSWORD_LENGTH]
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(password_bytes, salt).decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     password_bytes = plain_password.encode("utf-8")
-    if len(password_bytes) > 72:
-        password_bytes = password_bytes[:72]
+    if len(password_bytes) > BCRYPT_MAX_PASSWORD_LENGTH:
+        password_bytes = password_bytes[:BCRYPT_MAX_PASSWORD_LENGTH]
     hashed_bytes = hashed_password.encode("utf-8")
     return bcrypt.checkpw(password_bytes, hashed_bytes)
 

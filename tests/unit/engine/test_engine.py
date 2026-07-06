@@ -215,7 +215,7 @@ class TestEngineExceptionHandling:
         request = EvaluationSchema(id="case_9", type="test_none", payload={})
         result = engine.run(request)
 
-        # safe_evaluate 将 None 转换为 DomainResponse(is_valid=False, error="...")
+        # safe_evaluate 将 None 转换为 DomainResponse(evaluation_status=EvaluatorStatus.ERROR, error="...")
         # engine 检测到 error 包含 "_ERROR"，返回 ERROR 状态
         assert result.status == EvaluationStatus.ERROR
         assert result.response.is_valid is False

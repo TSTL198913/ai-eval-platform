@@ -3,9 +3,12 @@
 import logging
 
 import httpx
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import retry
+from tenacity import stop_after_attempt
+from tenacity import wait_exponential
 
-from src.domain.models.base import BaseLLMClient, ModelConfig
+from src.domain.models.base import BaseLLMClient
+from src.domain.models.base import ModelConfig
 from src.exceptions import InfrastructureError
 
 logger = logging.getLogger(__name__)

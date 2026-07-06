@@ -1,9 +1,14 @@
 import time
 import uuid
 from enum import Enum
-from typing import Any, Literal
+from typing import Any
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
+from pydantic import BaseModel
+from pydantic import ConfigDict
+from pydantic import Field
+from pydantic import computed_field
+from pydantic import model_validator
 
 
 class EvaluationStatus(str, Enum):
@@ -11,6 +16,7 @@ class EvaluationStatus(str, Enum):
     PASSED = "passed"
     FAILED = "failed"
     ERROR = "error"
+    PARTIAL = "partial"
 
 
 class EvaluatorStatus(str, Enum):
@@ -64,16 +70,9 @@ class DomainResponse(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def warn_deprecated_is_valid(cls, values: dict) -> dict:
-        """警告旧代码传入 is_valid 参数"""
-        if "is_valid" in values:
-            import warnings
-            warnings.warn(
-                "is_valid 参数已废弃，请使用 evaluation_status 替代",
-                DeprecationWarning,
-                stacklevel=3
-            )
-            del values["is_valid"]
+    def filter_deprecated_is_valid(cls, values: dict) -> dict:
+        """移除已废弃的 is_valid 参数"""
+        values.pop("is_valid", None)
         return values
 
     @computed_field(return_type=bool)
@@ -91,7 +90,7 @@ class DomainResponse(BaseModel):
         - CANNOT_EVALUATE → False（无法评估，无有效结果）
         - ERROR → False（评估失败，结果无效）
         """
-        return self.evaluation_status in (EvaluatorStatus.SUCCESS, EvaluatorStatus.PARTIAL)
+        return bool(self.evaluation_status in (EvaluatorStatus.SUCCESS, EvaluatorStatus.PARTIAL))
 
     @model_validator(mode="after")
     def compute_confidence_level(self) -> "DomainResponse":
@@ -108,10 +107,21 @@ class DomainResponse(BaseModel):
         return self
 
 
+class EvaluationMode(str, Enum):
+    OFFLINE = "offline"       # 用户提供全部数据（actual_output + expected_output）
+    ONLINE = "online"         # 系统自动生成 actual_output
+    HYBRID = "hybrid"         # 混合模式（用户提供部分，系统补充）
+
+
 class EvaluationSchema(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="评估记录唯一ID")
     type: str = Field(..., description="评估类型")
     payload: dict[str, Any] = Field(..., description="业务数据")
+
+    evaluate_mode: EvaluationMode = Field(
+        default=EvaluationMode.OFFLINE,
+        description="评估模式：offline（离线，用户提供全部数据）/ online（在线，系统自动生成）/ hybrid（混合模式）"
+    )
 
     metadata: dict[str, Any] | None = Field(None, description="可选的元数据配置")
 
@@ -119,6 +129,13 @@ class EvaluationSchema(BaseModel):
         None, description="评估器使用的LLM提供者（deepseek/openai/anthropic/ollama/qwen）"
     )
     model_name: str | None = Field(None, description="评估器使用的LLM模型名称")
+
+    inference_model_provider: str | None = Field(
+        None, description="推理（生成）使用的LLM提供者"
+    )
+    inference_model_name: str | None = Field(
+        None, description="推理（生成）使用的LLM模型名称"
+    )
 
     model_config = ConfigDict(frozen=True)
 

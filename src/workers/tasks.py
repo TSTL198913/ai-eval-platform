@@ -11,7 +11,6 @@ from src.infra.db.session import get_session_local
 from src.schemas.evaluation import EvaluationSchema
 from src.schemas.schemas import EvaluationResult
 
-
 _evaluation_engine_cache: dict[str, Any] = {}
 _evaluation_engine_lock = threading.RLock()
 
@@ -80,13 +79,11 @@ _CELERY_APP = None
 def _get_metrics() -> dict[str, Any]:
     global _METRICS
     if _METRICS is None:
-        from src.infra.monitoring.metrics import (
-            BUFFER_FLUSH_LATENCY,
-            BUFFER_SIZE,
-            EVALUATION_COUNTER,
-            EVALUATION_ERRORS,
-            EVALUATION_LATENCY,
-        )
+        from src.infra.monitoring.metrics import BUFFER_FLUSH_LATENCY
+        from src.infra.monitoring.metrics import BUFFER_SIZE
+        from src.infra.monitoring.metrics import EVALUATION_COUNTER
+        from src.infra.monitoring.metrics import EVALUATION_ERRORS
+        from src.infra.monitoring.metrics import EVALUATION_LATENCY
 
         _METRICS = {
             "BUFFER_FLUSH_LATENCY": BUFFER_FLUSH_LATENCY,

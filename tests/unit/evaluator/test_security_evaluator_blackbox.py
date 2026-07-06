@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 import pytest
 
 from src.domain.evaluators.security import SecurityEvaluator
-from src.schemas.evaluation import EvaluationSchema
+from src.schemas.evaluation import EvaluationSchema, EvaluatorStatus
 
 
 class TestSecurityEvaluatorBlackBox:
@@ -87,7 +87,7 @@ class TestSecurityEvaluatorBlackBox:
     # ========================================
 
     def test_prompt_injection_detected(self, evaluator):
-        """Prompt注入攻击应被检测并返回低分"""
+        """Prompt注入攻击应被检测并返回低分，状态为ERROR"""
         request = EvaluationSchema(
             id="test-prompt-001",
             type="security",
@@ -95,11 +95,9 @@ class TestSecurityEvaluatorBlackBox:
         )
         result = evaluator.evaluate(request)
 
-        # 验证评估成功执行
-        assert result.is_valid is True
-        assert result.confidence is not None, "confidence不应为None"
-        # NOTE: SecurityEvaluator可能返回partial状态（降级评估）
-        assert result.evaluation_status.value in ["success", "partial"], f"evaluation_status应为success或partial，实际为{result.evaluation_status.value}"
+        # 验证评估执行（高风险攻击应返回ERROR状态）
+        assert result.is_valid is False, "检测到高风险攻击时is_valid应为False"
+        assert result.evaluation_status == EvaluatorStatus.ERROR, "检测到高风险攻击时应返回ERROR状态"
 
         # 验证威胁类型被正确识别（通过data字段）
         security_tests = result.data.get("security_tests", {})
@@ -107,9 +105,7 @@ class TestSecurityEvaluatorBlackBox:
         assert injection_result.get("detected") is True, "应检测到Prompt注入攻击"
         assert len(injection_result.get("patterns", [])) > 0, "应检测到攻击模式"
         assert injection_result.get("score") < 1.0, f"检测到攻击，injection分数应 < 1.0，实际为{injection_result.get('score')}"
-        assert injection_result.get("risk_level") in ["medium", "high"], f"风险等级应为medium或high，实际为{result.injection_result.get('risk_level')}"
-        # NOTE: SecurityEvaluator综合多个测试类型的分数，即使检测到注入，总分也可能较高
-        # 重点验证注入测试本身的分数降低
+        assert injection_result.get("risk_level") in ["medium", "high"], f"风险等级应为medium或high，实际为{injection_result.get('risk_level')}"
         assert injection_result.get("score") < 0.8, f"检测到攻击，injection分数应 < 0.8，实际为{injection_result.get('score')}"
 
     def test_prompt_injection_variants(self, evaluator):

@@ -6,13 +6,22 @@
 
 import asyncio
 import logging
+import os
+import threading
 from typing import TYPE_CHECKING
 
 logger = logging.getLogger(__name__)
 
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault(
+    "HF_HOME",
+    os.path.join(os.path.expanduser("~"), ".cache", "huggingface", "hub"),
+)
+
 try:
     import torch
-    from sentence_transformers import SentenceTransformer, util
+    from sentence_transformers import SentenceTransformer
+    from sentence_transformers import util
 
     HAS_EMBEDDING = True
 except ImportError:
@@ -37,7 +46,7 @@ class EmbeddingService:
     MULTILINGUAL_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
 
     _instance = None
-    _lock = None
+    _lock = threading.Lock()
 
     def __init__(self, model_name: str = DEFAULT_MODEL, device: str = "auto"):
         """初始化 Embedding 服务"""
@@ -49,6 +58,30 @@ class EmbeddingService:
         self.device = device
         self._load_model()
 
+    def _find_local_model_path(self, model_name: str) -> str | None:
+        """查找本地缓存中的模型路径"""
+        hf_cache_dir = os.environ.get(
+            "HF_HOME", os.path.join(os.path.expanduser("~"), ".cache", "huggingface", "hub")
+        )
+        
+        repo_name = model_name.replace("/", "--")
+        model_dir = os.path.join(hf_cache_dir, f"models--{repo_name}")
+        
+        if os.path.exists(model_dir):
+            snapshots_dir = os.path.join(model_dir, "snapshots")
+            if os.path.exists(snapshots_dir):
+                snapshots = [
+                    d for d in os.listdir(snapshots_dir) 
+                    if os.path.isdir(os.path.join(snapshots_dir, d))
+                ]
+                if snapshots:
+                    local_path = os.path.join(snapshots_dir, snapshots[0])
+                    if os.path.exists(os.path.join(local_path, "config.json")):
+                        logger.info(f"📦 发现本地缓存模型: {model_name} -> {local_path}")
+                        return local_path
+        
+        return None
+
     def _load_model(self):
         """加载预训练模型"""
         try:
@@ -57,8 +90,10 @@ class EmbeddingService:
                     "cuda" if (torch.cuda.is_available() and hasattr(torch, "cuda")) else "cpu"
                 )
 
+            load_path = self._find_local_model_path(self.model_name) or self.model_name
+            
             # 模型加载属于重度 I/O 和计算，保持同步加载，由框架在冷启动时完成
-            self.model = SentenceTransformer(self.model_name, device=self.device)
+            self.model = SentenceTransformer(load_path, device=self.device)
             logger.info(
                 f"✨ Embedding 服务已成功加载模型: {self.model_name} (运行设备: {self.device})"
             )
@@ -129,11 +164,6 @@ class EmbeddingService:
     @classmethod
     def get_instance(cls) -> "EmbeddingService":
         """获取线程安全的单例实例"""
-        if cls._lock is None:
-            import threading
-
-            cls._lock = threading.Lock()
-
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:

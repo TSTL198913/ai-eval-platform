@@ -19,20 +19,19 @@
 import functools
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from dataclasses import field
 from enum import Enum
 from pathlib import Path
-from typing import Any, ParamSpec, TypeVar
+from typing import Any
+from typing import ParamSpec
+from typing import TypeVar
 
-from src.domain.testing.mutation_testing import (
-    MutationTester,
-    MutationTestReport,
-)
-from src.domain.testing.red_blue_testing import (
-    RedBlueTestManager,
-    RedBlueTestReport,
-    TestType,
-)
+from src.domain.testing.mutation_testing import MutationTester
+from src.domain.testing.mutation_testing import MutationTestReport
+from src.domain.testing.red_blue_testing import RedBlueTestManager
+from src.domain.testing.red_blue_testing import RedBlueTestReport
+from src.domain.testing.red_blue_testing import TestType
 
 logger = logging.getLogger(__name__)
 

@@ -11,7 +11,8 @@ LLM 客户端工厂 - 智能模型接入
 import os
 import threading
 
-from src.domain.models.base import BaseLLMClient, ModelConfig
+from src.domain.models.base import BaseLLMClient
+from src.domain.models.base import ModelConfig
 
 # ============================================================================
 # 缓存管理 - 减少重复创建和环境变量读取
@@ -37,6 +38,7 @@ class ModelProvider:
     OLLAMA = "ollama"
     QWEN = "qwen"
     DASHSCOPE = "dashscope"
+    GEMINI = "gemini"
     CUSTOM = "custom"
 
 
@@ -106,7 +108,7 @@ def load_config(provider: str | None = None, use_cache: bool = True) -> ModelCon
             "api_key_env": "OPENAI_API_KEY",
             "model_env": "OPENAI_MODEL",
             "base_url_env": "OPENAI_BASE_URL",
-            "default_model": "gpt-3.5-turbo",
+            "default_model": "gpt-4o",
         },
         ModelProvider.ANTHROPIC: {
             "api_key_env": "ANTHROPIC_API_KEY",
@@ -131,6 +133,12 @@ def load_config(provider: str | None = None, use_cache: bool = True) -> ModelCon
             "model_env": "DASHSCOPE_MODEL",
             "base_url_env": None,
             "default_model": "qwen-max",
+        },
+        ModelProvider.GEMINI: {
+            "api_key_env": "GOOGLE_API_KEY",
+            "model_env": "GEMINI_MODEL",
+            "base_url_env": "GEMINI_BASE_URL",
+            "default_model": "gemini-1.5-pro",
         },
     }
 
@@ -175,13 +183,13 @@ def _create_new_client(provider: str, config: ModelConfig) -> BaseLLMClient:
     Returns:
         BaseLLMClient: 新创建的客户端实例
     """
-    # 如果没有 API Key 或 API Key 是占位符且不是 Ollama，使用 Stub
+    # 如果没有 API Key 或 API Key 是占位符且不是 Ollama，使用智能本地评分客户端
     api_key_value = config.api_key.get_secret_value() if config.api_key else ""
     is_placeholder = api_key_value.startswith("your_") and api_key_value.endswith("_here")
     if (not api_key_value or is_placeholder) and provider != ModelProvider.OLLAMA:
-        from src.domain.models.stub import StubLLMClient
+        from src.domain.models.local_scoring_client import LocalScoringClient
 
-        return StubLLMClient(ModelConfig(api_key="stub", model_name="stub-model"))
+        return LocalScoringClient(ModelConfig(api_key="local", model_name="local-scorer"))
 
     # 获取客户端类
     client_class = ModelRegistry.get_client_class(provider)
@@ -446,5 +454,12 @@ try:
 
     ModelRegistry.register(ModelProvider.QWEN)(QwenClient)
     ModelRegistry.register(ModelProvider.DASHSCOPE)(QwenClient)
+except ImportError:
+    pass
+
+try:
+    from src.domain.models.gemini import GeminiClient
+
+    ModelRegistry.register(ModelProvider.GEMINI)(GeminiClient)
 except ImportError:
     pass

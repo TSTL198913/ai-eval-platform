@@ -85,10 +85,9 @@ class TestQAEvaluatorNegativeCases:
     """负向测试 - 错误输入"""
 
     @staticmethod
-    def test_empty_actual_output_uses_empty_string():
-        """空actual_output时使用空字符串进行评估"""
+    def test_empty_actual_output_returns_error():
+        """空actual_output应返回错误（2026工业级标准）"""
         mock_client = MagicMock()
-        mock_client.chat.return_value = "0.5"
         evaluator = QAEvaluator(client=mock_client)
         request = EvaluationSchema(
             id="qa_neg_001",
@@ -96,7 +95,8 @@ class TestQAEvaluatorNegativeCases:
             payload={"user_input": "问题", "actual_output": "", "expected_output": "答案"},
         )
         result = evaluator.evaluate(request)
-        assert result.is_valid is True
+        assert result.is_valid is False
+        assert result.error is not None
 
     @staticmethod
     def test_missing_actual_output_returns_error():

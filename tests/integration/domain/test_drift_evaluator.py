@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 from src.domain.evaluators.drift import DriftDetectionEvaluator
 from src.schemas.evaluation import EvaluationSchema
+from src.schemas.evaluation import EvaluatorStatus
 
 
 class TestDriftDetectionSimilarity:
@@ -507,17 +508,17 @@ class TestDriftDetectionValidation:
         return DriftDetectionEvaluator()
 
     def test_empty_user_input_returns_error(self, evaluator):
-        """空输入应返回错误"""
+        """空输入应返回错误 - DriftEvaluator 不要求 user_input，验证空 actual_output"""
         request = EvaluationSchema(
             id="test_validation",
             type="drift",
-            payload={"user_input": "", "actual_output": "some output"},
+            payload={"user_input": "", "actual_output": ""},
         )
 
         result = evaluator.evaluate(request)
 
-        assert result.is_valid is False
-        assert "不能为空" in result.error
+        assert result.evaluation_status == EvaluatorStatus.ERROR
+        assert "actual_output" in result.error
 
     def test_empty_actual_output_returns_error(self, evaluator):
         """空输出应返回错误"""
@@ -529,7 +530,7 @@ class TestDriftDetectionValidation:
 
         result = evaluator.evaluate(request)
 
-        assert result.is_valid is False
+        assert result.evaluation_status == EvaluatorStatus.ERROR
         assert "actual_output" in result.error
 
 

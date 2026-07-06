@@ -306,12 +306,12 @@ class TestBusinessLogicConsistency:
     def test_score_range_is_0_to_1(self):
         """场景: 评分必须在 0-1 范围内，与前端图表展示一致"""
         from src.domain.evaluators.base import BaseEvaluator
-        from src.schemas.evaluation import DomainResponse, EvaluationSchema
+        from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
 
         @EvaluatorFactory.register("score_test")
         class MockScoreEvaluator(BaseEvaluator):
             def evaluate(self, request):
-                return DomainResponse(is_valid=True, score=0.95, text="Perfect match")
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=0.95, text="Perfect match")
 
         client = MagicMock()
         client.config = MagicMock()

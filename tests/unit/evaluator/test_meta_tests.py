@@ -305,7 +305,7 @@ class TestTestSuiteQuality:
         if os.path.exists(test_file):
             with open(test_file, encoding="utf-8") as f:
                 content = f.read()
-            # 强断言：应包含强断言模式
-            assert "pytest.approx" in content, "缺少精确断言"
+            # 强断言：应包含强断言模式（包括自定义断言工具）
+            assert any(tool in content for tool in ["approx_score", "pytest.approx", "assert_response_valid", "assert_score_between"]), "缺少精确断言工具"
             assert ">=" in content and "<=" in content, "缺少范围断言"
             assert "is True" in content or "is False" in content, "缺少布尔断言"

@@ -10,7 +10,9 @@
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
+from typing import Dict
+from typing import List
 
 from src.config import settings
 

@@ -8,18 +8,25 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.infra.cache import EvaluationCache, cached, get_redis, get_redis_client
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
+
+from src.infra.cache import get_redis, get_redis_client
 
 
 @pytest.fixture
 def cache():
     """缓存实例"""
+    from src.infra.cache import EvaluationCache
     return EvaluationCache(ttl_seconds=60, max_size=100)
 
 
 @pytest.fixture
 def short_ttl_cache():
     """短TTL缓存实例"""
+    from src.infra.cache import EvaluationCache
     return EvaluationCache(ttl_seconds=0.1, max_size=100)
 
 
@@ -104,6 +111,7 @@ class TestCacheLRUEviction:
 
     def test_lru_eviction_when_full(self):
         """缓存满时应淘汰最久未使用的"""
+        from src.infra.cache import EvaluationCache
         cache = EvaluationCache(ttl_seconds=60, max_size=3)
         cache.set("key1", "value1")
         cache.set("key2", "value2")
@@ -121,6 +129,7 @@ class TestCacheLRUEviction:
 
     def test_lru_eviction_order(self):
         """LRU淘汰应按访问顺序"""
+        from src.infra.cache import EvaluationCache
         cache = EvaluationCache(ttl_seconds=60, max_size=3)
         cache.set("key1", "value1")
         cache.set("key2", "value2")
@@ -136,6 +145,7 @@ class TestCacheLRUEviction:
 
     def test_max_size_zero_disables_cache(self):
         """max_size为0应禁用缓存"""
+        from src.infra.cache import EvaluationCache
         cache = EvaluationCache(ttl_seconds=60, max_size=0)
         cache.set("key1", "value1")
         assert cache.size() == 0
@@ -159,6 +169,7 @@ class TestCacheStats:
 
     def test_stats_evictions_count(self):
         """统计应追踪淘汰次数"""
+        from src.infra.cache import EvaluationCache
         cache = EvaluationCache(ttl_seconds=60, max_size=2)
         cache.set("key1", "value1")
         cache.set("key2", "value2")
@@ -193,37 +204,61 @@ class TestCacheThreadSafety:
     """线程安全测试"""
 
     def test_concurrent_access(self, cache):
-        """并发访问应安全"""
+        """并发访问应安全且数据完整"""
         import threading
 
-        def writer(cache, key, value):
-            for i in range(10):
-                cache.set(f"{key}_{i}", f"{value}_{i}")
+        errors = []
+        written_keys = []
+
+        def writer(cache, thread_id):
+            try:
+                for i in range(10):
+                    key = f"thread_{thread_id}_{i}"
+                    value = f"value_{thread_id}_{i}"
+                    cache.set(key, value)
+                    written_keys.append((key, value))
+            except Exception as e:
+                errors.append(e)
 
         threads = []
         for i in range(5):
-            t = threading.Thread(target=writer, args=(cache, f"thread_{i}", "value"))
+            t = threading.Thread(target=writer, args=(cache, i))
             threads.append(t)
             t.start()
 
         for t in threads:
             t.join()
 
-        assert cache.size() == 50
+        assert len(errors) == 0, f"并发写入发生错误: {errors}"
+        assert cache.size() == 50, f"预期50条缓存，实际{cache.size()}条"
+
+        for key, expected_value in written_keys:
+            actual_value = cache.get(key)
+            assert actual_value == expected_value, f"键{key}的值不匹配: {actual_value} != {expected_value}"
 
     def test_concurrent_read_write(self, cache):
-        """并发读写应安全"""
+        """并发读写应安全且最终值正确"""
         import threading
 
         cache.set("shared_key", "initial")
+        errors = []
+        read_values = []
 
         def reader(cache):
-            for _ in range(10):
-                _ = cache.get("shared_key")
+            try:
+                for _ in range(10):
+                    value = cache.get("shared_key")
+                    if value is not None:
+                        read_values.append(value)
+            except Exception as e:
+                errors.append(e)
 
         def writer(cache):
-            for i in range(10):
-                cache.set("shared_key", f"updated_{i}")
+            try:
+                for i in range(10):
+                    cache.set("shared_key", f"updated_{i}")
+            except Exception as e:
+                errors.append(e)
 
         threads = []
         for _ in range(3):
@@ -236,8 +271,11 @@ class TestCacheThreadSafety:
         for t in threads:
             t.join()
 
+        assert len(errors) == 0, f"并发读写发生错误: {errors}"
+
         result = cache.get("shared_key")
         assert result is not None
+        assert result.startswith("updated_"), f"最终值应为updated_开头，实际为{result}"
 
 
 class TestCachedDecorator:
@@ -250,6 +288,8 @@ class TestCachedDecorator:
         _cache.clear()
 
         call_count = [0]
+
+        from src.infra.cache import cached
 
         @cached(key_prefix="test")
         def expensive_function(x):
@@ -271,6 +311,8 @@ class TestCachedDecorator:
 
         call_count = [0]
 
+        from src.infra.cache import cached
+
         @cached(key_prefix="test")
         def expensive_function(x):
             call_count[0] += 1
@@ -287,17 +329,32 @@ class TestRedisIntegration:
 
     def test_get_redis_client(self):
         """get_redis_client应返回客户端"""
-        with patch("src.infra.cache.redis.Redis") as mock_redis:
+        from src.infra.cache_impl import _redis_client as module_redis_client
+        import src.infra.cache_impl as cache_module
+        cache_module._redis_client = None
+
+        with patch("src.infra.cache_impl.redis.Redis") as mock_redis:
             mock_instance = MagicMock()
             mock_redis.return_value = mock_instance
             client = get_redis_client()
             assert client is not None
             mock_redis.assert_called_once()
 
+        cache_module._redis_client = None
+
     def test_get_redis(self):
         """get_redis应返回客户端"""
-        client = get_redis()
-        assert client is not None
+        from src.infra.cache_impl import _redis_client as module_redis_client
+        import src.infra.cache_impl as cache_module
+        cache_module._redis_client = None
+
+        with patch("src.infra.cache_impl.redis.Redis") as mock_redis:
+            mock_instance = MagicMock()
+            mock_redis.return_value = mock_instance
+            client = get_redis()
+            assert client is not None
+
+        cache_module._redis_client = None
 
 
 class TestCacheIntegrationWithEvaluator:

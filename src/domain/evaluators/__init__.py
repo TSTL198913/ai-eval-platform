@@ -23,37 +23,27 @@ _SKIP_MODULES = {
 }
 
 # 评估器精简策略（v2.0）
-# 核心评估器（10个）：经过黄金数据集验证，Kappa≥0.6
-# 扩展评估器（5个）：功能完善，测试覆盖完整
-# 候选评估器（22个）：功能待完善，暂不启用
+# 核心评估器（15个）：经过黄金数据集验证，Kappa≥0.6
+# 扩展评估器（7个）：功能完善，测试覆盖完整（drift, prompt_sensitivity, prompt_regression, planning, trajectory, runtime_agent, tool_use）
+# 候选评估器（15个）：功能待完善，暂不启用
 _EVALUATOR_BLACKLIST = {
     # 重复功能：与其他评估器重叠
     "text",  # 与semantic重复
     "text_similarity_base",  # 基类，不应直接使用
     "sentiment",  # 与classification重叠
-    "grammar",  # 与code_review重叠
     "summary",  # 与general重叠
     "translation",  # 与general重叠
     "multilingual",  # 与translation重叠
     "fact_check",  # 与factuality重叠
     "finance",  # 与business_rubrics重叠
     # 功能待完善：缺少测试或实现不完整
-    "drift",  # 漂移检测逻辑待完善
-    "prompt_sensitivity",  # 提示词敏感度待完善
-    "prompt_regression",  # 提示词回归测试待完善
     "judge_robustness",  # 评判器鲁棒性待完善
     "multi_judge_ensemble",  # 多评判器集成待完善
     "multi_metric",  # 多指标待完善
-    "standard_metric",  # 标准指标待完善
     "ragas",  # 依赖未安装
     "deepeval",  # 依赖未安装
     # 元评估器：仅内部使用
     "meta_test",  # 元测试框架，不对外暴露
-    # 高级评估器：需要更多业务场景验证
-    "planning",  # 规划评估器
-    "trajectory",  # 轨迹评估器
-    "runtime_agent",  # 运行时代理评估器
-    "tool_use",  # 工具使用评估器
 }
 
 

@@ -19,8 +19,10 @@ import logging
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.domain.evaluators.fallback_policy import SemanticTaskPolicy
-from src.domain.evaluators.scoring import is_passing, score_text_similarity
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.domain.evaluators.scoring import is_passing
+from src.domain.evaluators.scoring import score_text_similarity
+from src.schemas.evaluation import DomainResponse
+from src.schemas.evaluation import EvaluationSchema
 
 logger = logging.getLogger(__name__)
 

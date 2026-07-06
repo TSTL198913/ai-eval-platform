@@ -3,13 +3,17 @@
 毫秒级响应，只拦截高风险请求
 """
 
+import logging
 import re
 import secrets
 import time
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse
+from starlette.responses import Response
+
+logger = logging.getLogger(__name__)
 
 INJECTION_PATTERNS = [
     re.compile(r"ignore\s+all\s+previous\s+instructions?", re.IGNORECASE),
@@ -45,8 +49,8 @@ DEFAULT_CSP = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 
 
 DOCS_CSP_TEMPLATE = (
     "default-src 'self'; "
-    "script-src 'self' 'nonce-{nonce}' https://cdn.jsdelivr.net; "
-    "style-src 'self' 'nonce-{nonce}' https://cdn.jsdelivr.net; "
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
     "img-src 'self' data: https://fastapi.tiangolo.com; "
     "font-src 'self' https://cdn.jsdelivr.net; "
     "connect-src 'self' https://cdn.jsdelivr.net;"
@@ -71,8 +75,8 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         try:
             if request.method in ["POST", "PUT", "PATCH"]:
                 body = await request.json()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to parse request body: {e}")
 
         user_input = ""
         if isinstance(body, dict):
@@ -112,10 +116,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         if isinstance(response, Response):
             path = str(request.url.path)
             if path.startswith("/docs") or path.startswith("/redoc"):
-                nonce = secrets.token_urlsafe(16)
-                csp = DOCS_CSP_TEMPLATE.format(nonce=nonce)
-                response.headers["Content-Security-Policy"] = csp
-                response.headers["X-Nonce"] = nonce
+                response.headers["Content-Security-Policy"] = DOCS_CSP_TEMPLATE
             else:
                 for header_name, header_value in SECURITY_HEADERS.items():
                     response.headers[header_name] = header_value

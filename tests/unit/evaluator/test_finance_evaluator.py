@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 from src.domain.evaluators.finance import FinanceEvaluator
 from src.domain.evaluators.scoring import is_passing, score_numeric_match
 from src.schemas.evaluation import EvaluationSchema
+from tests.utils.test_helpers import approx_score
 
 
 class TestFinanceEvaluatorLLMClientDependency:
@@ -118,7 +119,7 @@ class TestFinanceEvaluatorScoringLogic:
         result = evaluator.evaluate(request)
         assert result.is_valid is True
         assert result.data["accuracy_score"] == 0.0
-        assert result.score == 0.3
+        assert result.score == approx_score(0.3)
 
     def test_no_numbers_in_response_returns_low_score(self, evaluator, mock_llm_client):
         """响应无数字时应返回低分（accuracy_score=0，加权后=0.3）"""
@@ -131,7 +132,7 @@ class TestFinanceEvaluatorScoringLogic:
         result = evaluator.evaluate(request)
         assert result.is_valid is True
         assert result.data["accuracy_score"] == 0.0
-        assert result.score == 0.3
+        assert result.score == approx_score(0.3)
 
     def test_multiple_numbers_all_match(self, evaluator, mock_llm_client):
         """多个数字全部匹配时应高分"""
@@ -270,7 +271,7 @@ class TestFinanceEvaluatorEdgeCases:
         result = evaluator.evaluate(request)
         assert result.text == ""
         assert result.data["accuracy_score"] == 0.0
-        assert result.score == 0.3
+        assert result.score == approx_score(0.3)
 
     def test_llm_returns_very_long_response(self, evaluator, mock_llm_client):
         """LLM返回超长响应"""

@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 from src.domain.evaluators.grammar import GrammarEvaluator, _simple_grammar_check
 from src.schemas.evaluation import EvaluationSchema
+from tests.utils.test_helpers import approx_score
 
 
 class TestGrammarEvaluatorPositiveCases:
@@ -67,7 +68,7 @@ class TestGrammarEvaluatorPositiveCases:
         result = target.evaluate(request)
 
         assert result.is_valid is True
-        assert result.score == 0.8
+        assert result.score == approx_score(0.8)
 
     @staticmethod
     def test_multiple_errors_calculated_correctly():

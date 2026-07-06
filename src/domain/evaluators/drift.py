@@ -9,7 +9,9 @@ from typing import Any
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.infra.db.repository import EvaluationRepository
-from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
+from src.schemas.evaluation import DomainResponse
+from src.schemas.evaluation import EvaluationSchema
+from src.schemas.evaluation import EvaluatorStatus
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +30,7 @@ class DriftDetectionEvaluator(BaseEvaluator):
     DEFAULT_DRIFT_THRESHOLD = 0.2
 
     def __init__(self, client: Any | None = None):
-        super().__init__(client, require_input=True)
+        super().__init__(client, require_input=False)
         self.repository = EvaluationRepository()
         self._baseline_store: dict[str, float] = {}
         self._baseline_lock = threading.Lock()

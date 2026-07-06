@@ -6,7 +6,8 @@ import logging
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.domain.evaluators.fallback_policy import SemanticTaskPolicy
-from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
+from src.schemas.evaluation import DomainResponse
+from src.schemas.evaluation import EvaluationSchema
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +22,32 @@ class MemoryEvaluator(BaseEvaluator):
     - evaluate_forgetting: 遗忘率评估
     """
 
+    CHINESE_STOP_WORDS = {
+        "的", "是", "在", "有", "和", "了", "我", "你", "他", "她", "它",
+        "这", "那", "很", "也", "都", "要", "会", "可以", "能", "不", "没",
+        "好", "就", "对", "说", "看", "想", "去", "来", "上", "下", "大",
+        "小", "多", "少", "一", "二", "三", "四", "五", "六", "七", "八",
+        "九", "十", "个", "位", "名", "本", "页", "条", "种", "类", "们",
+        "等", "及", "与", "或", "但", "而", "因为", "所以", "如果", "虽然",
+        "但是", "什么", "怎么", "为什么", "哪里", "多少", "谁", "哪个", "这个",
+        "那个", "这些", "那些", "被", "把", "给", "让", "从", "向", "到",
+        "为", "以",
+    }
+
+    ENGLISH_STOP_WORDS = {
+        "this", "that", "is", "are", "was", "were", "be", "been", "being",
+        "have", "has", "had", "do", "does", "did", "will", "would", "could",
+        "should", "may", "might", "must", "shall", "can", "need", "dare",
+        "ought", "used", "to", "of", "in", "for", "on", "with", "at", "by",
+        "from", "up", "about", "into", "over", "after", "and", "but", "or",
+        "as", "if", "when", "than", "because", "while", "although", "though",
+        "which", "who", "whom", "what", "how", "where", "why", "a", "an",
+        "the", "its", "they", "their", "them", "he", "she", "him", "her",
+        "his", "i", "me", "my", "we", "us", "our", "you", "your",
+    }
+
     def __init__(self, client=None):
-        super().__init__(client)
-        self.fallback_policy = SemanticTaskPolicy()
+        super().__init__(client, fallback_policy=SemanticTaskPolicy())
 
     def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
         action = self.get_payload_data(request, "action", "evaluate_retrieval")
@@ -46,6 +70,9 @@ class MemoryEvaluator(BaseEvaluator):
         retrieved_context = self.get_payload_data(request, "retrieved_context")
         expected_context = self.get_payload_data(request, "expected_context")
         ground_truth = self.get_payload_data(request, "ground_truth")
+        
+        actual_output = self.get_payload_data(request, "actual_output")
+        expected_output = self.get_payload_data(request, "expected_output")
 
         if not query:
             return self.create_error_response(
@@ -54,9 +81,50 @@ class MemoryEvaluator(BaseEvaluator):
             )
 
         if not retrieved_context:
-            return self.create_error_response(
-                error_message="retrieved_context 不能为空",
-                error_code="MISSING_CONTEXT",
+            if actual_output and expected_output:
+                similarity = self._calculate_similarity(actual_output, expected_output)
+                penalized_score = similarity * 0.8
+                return self.create_partial_response(
+                    text=f"检索评估完成（降级模式），基于输出相似度评估: {similarity:.2f} (惩罚后: {penalized_score:.2f})",
+                    score=penalized_score,
+                    dimensions_evaluated=["output_similarity"],
+                    dimensions_skipped=["relevance", "coverage", "factual_consistency"],
+                    skip_reasons={
+                        "relevance": "缺少 retrieved_context，降级为输出相似度评估",
+                        "coverage": "缺少 retrieved_context",
+                        "factual_consistency": "缺少 retrieved_context",
+                    },
+                    confidence=0.5,
+                    data={
+                        "relevance_score": penalized_score,
+                        "coverage_score": 0.0,
+                        "factual_score": 0.0,
+                        "retrieval_quality": self._get_quality_level(penalized_score),
+                        "retrieval_acceptable": penalized_score >= 0.7,
+                        "retrieval_success": False,
+                        "warning": "retrieved_context 为空，使用输出相似度作为替代评估",
+                    },
+                )
+            return self.create_partial_response(
+                text="检索评估完成（无检索结果），检索质量: very_poor",
+                score=0.5,
+                dimensions_evaluated=["retrieval_attempt"],
+                dimensions_skipped=["relevance", "coverage", "factual_consistency"],
+                skip_reasons={
+                    "relevance": "缺少 retrieved_context",
+                    "coverage": "缺少 retrieved_context",
+                    "factual_consistency": "缺少 retrieved_context",
+                },
+                confidence=0.3,
+                data={
+                    "relevance_score": 0.0,
+                    "coverage_score": 0.0,
+                    "factual_score": 0.0,
+                    "retrieval_quality": "very_poor",
+                    "retrieval_acceptable": False,
+                    "retrieval_success": False,
+                    "warning": "retrieved_context 为空，检索失败",
+                },
             )
 
         # 计算检索相关性
@@ -80,7 +148,7 @@ class MemoryEvaluator(BaseEvaluator):
         elif ground_truth:
             final_score = relevance_score * 0.5 + factual_score * 0.5
         else:
-            final_score = relevance_score
+            final_score = relevance_score * 0.7
 
         retrieval_quality = self._get_quality_level(final_score)
 
@@ -335,14 +403,10 @@ class MemoryEvaluator(BaseEvaluator):
 
 请只返回分数数字，不要返回其他内容。"""
 
-            response = self.client.generate(prompt)
-            if response and response.text:
-                # 提取分数
-                import re
-
-                score_match = re.search(r"(\d+\.?\d*)", response.text)
-                if score_match:
-                    score = float(score_match.group(1))
+            llm_output = self.client.chat(prompt)
+            if llm_output:
+                score = self.safe_parse_score(llm_output)
+                if score is not None:
                     return min(1.0, max(0.0, score))
         except Exception as e:
             logger.warning(f"LLM 语义相关性计算失败: {e}")
@@ -437,8 +501,8 @@ class MemoryEvaluator(BaseEvaluator):
             embedding_score = self.fallback_policy.get_fallback_score(retrieved, expected)
             if embedding_score is not None:
                 return embedding_score
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Failed to get embedding score for coverage: {e}")
 
         expected_keywords = set(self._extract_keywords(expected))
         retrieved_keywords = set(self._extract_keywords(retrieved))
@@ -490,8 +554,8 @@ class MemoryEvaluator(BaseEvaluator):
                 embedding_score = self.fallback_policy.get_fallback_score(context, ground_truth)
                 if embedding_score is not None:
                     scores.append(("semantic", embedding_score, 0.20))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to get embedding score for semantic consistency: {e}")
 
         # 加权平均
         total_weight = sum(weight for _, _, weight in scores)
@@ -644,8 +708,8 @@ class MemoryEvaluator(BaseEvaluator):
             embedding_score = self.fallback_policy.get_fallback_score(text1, text2)
             if embedding_score is not None:
                 return embedding_score
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Failed to get embedding score for similarity: {e}")
 
         return difflib.SequenceMatcher(None, text1, text2).ratio()
 
@@ -776,179 +840,7 @@ class MemoryEvaluator(BaseEvaluator):
         import re
 
         words = re.findall(r"\b[a-zA-Z\u4e00-\u9fff]{2,}\b", text.lower())
-
-        # 中英文停用词
-        stop_words = {
-            # 中文停用词
-            "的",
-            "是",
-            "在",
-            "有",
-            "和",
-            "了",
-            "我",
-            "你",
-            "他",
-            "她",
-            "它",
-            "这",
-            "那",
-            "很",
-            "也",
-            "都",
-            "要",
-            "会",
-            "可以",
-            "能",
-            "不",
-            "没",
-            "好",
-            "就",
-            "对",
-            "说",
-            "看",
-            "想",
-            "去",
-            "来",
-            "上",
-            "下",
-            "大",
-            "小",
-            "多",
-            "少",
-            "一",
-            "二",
-            "三",
-            "四",
-            "五",
-            "六",
-            "七",
-            "八",
-            "九",
-            "十",
-            "个",
-            "位",
-            "名",
-            "本",
-            "页",
-            "条",
-            "种",
-            "类",
-            "们",
-            "等",
-            "及",
-            "与",
-            "或",
-            "但",
-            "而",
-            "因为",
-            "所以",
-            "如果",
-            "虽然",
-            "但是",
-            "什么",
-            "怎么",
-            "为什么",
-            "哪里",
-            "多少",
-            "谁",
-            "哪个",
-            "这个",
-            "那个",
-            "这些",
-            "那些",
-            "被",
-            "把",
-            "给",
-            "让",
-            "从",
-            "向",
-            "到",
-            "为",
-            "以",
-            # 英文停用词
-            "this",
-            "that",
-            "is",
-            "are",
-            "was",
-            "were",
-            "be",
-            "been",
-            "being",
-            "have",
-            "has",
-            "had",
-            "do",
-            "does",
-            "did",
-            "will",
-            "would",
-            "could",
-            "should",
-            "may",
-            "might",
-            "must",
-            "shall",
-            "can",
-            "need",
-            "dare",
-            "ought",
-            "used",
-            "to",
-            "of",
-            "in",
-            "for",
-            "on",
-            "with",
-            "at",
-            "by",
-            "from",
-            "up",
-            "about",
-            "into",
-            "over",
-            "after",
-            "and",
-            "but",
-            "or",
-            "as",
-            "if",
-            "when",
-            "than",
-            "because",
-            "while",
-            "although",
-            "though",
-            "which",
-            "who",
-            "whom",
-            "what",
-            "how",
-            "where",
-            "why",
-            "a",
-            "an",
-            "the",
-            "its",
-            "they",
-            "their",
-            "them",
-            "he",
-            "she",
-            "him",
-            "her",
-            "his",
-            "i",
-            "me",
-            "my",
-            "we",
-            "us",
-            "our",
-            "you",
-            "your",
-        }
-
+        stop_words = self.CHINESE_STOP_WORDS | self.ENGLISH_STOP_WORDS
         return [w for w in words if w not in stop_words][:20]
 
     def _get_quality_level(self, score: float) -> str:

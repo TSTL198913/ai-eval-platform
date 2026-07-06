@@ -4,7 +4,9 @@ import difflib
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
+from src.schemas.evaluation import DomainResponse
+from src.schemas.evaluation import EvaluationSchema
+from src.schemas.evaluation import EvaluatorStatus
 
 
 @EvaluatorFactory.register("prompt_regression")

@@ -578,7 +578,7 @@ class TestBufferStress:
 
     def test_buffer_high_volume(self):
         """高吞吐量缓冲压力测试"""
-        from src.schemas.evaluation import DomainResponse
+        from src.schemas.evaluation import DomainResponse, EvaluatorStatus
         from src.schemas.schemas import EvaluationResult, EvaluationStatus
         from src.workers.tasks import EvaluationBufferService, _result_to_model
 
@@ -594,7 +594,7 @@ class TestBufferStress:
         start_time = time.perf_counter()
         for i in range(total_records):
             eval_type = TestDataGenerator.weighted_random_evaluator()
-            response = DomainResponse(is_valid=True, text=f"test-{i}", score=0.8)
+            response = DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, text=f"test-{i}", score=0.8)
             result = EvaluationResult(
                 case_id=f"buffer-stress-{i}-{uuid.uuid4()}",
                 status=EvaluationStatus.PASSED,

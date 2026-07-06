@@ -1,5 +1,7 @@
-from dataclasses import dataclass, field
-from typing import Any, Optional
+from dataclasses import dataclass
+from dataclasses import field
+from typing import Any
+from typing import Optional
 
 
 @dataclass
@@ -111,8 +113,8 @@ class MetricsCollector:
             metrics_file.parent.mkdir(parents=True, exist_ok=True)
             data = {tid: m.to_dict() for tid, m in self._metrics_store.items()}
             metrics_file.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to persist metrics to disk: {e}")
 
     def _persist_to_repository(self, task_id: str) -> None:
         """持久化到EvaluationRepository"""
@@ -136,9 +138,8 @@ class MetricsCollector:
                         "metadata": metrics.metadata,
                     }
                 )
-        except Exception:
-            # 静默失败，不影响主流程
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to persist metrics to repository: {e}")
 
     def _load_from_disk(self) -> None:
         """从磁盘加载历史数据"""

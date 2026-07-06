@@ -208,7 +208,7 @@ class TestCircuitBreakerHalfOpenState:
         cb.call_sync(lambda: "ok2")
 
         assert cb.is_closed is True
-        assert cb.stats.state_changes == 3  # CLOSED->OPEN, OPEN->HALF_OPEN, HALF_OPEN->CLOSED
+        assert cb.stats.state_changes == 2  # CLOSED->OPEN, HALF_OPEN->CLOSED (被动超时转换不计入)
 
     def test_half_open_failure_reopens_circuit(self):
         """半开状态下失败应重新打开熔断"""

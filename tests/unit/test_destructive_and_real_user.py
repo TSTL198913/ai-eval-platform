@@ -51,8 +51,8 @@ def get_user(id):
         result = evaluator.evaluate(request)
 
         assert result.is_valid is True
-        assert result.data["syntax_valid"] is True
-        mock_client.chat.assert_called_once()
+        assert "security_vulnerabilities" in result.data
+        assert result.score < 0.5
 
     def test_xss_attempt_in_code(self):
         """验证代码评估器能处理 XSS 攻击代码"""
@@ -175,7 +175,7 @@ class TestBoundaryConditions:
         assert result.score is not None
 
     def test_zero_values_everywhere(self):
-        """验证全零值的处理"""
+        """验证全零值的处理 - 全零值表示极端风险（0覆盖率、0对齐、0复杂度）"""
         evaluator = RiskEvaluator()
         request = EvaluationSchema(
             id="zero_values_001",
@@ -193,6 +193,7 @@ class TestBoundaryConditions:
 
         assert result.is_valid is True
         assert result.data["overall_risk_level"] == "high"
+        assert result.score <= 0.6, f"全零值应返回低分（风险高），实际分数: {result.score}"
 
     def test_maximum_float_values(self):
         """验证最大浮点值的处理"""
@@ -430,8 +431,8 @@ def execute_command(cmd):
         result = evaluator.evaluate(request)
 
         assert result.is_valid is True
-        assert result.data["syntax_valid"] is True
-        mock_client.chat.assert_called_once()
+        assert result.metadata.get("safety_valid") is False
+        assert result.score < 0.5
 
     def test_risk_assessment_scenario(self):
         """风险评估场景：真实项目风险"""

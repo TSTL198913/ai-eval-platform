@@ -19,7 +19,8 @@ from typing import Any
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.domain.evaluators.fallback_policy import SemanticTaskPolicy
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse
+from src.schemas.evaluation import EvaluationSchema
 
 logger = logging.getLogger(__name__)
 

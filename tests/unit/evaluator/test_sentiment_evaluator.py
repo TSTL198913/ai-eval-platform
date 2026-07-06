@@ -138,7 +138,7 @@ class TestSentimentEvaluatorNegativeCases:
         # 强断言：验证错误状态
         assert result.is_valid is False, "is_valid应为False"
         assert result.evaluation_status.value == "error", f"evaluation_status应为error，实际为{result.evaluation_status.value}"
-        assert result.score is None, f"score应为None，实际为{result.score}"
+        assert result.score == 0.0, f"score应为0.0，实际为{result.score}"
         
         # 强断言：验证错误信息
         assert result.error is not None, "error不应为None"
@@ -156,7 +156,7 @@ class TestSentimentEvaluatorNegativeCases:
         # 强断言：验证错误状态
         assert result.is_valid is False, "is_valid应为False"
         assert result.evaluation_status.value == "error", f"evaluation_status应为error，实际为{result.evaluation_status.value}"
-        assert result.score is None, f"score应为None，实际为{result.score}"
+        assert result.score == 0.0, f"score应为0.0，实际为{result.score}"
 
 
 class TestSentimentEvaluatorKeywordMatching:

@@ -7,19 +7,21 @@ import time
 import traceback
 from collections.abc import Generator
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from dataclasses import field
 from typing import Any
 
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine
+from sqlalchemy import event
+from sqlalchemy import text
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
 
-from src.distributed.circuit_breaker import (
-    CircuitBreakerConfig,
-    CircuitBreakerError,
-    global_registry,
-)
+from src.distributed.circuit_breaker import CircuitBreakerConfig
+from src.distributed.circuit_breaker import CircuitBreakerError
+from src.distributed.circuit_breaker import global_registry
 from src.exceptions import InfrastructureError
 
 logger = logging.getLogger(__name__)
@@ -152,6 +154,13 @@ class ConnectionLeakDetector:
                 thread_id=threading.get_ident(),
                 stack_trace=stack_trace,
             )
+
+            # 将conn_id存储在dbapi_conn对象上，用于checkin时精准匹配
+            try:
+                setattr(dbapi_conn, "_eval_platform_conn_id", conn_id)
+            except Exception:
+                pass
+
             return conn_id
 
     def track_checkin(self, dbapi_conn: Any) -> ConnectionLeakInfo | None:
@@ -162,16 +171,26 @@ class ConnectionLeakDetector:
             如果连接存在则返回连接信息，否则返回 None
         """
         with self._lock:
-            # 找到对应的连接（通过线程ID匹配）
-            thread_id = threading.get_ident()
+            # 通过conn_id精准匹配连接（优先），回退到线程ID匹配
             conn_id_to_remove = None
             conn_info = None
 
-            for conn_id, info in self._connections.items():
-                if info.thread_id == thread_id:
+            try:
+                conn_id = getattr(dbapi_conn, "_eval_platform_conn_id", None)
+                if conn_id is not None and conn_id in self._connections:
                     conn_id_to_remove = conn_id
-                    conn_info = info
-                    break
+                    conn_info = self._connections[conn_id]
+            except Exception:
+                pass
+
+            # 回退策略：通过线程ID匹配（处理不支持setattr的连接对象）
+            if conn_id_to_remove is None:
+                thread_id = threading.get_ident()
+                for conn_id, info in self._connections.items():
+                    if info.thread_id == thread_id:
+                        conn_id_to_remove = conn_id
+                        conn_info = info
+                        break
 
             if conn_id_to_remove is not None:
                 del self._connections[conn_id_to_remove]

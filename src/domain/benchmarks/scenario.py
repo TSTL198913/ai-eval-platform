@@ -1,6 +1,7 @@
 from typing import Any
 
-from src.domain.benchmarks.base import BaseBenchmark, BenchmarkResult
+from src.domain.benchmarks.base import BaseBenchmark
+from src.domain.benchmarks.base import BenchmarkResult
 from src.domain.benchmarks.registry import BenchmarkRegistry
 
 

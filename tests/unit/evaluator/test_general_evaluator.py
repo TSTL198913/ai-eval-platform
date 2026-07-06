@@ -12,7 +12,8 @@ import pytest
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from src.domain.evaluators.general import GeneralEvaluator
-from src.schemas.evaluation import EvaluationSchema
+from src.schemas.evaluation import EvaluationSchema, EvaluatorStatus
+from tests.utils.test_helpers import approx_score
 
 
 class TestGeneralEvaluatorPositiveCases:
@@ -133,7 +134,7 @@ class TestGeneralEvaluatorBoundaryCases:
     """边界测试 - 边界值"""
 
     def test_without_llm_client_returns_error(self):
-        """无LLM client时应返回错误"""
+        """无LLM client时应返回降级评估"""
         target = GeneralEvaluator(client=None)
         request = EvaluationSchema(
             id="gen_bound_001",
@@ -142,8 +143,8 @@ class TestGeneralEvaluatorBoundaryCases:
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is False
-        assert "需要 LLM 客户端" in result.error
+        assert result.evaluation_status == EvaluatorStatus.PARTIAL
+        assert result.score is not None
 
     def test_none_input_returns_error(self):
         """None输入应被正确处理"""
@@ -334,7 +335,7 @@ class TestGeneralEvaluatorScoringLogic:
         result = target.evaluate(request)
 
         assert result.is_valid is True
-        assert result.score == 0.85
+        assert result.score == approx_score(0.85)
 
 
 class TestGeneralEvaluatorExceptionScenarios:
@@ -348,7 +349,7 @@ class TestGeneralEvaluatorExceptionScenarios:
         return client
 
     def test_llm_call_failure_returns_error(self, mock_client):
-        """LLM调用失败应返回错误"""
+        """LLM调用失败应返回降级评估"""
         mock_client.chat.side_effect = RuntimeError("LLM服务不可用")
         target = GeneralEvaluator(client=mock_client)
         request = EvaluationSchema(
@@ -361,9 +362,9 @@ class TestGeneralEvaluatorExceptionScenarios:
         )
         result = target.evaluate(request)
 
-        assert result.is_valid is False
-        assert result.error is not None
-        assert "LLM 调用异常" in result.error
+        assert result.evaluation_status == EvaluatorStatus.PARTIAL
+        assert result.score is not None
+        assert "fallback_reason" in result.data
 
     def test_score_parse_failure_returns_error(self, mock_client):
         """分数解析失败应返回错误"""

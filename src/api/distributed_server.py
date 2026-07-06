@@ -14,21 +14,21 @@ import os
 import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request, Response, status
+from fastapi import FastAPI
+from fastapi import HTTPException
+from fastapi import Request
+from fastapi import Response
+from fastapi import status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from src.distributed.rate_limiter import (
-    MultiDimensionRateLimiter,
-)
+from src.distributed.rate_limiter import MultiDimensionRateLimiter
 from src.infra.monitoring.metrics import expose_metrics
 from src.infra.monitoring.metrics import registry as metrics_registry
-from src.infra.monitoring.tracing import (
-    SpanContextCarrier,
-    TraceContext,
-    get_tracer,
-    setup_opentelemetry,
-)
+from src.infra.monitoring.tracing import SpanContextCarrier
+from src.infra.monitoring.tracing import TraceContext
+from src.infra.monitoring.tracing import get_tracer
+from src.infra.monitoring.tracing import setup_opentelemetry
 from src.workers.celery_app import celery_app
 from src.workers.tasks import eval_case_task
 

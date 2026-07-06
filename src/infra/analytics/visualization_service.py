@@ -23,7 +23,10 @@ import logging
 import math
 from collections import defaultdict
 from datetime import datetime
-from statistics import mean, median, quantiles, stdev
+from statistics import mean
+from statistics import median
+from statistics import quantiles
+from statistics import stdev
 from typing import Any
 
 logger = logging.getLogger(__name__)

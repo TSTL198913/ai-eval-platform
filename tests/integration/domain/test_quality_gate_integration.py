@@ -22,7 +22,7 @@ from src.domain.testing import (
     quality_gate,
     red_team_test,
 )
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse, EvaluatorStatus, EvaluationSchema
 
 
 class TestQualityGateIntegration:
@@ -141,7 +141,7 @@ class TestEvaluatorFactoryQualityIntegration:
             """测试质量评估器"""
 
             def evaluate(self, request: EvaluationSchema) -> DomainResponse:
-                return DomainResponse(is_valid=True, score=1.0)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=1.0)
 
         EvaluatorFactory.enable_quality_gate(QualityGateLevel.NORMAL)
 
@@ -167,7 +167,7 @@ class TestEvaluatorFactoryQualityIntegration:
             """质量检查测试评估器"""
 
             def evaluate(self, request: EvaluationSchema) -> DomainResponse:
-                return DomainResponse(is_valid=True, score=0.9)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=0.9)
 
         EvaluatorFactory.enable_quality_gate(QualityGateLevel.NORMAL)
 

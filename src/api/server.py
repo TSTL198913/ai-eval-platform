@@ -8,14 +8,30 @@ import os
 import time
 from contextlib import asynccontextmanager
 
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault(
+    "HF_HOME",
+    os.path.join(os.path.expanduser("~"), ".cache", "huggingface", "hub"),
+)
+os.environ.setdefault(
+    "TRANSFORMERS_CACHE",
+    os.path.join(os.path.expanduser("~"), ".cache", "huggingface", "hub"),
+)
+os.environ.setdefault(
+    "SENTENCE_TRANSFORMERS_HOME",
+    os.path.join(os.path.expanduser("~"), ".cache", "huggingface", "hub"),
+)
+
 try:
     from dotenv import load_dotenv
 
-    load_dotenv()
+    load_dotenv(override=True)
 except ImportError:
     pass
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI
+from fastapi import HTTPException
+from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
@@ -95,6 +111,17 @@ async def lifespan(app: FastAPI):
         logger.info(f"[5/5] 报告生成器预热完成: {time.time() - t0:.0f}s")
     except Exception as e:
         logger.warning(f"[5/5] 报告生成器预热失败: {e}")
+
+    # 6. 初始化事件订阅者（智能自动化闭环）
+    logger.info("[6/6] 初始化事件订阅者...")
+    t0 = time.time()
+    try:
+        from src.infra.event_subscribers import initialize_subscribers
+
+        initialize_subscribers()
+        logger.info(f"[6/6] 事件订阅者初始化完成: {time.time() - t0:.0f}s")
+    except Exception as e:
+        logger.warning(f"[6/6] 事件订阅者初始化失败: {e}")
 
     logger.info("=" * 60)
     logger.info(f"预热完成! 总耗时: {time.time() - warmup_start:.1f}s")
@@ -231,34 +258,32 @@ async def global_exception_handler(request: Request, exc: Exception):
 # 注册路由模块
 # =====================================================================
 
-from src.api.routes import (
-    ab_test_router,
-    admin_router,
-    annotation_router,
-    auth_router,
-    benchmark_router,
-    calibration_router,
-    cost_router,
-    dashboard_router,
-    dataset_router,
-    eval_config_router,
-    evaluation_router,
-    evaluator_router,
-    evaluator_version_router,
-    finetune_router,
-    health_router,
-    meta_evaluation_router,
-    model_comparison_router,
-    model_router,
-    mutation_test_router,
-    online_evaluation_router,
-    performance_router,
-    quality_gates_router,
-    records_router,
-    report_router,
-    security_router,
-    statistics_router,
-)
+from src.api.routes import ab_test_router
+from src.api.routes import admin_router
+from src.api.routes import annotation_router
+from src.api.routes import auth_router
+from src.api.routes import benchmark_router
+from src.api.routes import calibration_router
+from src.api.routes import cost_router
+from src.api.routes import dashboard_router
+from src.api.routes import dataset_router
+from src.api.routes import eval_config_router
+from src.api.routes import evaluation_router
+from src.api.routes import evaluator_router
+from src.api.routes import evaluator_version_router
+from src.api.routes import finetune_router
+from src.api.routes import health_router
+from src.api.routes import meta_evaluation_router
+from src.api.routes import model_comparison_router
+from src.api.routes import model_router
+from src.api.routes import mutation_test_router
+from src.api.routes import online_evaluation_router
+from src.api.routes import performance_router
+from src.api.routes import quality_gates_router
+from src.api.routes import records_router
+from src.api.routes import report_router
+from src.api.routes import security_router
+from src.api.routes import statistics_router
 
 # 注册所有路由模块
 app.include_router(auth_router)
@@ -291,14 +316,14 @@ app.include_router(eval_config_router)
 # =====================================================================
 # v2 API 路由聚合（精简后：8个功能域）
 # =====================================================================
-from src.api.routes.v2 import (
-    analytics_v2_router,
-    config_v2_router,
-    data_v2_router,
-    evaluation_v2_router,
-    models_v2_router,
-)
+from src.api.routes.v2 import analytics_v2_router
+from src.api.routes.v2 import config_v2_router
+from src.api.routes.v2 import data_v2_router
+from src.api.routes.v2 import evaluation_v2_router
+from src.api.routes.v2 import models_v2_router
+from src.api.routes.v2.evaluate import router as v2_evaluate_router
 
+app.include_router(v2_evaluate_router, prefix="/api/v2")
 app.include_router(evaluation_v2_router, prefix="/v2")
 app.include_router(models_v2_router, prefix="/v2")
 app.include_router(data_v2_router, prefix="/v2")

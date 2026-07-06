@@ -231,7 +231,7 @@ class TestEvaluatorFactoryPerformance:
         """获取多种类型评估器性能"""
         from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 
-        types = ["general", "security", "semantic", "grammar", "summary"]
+        types = ["general", "security", "semantic", "grammar", "code"]
 
         def get_random_evaluator():
             for t in types:
@@ -357,17 +357,17 @@ class TestBufferServicePerformance:
 
     def test_buffer_add_performance(self):
         """缓冲添加性能测试"""
-        from src.schemas.evaluation import DomainResponse
-        from src.schemas.schemas import EvaluationResult, EvaluationStatus
+        from src.schemas.evaluation import DomainResponse, EvaluatorStatus
+        from src.schemas.schemas import EvaluationResult, EvaluationStatus as RecordStatus
         from src.workers.tasks import EvaluationBufferService, _result_to_model
 
         buffer = EvaluationBufferService(batch_size=1000, flush_interval_seconds=300)
 
         def create_mock_result():
-            response = DomainResponse(is_valid=True, text="test", score=0.8)
+            response = DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, text="test", score=0.8)
             return EvaluationResult(
                 case_id=f"test-{uuid.uuid4()}",
-                status=EvaluationStatus.PASSED,
+                status=RecordStatus.PASSED,
                 model_name="test-model",
                 adapter_name="test-adapter",
                 response=response,
@@ -387,17 +387,17 @@ class TestBufferServicePerformance:
 
     def test_buffer_flush_performance(self):
         """缓冲flush性能测试"""
-        from src.schemas.evaluation import DomainResponse
-        from src.schemas.schemas import EvaluationResult, EvaluationStatus
+        from src.schemas.evaluation import DomainResponse, EvaluatorStatus
+        from src.schemas.schemas import EvaluationResult, EvaluationStatus as RecordStatus
         from src.workers.tasks import EvaluationBufferService, _result_to_model
 
         buffer = EvaluationBufferService(batch_size=1000, flush_interval_seconds=300)
 
         for i in range(50):
-            response = DomainResponse(is_valid=True, text="test", score=0.8)
+            response = DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, text="test", score=0.8)
             result = EvaluationResult(
                 case_id=f"test-flush-{i}",
-                status=EvaluationStatus.PASSED,
+                status=RecordStatus.PASSED,
                 model_name="test-model",
                 adapter_name="test-adapter",
                 response=response,

@@ -4,16 +4,21 @@ A/B Testing API
 提供 A/B 测试的创建、管理、结果分析接口。
 """
 
-from datetime import datetime, timezone
+from datetime import datetime
+from datetime import timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter
+from fastapi import Depends
+from fastapi import HTTPException
+from fastapi import status
+from pydantic import BaseModel
+from pydantic import Field
 
-from src.api.dependencies import (
-    PermissionDependency,
-)
-from src.domain.ab_testing import ABTestAPI, ABTestManager, ABTestStatus
+from src.api.dependencies import PermissionDependency
+from src.domain.ab_testing import ABTestAPI
+from src.domain.ab_testing import ABTestManager
+from src.domain.ab_testing import ABTestStatus
 from src.infra.security import Permission
 
 router = APIRouter(prefix="/api/v1/ab-tests", tags=["A/B Testing"])

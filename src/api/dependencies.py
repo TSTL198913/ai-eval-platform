@@ -7,11 +7,15 @@ API 权限依赖模块
 from collections.abc import Callable
 from functools import wraps
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
+from fastapi import HTTPException
+from fastapi import status
 from fastapi.security import OAuth2PasswordBearer
 
 from src.api.auth import decode_token
-from src.infra.security import ROLE_PERMISSIONS, Permission, Role
+from src.infra.security import ROLE_PERMISSIONS
+from src.infra.security import Permission
+from src.infra.security import Role
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 

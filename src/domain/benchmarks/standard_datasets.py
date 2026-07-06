@@ -10,7 +10,8 @@
 
 import json
 import os
-from abc import ABC, abstractmethod
+from abc import ABC
+from abc import abstractmethod
 from enum import Enum
 
 
@@ -259,8 +260,8 @@ class HumanEvalDataset(BaseDataset):
                         }
                     )
                 return self.data
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to load HumanEval dataset from HuggingFace: {e}")
 
         file_path = os.path.join(self.data_dir, "humaneval.json")
         if os.path.exists(file_path):

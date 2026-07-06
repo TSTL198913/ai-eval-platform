@@ -10,14 +10,13 @@ Prometheus 中间件 - FastAPI 请求自动采集
 import time
 from collections.abc import Callable
 
-from fastapi import Request, Response
+from fastapi import Request
+from fastapi import Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
-from src.infra.monitoring.metrics import (
-    EVALUATION_COUNTER,
-    EVALUATION_LATENCY,
-)
+from src.infra.monitoring.metrics import EVALUATION_COUNTER
+from src.infra.monitoring.metrics import EVALUATION_LATENCY
 
 
 class PrometheusMiddleware(BaseHTTPMiddleware):

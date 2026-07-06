@@ -5,9 +5,11 @@
 
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
+from fastapi import Depends
 
-from src.api.common import error_response, success_response
+from src.api.common import error_response
+from src.api.common import success_response
 from src.api.dependencies import PermissionDependency
 from src.infra.security import Permission
 

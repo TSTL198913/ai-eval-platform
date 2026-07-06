@@ -72,7 +72,10 @@ class TestNormalizeRawData:
             "metadata": {"tag": "test"},
         }
         normalized = _normalize_raw_data(raw_data)
-        assert normalized == raw_data
+        assert normalized["id"] == raw_data["id"]
+        assert normalized["type"] == raw_data["type"]
+        assert normalized["payload"] == raw_data["payload"]
+        assert normalized["metadata"] == raw_data["metadata"]
 
     def test_handles_empty_input(self):
         raw_data = {}
@@ -97,11 +100,13 @@ class TestRunEvaluationService:
     @patch("src.services.evaluator_svc.EvaluationSchema")
     @patch("src.services.evaluator_svc._get_evaluator_registry")
     @patch("src.services.evaluator_svc.EvaluationEngine")
-    @patch("src.services.evaluator_svc._repository")
-    def test_run_evaluation_success(self, mock_repo, mock_engine, mock_registry, mock_schema):
+    @patch("src.domain.services.persistence_service.PersistenceService")
+    @patch("src.domain.models.llm_factory.create_llm_client")
+    def test_run_evaluation_success(self, mock_create_client, mock_persistence, mock_engine, mock_registry, mock_schema):
         mock_registry.return_value = {"qa": MagicMock()}
         mock_schema.return_value = MagicMock(
-            id="test123", type="qa", payload={}, model_provider="openai", model_name="gpt-4"
+            id="test123", type="qa", payload={}, model_provider="openai", model_name="gpt-4",
+            inference_model_provider=None, inference_model_name=None, evaluate_mode="offline"
         )
         mock_result = MagicMock()
         mock_result.status.value = "success"
@@ -110,7 +115,8 @@ class TestRunEvaluationService:
         mock_result.latency_ms = 100
         mock_result.case_id = "test123"
         mock_engine.return_value.run.return_value = mock_result
-        mock_repo.save.return_value = 1
+        mock_persistence.return_value.save_evaluation.return_value = {"success": True, "error": None}
+        mock_create_client.return_value = MagicMock()
 
         result = run_evaluation_service({"type": "qa", "input": "test"})
 
@@ -134,10 +140,12 @@ class TestRunEvaluationService:
     @patch("src.services.evaluator_svc.EvaluationSchema")
     @patch("src.services.evaluator_svc._get_evaluator_registry")
     @patch("src.services.evaluator_svc.EvaluationEngine")
-    def test_run_evaluation_with_client(self, mock_engine, mock_registry, mock_schema):
+    @patch("src.domain.services.persistence_service.PersistenceService")
+    def test_run_evaluation_with_client(self, mock_persistence, mock_engine, mock_registry, mock_schema):
         mock_registry.return_value = {"qa": MagicMock()}
         mock_schema.return_value = MagicMock(
-            id="test123", type="qa", payload={}, model_provider=None, model_name=None
+            id="test123", type="qa", payload={}, model_provider=None, model_name=None,
+            inference_model_provider=None, inference_model_name=None, evaluate_mode="offline"
         )
         mock_result = MagicMock()
         mock_result.status.value = "success"
@@ -146,23 +154,27 @@ class TestRunEvaluationService:
         mock_result.latency_ms = 50
         mock_result.case_id = "test123"
         mock_engine.return_value.run.return_value = mock_result
+        mock_persistence.return_value.save_evaluation.return_value = {"success": True, "error": None}
 
         mock_client = MagicMock()
         result = run_evaluation_service({"type": "qa"}, client=mock_client)
 
         assert result["status"] == "success"
-        mock_engine.assert_called_with(mock_client)
+        call_args = mock_engine.call_args
+        assert mock_client in call_args[0] or 'inference_client' in call_args[1]
 
     @patch("src.services.evaluator_svc.EvaluationSchema")
     @patch("src.services.evaluator_svc._get_evaluator_registry")
     @patch("src.services.evaluator_svc.EvaluationEngine")
-    @patch("src.services.evaluator_svc._repository")
+    @patch("src.domain.services.persistence_service.PersistenceService")
+    @patch("src.domain.models.llm_factory.create_llm_client")
     def test_run_evaluation_persist_failure(
-        self, mock_repo, mock_engine, mock_registry, mock_schema
+        self, mock_create_client, mock_persistence, mock_engine, mock_registry, mock_schema
     ):
         mock_registry.return_value = {"qa": MagicMock()}
         mock_schema.return_value = MagicMock(
-            id="test123", type="qa", payload={}, model_provider="openai", model_name="gpt-4"
+            id="test123", type="qa", payload={}, model_provider="openai", model_name="gpt-4",
+            inference_model_provider=None, inference_model_name=None, evaluate_mode="offline"
         )
         mock_result = MagicMock()
         mock_result.status.value = "success"
@@ -171,7 +183,8 @@ class TestRunEvaluationService:
         mock_result.latency_ms = 50
         mock_result.case_id = "test123"
         mock_engine.return_value.run.return_value = mock_result
-        mock_repo.save.side_effect = Exception("DB error")
+        mock_persistence.return_value.save_evaluation.return_value = {"success": False, "error": "DB error"}
+        mock_create_client.return_value = MagicMock()
 
         result = run_evaluation_service({"type": "qa"})
 

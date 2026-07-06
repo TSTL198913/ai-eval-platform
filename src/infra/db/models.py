@@ -1,6 +1,14 @@
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON
+from sqlalchemy import Boolean
+from sqlalchemy import Column
+from sqlalchemy import DateTime
+from sqlalchemy import Float
+from sqlalchemy import ForeignKey
+from sqlalchemy import Integer
+from sqlalchemy import String
+from sqlalchemy import Text
 from sqlalchemy.orm import relationship
 
 from src.infra.db.session import Base
@@ -193,4 +201,29 @@ class AnnotationAgreementModel(Base):
             "annotator_count": self.annotator_count,
             "metric_payload": self.metric_payload,
             "computed_at": self.computed_at.isoformat() if self.computed_at else None,
+        }
+
+
+class CalibrationHistoryModel(Base):
+    """校准历史表 - 记录每次校准操作"""
+
+    __tablename__ = "calibration_history"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    evaluator_name = Column(String(50), nullable=False, index=True, comment="评估器名称")
+    calibration_factor = Column(Float, comment="校准因子")
+    confidence = Column(Float, comment="置信度")
+    source = Column(String(50), comment="校准触发来源")
+    metadata_json = Column("metadata", JSON, comment="额外校准数据")
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "evaluator_name": self.evaluator_name,
+            "calibration_factor": self.calibration_factor,
+            "confidence": self.confidence,
+            "source": self.source,
+            "metadata": self.metadata_json,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }

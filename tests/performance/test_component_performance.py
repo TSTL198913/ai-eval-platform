@@ -537,7 +537,7 @@ class TestAsyncTaskPerformance:
         """缓冲服务并发添加性能测试"""
         import threading
 
-        from src.schemas.evaluation import DomainResponse
+        from src.schemas.evaluation import DomainResponse, EvaluatorStatus
         from src.schemas.schemas import EvaluationResult, EvaluationStatus
         from src.workers.tasks import EvaluationBufferService, _result_to_model
 
@@ -547,7 +547,7 @@ class TestAsyncTaskPerformance:
         lock = threading.Lock()
 
         def create_mock_result():
-            response = DomainResponse(is_valid=True, text="test", score=0.8)
+            response = DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, text="test", score=0.8)
             return EvaluationResult(
                 case_id=f"concurrent-{uuid.uuid4()}",
                 status=EvaluationStatus.PASSED,

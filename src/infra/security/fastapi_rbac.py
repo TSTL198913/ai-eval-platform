@@ -9,15 +9,16 @@ FastAPI RBAC 安全中间件与依赖注入
 import logging
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends
+from fastapi import HTTPException
+from fastapi import Request
+from fastapi import status
 from fastapi.security import APIKeyHeader
 
-from src.infra.security.rbac import (
-    APIKey,
-    Permission,
-    Role,
-    get_security,
-)
+from src.infra.security.rbac import APIKey
+from src.infra.security.rbac import Permission
+from src.infra.security.rbac import Role
+from src.infra.security.rbac import get_security
 
 logger = logging.getLogger(__name__)
 

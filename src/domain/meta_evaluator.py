@@ -1,7 +1,9 @@
 import json
 import os
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from dataclasses import dataclass
+from dataclasses import field
+from datetime import datetime
+from datetime import timedelta
 from typing import Any
 
 from src.infra.db.repository import EvaluationRepository
@@ -49,8 +51,8 @@ class MetaEvaluator:
                 with open(conflicts_file, encoding="utf-8") as f:
                     data = json.load(f)
                     self._conflict_queue = [ConflictRecord(**c) for c in data]
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to load pending conflicts: {e}")
 
     def _save_pending_conflicts(self):
         conflicts_file = "data/meta_evaluator/conflicts.json"

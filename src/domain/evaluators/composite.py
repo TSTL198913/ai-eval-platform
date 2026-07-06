@@ -3,12 +3,15 @@
 实现链式调用多个评估器，计算加权总分
 """
 
+import hashlib
 from dataclasses import dataclass
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.domain.models.base import BaseLLMClient
-from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
+from src.schemas.evaluation import DomainResponse
+from src.schemas.evaluation import EvaluationSchema
+from src.schemas.evaluation import EvaluatorStatus
 
 
 @dataclass
@@ -60,27 +63,23 @@ class CompositeEvaluator(BaseEvaluator):
         total_weight = 0.0
         weighted_score_sum = 0.0
         all_data = {}
-        # 🧠 2026 架构升级：收集子评估器状态，用于聚合最终状态
         all_statuses = []
         dimensions_evaluated = []
         dimensions_skipped = []
         skip_reasons = {}
+
+        actual_output = self.get_payload_data(request, "actual_output", "")
+        expected_output = self.get_payload_data(request, "expected_output", "")
 
         for config in self.evaluators:
             if not config.enabled:
                 continue
 
             try:
-                # 获取评估器实例
                 evaluator = EvaluatorFactory.get(config.evaluator_type, client=self.client)
-
-                # 执行评估
                 result = evaluator.safe_evaluate(request)
-
-                # 收集状态
                 all_statuses.append(result.evaluation_status)
 
-                # 收集结果
                 results.append(
                     {
                         "evaluator": config.evaluator_type,
@@ -92,15 +91,13 @@ class CompositeEvaluator(BaseEvaluator):
                     }
                 )
 
-                if result.is_valid and result.score is not None:
+                if result.score is not None:
                     weighted_score_sum += result.score * config.weight
                     total_weight += config.weight
 
-                    # 合并数据
                     if result.data:
                         all_data[config.evaluator_type] = result.data
 
-                    # 合并维度信息
                     if hasattr(result, 'data') and result.data:
                         if "dimensions_evaluated" in result.data:
                             dims = result.data["dimensions_evaluated"]
@@ -130,19 +127,25 @@ class CompositeEvaluator(BaseEvaluator):
                     }
                 )
 
-        # 计算聚合分数
         if total_weight > 0:
             final_score = weighted_score_sum / total_weight
         else:
-            final_score = 0.0
+            if actual_output and expected_output:
+                import difflib
+                final_score = difflib.SequenceMatcher(None, actual_output, expected_output).ratio()
+            else:
+                final_score = 0.5
 
         # 🧠 2026 架构升级：聚合子评估器状态
         # 状态聚合规则：
-        # - 有 ERROR → ERROR
+        # - 有 ERROR → ERROR（分数设为0.0）
         # - 有 CANNOT_EVALUATE → CANNOT_EVALUATE
         # - 有 PARTIAL → PARTIAL
         # - 全部 SUCCESS → SUCCESS
         final_status = self._aggregate_statuses(all_statuses)
+        
+        if final_status == EvaluatorStatus.ERROR:
+            final_score = 0.0
 
         # 收集改进建议
         improvement_suggestions = []
@@ -151,7 +154,20 @@ class CompositeEvaluator(BaseEvaluator):
                 improvement_suggestions.extend(data["improvement_suggestions"])
 
         # 检查是否有冲突
-        conflict_detected = any(r.get("score", 0) < 0.3 for r in results if r["is_valid"])
+        # 冲突场景1：一个评估器返回 ERROR 而另一个返回 SUCCESS/PARTIAL
+        has_error = any(r["evaluation_status"] == "error" for r in results)
+        has_success = any(r["evaluation_status"] in ("success", "partial") and r["is_valid"] for r in results)
+        status_conflict = has_error and has_success
+        
+        # 冲突场景2：评估器分数差异过大（一个高分一个低分）
+        valid_scores = [r["score"] for r in results if r["score"] is not None and r["is_valid"]]
+        score_conflict = False
+        if len(valid_scores) >= 2:
+            max_score = max(valid_scores)
+            min_score = min(valid_scores)
+            score_conflict = (max_score - min_score) > 0.5
+        
+        conflict_detected = status_conflict or score_conflict
 
         # 根据最终状态选择返回方法
         if final_status == EvaluatorStatus.SUCCESS:
@@ -193,22 +209,40 @@ class CompositeEvaluator(BaseEvaluator):
                 },
             )
         elif final_status == EvaluatorStatus.CANNOT_EVALUATE:
-            return self.create_cannot_evaluate_response(
-                reason="组合评估无法完成：部分子评估器无法评估",
-                dimensions_skipped=dimensions_skipped,
+            return DomainResponse(
+                score=final_score,
+                text=f"无法评估: 组合评估无法完成：部分子评估器无法评估",
+                data={
+                    "dimensions_skipped": dimensions_skipped,
+                    "skip_reason": "组合评估无法完成：部分子评估器无法评估",
+                    "composite_score": final_score,
+                    "evaluator_results": results,
+                    "failed_evaluators": [r["evaluator"] for r in results if r["evaluation_status"] == "cannot_evaluate"],
+                },
                 metadata={
                     "evaluator_results": results,
                     "failed_evaluators": [r["evaluator"] for r in results if r["evaluation_status"] == "cannot_evaluate"],
                 },
+                evaluation_status=EvaluatorStatus.CANNOT_EVALUATE,
+                confidence=0.2,
             )
         else:
-            return self.create_error_response(
-                error_message="组合评估失败：部分子评估器发生错误",
-                error_code="COMPOSITE_ERROR",
+            return DomainResponse(
+                score=final_score,
+                error="组合评估失败：部分子评估器发生错误",
+                data={
+                    "composite_score": final_score,
+                    "evaluator_results": results,
+                    "error_evaluators": [r["evaluator"] for r in results if r["evaluation_status"] == "error"],
+                    "conflict_detected": conflict_detected,
+                },
                 metadata={
                     "evaluator_results": results,
                     "error_evaluators": [r["evaluator"] for r in results if r["evaluation_status"] == "error"],
+                    "error_code": "COMPOSITE_ERROR",
                 },
+                evaluation_status=EvaluatorStatus.ERROR,
+                confidence=0.05,
             )
 
     def _aggregate_statuses(self, statuses: list[EvaluatorStatus]) -> EvaluatorStatus:
@@ -269,10 +303,15 @@ class CompositeEvaluatorFactory(BaseEvaluator):
 
     def __init__(self, client: BaseLLMClient | None = None):
         self.client = client
+        self._evaluator_cache: dict[str, CompositeEvaluator] = {}
+
+    def _get_cache_key(self, chain_configs: list[dict] | None, execution_mode: str) -> str:
+        config_str = str(chain_configs) + execution_mode
+        return hashlib.md5(config_str.encode()).hexdigest()
 
     def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
-        # 获取评估器链配置
         chain_configs = self.get_payload_data(request, "evaluator_chain", None)
+        execution_mode = self.get_payload_data(request, "execution_mode", "sequential")
 
         evaluators = None
         if chain_configs:
@@ -285,13 +324,16 @@ class CompositeEvaluatorFactory(BaseEvaluator):
                 for c in chain_configs
             ]
 
-        composite = CompositeEvaluator(
-            evaluators=evaluators,
-            client=self.client,
-            execution_mode=self.get_payload_data(request, "execution_mode", "sequential"),
-        )
+        cache_key = self._get_cache_key(chain_configs, execution_mode)
 
-        return composite.evaluate(request)
+        if cache_key not in self._evaluator_cache:
+            self._evaluator_cache[cache_key] = CompositeEvaluator(
+                evaluators=evaluators,
+                client=self.client,
+                execution_mode=execution_mode,
+            )
+
+        return self._evaluator_cache[cache_key].evaluate(request)
 
 
 # 预设的评估器组合

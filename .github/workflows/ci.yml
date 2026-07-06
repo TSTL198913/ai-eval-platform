@@ -53,11 +53,11 @@ jobs:
 
       - name: Run Ruff Check
         run: |
-          ruff check src/ tests/ --output-format=github || true
+          ruff check src/ tests/ --output-format=github
 
       - name: Run Ruff Format Check
         run: |
-          ruff format --check src/ tests/ || true
+          ruff format --check src/ tests/
 
   # =====================================================================
   # Job 2: 单元测试 + 覆盖率
@@ -83,8 +83,7 @@ jobs:
 
       - name: Run unit tests with coverage
         run: |
-          pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=html -n auto || true  # [门禁已注释] 暂不强制失败
-          # --cov-fail-under=20  # [门禁已注释] 覆盖率阈值，暂不强制
+          pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=html -n auto --cov-fail-under=70
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -125,7 +124,7 @@ jobs:
         run: |
           export TESTING=1
           export DATABASE_URL=sqlite:///./test.db?check_same_thread=False
-          pytest tests/integration/ -v --tb=short || true  # [门禁已注释] 暂不强制失败
+          pytest tests/integration/ -v --tb=short
 
   # =====================================================================
   # Job 4: E2E 页面测试
@@ -183,11 +182,11 @@ jobs:
 
       - name: Run E2E tests (Python pytest)
         run: |
-          pytest tests/e2e/test_*.py -v --tb=short || true  # [门禁已注释] 暂不强制失败
+          pytest tests/e2e/test_*.py -v --tb=short
 
       - name: Run E2E tests (Playwright)
         run: |
-          cd frontend && npx playwright test || true  # [门禁已注释] 暂不强制失败
+          cd frontend && npx playwright test
 
       - name: Stop servers
         if: always()
@@ -321,8 +320,8 @@ jobs:
             docker-compose -f docker-compose.prod.yml up -d --remove-orphans
             sleep 15
             docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-            curl -f http://localhost:8000/health || echo "API health check failed"
-            curl -f http://localhost/health || echo "Frontend health check failed"
+            curl -f http://localhost:8000/health || (echo "API health check failed" && exit 1)
+            curl -f http://localhost/health || (echo "Frontend health check failed" && exit 1)
 
   # =====================================================================
   # Job 7: 安全扫描
@@ -343,14 +342,12 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
-        continue-on-error: true  # [门禁已注释] 暂不强制失败
 
       - name: Upload Trivy scan results
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-results.sarif'
           category: 'trivy-security'
-        continue-on-error: true  # [门禁已注释] 暂不强制失败
 
   # =====================================================================
   # Job 8: 性能基准测试
@@ -383,7 +380,7 @@ jobs:
 
       - name: Run performance benchmarks
         run: |
-          pytest tests/performance/ -v --tb=short || true  # [门禁已注释] 暂不强制失败
+          pytest tests/performance/ -v --tb=short
 
       - name: Upload benchmark results
         if: always()
@@ -428,7 +425,7 @@ jobs:
       - name: Run OWASP Top 10 tests
         run: |
           mkdir -p tests/security_results
-          pytest tests/security/ -v --tb=short || true  # [门禁已注释] 暂不强制失败
+          pytest tests/security/ -v --tb=short
 
       - name: Upload security test results
         if: always()
@@ -466,7 +463,7 @@ jobs:
       - name: Run self test script
         run: |
           mkdir -p self_test_results
-          python scripts/self_test.py > self_test_results/output.log 2>&1 || true  # [门禁已注释] 暂不强制失败
+          python scripts/self_test.py > self_test_results/output.log 2>&1
 
       - name: Upload self test results
         if: always()

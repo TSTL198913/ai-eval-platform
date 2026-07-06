@@ -14,15 +14,14 @@ from typing import Any
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.domain.metrics.standard_metrics import (
-    BLEUMetric,
-    CosineSimilarityMetric,
-    F1TokenMetric,
-    LevenshteinMetric,
-    ROUGEMetric,
-    get_metric,
-)
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.domain.metrics.standard_metrics import BLEUMetric
+from src.domain.metrics.standard_metrics import CosineSimilarityMetric
+from src.domain.metrics.standard_metrics import F1TokenMetric
+from src.domain.metrics.standard_metrics import LevenshteinMetric
+from src.domain.metrics.standard_metrics import ROUGEMetric
+from src.domain.metrics.standard_metrics import get_metric
+from src.schemas.evaluation import DomainResponse
+from src.schemas.evaluation import EvaluationSchema
 
 logger = logging.getLogger(__name__)
 

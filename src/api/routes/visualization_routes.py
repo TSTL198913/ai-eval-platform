@@ -14,11 +14,15 @@
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import APIRouter
+from fastapi import HTTPException
+from fastapi import Query
+from fastapi.responses import HTMLResponse
+from fastapi.responses import JSONResponse
 
 from src.api.common import success_response
 from src.infra.analytics.report_generator import ReportGenerator

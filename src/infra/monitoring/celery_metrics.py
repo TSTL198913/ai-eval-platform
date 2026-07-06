@@ -13,7 +13,10 @@ import time
 from typing import Optional
 
 from celery import signals
-from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram
+from prometheus_client import CollectorRegistry
+from prometheus_client import Counter
+from prometheus_client import Gauge
+from prometheus_client import Histogram
 
 logger = logging.getLogger(__name__)
 

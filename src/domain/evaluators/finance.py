@@ -14,8 +14,10 @@ from pydantic import ValidationError
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.domain.evaluators.metadata import FinanceMetadata
-from src.domain.evaluators.scoring import is_passing, score_numeric_match
-from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
+from src.domain.evaluators.scoring import is_passing
+from src.domain.evaluators.scoring import score_numeric_match
+from src.schemas.evaluation import DomainResponse
+from src.schemas.evaluation import EvaluationSchema
 
 logger = logging.getLogger(__name__)
 

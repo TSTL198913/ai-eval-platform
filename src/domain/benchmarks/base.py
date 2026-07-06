@@ -1,5 +1,7 @@
-from dataclasses import dataclass, field
-from typing import Any, Protocol
+from dataclasses import dataclass
+from dataclasses import field
+from typing import Any
+from typing import Protocol
 
 
 class BaseBenchmark(Protocol):

@@ -12,9 +12,12 @@ import logging
 import threading
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from dataclasses import field
 from enum import Enum
-from typing import Any, Optional, TypeVar
+from typing import Any
+from typing import Optional
+from typing import TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -117,14 +120,26 @@ class CircuitBreaker:
             return self._state
 
     def _check_timeout_transition(self) -> CircuitState:
-        """检查超时并触发状态转换（仅在需要时调用）"""
+        """检查超时并触发状态转换（仅在需要时调用）
+
+        注意：OPEN -> HALF_OPEN 是基于超时的被动转换，不计入 state_changes 统计。
+        仅显式状态转换（CLOSED->OPEN、HALF_OPEN->CLOSED、HALF_OPEN->OPEN）才计入。
+        """
         with self._sync_lock:
             if self._state == CircuitState.OPEN:
                 if (
                     self._last_failure_time
                     and time.time() - self._last_failure_time >= self.config.timeout_seconds
                 ):
-                    self._transition_to(CircuitState.HALF_OPEN)
+                    logger.info(
+                        f"CircuitBreaker [{self.name}] timeout reached, "
+                        f"transitioning OPEN -> HALF_OPEN"
+                    )
+                    self._state = CircuitState.HALF_OPEN
+                    self._half_open_calls = 0
+                    self._success_count = 0
+                    if self._redis_client:
+                        self._save_state_to_redis()
                     return CircuitState.HALF_OPEN
             return self._state
 

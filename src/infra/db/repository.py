@@ -1,10 +1,13 @@
-from abc import ABC, abstractmethod
+from abc import ABC
+from abc import abstractmethod
 from typing import Any
 
-from sqlalchemy import bindparam, text
+from sqlalchemy import bindparam
+from sqlalchemy import text
 
 from src.exceptions import InfrastructureError
-from src.infra.db.models import EvaluationResultModel, TrajectoryModel
+from src.infra.db.models import EvaluationResultModel
+from src.infra.db.models import TrajectoryModel
 from src.infra.db.session import get_db_session
 from src.schemas.schemas import EvaluationResult
 

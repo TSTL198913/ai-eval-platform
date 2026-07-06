@@ -22,9 +22,11 @@ from __future__ import annotations
 import logging
 import math
 import re
-from abc import ABC, abstractmethod
+from abc import ABC
+from abc import abstractmethod
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from dataclasses import field
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -48,18 +50,22 @@ except ImportError:
     logger.warning("⚠️ 未安装 rouge-score，ROUGE 指标将降级到本地 LCS 实现")
 
 try:
+    import os
+
     import nltk
     from nltk.translate.meteor_score import meteor_score
 
+    nltk_data_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "nltk_data")
+    if os.path.exists(nltk_data_path):
+        nltk.data.path.insert(0, nltk_data_path)
+
+    # 仅使用本地已存在的 wordnet 语料，不在导入时触发网络下载（避免离线/受限网络环境下阻塞）
     try:
         nltk.data.find("corpora/wordnet")
+        HAS_METEOR = True
     except LookupError:
-        try:
-            nltk.download("wordnet", quiet=True)
-        except Exception:
-            pass
-
-    HAS_METEOR = True
+        HAS_METEOR = False
+        logger.warning("⚠️ 未找到本地 wordnet 语料，METEOR 指标将不可用（请手动运行 nltk.download('wordnet') 下载）")
 except ImportError:
     HAS_METEOR = False
     logger.warning("⚠️ 未安装 nltk 或 wordnet 语料，METEOR 指标将不可用")

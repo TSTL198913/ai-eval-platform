@@ -7,10 +7,10 @@
 3. 调用方有明确的文档参考
 """
 
-from typing import Any, Literal
+from typing import Any
 
-from pydantic import BaseModel, Field
-
+from pydantic import BaseModel
+from pydantic import Field
 
 # ==================== 基础通用 Schema ====================
 

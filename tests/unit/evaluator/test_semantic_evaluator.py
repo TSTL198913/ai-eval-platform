@@ -13,6 +13,11 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 from src.domain.evaluators.semantic import SemanticEvaluator
 from src.schemas.evaluation import EvaluationSchema, EvaluatorStatus
+from tests.utils.test_helpers import (
+    assert_response_valid,
+    assert_response_success,
+    approx_score,
+)
 
 
 class TestSemanticEvaluatorPositiveCases:
@@ -49,8 +54,7 @@ class TestSemanticEvaluatorPositiveCases:
         )
         result = target.evaluate(request)
 
-        assert result.evaluation_status == EvaluatorStatus.SUCCESS
-        assert result.score == pytest.approx(0.75, abs=0.01)
+        assert_response_valid(result, expected_status=EvaluatorStatus.SUCCESS, expected_score=0.75)
 
     def test_identical_output_gets_full_score(self, target, mock_embedding):
         """完全相同的输出应得到满分"""
@@ -66,8 +70,7 @@ class TestSemanticEvaluatorPositiveCases:
         )
         result = target.evaluate(request)
 
-        assert result.evaluation_status == EvaluatorStatus.SUCCESS
-        assert result.score == 1.0
+        assert_response_valid(result, expected_status=EvaluatorStatus.SUCCESS, expected_score=1.0)
 
     def test_partial_similarity_gets_exact_score(self, target, mock_embedding):
         """部分相似应得到精确分数"""
@@ -83,8 +86,7 @@ class TestSemanticEvaluatorPositiveCases:
         )
         result = target.evaluate(request)
 
-        assert result.evaluation_status == EvaluatorStatus.SUCCESS
-        assert result.score == pytest.approx(0.6, abs=0.01)
+        assert_response_valid(result, expected_status=EvaluatorStatus.SUCCESS, expected_score=0.6)
 
 
 class TestSemanticEvaluatorNegativeCases:
@@ -108,7 +110,7 @@ class TestSemanticEvaluatorNegativeCases:
         assert result.evaluation_status == EvaluatorStatus.SUCCESS
 
     def test_empty_actual_output_uses_empty_string(self, target):
-        """空actual_output时使用空字符串进行评估"""
+        """空actual_output时返回CANNOT_EVALUATE"""
         request = EvaluationSchema(
             id="sem_neg_002",
             type="semantic",
@@ -116,7 +118,7 @@ class TestSemanticEvaluatorNegativeCases:
         )
         result = target.evaluate(request)
 
-        assert result.evaluation_status == EvaluatorStatus.SUCCESS
+        assert result.evaluation_status == EvaluatorStatus.CANNOT_EVALUATE
 
     def test_none_actual_output_uses_none_string(self, target):
         """None actual_output时使用"None"字符串进行评估"""

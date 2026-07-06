@@ -5,7 +5,7 @@
 
 import re
 
-from src.config.thresholds import get_pass_threshold, DEFAULT_PASS_THRESHOLD
+from src.config.thresholds import DEFAULT_PASS_THRESHOLD
 
 # 保留向后兼容的常量（已废弃，建议使用 config.thresholds）
 PASS_THRESHOLD = DEFAULT_PASS_THRESHOLD

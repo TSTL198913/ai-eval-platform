@@ -23,35 +23,69 @@ from typing import Any
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse
+from src.schemas.evaluation import EvaluationSchema
 
 logger = logging.getLogger(__name__)
 
-# 探测 RAGAS 是否可用
-try:
-    from ragas.metrics import (
-        answer_correctness,
-        answer_relevancy,
-        answer_similarity,
-        context_precision,
-        context_recall,
-        faithfulness,
-    )
+HAS_RAGAS = False
+HAS_EMBEDDING = False
 
-    # from ragas.metrics._context_entity_recall import ContextEntityRecall  # unused
+_ragas_metrics_cache = {
+    "answer_correctness": None,
+    "answer_relevancy": None,
+    "answer_similarity": None,
+    "context_precision": None,
+    "context_recall": None,
+    "faithfulness": None,
+}
 
-    HAS_RAGAS = True
-except ImportError:
-    HAS_RAGAS = False
-    logger.warning("⚠️ 未安装 ragas，RAGAS 评估器将降级到本地实现")
 
-# 复用项目内的 Embedding 服务
-try:
-    from src.domain.evaluators.embedding_service import EmbeddingService
+def _check_ragas_availability() -> bool:
+    """延迟检查 RAGAS 是否可用（在首次使用时调用）"""
+    global HAS_RAGAS
+    if HAS_RAGAS:
+        return True
 
-    HAS_EMBEDDING = True
-except ImportError:
-    HAS_EMBEDDING = False
+    try:
+        import warnings
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=FutureWarning)
+            from ragas.metrics import answer_correctness
+            from ragas.metrics import answer_relevancy
+            from ragas.metrics import answer_similarity
+            from ragas.metrics import context_precision
+            from ragas.metrics import context_recall
+            from ragas.metrics import faithfulness
+
+        _ragas_metrics_cache["answer_correctness"] = answer_correctness
+        _ragas_metrics_cache["answer_relevancy"] = answer_relevancy
+        _ragas_metrics_cache["answer_similarity"] = answer_similarity
+        _ragas_metrics_cache["context_precision"] = context_precision
+        _ragas_metrics_cache["context_recall"] = context_recall
+        _ragas_metrics_cache["faithfulness"] = faithfulness
+
+        HAS_RAGAS = True
+        return True
+    except ImportError:
+        HAS_RAGAS = False
+        logger.warning("⚠️ 未安装 ragas，RAGAS 评估器将降级到本地实现")
+        return False
+
+
+def _check_embedding_availability() -> bool:
+    """延迟检查 Embedding 服务是否可用"""
+    global HAS_EMBEDDING
+    if HAS_EMBEDDING:
+        return True
+
+    try:
+        from src.domain.evaluators.embedding_service import EmbeddingService
+        HAS_EMBEDDING = True
+        return True
+    except ImportError:
+        HAS_EMBEDDING = False
+        return False
 
 
 # ==================== 本地降级实现 ====================
@@ -125,8 +159,9 @@ def _local_answer_similarity(answer: str, ground_truth: str) -> float:
     if not answer or not ground_truth:
         return 0.0
 
-    if HAS_EMBEDDING:
+    if _check_embedding_availability():
         try:
+            from src.domain.evaluators.embedding_service import EmbeddingService
             service = EmbeddingService.get_instance()
             if service.is_available():
                 return service.calculate_similarity(answer, ground_truth)
@@ -212,7 +247,7 @@ class RAGASEvaluator(BaseEvaluator):
         # 3. 计算各指标
         results: dict[str, dict[str, Any]] = {}
         scores: list[float] = []
-        used_implementation = "ragas" if HAS_RAGAS else "local"
+        used_implementation = "ragas" if _check_ragas_availability() else "local"
 
         for metric_name in metrics_to_run:
             try:
@@ -260,7 +295,7 @@ class RAGASEvaluator(BaseEvaluator):
         优先调用 RAGAS 官方实现，失败/缺失时降级到本地实现。
         """
         # 优先路径：RAGAS 官方
-        if HAS_RAGAS:
+        if _check_ragas_availability():
             try:
                 return self._ragas_compute(metric_name, question, answer, context, ground_truth)
             except Exception as e:

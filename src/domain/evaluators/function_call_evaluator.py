@@ -10,7 +10,9 @@ from typing import Any
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
+from src.domain.evaluators.fallback_policy import SemanticTaskPolicy
+from src.schemas.evaluation import DomainResponse
+from src.schemas.evaluation import EvaluationSchema
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +29,7 @@ class FunctionCallEvaluator(BaseEvaluator):
     """Function Calling 评估器（2026 高并发、极致低内存版）"""
 
     def __init__(self, client: Any | None = None):
-        super().__init__(client)
+        super().__init__(client, fallback_policy=SemanticTaskPolicy())
 
     def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
         """[同步轨] 执行同步工具调用评测流"""
@@ -59,6 +61,22 @@ class FunctionCallEvaluator(BaseEvaluator):
         expected_results = self.get_payload_data(request, "expected_results", {})
         actual_results = self.get_payload_data(request, "actual_results", {})
         tool_definitions = self.get_payload_data(request, "tool_definitions", [])
+
+        if not expected_tools or not actual_tools:
+            expected_output = self.get_payload_data(request, "expected_output")
+            actual_output = self.get_payload_data(request, "actual_output")
+            expected_parsed = self._parse_function_call(expected_output)
+            actual_parsed = self._parse_function_call(actual_output)
+            
+            if expected_parsed:
+                expected_tools = [expected_parsed.get("name", "")] if expected_parsed.get("name") else []
+                if expected_parsed.get("parameters"):
+                    expected_params = {expected_parsed["name"]: expected_parsed["parameters"]}
+            
+            if actual_parsed:
+                actual_tools = [actual_parsed.get("name", "")] if actual_parsed.get("name") else []
+                if actual_parsed.get("parameters"):
+                    actual_params = {actual_parsed["name"]: actual_parsed["parameters"]}
 
         # 🧠 2026 架构升级：无评估依据时应返回 CANNOT_EVALUATE，而非"无数据=满分"
         # 这是状态机设计的核心原则：明确区分"表现差"和"无法评估"
@@ -199,6 +217,9 @@ class FunctionCallEvaluator(BaseEvaluator):
         self, expected_tools: list, actual_tools: list
     ) -> tuple[float, dict]:
         """计算工具路由的 Precision / Recall / F1 矩阵并施加幻觉惩罚"""
+        expected_tools = expected_tools or []
+        actual_tools = actual_tools or []
+
         if not expected_tools:
             return (
                 (0.0, {"error": "期望工具列表为空"})
@@ -239,8 +260,12 @@ class FunctionCallEvaluator(BaseEvaluator):
         self, expected_params: dict, actual_params: dict, tool_definitions: list
     ) -> tuple[float, dict]:
         """评估多工具参数对齐状态"""
+        expected_params = expected_params or {}
+        actual_params = actual_params or {}
+        tool_definitions = tool_definitions or []
+
         if not expected_params:
-            return 1.0, {"message": "无参数需要验证"}
+            return 0.5, {"message": "无参数需要验证"}
 
         total_score = 0.0
         param_count = 0
@@ -292,31 +317,61 @@ class FunctionCallEvaluator(BaseEvaluator):
                     "actual": actual_value,
                 }
             else:
-                # B. 值虽不一致，但如果类型契合 JSON Schema，给与 0.5 的参数类型正确鼓励分
-                if tool_def:
-                    param_schema = self._get_param_schema(param_name, tool_def)
-                    if param_schema and self._validate_param_type(actual_value, param_schema):
-                        correct_params += 0.5
-                        param_results[param_name] = {
-                            "status": "type_correct_value_wrong",
-                            "expected": expected_value,
-                            "actual": actual_value,
-                        }
-                        continue
+                # B. 计算值相似度，提供连续评分而非二元判断
+                similarity = self._calculate_similarity(expected_value, actual_value)
+                if similarity >= 0.8:
+                    correct_params += 1.0
+                    param_results[param_name] = {
+                        "status": "correct",
+                        "expected": expected_value,
+                        "actual": actual_value,
+                        "similarity": round(similarity, 4),
+                    }
+                elif similarity >= 0.5:
+                    correct_params += 0.7
+                    param_results[param_name] = {
+                        "status": "partial",
+                        "expected": expected_value,
+                        "actual": actual_value,
+                        "similarity": round(similarity, 4),
+                    }
+                elif similarity >= 0.3:
+                    correct_params += 0.4
+                    param_results[param_name] = {
+                        "status": "partial",
+                        "expected": expected_value,
+                        "actual": actual_value,
+                        "similarity": round(similarity, 4),
+                    }
+                else:
+                    # C. 值不一致，但类型契合 JSON Schema，给与 0.3 的类型正确鼓励分
+                    if tool_def:
+                        param_schema = self._get_param_schema(param_name, tool_def)
+                        if param_schema and self._validate_param_type(actual_value, param_schema):
+                            correct_params += 0.3
+                            param_results[param_name] = {
+                                "status": "type_correct_value_wrong",
+                                "expected": expected_value,
+                                "actual": actual_value,
+                            }
+                            continue
 
-                param_results[param_name] = {
-                    "status": "incorrect",
-                    "expected": expected_value,
-                    "actual": actual_value,
-                }
+                    param_results[param_name] = {
+                        "status": "incorrect",
+                        "expected": expected_value,
+                        "actual": actual_value,
+                    }
 
         score = correct_params / total_params if total_params > 0 else 1.0
         return score, param_results
 
     def _evaluate_results(self, expected_results: dict, actual_results: dict) -> tuple[float, dict]:
         """多维异构执行结果混合审计"""
+        expected_results = expected_results or {}
+        actual_results = actual_results or {}
+
         if not expected_results:
-            return 1.0, {"message": "无执行结果需要比对"}
+            return 0.5, {"message": "无执行结果需要比对"}
 
         total_score = 0.0
         result_count = 0
@@ -495,3 +550,20 @@ class FunctionCallEvaluator(BaseEvaluator):
             "null": lambda v: v is None,
         }
         return type_map.get(expected_type, lambda v: True)(value)
+
+    def _parse_function_call(self, output: str | None) -> dict | None:
+        """从输出字符串中解析函数调用数据"""
+        if not output:
+            return None
+        
+        try:
+            import json
+            output = output.strip()
+            if output.startswith("{"):
+                parsed = json.loads(output)
+                if isinstance(parsed, dict) and "name" in parsed:
+                    return parsed
+        except (json.JSONDecodeError, ValueError):
+            pass
+        
+        return None

@@ -10,8 +10,16 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault(
+    "HF_HOME",
+    os.path.join(os.path.expanduser("~"), ".cache", "huggingface", "hub"),
+)
+
 from src.domain.evaluators.base import BaseEvaluator
-from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
+from src.schemas.evaluation import DomainResponse
+from src.schemas.evaluation import EvaluationSchema
+from src.schemas.evaluation import EvaluatorStatus
 
 
 class ModelStatus(Enum):
@@ -66,7 +74,8 @@ class FineTunedEvaluator(BaseEvaluator):
         try:
             self._status = ModelStatus.LOADING
             # 延迟导入，避免不必要的依赖
-            from transformers import AutoModelForCausalLM, AutoTokenizer
+            from transformers import AutoModelForCausalLM
+            from transformers import AutoTokenizer
 
             self._tokenizer = AutoTokenizer.from_pretrained(
                 self._model_path, trust_remote_code=True
@@ -99,7 +108,7 @@ class FineTunedEvaluator(BaseEvaluator):
             status=self._status,
         )
 
-    def evaluate(self, request: EvaluationSchema) -> DomainResponse:
+    def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
         """执行评估"""
         user_input = self.get_input_text(request)
         actual_output = self.get_payload_data(request, "actual_output")

@@ -13,7 +13,7 @@ from src.domain.evaluators.evaluator_factory import (
 )
 from src.domain.testing.quality_gates import QualityGateLevel
 from src.exceptions import DomainLogicError
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
 
 
 class TestEvaluatorFactoryRegistration:
@@ -24,7 +24,7 @@ class TestEvaluatorFactoryRegistration:
         @EvaluatorFactory.register("test_success_eval")
         class TestSuccessEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True, score=1.0)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=1.0)
 
         assert "test_success_eval" in EvaluatorFactory.list_evaluators()
 
@@ -33,12 +33,12 @@ class TestEvaluatorFactoryRegistration:
         @EvaluatorFactory.register("test_overwrite_eval")
         class OriginalEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True, score=0.5)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=0.5)
 
         @EvaluatorFactory.register("test_overwrite_eval", strategy=RegisterStrategy.OVERWRITE)
         class OverwriteEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True, score=1.0)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=1.0)
 
         evaluator = EvaluatorFactory.get("test_overwrite_eval")
         assert isinstance(evaluator, OverwriteEvaluator)
@@ -48,13 +48,13 @@ class TestEvaluatorFactoryRegistration:
         @EvaluatorFactory.register("test_error_eval")
         class FirstEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True, score=1.0)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=1.0)
 
         with pytest.raises(ValueError, match="已被注册"):
             @EvaluatorFactory.register("test_error_eval", strategy=RegisterStrategy.ERROR)
             class SecondEvaluator(BaseEvaluator):
                 def _do_evaluate(self, request):
-                    return DomainResponse(is_valid=True, score=0.5)
+                    return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=0.5)
 
     def test_register_evaluator_without_base_evaluator_raises(self):
         """注册非BaseEvaluator子类应抛出异常"""
@@ -75,12 +75,12 @@ class TestEvaluatorFactoryRegistration:
         @EvaluatorFactory.register("test_skip_eval")
         class FirstEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True, score=1.0)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=1.0)
 
         @EvaluatorFactory.register("test_skip_eval")
         class SecondEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True, score=0.5)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=0.5)
 
         evaluator = EvaluatorFactory.get("test_skip_eval")
         assert isinstance(evaluator, FirstEvaluator)
@@ -94,7 +94,7 @@ class TestEvaluatorFactoryGet:
         @EvaluatorFactory.register("test_get_eval")
         class TestGetEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True, score=0.8)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=0.8)
 
         evaluator = EvaluatorFactory.get("test_get_eval")
         assert isinstance(evaluator, TestGetEvaluator)
@@ -109,7 +109,7 @@ class TestEvaluatorFactoryGet:
         @EvaluatorFactory.register("test_client_eval")
         class TestClientEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True, score=0.9)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=0.9)
 
         mock_client = object()
         evaluator = EvaluatorFactory.get("test_client_eval", client=mock_client)
@@ -121,7 +121,7 @@ class TestEvaluatorFactoryGet:
         @EvaluatorFactory.register("test_no_pool_eval")
         class TestNoPoolEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True, score=0.7)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=0.7)
 
         evaluator1 = EvaluatorFactory.get("test_no_pool_eval")
         evaluator2 = EvaluatorFactory.get("test_no_pool_eval")
@@ -138,7 +138,7 @@ class TestEvaluatorFactoryPool:
         @EvaluatorFactory.register("test_pool_eval")
         class TestPoolEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True, score=0.6)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=0.6)
 
         evaluator1 = EvaluatorFactory.get("test_pool_eval")
         EvaluatorFactory.release("test_pool_eval", evaluator1)
@@ -152,7 +152,7 @@ class TestEvaluatorFactoryPool:
         @EvaluatorFactory.register("test_pool_empty_eval")
         class TestPoolEmptyEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True, score=0.5)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=0.5)
 
         evaluator = EvaluatorFactory.get("test_pool_empty_eval")
         assert isinstance(evaluator, TestPoolEmptyEvaluator)
@@ -163,7 +163,7 @@ class TestEvaluatorFactoryPool:
         @EvaluatorFactory.register("test_pool_disabled_eval")
         class TestPoolDisabledEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True, score=0.4)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=0.4)
 
         evaluator = EvaluatorFactory.get("test_pool_disabled_eval")
         EvaluatorFactory.release("test_pool_disabled_eval", evaluator)
@@ -197,7 +197,7 @@ class TestEvaluatorFactoryQualityGate:
         @EvaluatorFactory.register("test_quality_eval")
         class TestQualityEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True, score=0.8)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=0.8)
 
         evaluator, quality_result = EvaluatorFactory.get_with_quality_check("test_quality_eval")
         assert isinstance(evaluator, TestQualityEvaluator)

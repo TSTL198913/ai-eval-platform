@@ -151,7 +151,7 @@ class TestBusinessLogicIntegration:
     def test_record_uniqueness_same_case_id(self):
         """P1 - 记录唯一性验证：相同case_id不应重复插入导致数据混乱"""
         from src.infra.db.repository import EvaluationRepository
-        from src.schemas.evaluation import DomainResponse
+        from src.schemas.evaluation import DomainResponse, EvaluatorStatus
         from src.schemas.schemas import EvaluationResult, EvaluationStatus
 
         repo = EvaluationRepository()
@@ -161,7 +161,7 @@ class TestBusinessLogicIntegration:
             status=EvaluationStatus.PASSED,
             model_name="test-model",
             adapter_name="test-adapter",
-            response=DomainResponse(is_valid=True, score=0.9),
+            response=DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=0.9),
             latency_ms=100.0,
         )
         result2 = EvaluationResult(
@@ -169,7 +169,7 @@ class TestBusinessLogicIntegration:
             status=EvaluationStatus.FAILED,
             model_name="test-model",
             adapter_name="test-adapter",
-            response=DomainResponse(is_valid=False, score=0.3),
+            response=DomainResponse(evaluation_status=EvaluatorStatus.ERROR, score=0.3),
             latency_ms=150.0,
         )
 

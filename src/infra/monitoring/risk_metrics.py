@@ -1,4 +1,6 @@
-from prometheus_client import Counter, Gauge, Histogram
+from prometheus_client import Counter
+from prometheus_client import Gauge
+from prometheus_client import Histogram
 
 FEATURE_CREEP_RISK = Gauge(
     "eval_platform_feature_creep_risk",

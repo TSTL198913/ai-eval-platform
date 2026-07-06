@@ -4,18 +4,17 @@ import warnings
 from enum import Enum
 from inspect import isclass
 from queue import Queue
-from typing import Any, Protocol
+from typing import Any
+from typing import Protocol
 
 logger = logging.getLogger(__name__)
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.models.base import BaseLLMClient
-from src.domain.testing.quality_gates import (
-    QualityAssuranceManager,
-    QualityGateConfig,
-    QualityGateLevel,
-    QualityGateResult,
-)
+from src.domain.testing.quality_gates import QualityAssuranceManager
+from src.domain.testing.quality_gates import QualityGateConfig
+from src.domain.testing.quality_gates import QualityGateLevel
+from src.domain.testing.quality_gates import QualityGateResult
 from src.exceptions import DomainLogicError
 
 
@@ -47,10 +46,10 @@ class EvaluatorFactory:
     _instance_pool: dict[str, Queue] = {}
     _pool_lock = threading.Lock()
     _max_pool_size = 10
-    _pool_enabled = True
+    _pool_enabled = False
 
     _qa_manager: QualityAssuranceManager | None = None
-    _quality_gate_enabled: bool = False
+    _quality_gate_enabled: bool = True
     _quality_gate_level: QualityGateLevel = QualityGateLevel.NORMAL
 
     @classmethod
@@ -182,13 +181,14 @@ class EvaluatorFactory:
         if not cls._pool_enabled:
             return
 
-        pool = cls._instance_pool.get(case_type)
-        if pool:
-            try:
-                pool.put_nowait(evaluator)
-                logger.debug(f"评估器已归还对象池: {case_type}")
-            except Exception:
-                pass
+        with cls._pool_lock:
+            pool = cls._instance_pool.get(case_type)
+            if pool:
+                try:
+                    pool.put_nowait(evaluator)
+                    logger.debug(f"评估器已归还对象池: {case_type}")
+                except Exception as e:
+                    logger.debug(f"Failed to return evaluator to pool: {e}")
 
     @classmethod
     def get_with_quality_check(
@@ -199,6 +199,14 @@ class EvaluatorFactory:
     ) -> tuple[EvaluatorProtocol, QualityGateResult | None]:
         """获取评估器并执行质量检查"""
         evaluator = cls.get(case_type, client)
+
+        if cls._quality_gate_enabled and cls._qa_manager is None:
+            try:
+                cls._qa_manager = QualityAssuranceManager(
+                    config=QualityGateConfig(level=cls._quality_gate_level)
+                )
+            except Exception as e:
+                logger.warning(f"质量门禁管理器初始化失败: {e}")
 
         if cls._quality_gate_enabled and cls._qa_manager:
             level = quality_gate_level or cls._quality_gate_level

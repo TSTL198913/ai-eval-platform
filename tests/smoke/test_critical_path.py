@@ -6,7 +6,7 @@
 
 import pytest
 
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
 
 
 @pytest.mark.smoke
@@ -25,15 +25,17 @@ class TestCriticalPathSmoke:
 
     def test_domain_response_valid(self):
         """验证成功响应可以正确创建"""
-        response = DomainResponse(is_valid=True, score=1.0)
-        assert response.is_valid is True
+        response = DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=1.0)
+        assert response.evaluation_status == EvaluatorStatus.SUCCESS
         assert response.score == 1.0
+        assert response.is_valid is True
 
     def test_domain_response_invalid(self):
         """验证错误响应可以正确创建"""
-        response = DomainResponse(is_valid=False, error="Test error")
-        assert response.is_valid is False
+        response = DomainResponse(evaluation_status=EvaluatorStatus.ERROR, error="Test error")
+        assert response.evaluation_status == EvaluatorStatus.ERROR
         assert response.error == "Test error"
+        assert response.is_valid is False
 
     def test_evaluation_schema_with_metadata(self):
         """验证带元数据的评估请求"""

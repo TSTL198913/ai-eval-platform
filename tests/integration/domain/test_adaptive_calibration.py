@@ -57,6 +57,7 @@ class TestAdaptiveCalibratorRunCalibration:
     @pytest.fixture
     def calibrator(self):
         """创建测试用校准器"""
+        AdaptiveCalibrator._reset_instance()
         temp_dir = tempfile.mkdtemp()
         calibrator = AdaptiveCalibrator()
         calibrator._calibration_cache = {}
@@ -210,6 +211,7 @@ class TestAdaptiveCalibratorPreExecutionCheck:
     @pytest.fixture
     def calibrator(self):
         """创建测试用校准器"""
+        AdaptiveCalibrator._reset_instance()
         temp_dir = tempfile.mkdtemp()
         calibrator = AdaptiveCalibrator()
         calibrator._calibration_cache = {}
@@ -359,9 +361,10 @@ class TestAdaptiveCalibratorCacheManagement:
     @pytest.fixture
     def calibrator(self):
         """创建测试用校准器"""
+        AdaptiveCalibrator._reset_instance()
         calibrator = AdaptiveCalibrator()
         calibrator._calibration_cache = {}
-        return calibrator
+        yield calibrator
 
     def test_cache_key_generation(self, calibrator):
         """缓存键生成"""
@@ -399,9 +402,10 @@ class TestAdaptiveCalibratorRecommendations:
     @pytest.fixture
     def calibrator(self):
         """创建测试用校准器"""
+        AdaptiveCalibrator._reset_instance()
         calibrator = AdaptiveCalibrator()
         calibrator._calibration_cache = {}
-        return calibrator
+        yield calibrator
 
     def test_generate_recommendations_drifted(self, calibrator):
         """漂移状态应生成立即重新校准建议"""

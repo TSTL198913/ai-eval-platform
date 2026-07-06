@@ -1,6 +1,7 @@
 """
-评估聚合路由 - 统一评估入口
-整合 evaluation_routes + online_evaluation_routes + evaluator_routes
+评估聚合路由 - 旧版 v2 评估入口（向后兼容）
+仅包含 evaluation_routes + online_evaluation_routes + evaluator_routes
+新版 v2 API (/api/v2/inference, /api/v2/evaluate) 直接在 server.py 中注册
 """
 
 from fastapi import APIRouter

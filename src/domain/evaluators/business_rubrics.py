@@ -12,7 +12,8 @@
 - 关键检查点
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from dataclasses import field
 
 
 @dataclass

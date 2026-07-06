@@ -24,22 +24,21 @@ from typing import Any
 
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse
+from src.schemas.evaluation import EvaluationSchema
 
 logger = logging.getLogger(__name__)
 
 # 探测 DeepEval 是否可用
 try:
-    from deepeval.metrics import (
-        AnswerRelevancyMetric,
-        BiasMetric,
-        ContextualPrecisionMetric,
-        ContextualRecallMetric,
-        ContextualRelevancyMetric,
-        FaithfulnessMetric,
-        HallucinationMetric,
-        ToxicityMetric,
-    )
+    from deepeval.metrics import AnswerRelevancyMetric
+    from deepeval.metrics import BiasMetric
+    from deepeval.metrics import ContextualPrecisionMetric
+    from deepeval.metrics import ContextualRecallMetric
+    from deepeval.metrics import ContextualRelevancyMetric
+    from deepeval.metrics import FaithfulnessMetric
+    from deepeval.metrics import HallucinationMetric
+    from deepeval.metrics import ToxicityMetric
 
     # from deepeval.test_case import LLMTestCase  # unused
 

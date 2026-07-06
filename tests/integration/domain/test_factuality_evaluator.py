@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 from src.domain.evaluators.factuality_evaluator import FactualityEvaluator
 from src.schemas.evaluation import EvaluationSchema
+from src.schemas.evaluation import EvaluatorStatus
 
 
 # ============================================================
@@ -91,7 +92,7 @@ class TestFactualityEvaluatorPositiveCases:
         result = evaluator.evaluate(request)
 
         # Assert - 强断言
-        assert result.data["is_valid"] is True
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
         assert "overall_factuality_score" in result.data
         assert 0.0 <= result.data["overall_factuality_score"] <= 1.0
         assert result.data["claims_count"] >= 1
@@ -113,7 +114,7 @@ class TestFactualityEvaluatorPositiveCases:
         result = evaluator.evaluate(request)
 
         # Assert - 强断言
-        assert result.data["is_valid"] is True
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
         assert result.data["dimension_scores"]["consistency"] is None  # 无参考时一致性为None
         assert result.status_code == 200
 
@@ -134,7 +135,7 @@ class TestFactualityEvaluatorPositiveCases:
         result = evaluator.evaluate(request)
 
         # Assert - 强断言
-        assert result.data["is_valid"] is True
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
         assert result.data["hallucination_score"] < 1.0  # 过度自信语言应降低评分
         # overconfident_count 在 details 中
         assert result.data["details"]["overconfident_count"] >= 2  # 至少检测到2处过度自信语言
@@ -157,7 +158,7 @@ class TestFactualityEvaluatorPositiveCases:
         result = evaluator.evaluate(request)
 
         # Assert - 强断言
-        assert result.data["is_valid"] is True
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
         # 英文实体提取应识别 John Smith 和 Alibaba
         assert result.data["entity_consistency_score"] >= 0.0
         assert len(result.data["entities"]) >= 0  # 实体提取可能为空，取决于实现
@@ -179,7 +180,7 @@ class TestFactualityEvaluatorPositiveCases:
         result = evaluator.evaluate(request)
 
         # Assert - 强断言
-        assert result.data["is_valid"] is True
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
         assert result.data["internal_consistency_score"] >= 0.8
         assert result.data["contradictions_count"] == 0
         assert result.status_code == 200
@@ -200,7 +201,7 @@ class TestFactualityEvaluatorPositiveCases:
         result = evaluator.evaluate(request)
 
         # Assert - 强断言
-        assert result.data["is_valid"] is True
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
         # 矛盾检测依赖于内部实现，可能检测到矛盾也可能不检测
         # 重要的是返回正确的数据结构
         assert "contradictions_count" in result.data
@@ -230,7 +231,7 @@ class TestFactualityEvaluatorNegativeCases:
         result = evaluator.evaluate(request)
 
         # Assert - 强断言
-        assert result.data["is_valid"] is False
+        assert result.evaluation_status == EvaluatorStatus.ERROR
         assert "response不能为空" in result.data["error"]
         assert result.status_code == 400
 
@@ -250,7 +251,7 @@ class TestFactualityEvaluatorNegativeCases:
         result = evaluator.evaluate(request)
 
         # Assert - 强断言
-        assert result.data["is_valid"] is False
+        assert result.evaluation_status == EvaluatorStatus.ERROR
         assert "Unknown action" in result.data["error"]
         assert result.status_code == 400
 
@@ -270,7 +271,7 @@ class TestFactualityEvaluatorNegativeCases:
         result = evaluator.evaluate(request)
 
         # Assert - 强断言
-        assert result.data["is_valid"] is False
+        assert result.evaluation_status == EvaluatorStatus.ERROR
         assert "response不能为空" in result.data["error"]
         assert result.status_code == 400
 
@@ -298,7 +299,7 @@ class TestFactualityEvaluatorBoundaryCases:
         result = evaluator.evaluate(request)
 
         # Assert - 强断言
-        assert result.data["is_valid"] is True
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
         assert result.data["claims_count"] > 100  # 应提取大量声明
         assert result.status_code == 200
 
@@ -318,7 +319,7 @@ class TestFactualityEvaluatorBoundaryCases:
         result = evaluator.evaluate(request)
 
         # Assert - 强断言
-        assert result.data["is_valid"] is True
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
         assert result.status_code == 200
 
     def test_empty_reference_list(self, evaluator):
@@ -338,7 +339,7 @@ class TestFactualityEvaluatorBoundaryCases:
         result = evaluator.evaluate(request)
 
         # Assert - 强断言
-        assert result.data["is_valid"] is True
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
         assert result.data["dimension_scores"]["consistency"] is None
 
     def test_strict_mode_increases_sensitivity(self, evaluator):
@@ -372,8 +373,8 @@ class TestFactualityEvaluatorBoundaryCases:
 
         # Assert - 强断言
         # 严格模式应检测到更多问题
-        assert result_strict.data["is_valid"] is True
-        assert result_normal.data["is_valid"] is True
+        assert result_strict.evaluation_status == EvaluatorStatus.SUCCESS
+        assert result_normal.evaluation_status == EvaluatorStatus.SUCCESS
         # 严格模式可能检测到时间声明冲突
         assert len(result_strict.data.get("detected_issues", [])) >= len(
             result_normal.data.get("detected_issues", [])
@@ -396,7 +397,7 @@ class TestFactualityEvaluatorBoundaryCases:
         result = evaluator.evaluate(request)
 
         # Assert - 强断言
-        assert result.data["is_valid"] is True
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
         # 数字提取依赖于实现，至少提取到百分比
         assert result.data["numbers_count"] >= 1
         # 数字一致性评分应在合理范围内
@@ -425,7 +426,7 @@ class TestFactualityEvaluatorExceptionCases:
         result = evaluator.safe_evaluate(request)
 
         # Assert - 强断言
-        assert result.data["is_valid"] is True
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
         assert result.status_code == 200
 
     def test_malformed_payload_handled_gracefully(self, evaluator):
@@ -445,7 +446,7 @@ class TestFactualityEvaluatorExceptionCases:
 
         # Assert - 强断言
         # 应返回错误而不是抛出异常
-        assert result.data["is_valid"] is False
+        assert result.evaluation_status == EvaluatorStatus.ERROR
         assert result.status_code == 400
 
 
@@ -471,7 +472,7 @@ class TestFactualityEvaluatorDependencyHandling:
         result = evaluator_with_client.evaluate(request)
 
         # Assert - 强断言
-        assert result.data["is_valid"] is True
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
         assert evaluator_with_client.client is not None
 
     def test_evaluator_without_client_works_standalone(self, evaluator):
@@ -490,7 +491,7 @@ class TestFactualityEvaluatorDependencyHandling:
         result = evaluator.evaluate(request)
 
         # Assert - 强断言
-        assert result.data["is_valid"] is True
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
         assert evaluator.client is None
 
 
@@ -666,7 +667,7 @@ class TestFactualityEvaluatorIntegration:
         result = evaluator.evaluate(request)
 
         # Assert - 强断言
-        assert result.data["is_valid"] is True
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
         assert "overall_factuality_score" in result.data
         assert "hallucination_rate" in result.data
         assert "dimension_scores" in result.data

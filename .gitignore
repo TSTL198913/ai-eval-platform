@@ -74,6 +74,10 @@ data/golden_datasets/
 data/evaluator_versions/*.json
 data/calibration_cache.json
 data/baselines.json
+data/convergence_report*.json
+data/failed_modules_summary*.json
+data/failures_database.json
+data/quick_conv_output.txt
 !data/.gitkeep
 
 # Temporary files
@@ -124,3 +128,22 @@ Desktop.ini
 *.pem
 *.key
 secrets/
+
+# Playwright test reports
+playwright-report/
+frontend/playwright-report/
+
+# NLTK data (runtime dependency)
+nltk_data/
+
+# SQLite test database
+test.db
+
+# Export files (generated)
+exports/*.csv
+exports/*.json
+exports/*.excel
+!exports/custom_export.json
+
+# Tools directory (temporary scripts)
+tools/

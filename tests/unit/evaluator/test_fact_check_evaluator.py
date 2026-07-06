@@ -124,7 +124,7 @@ class TestFactCheckEvaluatorBoundaryCases:
         result = target.evaluate(request)
 
         assert result.is_valid is False
-        assert result.score is None
+        assert result.score == 0.0
         assert "LLM" in result.error or "client" in result.error.lower()
 
     def test_empty_user_input_returns_error(self):
@@ -230,7 +230,7 @@ class TestFactCheckEvaluatorDependencyHandling:
         result = target.evaluate(request)
 
         assert result.is_valid is False
-        assert result.score is None
+        assert result.score == 0.0
         assert "LLM" in result.error or "client" in result.error.lower()
 
 

@@ -143,8 +143,8 @@ class MMLUBenchmark:
                         }
                     )
                 return converted
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to load MMLU dataset: {e}")
         return []
 
     def _generate_synthetic_data(self) -> list[dict[str, Any]]:

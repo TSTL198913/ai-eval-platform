@@ -11,6 +11,7 @@ import pytest
 
 from src.domain.evaluators.llm_as_judge import JUDGE_DIMENSIONS, SCORE_LEVELS, LLMAJudgeEvaluator
 from src.schemas.evaluation import DomainResponse, EvaluationSchema, EvaluatorStatus
+from tests.utils.test_helpers import approx_score
 
 
 class TestLLMAJudgeEvaluatorPositiveCases:
@@ -192,14 +193,14 @@ class TestLLMAJudgeEvaluatorPositiveCases:
         )
         result = evaluator._parse_judge_result_v2(llm_output, ["accuracy"])
         assert result.is_valid is True
-        assert result.score == 0.85
+        assert result.score == approx_score(0.85)
         assert result.data["score_levels"]["accuracy"] == "good"
 
     def test_fallback_parse_v2(self, evaluator):
         """fallback解析应返回错误响应"""
         result = evaluator._fallback_parse_response_v2("无效输出", ["accuracy", "relevance"])
         assert result.evaluation_status == EvaluatorStatus.ERROR
-        assert result.score is None
+        assert result.score == 0.0
         assert "raw_output_preview" in result.metadata
 
     def test_fallback_parse_response_v2(self, evaluator):
@@ -211,7 +212,7 @@ class TestLLMAJudgeEvaluatorPositiveCases:
         """
         result = evaluator._fallback_parse_response_v2("无效JSON", ["accuracy"])
         assert result.evaluation_status == EvaluatorStatus.ERROR
-        assert result.score is None
+        assert result.score == 0.0
         # 必须保留 error 字段说明失败原因
         assert result.error is not None and len(result.error) > 0
         # 必须保留原始输出预览，便于排查
@@ -250,7 +251,7 @@ class TestLLMAJudgeEvaluatorNegativeCases:
         """LLM返回无效JSON时必须暴露失败，绝不能静默通过为 0.5 分
 
         【行为变更】旧实现返回 is_valid=True, score=0.5 掩盖了 LLM 服务异常。
-        新实现返回 evaluation_status=ERROR, score=None 让上游告警系统能感知到。
+        新实现返回 evaluation_status=ERROR, score=0.0 让上游告警系统能感知到。
         详见 tests/meta_evaluation/test_evaluators.py::TestFormatCorruption。
         """
         mock_client = MagicMock()
@@ -267,7 +268,7 @@ class TestLLMAJudgeEvaluatorNegativeCases:
         result = evaluator.evaluate(request)
         # 强断言：必须显式标记为失败
         assert result.evaluation_status == EvaluatorStatus.ERROR
-        assert result.score is None
+        assert result.score == 0.0
         assert result.error is not None
 
 

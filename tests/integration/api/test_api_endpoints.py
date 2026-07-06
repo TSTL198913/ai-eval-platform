@@ -344,10 +344,11 @@ class TestEvaluateEndpointBusinessScenarios:
     def test_evaluate_with_mock_client(self):
         """场景：业务方通过 API 提交评测（mock LLM）"""
         from src.api.server import app
+        from src.domain.models.llm_factory import create_llm_client
 
         client = TestClient(app)
-        # 注入 mock 客户端：直接 patch service 中的 LLM 调用
-        with patch("src.services.evaluator_svc.create_llm_client") as mock_create:
+        # 注入 mock 客户端：patch 原始定义位置（函数内部懒加载，需patch原始模块）
+        with patch("src.domain.models.llm_factory.create_llm_client", wraps=create_llm_client) as mock_create:
             mock_llm = MagicMock()
             mock_llm.config = MagicMock()
             mock_llm.config.model_name = "test-model"

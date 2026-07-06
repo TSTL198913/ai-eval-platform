@@ -5,7 +5,8 @@
 
 from fastapi import APIRouter
 
-from src.api.common import error_response, success_response
+from src.api.common import error_response
+from src.api.common import success_response
 from src.domain.evaluators import EVALUATOR_REGISTRY
 from src.services.data_svc import get_data_service
 

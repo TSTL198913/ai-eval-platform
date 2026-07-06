@@ -18,7 +18,8 @@ import logging
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.domain.evaluators.fallback_policy import StrictSemanticPolicy
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse
+from src.schemas.evaluation import EvaluationSchema
 
 logger = logging.getLogger(__name__)
 
@@ -54,35 +55,44 @@ class SentimentEvaluator(BaseEvaluator):
                 error_code="MISSING_ACTUAL_OUTPUT",
             )
 
-        if error := self.require_client_with_error():
-            return error
+        if self.client:
+            prompt = self._build_evaluation_prompt(user_input, actual_output, expected_sentiment)
 
-        prompt = self._build_evaluation_prompt(user_input, actual_output, expected_sentiment)
-
-        try:
-            llm_output = self.client.chat(prompt)
-            score = self.safe_parse_score(llm_output)
-
-            if score is None:
-                logger.error(f"情感评估响应数字提取失败: '{llm_output}'")
-                score = self._calculate_fallback_score(actual_output, expected_sentiment)
-
-            return self.create_success_response(
-                text=actual_output,
-                score=score,
-                data={
+            def data_builder(score: float, llm_output: str) -> dict:
+                return {
                     "user_input": user_input,
                     "actual_output": actual_output,
                     "expected_sentiment": expected_sentiment,
                     "predicted_sentiment": actual_output,
                     "raw_output": llm_output,
                     "evaluator": "sentiment",
-                },
-                metadata={"mode": "llm_as_judge"},
-            )
+                }
 
-        except Exception as e:
-            logger.exception(f"情感评估器 LLM 调用失败: {e}")
+            def fallback_fn(error_msg: str) -> DomainResponse:
+                score = self._calculate_fallback_score(actual_output, expected_sentiment)
+                return self.create_success_response(
+                    text=actual_output,
+                    score=score,
+                    data={
+                        "user_input": user_input,
+                        "actual_output": actual_output,
+                        "expected_sentiment": expected_sentiment,
+                        "predicted_sentiment": actual_output,
+                        "warning": "LLM调用失败，使用语义相似度降级评分",
+                    },
+                    metadata={"mode": "fallback"},
+                )
+
+            result = self._evaluate_with_llm(
+                prompt=prompt,
+                fallback_fn=fallback_fn,
+                data_builder=data_builder,
+                evaluator_name="SentimentEvaluator",
+                text=actual_output,
+            )
+            result.metadata.update({"mode": "llm_as_judge"})
+            return result
+        else:
             score = self._calculate_fallback_score(actual_output, expected_sentiment)
             return self.create_success_response(
                 text=actual_output,
@@ -91,7 +101,8 @@ class SentimentEvaluator(BaseEvaluator):
                     "user_input": user_input,
                     "actual_output": actual_output,
                     "expected_sentiment": expected_sentiment,
-                    "warning": "LLM调用失败，使用语义相似度降级评分",
+                    "predicted_sentiment": actual_output,
+                    "warning": "LLM客户端不可用，使用关键词匹配降级评分",
                 },
                 metadata={"mode": "fallback"},
             )

@@ -5,9 +5,11 @@
 
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
+from fastapi import Depends
 
-from src.api.common import error_response, success_response
+from src.api.common import error_response
+from src.api.common import success_response
 from src.api.dependencies import PermissionDependency
 from src.infra.security import Permission
 
@@ -21,7 +23,8 @@ router = APIRouter(prefix="/api/v1", tags=["模型管理"])
 async def get_models():
     """获取所有可用模型列表"""
     try:
-        from src.domain.models.llm_factory import ModelRegistry, load_config
+        from src.domain.models.llm_factory import ModelRegistry
+        from src.domain.models.llm_factory import load_config
 
         models = []
         for provider in ModelRegistry.list_providers():

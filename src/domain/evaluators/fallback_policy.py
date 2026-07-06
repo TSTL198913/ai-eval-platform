@@ -2,13 +2,19 @@
 🛡️ 统一的降级策略（Fallback Policy）
 定义评估器在 LLM 不可用或熔断时的行为规则。
 支持 2026 同步/异步高并发双轨制执行流，防止 CPU 密集型向量计算卡死主线程。
+
+事件驱动集成：通过 EventBus 发布 FALLBACK_TRIGGERED 事件
 """
 
 import asyncio
 import logging
-from abc import ABC, abstractmethod
+from abc import ABC
+from abc import abstractmethod
 
+from src.domain.services.text_analysis_service import text_analysis_service
 from src.exceptions import DomainLogicError
+from src.infra.event_bus import EventType
+from src.infra.event_bus import publish_event
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +49,19 @@ class FallbackPolicy(ABC):
     def get_confidence(self) -> float:
         """获取降级结果的置信度"""
         return 0.5
+
+    def _publish_fallback_event(self, actual_output: str, expected_output: str, score: float, error: Exception = None):
+        """发布降级触发事件"""
+        publish_event(
+            EventType.FALLBACK_TRIGGERED,
+            fallback_method=self.fallback_method,
+            actual_output=actual_output[:200] if actual_output else "",
+            expected_output=expected_output[:200] if expected_output else "",
+            score=score,
+            confidence=self.get_confidence(),
+            error_message=str(error) if error else None,
+            source=f"fallback_policy.{self.fallback_method}",
+        )
 
 
 class NoFallbackPolicy(FallbackPolicy):
@@ -82,8 +101,31 @@ class EmbeddingFallbackPolicy(FallbackPolicy):
     降级路径：LLM 失败 ➔ Embedding 向量相似度 ➔ 拒绝服务
     """
 
+    OPPOSITE_WORD_PAIRS = {
+        ("好", "坏"), ("好", "差"), ("好", "糟"), ("好", "恶劣"), ("好", "不好"),
+        ("满意", "不满"), ("满意", "失望"), ("满意", "不满意"),
+        ("高", "低"), ("大", "小"), ("多", "少"),
+        ("热", "冷"), ("湿", "干"), ("快", "慢"),
+        ("会", "不会"), ("能", "不能"), ("可以", "不可以"),
+        ("是", "不是"), ("有", "没有"), ("在", "不在"),
+        ("正", "负"), ("积极", "消极"), ("正确", "错误"),
+        ("成功", "失败"), ("安全", "危险"), ("正常", "异常"),
+        ("喜欢", "讨厌"), ("爱", "恨"), ("美丽", "丑陋"),
+        ("增加", "减少"), ("上升", "下降"), ("前进", "后退"),
+        ("可行", "不可行"), ("可能", "不可能"), ("应该", "不应该"),
+        ("同意", "不同意"), ("支持", "反对"), ("接受", "拒绝"),
+        ("重要", "不重要"), ("有用", "没用"), ("有效", "无效"),
+        ("简单", "复杂"), ("容易", "困难"), ("快速", "缓慢"),
+    }
+
     def __init__(self):
         super().__init__(allow_fallback=True, fallback_method="embedding")
+
+    def _detect_opposite_meaning(self, text1: str, text2: str) -> float:
+        """检测语义相反程度，返回相反度分数 (0-1)"""
+        if text_analysis_service.detect_opposite_meaning(text1, text2):
+            return 1.0
+        return 0.0
 
     def should_fallback(self, error: Exception) -> bool:
         return True
@@ -97,13 +139,21 @@ class EmbeddingFallbackPolicy(FallbackPolicy):
 
             if service.is_available():
                 similarity = service.calculate_similarity(actual_output, expected_output)
-                logger.info(f"Embedding 同步降级计算完成，相似度: {similarity}")
-                return max(0.0, float(similarity))
+                
+                opposite_score = self._detect_opposite_meaning(actual_output, expected_output)
+                if opposite_score > 0.5:
+                    similarity = max(0.0, similarity - opposite_score * 0.8)
+                
+                score = max(0.0, float(similarity))
+                logger.info(f"Embedding 同步降级计算完成，相似度: {similarity}，反义词检测: {opposite_score}")
+                self._publish_fallback_event(actual_output, expected_output, score)
+                return score
             else:
                 logger.warning("Embedding 服务不可用，无法执行向量降级")
                 return 0.0
         except Exception as e:
             logger.error(f"Embedding 同步降级链条发生异常: {e}")
+            self._publish_fallback_event(actual_output, expected_output, 0.0, e)
             return 0.0
 
     async def get_fallback_score_async(self, actual_output: str, expected_output: str) -> float:
@@ -117,7 +167,6 @@ class EmbeddingFallbackPolicy(FallbackPolicy):
                 logger.warning("Embedding 服务在异步状态下不可用，拒绝服务")
                 return 0.0
 
-            # 弹性检测：如果嵌入服务已经支持了原生异步方法，则直接 await，否则轰进线程池隔离
             if hasattr(service, "calculate_similarity_async"):
                 similarity = await service.calculate_similarity_async(
                     actual_output, expected_output
@@ -126,11 +175,18 @@ class EmbeddingFallbackPolicy(FallbackPolicy):
                 similarity = await asyncio.to_thread(
                     service.calculate_similarity, actual_output, expected_output
                 )
+            
+            opposite_score = self._detect_opposite_meaning(actual_output, expected_output)
+            if opposite_score > 0.5:
+                similarity = max(0.0, similarity - opposite_score * 0.8)
 
-            logger.info(f"🚀 Embedding 异步隔离降级计算完成，相似度: {similarity}")
-            return max(0.0, float(similarity))
+            score = max(0.0, float(similarity))
+            logger.info(f"🚀 Embedding 异步隔离降级计算完成，相似度: {similarity}，反义词检测: {opposite_score}")
+            self._publish_fallback_event(actual_output, expected_output, score)
+            return score
         except Exception as e:
             logger.error(f"Embedding 异步降级链条发生异常: {e}")
+            self._publish_fallback_event(actual_output, expected_output, 0.0, e)
             return 0.0
 
     def get_fallback_metadata(self) -> dict:
@@ -156,10 +212,11 @@ class KeywordFallbackPolicy(FallbackPolicy):
     def get_fallback_score(self, actual_output: str, expected_output: str) -> float:
         from .scoring import score_keyword_overlap
 
-        return float(score_keyword_overlap(actual_output, expected_output))
+        score = float(score_keyword_overlap(actual_output, expected_output))
+        self._publish_fallback_event(actual_output, expected_output, score)
+        return score
 
     async def get_fallback_score_async(self, actual_output: str, expected_output: str) -> float:
-        # 关键词重叠度属于纯内存高速计算，直接复用同步实现，不增加额外的线程开销
         return self.get_fallback_score(actual_output, expected_output)
 
     def get_fallback_metadata(self) -> dict:
@@ -185,7 +242,9 @@ class CharacterFallbackPolicy(FallbackPolicy):
     def get_fallback_score(self, actual_output: str, expected_output: str) -> float:
         from .scoring import score_text_similarity
 
-        return float(score_text_similarity(actual_output, expected_output))
+        score = float(score_text_similarity(actual_output, expected_output))
+        self._publish_fallback_event(actual_output, expected_output, score)
+        return score
 
     async def get_fallback_score_async(self, actual_output: str, expected_output: str) -> float:
         return self.get_fallback_score(actual_output, expected_output)
@@ -221,6 +280,11 @@ class SemanticTaskPolicy(EmbeddingFallbackPolicy):
 
             if service.is_available():
                 similarity = service.calculate_similarity(actual_output, expected_output)
+                
+                opposite_score = self._detect_opposite_meaning(actual_output, expected_output)
+                if opposite_score > 0.3:
+                    similarity = max(0.0, similarity - opposite_score * 0.9)
+                
                 return max(0.0, float(similarity))
             else:
                 logger.critical(
@@ -256,6 +320,10 @@ class SemanticTaskPolicy(EmbeddingFallbackPolicy):
                 similarity = await asyncio.to_thread(
                     service.calculate_similarity, actual_output, expected_output
                 )
+            
+            opposite_score = self._detect_opposite_meaning(actual_output, expected_output)
+            if opposite_score > 0.3:
+                similarity = max(0.0, similarity - opposite_score * 0.9)
 
             return max(0.0, float(similarity))
         except DomainLogicError:
@@ -271,6 +339,64 @@ class StrictSemanticPolicy(NoFallbackPolicy):
         super().__init__()
 
 
+class RuleBasedFallbackPolicy(FallbackPolicy):
+    """规则引擎降级策略 - 基于规则的QA和事实性评估
+
+    适用于：配置了_rule_based_qa或_rule_based_factuality方法的评估器
+    """
+
+    def __init__(self):
+        super().__init__(allow_fallback=True, fallback_method="rule_based")
+
+    def should_fallback(self, error: Exception) -> bool:
+        return True
+
+    def get_fallback_score(self, actual_output: str, expected_output: str, question: str = "") -> float:
+        from src.domain.evaluators.base import BaseEvaluator
+
+        evaluator = BaseEvaluator.get_current_evaluator()
+        if evaluator is None:
+            return 0.0
+
+        score = 0.0
+
+        if hasattr(evaluator, '_rule_based_qa') and callable(getattr(evaluator, '_rule_based_qa')):
+            try:
+                result = evaluator._rule_based_qa(question, actual_output, expected_output)
+                if result is not None:
+                    score = float(result)
+            except Exception as e:
+                logger.error(f"_rule_based_qa执行失败: {e}")
+                self._publish_fallback_event(actual_output, expected_output, 0.0, e)
+                return 0.0
+
+        if score == 0.0 and hasattr(evaluator, '_rule_based_factuality') and callable(getattr(evaluator, '_rule_based_factuality')):
+            try:
+                result = evaluator._rule_based_factuality(actual_output, expected_output)
+                if result is not None:
+                    score = float(result)
+            except Exception as e:
+                logger.error(f"_rule_based_factuality执行失败: {e}")
+                self._publish_fallback_event(actual_output, expected_output, 0.0, e)
+                return 0.0
+
+        self._publish_fallback_event(actual_output, expected_output, score)
+        return score
+
+    async def get_fallback_score_async(self, actual_output: str, expected_output: str, question: str = "") -> float:
+        return self.get_fallback_score(actual_output, expected_output, question)
+
+    def get_fallback_metadata(self) -> dict:
+        return {
+            "mode": "fallback_rule_based",
+            "confidence": 0.6,
+            "warning": "使用规则引擎降级评估，基于预定义规则进行判断",
+        }
+
+    def get_confidence(self) -> float:
+        return 0.6
+
+
 class FallbackPolicyFactory:
     """降级策略工厂"""
 
@@ -281,6 +407,7 @@ class FallbackPolicyFactory:
         "character": CharacterFallbackPolicy,
         "semantic_task": SemanticTaskPolicy,
         "strict_semantic": StrictSemanticPolicy,
+        "rule_based": RuleBasedFallbackPolicy,
     }
 
     @classmethod

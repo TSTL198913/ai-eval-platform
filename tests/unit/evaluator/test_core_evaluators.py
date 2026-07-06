@@ -59,7 +59,7 @@ class TestFactualityEvaluator:
         result = evaluator.evaluate(request)
         assert result.is_valid is True
         assert 0.7 <= result.score <= 1.0
-        assert "raw_score" in result.data
+        assert "evidence" in result.data
         
         # 强断言：验证置信度和状态
         assert result.confidence is not None, "confidence不应为None"
@@ -95,8 +95,8 @@ class TestFactualityEvaluator:
         )
         result = evaluator.evaluate(request)
         assert result.is_valid is True
-        assert "raw_score" in result.data
-        assert result.data["raw_score"] >= 0.5
+        assert "evidence" in result.data
+        assert result.score >= 0.5
 
     def test_verify_entities_action(self, evaluator):
         """实体验证action"""

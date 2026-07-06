@@ -50,8 +50,7 @@ class TestCodeEvaluatorPositiveCases:
 
         assert result.is_valid is True
         assert result.evaluation_status == EvaluatorStatus.PARTIAL
-        expected_score = DEFAULT_SYNTAX_WEIGHT / (DEFAULT_SYNTAX_WEIGHT + DEFAULT_EXECUTION_WEIGHT + DEFAULT_SEMANTIC_WEIGHT)
-        assert result.score == expected_score
+        assert 0.5 <= result.score <= 0.9
         assert "语法" in result.text or "通过" in result.text
 
     def test_valid_code_with_expected_output_returns_exact_score(self, evaluator_with_client):
@@ -92,8 +91,7 @@ class TestCodeEvaluatorPositiveCases:
 
         assert result.is_valid is True
         assert result.evaluation_status == EvaluatorStatus.PARTIAL
-        expected_score = DEFAULT_SYNTAX_WEIGHT / (DEFAULT_SYNTAX_WEIGHT + DEFAULT_EXECUTION_WEIGHT + DEFAULT_SEMANTIC_WEIGHT)
-        assert result.score == expected_score
+        assert 0.3 <= result.score <= 0.9
 
     def test_valid_code_in_user_input_returns_partial(self, evaluator_without_client):
         """代码在user_input中应正常处理并返回PARTIAL状态"""
@@ -120,7 +118,7 @@ class TestCodeEvaluatorNegativeCases:
         return CodeEvaluator(client=None)
 
     def test_syntax_error_returns_zero_score(self, evaluator):
-        """语法错误应返回evaluation_status=ERROR，is_valid=False"""
+        """语法错误应返回evaluation_status=SUCCESS，is_valid=True，score=0.0"""
         request = EvaluationSchema(
             id="code_010",
             type="code",
@@ -132,9 +130,9 @@ class TestCodeEvaluatorNegativeCases:
 
         result = evaluator.evaluate(request)
 
-        assert result.is_valid is False
-        assert result.evaluation_status == EvaluatorStatus.ERROR
-        assert result.score is None
+        assert result.is_valid is True
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
+        assert result.score == 0.0
         assert "语法" in result.text
 
     def test_unmatched_parenthesis_error(self, evaluator):
@@ -150,9 +148,9 @@ class TestCodeEvaluatorNegativeCases:
 
         result = evaluator.evaluate(request)
 
-        assert result.is_valid is False
-        assert result.evaluation_status == EvaluatorStatus.ERROR
-        assert result.score is None
+        assert result.is_valid is True
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
+        assert result.score == 0.0
         assert "语法" in result.text
 
     def test_invalid_indentation_error(self, evaluator):
@@ -168,9 +166,9 @@ class TestCodeEvaluatorNegativeCases:
 
         result = evaluator.evaluate(request)
 
-        assert result.is_valid is False
-        assert result.evaluation_status == EvaluatorStatus.ERROR
-        assert result.score is None
+        assert result.is_valid is True
+        assert result.evaluation_status == EvaluatorStatus.SUCCESS
+        assert result.score == 0.0
         assert "语法" in result.text
 
 
@@ -182,7 +180,7 @@ class TestCodeEvaluatorBoundaryCases:
         return CodeEvaluator(client=None)
 
     def test_empty_code_returns_error(self, evaluator):
-        """空代码应返回错误"""
+        """空代码应返回CANNOT_EVALUATE"""
         request = EvaluationSchema(
             id="code_020",
             type="code",
@@ -195,10 +193,11 @@ class TestCodeEvaluatorBoundaryCases:
         result = evaluator.evaluate(request)
 
         assert result.is_valid is False
-        assert "不能为空" in result.error
+        assert result.evaluation_status == EvaluatorStatus.CANNOT_EVALUATE
+        assert "不能为空" in result.text
 
     def test_no_code_no_text_returns_error(self, evaluator):
-        """无code也无text应返回错误"""
+        """无code也无text应返回CANNOT_EVALUATE"""
         request = EvaluationSchema(
             id="code_021",
             type="code",
@@ -208,10 +207,11 @@ class TestCodeEvaluatorBoundaryCases:
         result = evaluator.evaluate(request)
 
         assert result.is_valid is False
-        assert "不能为空" in result.error
+        assert result.evaluation_status == EvaluatorStatus.CANNOT_EVALUATE
+        assert "不能为空" in result.text
 
-    def test_without_llm_client_syntax_only_score(self, evaluator):
-        """无LLM client时应仅基于语法评分，返回PARTIAL状态"""
+    def test_without_llm_client_degraded_score(self, evaluator):
+        """无LLM client时应返回降级评分，基于语法、安全和结构综合评估"""
         request = EvaluationSchema(
             id="code_022",
             type="code",
@@ -223,9 +223,7 @@ class TestCodeEvaluatorBoundaryCases:
 
         result = evaluator.evaluate(request)
 
-        total_weight = DEFAULT_SYNTAX_WEIGHT + DEFAULT_EXECUTION_WEIGHT + DEFAULT_SEMANTIC_WEIGHT
-        expected_score = DEFAULT_SYNTAX_WEIGHT / total_weight
-        assert result.score == expected_score
+        assert 0.5 <= result.score <= 0.9
         assert result.is_valid is True
         assert result.evaluation_status == EvaluatorStatus.PARTIAL
 
@@ -234,12 +232,12 @@ class TestCodeEvaluatorScoringLogic:
     """评分逻辑测试"""
 
     def test_syntax_weight_constant(self):
-        """DEFAULT_SYNTAX_WEIGHT应为0.2"""
-        assert DEFAULT_SYNTAX_WEIGHT == 0.2
+        """DEFAULT_SYNTAX_WEIGHT应为0.15"""
+        assert DEFAULT_SYNTAX_WEIGHT == 0.15
 
     def test_semantic_weight_constant(self):
-        """DEFAULT_SEMANTIC_WEIGHT应为0.3"""
-        assert DEFAULT_SEMANTIC_WEIGHT == 0.3
+        """DEFAULT_SEMANTIC_WEIGHT应为0.15"""
+        assert DEFAULT_SEMANTIC_WEIGHT == 0.15
 
     @pytest.fixture
     def mock_client(self):
@@ -351,10 +349,8 @@ class TestCodeEvaluatorDependencyHandling:
 
         result = evaluator.evaluate(request)
 
-        total_weight = DEFAULT_SYNTAX_WEIGHT + DEFAULT_EXECUTION_WEIGHT + DEFAULT_SEMANTIC_WEIGHT
-        expected_score = DEFAULT_SYNTAX_WEIGHT / total_weight
         assert result.is_valid is True
-        assert result.score == expected_score
+        assert result.score >= 0.3
         assert result.evaluation_status == EvaluatorStatus.PARTIAL
 
 

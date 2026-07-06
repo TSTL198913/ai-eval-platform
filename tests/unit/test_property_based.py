@@ -18,7 +18,7 @@ from hypothesis import strategies as st
 
 from src.domain.evaluators.scoring import is_passing, score_keyword_overlap, score_text_similarity
 from src.domain.evaluators.security import SecurityEvaluator
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse, EvaluatorStatus, EvaluationSchema
 
 
 class TestSecurityEvaluatorProperty:
@@ -163,7 +163,7 @@ class TestDomainResponseProperty:
     @settings(max_examples=5, suppress_health_check=[HealthCheck.too_slow])
     def test_response_handles_large_text(self, text):
         """DomainResponse应能处理大文本"""
-        response = DomainResponse(is_valid=True, score=0.85, text=text)
+        response = DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=0.85, text=text)
 
         assert response.text == text
         if text is not None:

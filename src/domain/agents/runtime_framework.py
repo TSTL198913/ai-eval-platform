@@ -9,7 +9,8 @@ import operator
 import threading
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from dataclasses import field
 from enum import Enum
 from typing import Any
 
@@ -76,7 +77,7 @@ class ToolRegistry:
     def call(self, name: str, **kwargs) -> Any:
         tool = self.get_tool(name)
         if not tool:
-            raise ValueError(f"工具 '{name}' 未注册")
+            raise ValueError(f"Tool '{name}' not registered")
         return tool.handler(**kwargs)
 
     def get_all_tools(self) -> list[dict[str, Any]]:

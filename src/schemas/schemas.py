@@ -1,7 +1,8 @@
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+from pydantic import Field
 
 from src.schemas.evaluation import DomainResponse
 
@@ -14,6 +15,7 @@ class EvaluationStatus(str, Enum):
     FAILED = "failed"
     ERROR = "error"
     SUCCESS = "success"
+    PARTIAL = "partial"
 
 
 class JudgeMode(str, Enum):

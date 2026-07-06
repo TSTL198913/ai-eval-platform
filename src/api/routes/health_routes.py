@@ -10,7 +10,8 @@ import time
 from fastapi import APIRouter
 from fastapi.responses import PlainTextResponse
 
-from src.api.common import _get_data_service, success_response
+from src.api.common import _get_data_service
+from src.api.common import success_response
 from src.infra.monitoring.metrics import expose_metrics
 
 logger = logging.getLogger(__name__)

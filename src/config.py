@@ -10,6 +10,8 @@
 注意：此文件为兼容性文件，实际配置定义在 src/config/__init__.py 中
 """
 
-from src.config import Settings, settings, get_settings
+from src.config import Settings
+from src.config import get_settings
+from src.config import settings
 
 __all__ = ["Settings", "settings", "get_settings"]

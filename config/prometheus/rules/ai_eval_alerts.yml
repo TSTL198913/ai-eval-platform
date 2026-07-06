@@ -1,0 +1,62 @@
+groups:
+  - name: ai_eval_platform_alerts
+    rules:
+      - alert: HighEvaluationErrorRate
+        expr: rate(evaluation_counter{status="error"}[5m]) / rate(evaluation_counter[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+          team: ai-eval
+        annotations:
+          summary: "高评估错误率"
+          description: "评估错误率超过10%，当前值: {{ $value }}"
+
+      - alert: HighEvaluationLatency
+        expr: histogram_quantile(0.99, rate(evaluation_latency_bucket[5m])) > 5
+        for: 2m
+        labels:
+          severity: warning
+          team: ai-eval
+        annotations:
+          summary: "高评估延迟"
+          description: "P99评估延迟超过5秒，当前值: {{ $value }}s"
+
+      - alert: EvaluatorUnavailable
+        expr: evaluation_counter{domain="other"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          team: ai-eval
+        annotations:
+          summary: "评估器未调用"
+          description: "评估器在5分钟内没有被调用，可能存在注册问题"
+
+      - alert: CeleryWorkerDown
+        expr: up{job="celery-workers"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: ai-eval
+        annotations:
+          summary: "Celery Worker 离线"
+          description: "Celery Worker 已离线超过1分钟"
+
+      - alert: PrometheusTargetDown
+        expr: up == 0
+        for: 3m
+        labels:
+          severity: critical
+          team: ai-eval
+        annotations:
+          summary: "监控目标离线"
+          description: "Prometheus 目标 {{ $labels.instance }} 已离线"
+
+      - alert: LowEvaluatorConfidence
+        expr: avg(evaluation_confidence) < 0.5
+        for: 5m
+        labels:
+          severity: warning
+          team: ai-eval
+        annotations:
+          summary: "评估器置信度偏低"
+          description: "平均置信度低于0.5，当前值: {{ $value }}"

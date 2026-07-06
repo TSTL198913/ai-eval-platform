@@ -20,7 +20,8 @@ from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.domain.evaluators.fallback_policy import SemanticTaskPolicy
 from src.domain.evaluators.scoring import is_passing
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse
+from src.schemas.evaluation import EvaluationSchema
 
 logger = logging.getLogger(__name__)
 
@@ -62,39 +63,32 @@ class GrammarEvaluator(BaseEvaluator):
             )
 
         if self.client:
-            return self._evaluate_with_llm(actual_output)
-        else:
-            return self._evaluate_with_simple_check(actual_output)
-
-    def _evaluate_with_llm(self, actual_output: str) -> DomainResponse:
-        """使用 LLM-as-a-Judge 进行深度语法分析"""
-        try:
             prompt = self._build_evaluation_prompt(actual_output)
-            llm_output = self.client.chat(prompt)
 
-            score, errors = self._parse_grammar_score(llm_output)
-
-            if score is None:
-                logger.error(f"语法评估响应解析失败: '{llm_output}'")
-                raise ValueError(f"无法解析评分: {llm_output}")
-
-            return self.create_success_response(
-                text=actual_output,
-                score=score,
-                data={
+            def data_builder(score: float, llm_output: str) -> dict:
+                _, errors = self._parse_grammar_score(llm_output)
+                return {
                     "actual_output": actual_output,
                     "raw_output": llm_output,
-                    "errors": errors,
+                    "errors": errors or [],
                     "evaluator": "grammar",
-                },
-                metadata={
-                    "match_mode": "llm_as_judge",
-                    "passed": is_passing(score),
-                },
-            )
+                }
 
-        except Exception as e:
-            logger.exception(f"语法评估器 LLM 调用失败: {e}")
+            def fallback_fn(error_msg: str) -> DomainResponse:
+                return self._evaluate_with_simple_check(actual_output)
+
+            result = self._evaluate_with_llm(
+                prompt=prompt,
+                fallback_fn=fallback_fn,
+                data_builder=data_builder,
+                evaluator_name="GrammarEvaluator",
+            )
+            result.metadata.update({
+                "match_mode": "llm_as_judge",
+                "passed": is_passing(result.score) if result.score is not None else False,
+            })
+            return result
+        else:
             return self._evaluate_with_simple_check(actual_output)
 
     def _evaluate_with_simple_check(self, actual_output: str) -> DomainResponse:

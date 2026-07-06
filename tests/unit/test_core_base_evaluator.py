@@ -18,7 +18,7 @@ class TestEvaluatorResponseCreation:
         @EvaluatorFactory.register("test_error_response_eval")
         class TestErrorResponseEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS)
 
         evaluator = TestErrorResponseEvaluator()
         response = evaluator.create_error_response(
@@ -28,8 +28,8 @@ class TestEvaluatorResponseCreation:
         assert response.error == "测试错误"
         assert response.evaluation_status == EvaluatorStatus.ERROR
         assert response.metadata.get("error_code") == "TEST_ERROR"
-        assert response.confidence == 0.0
-        assert response.score is None
+        assert response.confidence == 0.05
+        assert response.score == 0.0
         assert response.is_valid is False
 
     def test_create_success_response(self):
@@ -37,7 +37,7 @@ class TestEvaluatorResponseCreation:
         @EvaluatorFactory.register("test_success_response_eval")
         class TestSuccessResponseEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS)
 
         evaluator = TestSuccessResponseEvaluator()
         response = evaluator.create_success_response(
@@ -47,7 +47,7 @@ class TestEvaluatorResponseCreation:
         )
         assert response.text == "评估完成"
         assert response.score == 0.85
-        assert response.data == {"key": "value"}
+        assert response.data.get("key") == "value"
         assert response.evaluation_status == EvaluatorStatus.SUCCESS
         assert response.confidence == 0.95
         assert response.is_valid is True
@@ -57,7 +57,7 @@ class TestEvaluatorResponseCreation:
         @EvaluatorFactory.register("test_partial_response_eval")
         class TestPartialResponseEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS)
 
         evaluator = TestPartialResponseEvaluator()
         response = evaluator.create_partial_response(
@@ -81,7 +81,7 @@ class TestEvaluatorResponseCreation:
         @EvaluatorFactory.register("test_cannot_eval_response_eval")
         class TestCannotEvalResponseEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS)
 
         evaluator = TestCannotEvalResponseEvaluator()
         response = evaluator.create_cannot_evaluate_response(
@@ -89,7 +89,7 @@ class TestEvaluatorResponseCreation:
             dimensions_skipped=["all"],
         )
         assert response.text == "无法评估: 缺少必要输入"
-        assert response.score is None
+        assert response.score == 0.0
         assert response.evaluation_status == EvaluatorStatus.CANNOT_EVALUATE
         assert response.data["dimensions_skipped"] == ["all"]
 
@@ -102,7 +102,7 @@ class TestEvaluatorInputValidation:
         @EvaluatorFactory.register("test_validate_input_eval")
         class TestValidateInputEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS)
 
         evaluator = TestValidateInputEvaluator(require_input=True)
         request = EvaluationSchema(
@@ -120,7 +120,7 @@ class TestEvaluatorInputValidation:
         @EvaluatorFactory.register("test_no_validate_input_eval")
         class TestNoValidateInputEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS)
 
         evaluator = TestNoValidateInputEvaluator(require_input=False)
         request = EvaluationSchema(
@@ -136,7 +136,7 @@ class TestEvaluatorInputValidation:
         @EvaluatorFactory.register("test_validate_expected_eval")
         class TestValidateExpectedEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS)
 
         evaluator = TestValidateExpectedEvaluator(require_expected=True)
         request = EvaluationSchema(
@@ -154,7 +154,7 @@ class TestEvaluatorInputValidation:
         @EvaluatorFactory.register("test_no_validate_expected_eval")
         class TestNoValidateExpectedEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS)
 
         evaluator = TestNoValidateExpectedEvaluator(require_expected=False)
         request = EvaluationSchema(
@@ -170,7 +170,7 @@ class TestEvaluatorInputValidation:
         @EvaluatorFactory.register("test_require_client_eval")
         class TestRequireClientEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS)
 
         evaluator = TestRequireClientEvaluator(client=None)
         result = evaluator.require_client_with_error()
@@ -183,7 +183,7 @@ class TestEvaluatorInputValidation:
         @EvaluatorFactory.register("test_client_success_eval")
         class TestClientSuccessEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS)
 
         mock_client = type('MockClient', (), {'chat': lambda x: 'response'})()
         evaluator = TestClientSuccessEvaluator(client=mock_client)
@@ -199,7 +199,7 @@ class TestEvaluatorScoreParsing:
         @EvaluatorFactory.register("test_parse_score_eval")
         class TestParseScoreEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS)
 
         evaluator = TestParseScoreEvaluator()
         score = evaluator.safe_parse_score("评分: 0.85")
@@ -211,7 +211,7 @@ class TestEvaluatorScoreParsing:
         @EvaluatorFactory.register("test_parse_score_none_eval")
         class TestParseScoreNoneEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS)
 
         evaluator = TestParseScoreNoneEvaluator()
         score = evaluator.safe_parse_score("无法评估")
@@ -222,7 +222,7 @@ class TestEvaluatorScoreParsing:
         @EvaluatorFactory.register("test_parse_category_eval")
         class TestParseCategoryEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS)
 
         evaluator = TestParseCategoryEvaluator()
         category = evaluator.safe_parse_category(
@@ -236,7 +236,7 @@ class TestEvaluatorScoreParsing:
         @EvaluatorFactory.register("test_parse_category_not_found_eval")
         class TestParseCategoryNotFoundEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS)
 
         evaluator = TestParseCategoryNotFoundEvaluator()
         category = evaluator.safe_parse_category(
@@ -254,7 +254,7 @@ class TestEvaluatorPayloadAccess:
         @EvaluatorFactory.register("test_get_payload_eval")
         class TestGetPayloadEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS)
 
         evaluator = TestGetPayloadEvaluator()
         request = EvaluationSchema(
@@ -271,7 +271,7 @@ class TestEvaluatorPayloadAccess:
         @EvaluatorFactory.register("test_get_input_eval")
         class TestGetInputEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS)
 
         evaluator = TestGetInputEvaluator()
         request1 = EvaluationSchema(
@@ -304,7 +304,7 @@ class TestEvaluatorSafeEvaluate:
         @EvaluatorFactory.register("test_safe_eval_success")
         class TestSafeEvalSuccessEvaluator(BaseEvaluator):
             def _do_evaluate(self, request):
-                return DomainResponse(is_valid=True, score=0.8)
+                return DomainResponse(evaluation_status=EvaluatorStatus.SUCCESS, score=0.8)
 
         evaluator = TestSafeEvalSuccessEvaluator()
         request = EvaluationSchema(

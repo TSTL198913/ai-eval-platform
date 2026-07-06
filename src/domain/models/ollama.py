@@ -4,7 +4,8 @@ import logging
 
 import httpx
 
-from src.domain.models.base import BaseLLMClient, ModelConfig
+from src.domain.models.base import BaseLLMClient
+from src.domain.models.base import ModelConfig
 from src.exceptions import InfrastructureError
 
 logger = logging.getLogger(__name__)

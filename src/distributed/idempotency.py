@@ -15,7 +15,8 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, TypeVar
+from typing import Any
+from typing import TypeVar
 
 logger = logging.getLogger(__name__)
 

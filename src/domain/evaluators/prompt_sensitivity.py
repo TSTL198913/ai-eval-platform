@@ -10,7 +10,8 @@ from dataclasses import dataclass
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
 from src.domain.models.base import BaseLLMClient
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse
+from src.schemas.evaluation import EvaluationSchema
 
 
 @dataclass
@@ -23,6 +24,7 @@ class PromptVariant:
     description: str = ""
 
 
+@EvaluatorFactory.register("prompt_sensitivity")
 class PromptSensitivityEvaluator(BaseEvaluator):
     """Prompt敏感度评估器
 
@@ -34,7 +36,7 @@ class PromptSensitivityEvaluator(BaseEvaluator):
     """
 
     def __init__(self, client: BaseLLMClient | None = None):
-        super().__init__(client=client, require_input=True)
+        super().__init__(client=client, require_input=False)
         self.variance_threshold = 0.15  # 方差阈值
         self.stability_threshold = 0.8  # 稳定性阈值
 
@@ -393,13 +395,4 @@ class PromptSensitivityEvaluator(BaseEvaluator):
         return summary
 
 
-@EvaluatorFactory.register("prompt_sensitivity")
-class PromptSensitivityEvaluatorFactory(BaseEvaluator):
-    """Prompt敏感度评估器工厂"""
 
-    def __init__(self, client: BaseLLMClient | None = None):
-        self.client = client
-
-    def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
-        evaluator = PromptSensitivityEvaluator(client=self.client)
-        return evaluator.safe_evaluate(request)

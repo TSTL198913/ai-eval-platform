@@ -148,7 +148,8 @@ class CeleryQueueMonitor:
 
         try:
             import httpx
-            from prometheus_client import CollectorRegistry, Gauge
+            from prometheus_client import CollectorRegistry
+            from prometheus_client import Gauge
 
             registry = CollectorRegistry()
 

@@ -197,11 +197,15 @@ class TestEvaluatorService:
     """EvaluatorService评估服务测试"""
 
     def test_normalize_raw_data_with_payload(self):
-        """已有payload时应返回原始数据"""
+        """已有payload时应保留payload并添加默认字段"""
         raw_data = {"id": "1", "type": "test", "payload": {"key": "value"}}
         result = _normalize_raw_data(raw_data)
 
-        assert result == raw_data
+        assert result["id"] == "1"
+        assert result["type"] == "test"
+        assert result["payload"] == {"key": "value"}
+        assert result["evaluate_mode"] == "offline"
+        assert result["metadata"] == {}
 
     def test_normalize_raw_data_without_payload(self):
         """无payload时应重新组织数据"""

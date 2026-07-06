@@ -6,21 +6,25 @@
 import logging
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter
+from fastapi import Depends
+from fastapi import HTTPException
+from fastapi import Response
+from fastapi import status
+from pydantic import BaseModel
+from pydantic import Field
 
-from src.api.auth import (
-    ACCESS_TOKEN_EXPIRE_MINUTES,
-    HAS_AUTH,
-    authenticate_user,
-    create_access_token,
-    create_refresh_token,
-    decode_token,
-    fake_users_db,
-    get_current_user,
-    verify_password,
-)
-from src.api.common import error_response, success_response
+from src.api.auth import ACCESS_TOKEN_EXPIRE_MINUTES
+from src.api.auth import HAS_AUTH
+from src.api.auth import authenticate_user
+from src.api.auth import create_access_token
+from src.api.auth import create_refresh_token
+from src.api.auth import decode_token
+from src.api.auth import fake_users_db
+from src.api.auth import get_current_user
+from src.api.auth import verify_password
+from src.api.common import error_response
+from src.api.common import success_response
 
 logger = logging.getLogger(__name__)
 

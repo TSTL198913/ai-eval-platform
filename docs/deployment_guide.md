@@ -6,15 +6,49 @@
 
 | 项目 | 要求 |
 |------|------|
-| 操作系统 | Ubuntu 20.04+ / CentOS 7+ |
-| Docker | 20.10+ |
-| Docker Compose | 2.0+ |
+| 操作系统 | Ubuntu 20.04+ / CentOS 7+ / Windows 10+ |
+| Python | 3.10+ |
+| Docker | 20.10+（可选，用于容器部署） |
+| Docker Compose | 2.0+（可选） |
 | 内存 | 最低4GB，推荐8GB |
 | CPU | 最低2核，推荐4核 |
 | 存储 | 最低20GB，推荐50GB |
 | 网络 | 能访问LLM API（DeepSeek/OpenAI） |
 
-### 1.2 环境变量配置
+### 1.2 本地开发环境部署（不依赖Docker）
+
+**适用于开发调试和面试演示场景**
+
+```bash
+# 1. 克隆代码
+git clone https://github.com/your-org/ai-eval-platform.git
+cd ai-eval-platform
+
+# 2. 安装依赖
+pip install -r requirements.txt
+
+# 3. 配置环境变量
+cp .env.example .env
+# 编辑 .env，配置 LLM API Key
+# DEEPSEEK_API_KEY=sk-your-key
+
+# 4. 初始化数据库（SQLite模式，无需PostgreSQL）
+python -c "from src.infra.db.session import init_tables; init_tables()"
+
+# 5. 启动服务
+uvicorn src.api.server:app --host 0.0.0.0 --port 8000 --reload
+
+# 6. 验证服务
+curl http://localhost:8000/health
+# 预期响应: {"status": "healthy", "timestamp": "..."}
+```
+
+**访问地址**：
+- API文档: http://localhost:8000/docs
+- 健康检查: http://localhost:8000/health
+- 指标端点: http://localhost:8000/metrics
+
+### 1.3 环境变量配置
 
 创建 `.env.prod` 文件：
 

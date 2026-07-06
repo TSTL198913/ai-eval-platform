@@ -5,16 +5,20 @@ Benchmark 基准测试 API
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
+from datetime import timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter
+from fastapi import Depends
+from fastapi import HTTPException
+from fastapi import status
+from pydantic import BaseModel
+from pydantic import Field
 
-from src.api.dependencies import (
-    PermissionDependency,
-)
-from src.infra.benchmark.benchmark_manager import BenchmarkManager, BenchmarkResult
+from src.api.dependencies import PermissionDependency
+from src.infra.benchmark.benchmark_manager import BenchmarkManager
+from src.infra.benchmark.benchmark_manager import BenchmarkResult
 from src.infra.security import Permission
 
 router = APIRouter(prefix="/api/v1/benchmarks", tags=["Benchmark"])

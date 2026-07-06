@@ -3,7 +3,8 @@
 支持多模型、多维度对比分析
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
+from fastapi import HTTPException
 from pydantic import BaseModel
 
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory

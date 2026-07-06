@@ -4,13 +4,11 @@ Prometheus 指标监控模块
 提供评测平台的核心性能指标收集和暴露功能。
 """
 
-from prometheus_client import (
-    CollectorRegistry,
-    Counter,
-    Gauge,
-    Histogram,
-    generate_latest,
-)
+from prometheus_client import CollectorRegistry
+from prometheus_client import Counter
+from prometheus_client import Gauge
+from prometheus_client import Histogram
+from prometheus_client import generate_latest
 
 # 创建全局注册器
 registry = CollectorRegistry()
@@ -102,6 +100,72 @@ RATE_LIMITER_BLOCKED = Counter(
     "rate_limiter_blocked_total",
     "Total number of blocked requests",
     ["limiter_name"],
+    registry=registry,
+)
+
+# ===================== 缓存指标 =====================
+CACHE_HITS = Counter(
+    "cache_hits_total",
+    "Total number of cache hits",
+    ["cache_type"],
+    registry=registry,
+)
+
+CACHE_MISSES = Counter(
+    "cache_misses_total",
+    "Total number of cache misses",
+    ["cache_type"],
+    registry=registry,
+)
+
+CACHE_EVICTIONS = Counter(
+    "cache_evictions_total",
+    "Total number of cache evictions",
+    ["cache_type", "eviction_reason"],
+    registry=registry,
+)
+
+CACHE_HIT_RATE = Gauge(
+    "cache_hit_rate",
+    "Cache hit rate",
+    ["cache_type"],
+    registry=registry,
+)
+
+CACHE_SIZE = Gauge(
+    "cache_size",
+    "Current cache size",
+    ["cache_type"],
+    registry=registry,
+)
+
+CACHE_LATENCY = Histogram(
+    "cache_latency_seconds",
+    "Cache operation latency",
+    ["cache_type", "operation"],
+    buckets=[0.001, 0.005, 0.01, 0.05, 0.1],
+    registry=registry,
+)
+
+# ===================== 评估器性能指标 =====================
+EVALUATOR_CACHE_SAVED_TIME = Counter(
+    "evaluator_cache_saved_seconds",
+    "Total time saved by cache",
+    ["evaluator_type"],
+    registry=registry,
+)
+
+EVALUATOR_CONCURRENT = Gauge(
+    "evaluator_concurrent",
+    "Current concurrent evaluations",
+    ["evaluator_type"],
+    registry=registry,
+)
+
+EVALUATOR_THROUGHPUT = Counter(
+    "evaluator_throughput_total",
+    "Total evaluations processed",
+    ["evaluator_type"],
     registry=registry,
 )
 

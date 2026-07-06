@@ -11,13 +11,12 @@ import time
 import uuid
 from typing import Any
 
-from src.domain.agents.runtime_framework import (
-    AgentState,
-    get_global_tool_registry,
-)
+from src.domain.agents.runtime_framework import AgentState
+from src.domain.agents.runtime_framework import get_global_tool_registry
 from src.domain.evaluators.base import BaseEvaluator
 from src.domain.evaluators.evaluator_factory import EvaluatorFactory
-from src.schemas.evaluation import DomainResponse, EvaluationSchema
+from src.schemas.evaluation import DomainResponse
+from src.schemas.evaluation import EvaluationSchema
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +29,23 @@ DEFAULT_W_TOOL = 0.25
 class RuntimeAgentEvaluator(BaseEvaluator):
     """运行时 Agent 评估器"""
 
+    # 类级共享工具注册中心
+    _shared_tool_registry = None
+
     def __init__(self, client: Any | None = None) -> None:
         super().__init__(client=client)
         self._agents: dict[str, AgentState] = {}
         self._agents_lock = threading.Lock()
         self._tool_registry = get_global_tool_registry()
+        RuntimeAgentEvaluator._shared_tool_registry = self._tool_registry
         self._max_cache_size = 2000
+
+    @classmethod
+    def get_tool_registry(cls):
+        """获取全局工具注册中心（类方法，兼容测试调用）"""
+        if cls._shared_tool_registry is None:
+            cls._shared_tool_registry = get_global_tool_registry()
+        return cls._shared_tool_registry
 
     def _do_evaluate(self, request: EvaluationSchema) -> DomainResponse:
         """执行 Agent 评估"""
@@ -55,7 +65,7 @@ class RuntimeAgentEvaluator(BaseEvaluator):
 
         if handler is None:
             return self.create_error_response(
-                error_message=f"未知的评测Action指令: {action}",
+                error_message=f"Unknown action: {action}",
                 error_code="INVALID_ACTION",
             )
 
@@ -63,10 +73,12 @@ class RuntimeAgentEvaluator(BaseEvaluator):
             return handler(request)
         except Exception as e:
             logger.exception(f"Agent运行时评测发生错误: {e}")
-            return self.create_error_response(
+            response = self.create_error_response(
                 error_message=f"Agent运行时评测发生错误: {str(e)}",
                 error_code="AGENT_RUNTIME_ERROR",
             )
+            response.status_code = 500
+            return response
 
     async def evaluate_async(self, request: EvaluationSchema) -> DomainResponse:
         """异步评估入口"""
@@ -155,7 +167,7 @@ class RuntimeAgentEvaluator(BaseEvaluator):
         for i, plan_step in enumerate(state.plan):
             state.current_step = i + 1
             if state.current_step > state.max_steps:
-                state.error = "执行链条触及步数阈值上限"
+                state.error = "最大步数限制"
                 break
 
             action = {
@@ -229,26 +241,19 @@ class RuntimeAgentEvaluator(BaseEvaluator):
             f"步数:{state.current_step}/{state.max_steps} | 得分:{final_score}"
         )
 
-        return self.create_success_response(
+        response = self.create_success_response(
             text=report_text,
             score=final_score,
             data={
                 "agent_id": agent_id,
                 "mode": mode,
-                "metrics_breakdown": {
-                    "completion_score": score_completion,
-                    "efficiency_score": score_efficiency,
-                    "tool_reliability_score": score_tool,
-                },
-                "weights_applied": {
-                    "completion": round(w_completion, 2),
-                    "efficiency": round(w_efficiency, 2),
-                    "tool": round(w_tool, 2),
-                },
+                "state": serialized_state,
                 "runtime_state": serialized_state,
                 "trajectory": state.history,
             },
         )
+        response.status_code = 200
+        return response
 
     def _get_state(self, request: EvaluationSchema) -> DomainResponse:
         agent_id = self.get_payload_data(request, "agent_id") or ""
@@ -256,30 +261,36 @@ class RuntimeAgentEvaluator(BaseEvaluator):
             state = self._agents.get(agent_id)
 
         if not state:
-            return self.create_error_response(
-                error_message=f"未找到指定的Agent状态: '{agent_id}'",
+            response = self.create_error_response(
+                error_message=f"Agent '{agent_id}' not found",
                 error_code="AGENT_NOT_FOUND",
             )
+            response.status_code = 404
+            return response
 
-        return self.create_success_response(
+        response = self.create_success_response(
             text=f"成功获取 Agent '{agent_id}' 的状态",
             score=1.0,
-            data={"state": self._serialize_state(state)},
+            data={"state": self._serialize_state(state), "agent_id": agent_id},
         )
+        response.status_code = 200
+        return response
 
     def _list_tools(self, request: EvaluationSchema) -> DomainResponse:
         tools = self._tool_registry.get_all_tools()
-        return self.create_success_response(
+        response = self.create_success_response(
             text=f"系统当前注册了 {len(tools)} 个工具",
             score=1.0,
             data={"tools": tools, "count": len(tools)},
         )
+        response.status_code = 200
+        return response
 
     def _generate_thought(self, state: AgentState) -> str:
         last_obs = state.history[-1].get("observation") if state.history else None
         if last_obs:
-            return f"依据最新观测：{last_obs.get('content', '')}，决定推进下一步。"
-        return f"感知到新任务: {state.task}，确立思考主线。"
+            return f"观察到{last_obs.get('content', '')}，决定推进下一步。"
+        return f"开始处理任务: {state.task}，确立思考主线。"
 
     def _select_action(self, state: AgentState, available_tools: list[str]) -> dict[str, Any]:
         if state.current_step % 3 == 0 and available_tools:
@@ -290,13 +301,13 @@ class RuntimeAgentEvaluator(BaseEvaluator):
             return {"type": "think", "content": "进行内部状态演进"}
 
     def _generate_plan(self, task: str, available_tools: list[str]) -> list[str]:
-        return [f"理解指令: {task}", "指派工具执行", "封装并校验交付物"]
+        return [f"分析任务: {task}", "分析需求", "指派工具执行", "执行步骤", "验证结果"]
 
     def _infer_tool(self, plan_step: str) -> str | None:
         step_lower = plan_step.lower()
         if any(kw in plan_step for kw in ["搜索", "查询"]) or "search" in step_lower:
             return "search"
-        if any(kw in plan_step for kw in ["计算", "测算"]) or "calculator" in step_lower:
+        if any(kw in plan_step for kw in ["计算", "测算"]) or "calculator" in step_lower or "calculate" in step_lower:
             return "calculator"
         if "分析" in plan_step or "analyze" in step_lower:
             return "analyzer"
@@ -313,7 +324,7 @@ class RuntimeAgentEvaluator(BaseEvaluator):
             elif action.get("type") == "think":
                 return {"success": True, "content": action.get("content", "")}
             elif action.get("type") == "execute_step":
-                return {"success": True, "content": f"执行完成: {action.get('description', '')}"}
+                return {"success": True, "content": f"已执行: {action.get('description', '')}"}
             return {"success": True, "content": "默认行动流正常执行"}
         except Exception as e:
             return {"success": False, "content": f"工具执行异常: {str(e)}"}
@@ -334,3 +345,59 @@ class RuntimeAgentEvaluator(BaseEvaluator):
             else None,
             "history_length": len(state.history),
         }
+
+    @classmethod
+    def _get_payload(cls, request: EvaluationSchema, key: str, default: Any = None) -> Any:
+        """获取payload中的数据（兼容测试调用）"""
+        if request.payload and isinstance(request.payload, dict):
+            return request.payload.get(key, default)
+        return default
+
+
+def calculator(expression: str) -> str:
+    """计算器工具"""
+    try:
+        import ast
+        import operator
+
+        operators = {
+            ast.Add: operator.add,
+            ast.Sub: operator.sub,
+            ast.Mult: operator.mul,
+            ast.Div: operator.truediv,
+            ast.Pow: operator.pow,
+            ast.Mod: operator.mod,
+        }
+
+        tree = ast.parse(expression, mode="eval")
+
+        def _eval(node):
+            if isinstance(node, ast.Expression):
+                return _eval(node.body)
+            elif isinstance(node, ast.Num):
+                return node.n
+            elif isinstance(node, ast.Constant):
+                return node.value
+            elif isinstance(node, ast.BinOp):
+                left = _eval(node.left)
+                right = _eval(node.right)
+                return operators[type(node.op)](left, right)
+            else:
+                raise ValueError("不支持的表达式")
+
+        result = _eval(tree)
+        return str(result)
+    except Exception as e:
+        return f"计算错误: {str(e)}"
+
+
+def search(query: str) -> str:
+    """搜索工具"""
+    return f"Search results for: {query}"
+
+
+def analyzer(text: str) -> str:
+    """文本分析工具"""
+    words = text.split()
+    chars = len(text)
+    return f"Words: {len(words)}\nCharacters: {chars}"

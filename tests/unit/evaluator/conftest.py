@@ -1,9 +1,13 @@
 """
 评估器单元测试公共配置
-提供 EmbeddingService mock，避免测试时下载模型
+提供：
+1. EmbeddingService mock，避免测试时下载模型
+2. 数据驱动测试fixture，支持加载外部JSON测试数据
 """
 
 import difflib
+import json
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -67,3 +71,33 @@ def mock_sentence_transformer():
         mock_model = MagicMock()
         MockST.return_value = mock_model
         yield mock_model
+
+
+@pytest.fixture
+def semantic_golden_data():
+    """
+    加载语义评估器黄金标准测试数据
+    """
+    data_path = os.path.join(
+        os.path.dirname(__file__),
+        "../..",
+        "data",
+        "semantic_golden_standard.json"
+    )
+    with open(data_path, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+
+@pytest.fixture
+def security_golden_data():
+    """
+    加载安全评估器黄金标准测试数据
+    """
+    data_path = os.path.join(
+        os.path.dirname(__file__),
+        "../..",
+        "data",
+        "security_golden_standard.json"
+    )
+    with open(data_path, 'r', encoding='utf-8') as f:
+        return json.load(f)

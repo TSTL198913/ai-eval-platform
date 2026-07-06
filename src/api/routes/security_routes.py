@@ -6,10 +6,14 @@
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter
+from fastapi import Depends
+from fastapi import status
+from pydantic import BaseModel
+from pydantic import Field
 
-from src.api.common import error_response, success_response
+from src.api.common import error_response
+from src.api.common import success_response
 from src.api.dependencies import PermissionDependency
 from src.infra.security import Permission
 
@@ -107,7 +111,8 @@ async def full_scan(
     """
     try:
         import uuid
-        from datetime import datetime, timezone
+        from datetime import datetime
+        from datetime import timezone
 
         from src.domain.security.security_tester import SecurityTester
 

@@ -17,11 +17,9 @@ from typing import Any
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
-from src.infra.db.models import (
-    AnnotationAgreementModel,
-    AnnotationResultModel,
-    AnnotationTaskModel,
-)
+from src.infra.db.models import AnnotationAgreementModel
+from src.infra.db.models import AnnotationResultModel
+from src.infra.db.models import AnnotationTaskModel
 from src.infra.db.session import SessionLocal
 
 logger = logging.getLogger(__name__)

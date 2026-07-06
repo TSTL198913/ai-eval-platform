@@ -170,6 +170,7 @@ class TestEvaluatorWithLock:
             payload={
                 "user_input": "测试",
                 "model_output": "回答",
+                "expected_output": "期望回答",
             },
         )
 

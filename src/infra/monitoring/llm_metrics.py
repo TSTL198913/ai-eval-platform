@@ -8,7 +8,8 @@ import time
 from collections.abc import Callable
 from functools import wraps
 
-from prometheus_client import Counter, Histogram
+from prometheus_client import Counter
+from prometheus_client import Histogram
 
 from src.infra.monitoring.metrics import registry
 

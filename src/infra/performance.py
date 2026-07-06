@@ -1,117 +1,74 @@
 import hashlib
+import importlib.util
 import json
 import os
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-
-@dataclass
-class CacheEntry:
-    key: str
-    result: dict[str, Any]
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    hit_count: int = 0
-    avg_latency_ms: float = 0.0
+sys_path = os.path.dirname(os.path.abspath(__file__))
+cache_path = os.path.join(sys_path, "cache.py")
+spec = importlib.util.spec_from_file_location("cache_module", cache_path)
+cache_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(cache_module)
+BaseEvaluationCache = cache_module.EvaluationCache
 
 
-class EvaluationCache:
-    def __init__(self, cache_dir: str = "data/cache", ttl_seconds: int = 3600):
-        self._cache: dict[str, CacheEntry] = {}
+class EvaluationCache(BaseEvaluationCache):
+    def __init__(self, cache_dir: str = "data/cache", ttl_seconds: int = 3600, max_size: int = 10000):
+        super().__init__(ttl_seconds=ttl_seconds, max_size=max_size)
         self._cache_dir = cache_dir
-        self._ttl_seconds = ttl_seconds
-        self._load_cache()
+        self._load_persisted_cache()
 
-    def _load_cache(self):
+    def _generate_key(self, request_data: dict[str, Any]) -> str:
+        content = json.dumps(request_data, sort_keys=True, ensure_ascii=False)
+        return hashlib.sha256(content.encode()).hexdigest()[:16]
+
+    def _load_persisted_cache(self):
+        import os
         cache_file = os.path.join(self._cache_dir, "evaluation_cache.json")
         if os.path.exists(cache_file):
             try:
                 with open(cache_file, encoding="utf-8") as f:
                     data = json.load(f)
                     for key, entry in data.items():
-                        entry_obj = CacheEntry(
-                            key=key,
-                            result=entry["result"],
-                            created_at=datetime.fromisoformat(entry["created_at"]),
-                            hit_count=entry.get("hit_count", 0),
-                            avg_latency_ms=entry.get("avg_latency_ms", 0.0),
-                        )
-                        if not self._is_expired(entry_obj):
-                            self._cache[key] = entry_obj
+                        if isinstance(entry, dict) and "result" in entry:
+                            self.set(key, entry["result"])
             except Exception:
                 pass
 
-    def _save_cache(self):
-        cache_file = os.path.join(self._cache_dir, "evaluation_cache.json")
-        os.makedirs(self._cache_dir, exist_ok=True)
-        data = {
-            key: {
-                "result": entry.result,
-                "created_at": entry.created_at.isoformat(),
-                "hit_count": entry.hit_count,
-                "avg_latency_ms": entry.avg_latency_ms,
-            }
-            for key, entry in self._cache.items()
-        }
-        with open(cache_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+    def get(self, request_data: dict[str, Any] | str) -> dict[str, Any] | None:
+        if isinstance(request_data, str):
+            key = request_data
+        else:
+            key = self._generate_key(request_data)
+        return super().get(key)
 
-    def _is_expired(self, entry: CacheEntry) -> bool:
-        age = (datetime.utcnow() - entry.created_at).total_seconds()
-        return age > self._ttl_seconds
+    def set(self, request_data: dict[str, Any] | str, result: dict[str, Any], latency_ms: float = 0.0):
+        if isinstance(request_data, str):
+            key = request_data
+        else:
+            key = self._generate_key(request_data)
+        super().set(key, result)
 
-    def _generate_key(self, request_data: dict[str, Any]) -> str:
-        content = json.dumps(request_data, sort_keys=True, ensure_ascii=False)
-        return hashlib.sha256(content.encode()).hexdigest()[:16]
-
-    def get(self, request_data: dict[str, Any]) -> dict[str, Any] | None:
-        key = self._generate_key(request_data)
-        entry = self._cache.get(key)
-
-        if entry and not self._is_expired(entry):
-            entry.hit_count += 1
-            self._save_cache()
-            return entry.result
-
-        return None
-
-    def set(self, request_data: dict[str, Any], result: dict[str, Any], latency_ms: float = 0.0):
-        key = self._generate_key(request_data)
-        entry = CacheEntry(key=key, result=result, avg_latency_ms=latency_ms)
-        self._cache[key] = entry
-        self._save_cache()
-
-    def invalidate(self, request_data: dict[str, Any]):
-        key = self._generate_key(request_data)
-        if key in self._cache:
-            del self._cache[key]
-            self._save_cache()
-
-    def clear(self):
-        self._cache.clear()
-        self._save_cache()
+    def invalidate(self, request_data: dict[str, Any] | str):
+        if isinstance(request_data, str):
+            key = request_data
+        else:
+            key = self._generate_key(request_data)
+        super().invalidate(key)
 
     def get_stats(self) -> dict[str, Any]:
-        total_hits = sum(e.hit_count for e in self._cache.values())
-        total_entries = len(self._cache)
-        avg_latency = sum(e.avg_latency_ms for e in self._cache.values()) / max(total_entries, 1)
-
+        base_stats = super().get_stats()
         return {
-            "total_entries": total_entries,
-            "total_hits": total_hits,
-            "hit_rate": total_hits / max(total_entries, 1),
-            "avg_latency_ms": round(avg_latency, 2),
-            "cache_size_kb": self._get_cache_size(),
+            "total_entries": base_stats["size"],
+            "total_hits": base_stats["hits"],
+            "hit_rate": base_stats["hit_rate"],
+            "avg_latency_ms": 0.0,
+            "cache_size_kb": 0.0,
         }
-
-    def _get_cache_size(self) -> float:
-        cache_file = os.path.join(self._cache_dir, "evaluation_cache.json")
-        if os.path.exists(cache_file):
-            return os.path.getsize(cache_file) / 1024
-        return 0.0
 
 
 class AsyncEvaluationProcessor:

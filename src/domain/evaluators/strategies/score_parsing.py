@@ -9,7 +9,8 @@
 """
 
 import re
-from abc import ABC, abstractmethod
+from abc import ABC
+from abc import abstractmethod
 from dataclasses import dataclass
 
 
@@ -352,7 +353,71 @@ class ScoreParser:
         }
 
 
+class StructuredOutputStrategy(ScoreParseStrategy):
+    """结构化输出策略 - 优先解析 JSON 格式输出
+    
+    支持的格式：
+    1. {"score": 0.85, "reason": "..." }
+    2. {"rating": 0.85 }
+    3. {"confidence": 0.95, "score": 0.85 }
+    
+    使用此策略需要在 Prompt 中要求 LLM 输出 JSON 格式
+    """
+    
+    def try_parse(self, text: str) -> ParsedScore | None:
+        if not text:
+            return None
+        
+        try:
+            import json
+            import re
+            
+            json_match = re.search(r'\{.*\}', text, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(0)
+                data = json.loads(json_str)
+                
+                score_key = None
+                for key in ['score', 'rating', 'evaluation_score', 'final_score']:
+                    if key in data:
+                        score_key = key
+                        break
+                
+                if score_key is None:
+                    return None
+                
+                raw_score = data[score_key]
+                if isinstance(raw_score, (int, float)):
+                    normalized = self._normalize_score(raw_score, text)
+                    if normalized is not None and 0.0 <= normalized <= 1.0:
+                        confidence = data.get('confidence', data.get('confidence_score', 0.95))
+                        if isinstance(confidence, (int, float)):
+                            confidence = min(1.0, max(0.0, float(confidence)))
+                        else:
+                            confidence = 0.95
+                        return ParsedScore(
+                            score=normalized, 
+                            confidence=confidence, 
+                            strategy=self.name, 
+                            sample_size=1
+                        )
+        except (json.JSONDecodeError, ValueError):
+            pass
+        
+        return None
+    
+    def _normalize_score(self, score: float, context: str) -> float | None:
+        if score < 0:
+            return None
+        if 0.0 <= score <= 1.0:
+            return score
+        if score <= 100.0:
+            return score / 100.0
+        return None
+
+
 DEFAULT_STRATEGIES = [
+    StructuredOutputStrategy(),
     LevelParseStrategy(),
     NumericExtractStrategy(),
     SemanticMappingStrategy(),

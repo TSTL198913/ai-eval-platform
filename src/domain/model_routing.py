@@ -4,10 +4,14 @@ import os
 import time
 from typing import Any
 
-from src.distributed.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
+from src.distributed.circuit_breaker import CircuitBreaker
+from src.distributed.circuit_breaker import CircuitBreakerConfig
 from src.domain.model_performance import model_performance_analyzer
-from src.domain.models.llm_factory import ModelProvider, create_llm_client, load_config
-from src.infra.monitoring.metrics import ROUTING_DECISION_COUNTER, ROUTING_LATENCY
+from src.domain.models.llm_factory import ModelProvider
+from src.domain.models.llm_factory import create_llm_client
+from src.domain.models.llm_factory import load_config
+from src.infra.monitoring.metrics import ROUTING_DECISION_COUNTER
+from src.infra.monitoring.metrics import ROUTING_LATENCY
 
 logger = logging.getLogger(__name__)
 
@@ -203,7 +207,6 @@ class ModelRouter:
                 }
             except Exception as e:
                 logger.warning(f"Failed to load config for {provider}: {e}")
-                pass
 
         latency = time.time() - start_time
         self._record_decision("fallback", task_type, self._default_provider, latency)

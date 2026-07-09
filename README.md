@@ -820,9 +820,9 @@ cd frontend && npx playwright test
 ## 十三、版本信�?
 
 - **当前版本**：v2.1.0 (Enterprise Edition)
-- **最后更�?*�?026-06-29
+- **最后更新**：2026-07-09
 - **License**：Internal Use Only
-- **测试状�?*：✅ 838+ 测试用例通过
+- **测试状态**：✅ 838+ 测试用例通过
 
 ## 十四、贡献指�?
 

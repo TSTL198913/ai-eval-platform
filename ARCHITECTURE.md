@@ -738,3 +738,4 @@ deploy/k8s/deployment.yaml
 | v1.0.0 | 2026-06-20 | 基础评估器框架、37个评估器、27个API路由、SQLite数据库 |
 | v2.0.0 | 2026-06-29 | 评估器精简（37→15）、API路由聚合（27→5）、数据库迁移（SQLite→PostgreSQL）、RBAC安全增强 |
 | v2.1.0 | 2026-07-01 | 评估器状态机（EvaluatorStatus）、置信度系统（ConfidenceLevel）、安全评估入口（safe_evaluate）、结构化日志记录、Pydantic模型规范 |
+| v2.1.1 | 2026-07-09 | 重构评估器架构、分离核心服务层、增强并发安全性、添加事件总线、重构缓存层、v2 API路由、RBAC权限控制、完善测试体系 |
